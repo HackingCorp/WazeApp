@@ -1,0 +1,169 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:14-alpine
+    container_name: wazeapp_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: wizeapp
+      POSTGRES_USER: wizeapp
+      POSTGRES_PASSWORD: wizeapp123
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+    networks:
+      - wazeapp_network
+      - web
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U wizeapp -d wizeapp"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  redis:
+    image: redis:7-alpine
+    container_name: wazeapp_redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - wazeapp_network
+      - web
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: wazeapp_backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: ["dumb-init", "--", "node", "dist/main.js"]
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=web"
+      - "traefik.http.routers.backend.rule=Host(`api.wazeapp.xyz`)"
+      - "traefik.http.routers.backend.tls=true"
+      - "traefik.http.routers.backend.tls.certresolver=le"
+      - "traefik.http.routers.backend.entrypoints=websecure"
+      - "traefik.http.routers.backend-redirect.rule=Host(`api.wazeapp.xyz`)"
+      - "traefik.http.routers.backend-redirect.entrypoints=web"
+      - "traefik.http.routers.backend-redirect.middlewares=backend-redirect"
+      - "traefik.http.middlewares.backend-redirect.redirectscheme.scheme=https"
+      - "traefik.http.services.backend.loadbalancer.server.port=3100"
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://wizeapp:wizeapp123@postgres:5432/wizeapp
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_NAME: wizeapp
+      DATABASE_USERNAME: wizeapp
+      DATABASE_PASSWORD: wizeapp123
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      JWT_SECRET: 5f4d2a8b9c7e1f3a6d8b2c7e9f4a6d8b3c7e9f4a
+      JWT_ACCESS_SECRET: your-access-secret-key-here
+      JWT_REFRESH_SECRET: your-refresh-secret-key-here
+      JWT_ACCESS_EXPIRATION_TIME: 15m
+      JWT_REFRESH_EXPIRATION_TIME: 7d
+      FRONTEND_URL: https://wazeapp.xyz
+      DASHBOARD_URL: https://app.wazeapp.xyz
+      API_URL: https://api.wazeapp.xyz
+      BAILEYS_WEBHOOK_URL: http://localhost:3100/api/whatsapp/webhook
+      OLLAMA_BASE_URL: http://host.docker.internal:11434
+      OLLAMA_MODEL: qwen2.5:7b
+      GOOGLE_CLIENT_ID: "disabled"
+      GOOGLE_CLIENT_SECRET: "disabled"
+      FACEBOOK_APP_ID: "disabled"
+      FACEBOOK_APP_SECRET: "disabled"
+      MICROSOFT_CLIENT_ID: "disabled"
+      MICROSOFT_CLIENT_SECRET: "disabled"
+      DEEPSEEK_API_KEY: "disabled"
+    volumes:
+      - ./backend/whatsapp-sessions:/app/whatsapp-sessions
+      - ./backend/uploads:/app/uploads
+      - ./backend/models:/app/models
+    ports:
+      - "3100:3100"
+    networks:
+      - wazeapp_network
+      - web
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3100/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  dashboard:
+    build:
+      context: ./frontend/dashboard
+      dockerfile: Dockerfile.production
+      args:
+        - NODE_ENV=production
+        - NEXT_PUBLIC_API_URL=http://localhost:3100/api/v1
+        - NEXT_PUBLIC_SOCKET_URL=http://localhost:3100
+    container_name: wazeapp_dashboard
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_API_URL: http://localhost:3100/api/v1
+      NEXT_PUBLIC_SOCKET_URL: http://localhost:3100
+    ports:
+      - "3101:3101"
+    networks:
+      - wazeapp_network
+      - web
+    healthcheck:
+      disable: true
+
+  marketing:
+    build:
+      context: ./frontend/marketing
+      dockerfile: Dockerfile.production
+      args:
+        - NODE_ENV=production
+        - NEXT_PUBLIC_API_URL=http://localhost:3100/api/v1
+        - NEXT_PUBLIC_DASHBOARD_URL=http://localhost:3101
+    container_name: wazeapp_marketing
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_API_URL: http://localhost:3100/api/v1
+      NEXT_PUBLIC_DASHBOARD_URL: http://localhost:3101
+    ports:
+      - "3102:3102"
+    networks:
+      - wazeapp_network
+      - web
+    healthcheck:
+      disable: true
+
+networks:
+  wazeapp_network:
+    driver: bridge
+  web:
+    external: true
+
+volumes:
+  postgres_data:
+  redis_data:

@@ -93,23 +93,26 @@ export class EnkapService {
     private readonly configService: ConfigService,
     private readonly httpService: HttpService,
   ) {
-    this.isProduction = this.configService.get('NODE_ENV') === 'production';
+    // Production by default, only use staging if explicitly configured
+    const useStaging = this.configService.get('ENKAP_USE_STAGING') === 'true';
+    this.isProduction = !useStaging;
+
     this.baseUrl = this.configService.get('ENKAP_BASE_URL', 'https://api-v2.enkap.cm');
     this.apiVersion = '/purchase/v1.2';
     this.consumerKey = this.configService.get('ENKAP_CONSUMER_KEY', 'wXRF_8iU7h9UNiBG4zNYFdCQPwga');
     this.consumerSecret = this.configService.get('ENKAP_CONSUMER_SECRET', 'rD9fRGJkVVs8TZtfjJ0VTD7taOsa');
 
-    // URLs selon l'environnement
-    if (this.isProduction) {
-      this.tokenUrl = 'https://api-v2.enkap.cm/token';
-      this.apiUrl = `${this.baseUrl}${this.apiVersion}`;
-    } else {
+    // URLs - Production by default
+    if (useStaging) {
       this.tokenUrl = 'https://api.enkap-staging.maviance.info/token';
-      this.apiUrl = `${this.baseUrl}${this.apiVersion}`;
+      this.logger.warn('Using E-nkap STAGING environment');
+    } else {
+      this.tokenUrl = 'https://api-v2.enkap.cm/token';
     }
+    this.apiUrl = `${this.baseUrl}${this.apiVersion}`;
 
-    this.returnUrl = this.configService.get('ENKAP_RETURN_URL', 'https://wazeapp.xyz/checkout/success');
-    this.notificationUrl = this.configService.get('ENKAP_NOTIFICATION_URL', 'https://api.wazeapp.xyz/api/v1/enkap/webhook');
+    this.returnUrl = this.configService.get('ENKAP_RETURN_URL', 'https://app.wazeapp.xyz/billing?payment=success');
+    this.notificationUrl = this.configService.get('ENKAP_NOTIFICATION_URL', 'https://api.wazeapp.xyz/api/v1/payments/enkap/webhook');
     this.currency = this.configService.get('ENKAP_CURRENCY', 'XAF');
     this.lang = this.configService.get('ENKAP_LANG', 'fr');
 
@@ -117,7 +120,7 @@ export class EnkapService {
       this.logger.warn('E-nkap credentials not configured. Multi-channel payments will not be available.');
     }
 
-    this.logger.log(`E-nkap Service initialized (${this.isProduction ? 'Production' : 'Staging'})`);
+    this.logger.log(`E-nkap Service initialized (${this.isProduction ? 'Production' : 'Staging'}) - Token URL: ${this.tokenUrl}`);
   }
 
   /**

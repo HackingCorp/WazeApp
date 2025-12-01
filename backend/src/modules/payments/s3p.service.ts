@@ -42,13 +42,16 @@ export class S3PService {
     private readonly configService: ConfigService,
     private readonly httpService: HttpService,
   ) {
-    this.baseUrl = this.configService.get<string>('S3P_BASE_URL', 'https://s3p.smobilpay.staging.maviance.info/v2');
-    this.apiKey = this.configService.get<string>('S3P_API_KEY', '776c15fb-9e90-43cc-b8ce-85281ea26592');
-    this.apiSecret = this.configService.get<string>('S3P_API_SECRET', 'ba625c55-8aa8-4112-af09-339183248c8a');
+    // Production S3P Configuration
+    this.baseUrl = this.configService.get<string>('S3P_BASE_URL', 'https://s3pv2cm.smobilpay.com/v2');
+    this.apiKey = this.configService.get<string>('S3P_API_KEY', '9183eee1-bf8b-49cb-bffc-d466706d3aef');
+    this.apiSecret = this.configService.get<string>('S3P_API_SECRET', 'c5821829-a9db-4cf1-9894-65e3caffaa62');
 
     if (!this.apiKey || !this.apiSecret) {
       this.logger.warn('S3P credentials not configured. Mobile Money payments will not be available.');
     }
+
+    this.logger.log(`S3P Service initialized - URL: ${this.baseUrl}`);
   }
 
   /**
@@ -308,15 +311,20 @@ export class S3PService {
   }): Promise<any> {
     const { amount, customerPhone, paymentType, customerName, description } = paymentData;
 
-    // Déterminer le Service ID selon le type de paiement
-    const isProduction = this.configService.get('NODE_ENV') === 'production';
+    // Déterminer le Service ID selon le type de paiement (Production par défaut)
+    // Production Service IDs: Orange = 30056, MTN = 20056
+    // Staging Service IDs: Orange = 30053, MTN = 20053
+    const useStaging = this.configService.get('S3P_USE_STAGING') === 'true';
     let serviceId: string;
 
-    if (isProduction) {
-      serviceId = paymentType.toLowerCase() === 'orange' ? '30056' : '20056';
-    } else {
+    if (useStaging) {
       serviceId = paymentType.toLowerCase() === 'orange' ? '30053' : '20053';
+      this.logger.warn('Using S3P STAGING environment');
+    } else {
+      serviceId = paymentType.toLowerCase() === 'orange' ? '30056' : '20056';
     }
+
+    this.logger.log(`S3P Service ID: ${serviceId} for ${paymentType}`);
 
     // Formater le numéro du client
     const formattedPhone = this.formatPhoneNumber(customerPhone);

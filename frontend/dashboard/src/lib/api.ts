@@ -557,6 +557,104 @@ class ApiClient {
       },
     });
   }
+
+  // ============================================
+  // PAYMENT ENDPOINTS
+  // ============================================
+
+  // Get pricing information
+  async getPaymentPricing() {
+    return this.request('/payments/pricing');
+  }
+
+  // Test S3P connectivity
+  async pingS3P() {
+    return this.request('/payments/s3p/ping');
+  }
+
+  // Test E-nkap connectivity
+  async pingEnkap() {
+    return this.request('/payments/enkap/test-token');
+  }
+
+  // Initiate S3P Mobile Money payment (MTN/Orange)
+  async initiateS3PPayment(data: {
+    amount: number;
+    customerPhone: string;
+    paymentType: 'orange' | 'mtn';
+    customerName?: string;
+    description?: string;
+  }) {
+    return this.request('/payments/s3p/initiate', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Verify S3P payment status
+  async verifyS3PPayment(transactionRef: string) {
+    return this.request('/payments/s3p/verify', {
+      method: 'POST',
+      body: JSON.stringify({ transactionRef }),
+    });
+  }
+
+  // Initiate E-nkap multi-channel payment
+  async initiateEnkapPayment(data: {
+    merchantReference: string;
+    customerName: string;
+    customerEmail?: string;
+    customerPhone: string;
+    totalAmount: number;
+    currency?: string;
+    description?: string;
+    items: Array<{
+      id: string;
+      name: string;
+      quantity: number;
+      price: number;
+    }>;
+    returnUrl?: string;
+    notificationUrl?: string;
+  }) {
+    return this.request('/payments/enkap/initiate', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Check E-nkap payment status
+  async checkEnkapStatus(txid: string) {
+    return this.request(`/payments/enkap/status?txid=${txid}`);
+  }
+
+  // Get subscription usage summary
+  async getSubscriptionUsage() {
+    return this.request('/subscriptions/usage-summary');
+  }
+
+  // Legacy initiate payment (for backward compatibility)
+  async initiatePayment(data: {
+    plan: 'STANDARD' | 'PRO' | 'ENTERPRISE';
+    customerPhone: string;
+    customerEmail: string;
+    customerName: string;
+    customerAddress?: string;
+    serviceNumber: string;
+  }) {
+    return this.request('/payments/initiate', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Verify payment status
+  async verifyPayment(data: { ptn?: string; transactionId?: string }) {
+    return this.request('/payments/verify', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
 }
 
 export const api = new ApiClient(API_BASE_URL);
@@ -578,6 +676,20 @@ export const apiHelpers = {
       const path = formData.get('path') as string || 'general';
       return api.uploadFile(file, path);
     },
+  },
+  payments: {
+    getPricing: () => api.getPaymentPricing(),
+    pingS3P: () => api.pingS3P(),
+    pingEnkap: () => api.pingEnkap(),
+    initiateS3P: (data: Parameters<typeof api.initiateS3PPayment>[0]) => api.initiateS3PPayment(data),
+    verifyS3P: (transactionRef: string) => api.verifyS3PPayment(transactionRef),
+    initiateEnkap: (data: Parameters<typeof api.initiateEnkapPayment>[0]) => api.initiateEnkapPayment(data),
+    checkEnkapStatus: (txid: string) => api.checkEnkapStatus(txid),
+    initiate: (data: Parameters<typeof api.initiatePayment>[0]) => api.initiatePayment(data),
+    verify: (data: Parameters<typeof api.verifyPayment>[0]) => api.verifyPayment(data),
+  },
+  subscriptions: {
+    getUsage: () => api.getSubscriptionUsage(),
   },
 };
 

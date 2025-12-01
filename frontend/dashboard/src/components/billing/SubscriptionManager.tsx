@@ -1,14 +1,17 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Check, Zap, Shield, Crown, Star, CreditCard, ArrowRight, AlertTriangle, Sparkles } from 'lucide-react';
+import { Check, Zap, Shield, Crown, Star, CreditCard, ArrowRight, AlertTriangle, Sparkles, Smartphone } from 'lucide-react';
 import { format } from 'date-fns';
 import clsx from 'clsx';
+import { MobileMoneyModal } from './MobileMoneyModal';
+import { useAuth } from '@/providers/AuthProvider';
 
 interface Plan {
   id: string;
   name: string;
   price: number;
+  priceFCFA: number;
   interval: 'month' | 'year';
   description: string;
   icon: React.ComponentType<any>;
@@ -36,6 +39,7 @@ const plans: Plan[] = [
     id: 'free',
     name: 'Free',
     price: 0,
+    priceFCFA: 0,
     interval: 'month',
     description: 'Perfect for trying out our platform',
     icon: Zap,
@@ -57,6 +61,7 @@ const plans: Plan[] = [
     id: 'standard',
     name: 'Standard',
     price: 29,
+    priceFCFA: 19000,
     interval: 'month',
     description: 'Great for small businesses',
     icon: Shield,
@@ -80,6 +85,7 @@ const plans: Plan[] = [
     id: 'pro',
     name: 'Pro',
     price: 69,
+    priceFCFA: 45000,
     interval: 'month',
     description: 'Perfect for growing teams',
     icon: Crown,
@@ -105,6 +111,7 @@ const plans: Plan[] = [
     id: 'enterprise',
     name: 'Enterprise',
     price: 199,
+    priceFCFA: 130000,
     interval: 'month',
     description: 'For large organizations',
     icon: Star,
@@ -135,9 +142,12 @@ export function SubscriptionManager({
   onBillingCycleChange,
   isLoading = false,
 }: SubscriptionManagerProps) {
+  const { user } = useAuth();
   const [selectedPlan, setSelectedPlan] = useState(currentPlan);
   const [selectedCycle, setSelectedCycle] = useState(billingCycle);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [planToPurchase, setPlanToPurchase] = useState<Plan | null>(null);
 
   const currentPlanData = plans.find(p => p.id === currentPlan);
   const selectedPlanData = plans.find(p => p.id === selectedPlan);
@@ -158,9 +168,28 @@ export function SubscriptionManager({
   };
 
   const handleUpgrade = () => {
+    // Close upgrade confirmation modal
+    setShowUpgradeModal(false);
+
+    // If upgrading to a paid plan, show Mobile Money payment modal
+    if (selectedPlanData && selectedPlanData.price > 0) {
+      setPlanToPurchase(selectedPlanData);
+      setShowPaymentModal(true);
+    } else {
+      // Downgrading to free plan
+      onPlanChange?.(selectedPlan);
+      onBillingCycleChange?.(selectedCycle);
+    }
+  };
+
+  const handlePaymentSuccess = () => {
+    // Payment successful - update the plan
     onPlanChange?.(selectedPlan);
     onBillingCycleChange?.(selectedCycle);
-    setShowUpgradeModal(false);
+    setShowPaymentModal(false);
+    setPlanToPurchase(null);
+    // Reload the page to reflect changes
+    window.location.reload();
   };
 
   const PlanCard = ({ plan }: { plan: Plan }) => {
@@ -566,9 +595,13 @@ export function SubscriptionManager({
               </div>
 
               {selectedPlanData.price > (currentPlanData?.price || 0) && (
-                <div className="mt-4 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl">
-                  <p className="text-sm text-amber-700 dark:text-amber-300">
-                    Your card will be charged immediately for the prorated amount.
+                <div className="mt-4 p-3 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-xl">
+                  <div className="flex items-center gap-2 text-sm text-emerald-700 dark:text-emerald-300">
+                    <Smartphone className="w-4 h-4" />
+                    <p>Paiement par Mobile Money (MTN / Orange)</p>
+                  </div>
+                  <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1">
+                    {selectedPlanData.priceFCFA.toLocaleString()} FCFA
                   </p>
                 </div>
               )}
@@ -586,12 +619,25 @@ export function SubscriptionManager({
                 disabled={isLoading}
                 className="flex-1 py-3 px-4 bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-600 hover:to-green-600 text-white font-semibold rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-emerald-500/25"
               >
-                {isLoading ? 'Processing...' : 'Confirm'}
+                {isLoading ? 'Processing...' : selectedPlanData?.price > 0 ? 'Payer avec Mobile Money' : 'Confirm'}
               </button>
             </div>
           </div>
         </div>
       )}
+
+      {/* Mobile Money Payment Modal */}
+      <MobileMoneyModal
+        isOpen={showPaymentModal}
+        onClose={() => {
+          setShowPaymentModal(false);
+          setPlanToPurchase(null);
+        }}
+        plan={planToPurchase}
+        onSuccess={handlePaymentSuccess}
+        customerName={user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : ''}
+        customerEmail={user?.email || ''}
+      />
     </div>
   );
 }

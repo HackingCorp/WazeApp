@@ -75,4 +75,4 @@ EXPOSE 3102
 ENV PORT=3102
 ENV HOSTNAME=0.0.0.0
 
-CMD ["sh", "-c", "next start -p ${PORT} -H ${HOSTNAME}"]
+CMD ["sh", "-c", "npx next start -p ${PORT} -H ${HOSTNAME}"]

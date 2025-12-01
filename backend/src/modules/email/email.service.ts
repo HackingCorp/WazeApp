@@ -1,34 +1,422 @@
-import { Injectable } from "@nestjs/common";
-import { ConfigService } from "@nestjs/config";
+import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import * as nodemailer from 'nodemailer';
+import { Transporter } from 'nodemailer';
 
 @Injectable()
 export class EmailService {
-  constructor(private configService: ConfigService) {}
+  private readonly logger = new Logger(EmailService.name);
+  private transporter: Transporter;
 
+  constructor(private configService: ConfigService) {
+    this.initializeTransporter();
+  }
+
+  private initializeTransporter() {
+    const smtpHost = this.configService.get<string>('SMTP_HOST');
+    const smtpPort = this.configService.get<number>('SMTP_PORT', 3587);
+    const smtpUser = this.configService.get<string>('SMTP_USER');
+    const smtpPass = this.configService.get<string>('SMTP_PASS');
+    const smtpSecure = this.configService.get<boolean>('SMTP_SECURE', false);
+
+    if (!smtpHost) {
+      this.logger.warn('SMTP_HOST not configured. Email sending will be disabled.');
+      return;
+    }
+
+    this.transporter = nodemailer.createTransport({
+      host: smtpHost,
+      port: smtpPort,
+      secure: smtpSecure, // true for 465, false for other ports
+      auth: smtpUser && smtpPass ? {
+        user: smtpUser,
+        pass: smtpPass,
+      } : undefined,
+      tls: {
+        rejectUnauthorized: false, // Allow self-signed certificates
+      },
+    });
+
+    // Verify connection
+    this.transporter.verify((error, success) => {
+      if (error) {
+        this.logger.error('SMTP connection failed:', error);
+      } else {
+        this.logger.log('✅ SMTP server is ready to send emails');
+      }
+    });
+  }
+
+  private getFromAddress(): string {
+    return this.configService.get<string>('SMTP_FROM', 'noreply@wazeapp.xyz');
+  }
+
+  private getFromName(): string {
+    return this.configService.get<string>('SMTP_FROM_NAME', 'WazeApp');
+  }
+
+  private getAppUrl(): string {
+    return this.configService.get<string>('APP_URL', 'https://wazeapp.xyz');
+  }
+
+  private getDashboardUrl(): string {
+    return this.configService.get<string>('DASHBOARD_URL', 'https://app.wazeapp.xyz');
+  }
+
+  /**
+   * Send verification email
+   */
   async sendVerificationEmail(email: string, token: string): Promise<void> {
-    const verificationUrl = `${this.configService.get("APP_URL")}/verify-email?token=${token}`;
+    const verificationUrl = `${this.getAppUrl()}/verify-email?token=${token}`;
 
-    // TODO: Implement actual email sending with nodemailer
-    console.log(`Verification email to ${email}: ${verificationUrl}`);
+    const html = this.getVerificationEmailTemplate(verificationUrl);
+
+    try {
+      await this.transporter.sendMail({
+        from: `"${this.getFromName()}" <${this.getFromAddress()}>`,
+        to: email,
+        subject: 'Vérifiez votre adresse email - WazeApp',
+        html,
+        text: `Bienvenue sur WazeApp!\n\nPour vérifier votre adresse email, cliquez sur ce lien: ${verificationUrl}\n\nCe lien expire dans 24 heures.\n\nSi vous n'avez pas créé de compte, ignorez cet email.`,
+      });
+
+      this.logger.log(`✅ Verification email sent to ${email}`);
+    } catch (error) {
+      this.logger.error(`❌ Failed to send verification email to ${email}:`, error);
+      throw error;
+    }
   }
 
+  /**
+   * Send password reset email
+   */
   async sendPasswordResetEmail(email: string, token: string): Promise<void> {
-    const resetUrl = `${this.configService.get("APP_URL")}/reset-password?token=${token}`;
+    const resetUrl = `${this.getAppUrl()}/reset-password?token=${token}`;
 
-    // TODO: Implement actual email sending
-    console.log(`Password reset email to ${email}: ${resetUrl}`);
+    const html = this.getPasswordResetEmailTemplate(resetUrl);
+
+    try {
+      await this.transporter.sendMail({
+        from: `"${this.getFromName()}" <${this.getFromAddress()}>`,
+        to: email,
+        subject: 'Réinitialisation de votre mot de passe - WazeApp',
+        html,
+        text: `Vous avez demandé à réinitialiser votre mot de passe.\n\nPour réinitialiser votre mot de passe, cliquez sur ce lien: ${resetUrl}\n\nCe lien expire dans 15 minutes.\n\nSi vous n'avez pas demandé cette réinitialisation, ignorez cet email.`,
+      });
+
+      this.logger.log(`✅ Password reset email sent to ${email}`);
+    } catch (error) {
+      this.logger.error(`❌ Failed to send password reset email to ${email}:`, error);
+      throw error;
+    }
   }
 
+  /**
+   * Send invitation email
+   */
   async sendInvitationEmail(
     email: string,
     token: string,
     organizationName: string,
   ): Promise<void> {
-    const inviteUrl = `${this.configService.get("APP_URL")}/accept-invitation?token=${token}`;
+    const inviteUrl = `${this.getAppUrl()}/accept-invitation?token=${token}`;
 
-    // TODO: Implement actual email sending
-    console.log(
-      `Invitation email to ${email} for ${organizationName}: ${inviteUrl}`,
-    );
+    const html = this.getInvitationEmailTemplate(inviteUrl, organizationName);
+
+    try {
+      await this.transporter.sendMail({
+        from: `"${this.getFromName()}" <${this.getFromAddress()}>`,
+        to: email,
+        subject: `Invitation à rejoindre ${organizationName} sur WazeApp`,
+        html,
+        text: `Vous avez été invité à rejoindre l'organisation ${organizationName} sur WazeApp.\n\nPour accepter l'invitation, cliquez sur ce lien: ${inviteUrl}\n\nSi vous ne souhaitez pas rejoindre cette organisation, ignorez cet email.`,
+      });
+
+      this.logger.log(`✅ Invitation email sent to ${email}`);
+    } catch (error) {
+      this.logger.error(`❌ Failed to send invitation email to ${email}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Send welcome email
+   */
+  async sendWelcomeEmail(email: string, firstName: string): Promise<void> {
+    const dashboardUrl = this.getDashboardUrl();
+
+    const html = this.getWelcomeEmailTemplate(firstName, dashboardUrl);
+
+    try {
+      await this.transporter.sendMail({
+        from: `"${this.getFromName()}" <${this.getFromAddress()}>`,
+        to: email,
+        subject: 'Bienvenue sur WazeApp! 🎉',
+        html,
+        text: `Bienvenue ${firstName}!\n\nVotre compte WazeApp est maintenant actif.\n\nCommencez à créer vos agents IA WhatsApp: ${dashboardUrl}\n\nMerci de nous faire confiance!\n\nL'équipe WazeApp`,
+      });
+
+      this.logger.log(`✅ Welcome email sent to ${email}`);
+    } catch (error) {
+      this.logger.error(`❌ Failed to send welcome email to ${email}:`, error);
+      // Don't throw for welcome emails
+    }
+  }
+
+  // ============= EMAIL TEMPLATES =============
+
+  private getVerificationEmailTemplate(verificationUrl: string): string {
+    return `
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vérifiez votre email</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f4f4f4; padding: 20px;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+          <!-- Header -->
+          <tr>
+            <td style="background: linear-gradient(135deg, #25D366 0%, #128C7E 100%); padding: 40px 20px; text-align: center;">
+              <h1 style="color: #ffffff; margin: 0; font-size: 28px;">WazeApp</h1>
+              <p style="color: #ffffff; margin: 10px 0 0 0; font-size: 16px;">Agents IA WhatsApp</p>
+            </td>
+          </tr>
+          <!-- Content -->
+          <tr>
+            <td style="padding: 40px 30px;">
+              <h2 style="color: #333333; margin: 0 0 20px 0; font-size: 24px;">Vérifiez votre adresse email</h2>
+              <p style="color: #666666; line-height: 1.6; margin: 0 0 20px 0;">
+                Merci de vous être inscrit sur WazeApp ! Pour activer votre compte et commencer à créer vos agents IA WhatsApp, veuillez vérifier votre adresse email.
+              </p>
+              <div style="text-align: center; margin: 30px 0;">
+                <a href="${verificationUrl}" style="display: inline-block; background-color: #25D366; color: #ffffff; text-decoration: none; padding: 15px 40px; border-radius: 5px; font-weight: bold; font-size: 16px;">
+                  Vérifier mon email
+                </a>
+              </div>
+              <p style="color: #666666; line-height: 1.6; margin: 20px 0 0 0; font-size: 14px;">
+                Ou copiez ce lien dans votre navigateur:<br>
+                <a href="${verificationUrl}" style="color: #25D366; word-break: break-all;">${verificationUrl}</a>
+              </p>
+              <p style="color: #999999; line-height: 1.6; margin: 20px 0 0 0; font-size: 12px;">
+                Ce lien expire dans 24 heures. Si vous n'avez pas créé de compte WazeApp, ignorez cet email.
+              </p>
+            </td>
+          </tr>
+          <!-- Footer -->
+          <tr>
+            <td style="background-color: #f8f8f8; padding: 20px 30px; text-align: center; border-top: 1px solid #eeeeee;">
+              <p style="color: #999999; margin: 0; font-size: 12px;">
+                © 2025 WazeApp. Tous droits réservés.<br>
+                <a href="https://wazeapp.xyz" style="color: #25D366; text-decoration: none;">wazeapp.xyz</a>
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+    `;
+  }
+
+  private getPasswordResetEmailTemplate(resetUrl: string): string {
+    return `
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Réinitialisation de mot de passe</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f4f4f4; padding: 20px;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+          <!-- Header -->
+          <tr>
+            <td style="background: linear-gradient(135deg, #25D366 0%, #128C7E 100%); padding: 40px 20px; text-align: center;">
+              <h1 style="color: #ffffff; margin: 0; font-size: 28px;">WazeApp</h1>
+              <p style="color: #ffffff; margin: 10px 0 0 0; font-size: 16px;">Agents IA WhatsApp</p>
+            </td>
+          </tr>
+          <!-- Content -->
+          <tr>
+            <td style="padding: 40px 30px;">
+              <h2 style="color: #333333; margin: 0 0 20px 0; font-size: 24px;">Réinitialisation de mot de passe</h2>
+              <p style="color: #666666; line-height: 1.6; margin: 0 0 20px 0;">
+                Vous avez demandé à réinitialiser votre mot de passe. Cliquez sur le bouton ci-dessous pour créer un nouveau mot de passe.
+              </p>
+              <div style="text-align: center; margin: 30px 0;">
+                <a href="${resetUrl}" style="display: inline-block; background-color: #25D366; color: #ffffff; text-decoration: none; padding: 15px 40px; border-radius: 5px; font-weight: bold; font-size: 16px;">
+                  Réinitialiser mon mot de passe
+                </a>
+              </div>
+              <p style="color: #666666; line-height: 1.6; margin: 20px 0 0 0; font-size: 14px;">
+                Ou copiez ce lien dans votre navigateur:<br>
+                <a href="${resetUrl}" style="color: #25D366; word-break: break-all;">${resetUrl}</a>
+              </p>
+              <div style="background-color: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 20px 0;">
+                <p style="color: #856404; margin: 0; font-size: 14px;">
+                  <strong>⚠️ Important:</strong> Ce lien expire dans 15 minutes pour des raisons de sécurité.
+                </p>
+              </div>
+              <p style="color: #999999; line-height: 1.6; margin: 20px 0 0 0; font-size: 12px;">
+                Si vous n'avez pas demandé cette réinitialisation, ignorez cet email. Votre mot de passe restera inchangé.
+              </p>
+            </td>
+          </tr>
+          <!-- Footer -->
+          <tr>
+            <td style="background-color: #f8f8f8; padding: 20px 30px; text-align: center; border-top: 1px solid #eeeeee;">
+              <p style="color: #999999; margin: 0; font-size: 12px;">
+                © 2025 WazeApp. Tous droits réservés.<br>
+                <a href="https://wazeapp.xyz" style="color: #25D366; text-decoration: none;">wazeapp.xyz</a>
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+    `;
+  }
+
+  private getInvitationEmailTemplate(inviteUrl: string, organizationName: string): string {
+    return `
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Invitation à rejoindre ${organizationName}</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f4f4f4; padding: 20px;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+          <!-- Header -->
+          <tr>
+            <td style="background: linear-gradient(135deg, #25D366 0%, #128C7E 100%); padding: 40px 20px; text-align: center;">
+              <h1 style="color: #ffffff; margin: 0; font-size: 28px;">WazeApp</h1>
+              <p style="color: #ffffff; margin: 10px 0 0 0; font-size: 16px;">Invitation</p>
+            </td>
+          </tr>
+          <!-- Content -->
+          <tr>
+            <td style="padding: 40px 30px;">
+              <h2 style="color: #333333; margin: 0 0 20px 0; font-size: 24px;">Vous êtes invité!</h2>
+              <p style="color: #666666; line-height: 1.6; margin: 0 0 20px 0;">
+                Vous avez été invité à rejoindre l'organisation <strong style="color: #25D366;">${organizationName}</strong> sur WazeApp.
+              </p>
+              <p style="color: #666666; line-height: 1.6; margin: 0 0 20px 0;">
+                En acceptant cette invitation, vous pourrez collaborer avec votre équipe pour créer et gérer des agents IA WhatsApp.
+              </p>
+              <div style="text-align: center; margin: 30px 0;">
+                <a href="${inviteUrl}" style="display: inline-block; background-color: #25D366; color: #ffffff; text-decoration: none; padding: 15px 40px; border-radius: 5px; font-weight: bold; font-size: 16px;">
+                  Accepter l'invitation
+                </a>
+              </div>
+              <p style="color: #666666; line-height: 1.6; margin: 20px 0 0 0; font-size: 14px;">
+                Ou copiez ce lien dans votre navigateur:<br>
+                <a href="${inviteUrl}" style="color: #25D366; word-break: break-all;">${inviteUrl}</a>
+              </p>
+              <p style="color: #999999; line-height: 1.6; margin: 20px 0 0 0; font-size: 12px;">
+                Si vous ne souhaitez pas rejoindre cette organisation, ignorez simplement cet email.
+              </p>
+            </td>
+          </tr>
+          <!-- Footer -->
+          <tr>
+            <td style="background-color: #f8f8f8; padding: 20px 30px; text-align: center; border-top: 1px solid #eeeeee;">
+              <p style="color: #999999; margin: 0; font-size: 12px;">
+                © 2025 WazeApp. Tous droits réservés.<br>
+                <a href="https://wazeapp.xyz" style="color: #25D366; text-decoration: none;">wazeapp.xyz</a>
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+    `;
+  }
+
+  private getWelcomeEmailTemplate(firstName: string, dashboardUrl: string): string {
+    return `
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bienvenue sur WazeApp</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f4f4f4; padding: 20px;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+          <!-- Header -->
+          <tr>
+            <td style="background: linear-gradient(135deg, #25D366 0%, #128C7E 100%); padding: 40px 20px; text-align: center;">
+              <h1 style="color: #ffffff; margin: 0; font-size: 32px;">🎉 Bienvenue sur WazeApp!</h1>
+            </td>
+          </tr>
+          <!-- Content -->
+          <tr>
+            <td style="padding: 40px 30px;">
+              <p style="color: #666666; line-height: 1.6; margin: 0 0 20px 0; font-size: 18px;">
+                Bonjour <strong style="color: #25D366;">${firstName}</strong>,
+              </p>
+              <p style="color: #666666; line-height: 1.6; margin: 0 0 20px 0;">
+                Félicitations ! Votre compte WazeApp est maintenant actif. Vous pouvez commencer à créer vos agents IA WhatsApp et automatiser vos conversations.
+              </p>
+              <h3 style="color: #333333; margin: 30px 0 15px 0;">🚀 Premiers pas :</h3>
+              <ul style="color: #666666; line-height: 1.8; padding-left: 20px;">
+                <li>Connectez votre numéro WhatsApp</li>
+                <li>Créez votre premier agent IA</li>
+                <li>Ajoutez des connaissances à votre base</li>
+                <li>Commencez à converser avec vos clients</li>
+              </ul>
+              <div style="text-align: center; margin: 30px 0;">
+                <a href="${dashboardUrl}" style="display: inline-block; background-color: #25D366; color: #ffffff; text-decoration: none; padding: 15px 40px; border-radius: 5px; font-weight: bold; font-size: 16px;">
+                  Accéder au Dashboard
+                </a>
+              </div>
+              <p style="color: #666666; line-height: 1.6; margin: 20px 0 0 0;">
+                Besoin d'aide ? Notre équipe support est là pour vous à <a href="mailto:support@wazeapp.xyz" style="color: #25D366;">support@wazeapp.xyz</a>
+              </p>
+            </td>
+          </tr>
+          <!-- Footer -->
+          <tr>
+            <td style="background-color: #f8f8f8; padding: 20px 30px; text-align: center; border-top: 1px solid #eeeeee;">
+              <p style="color: #999999; margin: 0 0 10px 0; font-size: 12px;">
+                Merci de nous faire confiance! 💚
+              </p>
+              <p style="color: #999999; margin: 0; font-size: 12px;">
+                © 2025 WazeApp. Tous droits réservés.<br>
+                <a href="https://wazeapp.xyz" style="color: #25D366; text-decoration: none;">wazeapp.xyz</a>
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+    `;
   }
 }

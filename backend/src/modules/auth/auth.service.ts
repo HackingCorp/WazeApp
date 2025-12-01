@@ -350,6 +350,9 @@ export class AuthService {
       emailVerificationToken: null,
     });
 
+    // Send welcome email
+    await this.emailService.sendWelcomeEmail(user.email, user.firstName);
+
     // Log audit event
     await this.auditService.log({
       action: AuditAction.EMAIL_VERIFIED,

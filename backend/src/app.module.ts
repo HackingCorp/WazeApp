@@ -26,6 +26,7 @@ import { VectorSearchModule } from "./modules/vector-search/vector-search.module
 import { SubscriptionModule } from "./modules/subscriptions/subscription.module";
 import { AnalyticsModule } from "./modules/analytics/analytics.module";
 import { PaymentsModule } from "./modules/payments/payments.module";
+import { EmailModule } from "./modules/email/email.module";
 
 // Conversation Management
 import { ConversationManagementModule } from "./modules/conversation-management/conversation-management.module";
@@ -127,8 +128,9 @@ import { AppController } from "./app.controller";
     SubscriptionModule,
     AnalyticsModule,
 
-    // Payments Module
+    // Payments & Email Modules
     PaymentsModule,
+    EmailModule,
 
     // Conversation Management
     ConversationManagementModule,

@@ -628,7 +628,7 @@ export function SubscriptionManager({
                 disabled={isLoading}
                 className="flex-1 py-3 px-4 bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-600 hover:to-green-600 text-white font-semibold rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-emerald-500/25"
               >
-                {isLoading ? 'Processing...' : selectedPlanData?.price > 0 ? 'Payer avec Mobile Money' : 'Confirm'}
+                {isLoading ? 'Processing...' : selectedPlanData?.price > 0 ? 'Choisir le mode de paiement' : 'Confirm'}
               </button>
             </div>
           </div>

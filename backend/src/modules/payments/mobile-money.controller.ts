@@ -6,6 +6,7 @@ import {
   Param,
   UseGuards,
   HttpStatus,
+  Query,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -16,8 +17,16 @@ import {
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { Public } from '../../common/decorators/public.decorator';
 import { S3PService, S3PPaymentRequest, S3PPaymentResponse } from './s3p.service';
+import { EnkapService } from './enkap.service';
 import { User } from '../../common/entities';
+import {
+  S3PPaymentDto,
+  EnkapPaymentDto,
+  VerifyS3PPaymentDto,
+  CheckEnkapStatusDto,
+} from './dto/payment.dto';
 
 export class MobileMoneyPaymentDto {
   plan: 'STANDARD' | 'PRO' | 'ENTERPRISE';
@@ -33,12 +42,13 @@ export class PaymentVerificationDto {
   transactionId?: string;
 }
 
-@ApiTags('Mobile Money Payments')
-@Controller('payments/mobile-money')
-@UseGuards(JwtAuthGuard)
-@ApiBearerAuth()
+@ApiTags('Payments')
+@Controller('payments')
 export class MobileMoneyController {
-  constructor(private readonly s3pService: S3PService) {}
+  constructor(
+    private readonly s3pService: S3PService,
+    private readonly enkapService: EnkapService,
+  ) {}
 
   @Post('initiate')
   @ApiOperation({ summary: 'Initiate Mobile Money payment for subscription' })
@@ -142,5 +152,149 @@ export class MobileMoneyController {
         { name: 'Express Union', code: 'EU' }
       ]
     };
+  }
+
+  // ============================================
+  // NOUVEAUX ENDPOINTS S3P - MOBILE MONEY
+  // ============================================
+
+  @Post('s3p/initiate')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Initiate S3P Mobile Money payment' })
+  @ApiBody({ type: S3PPaymentDto })
+  @ApiResponse({
+    status: HttpStatus.CREATED,
+    description: 'S3P payment initiated successfully',
+  })
+  async initiateS3PPayment(
+    @Body() paymentDto: S3PPaymentDto,
+  ): Promise<any> {
+    return await this.s3pService.processPayment({
+      amount: paymentDto.amount,
+      customerPhone: paymentDto.customerPhone,
+      paymentType: paymentDto.paymentType as 'orange' | 'mtn',
+      customerName: paymentDto.customerName,
+      description: paymentDto.description,
+    });
+  }
+
+  @Post('s3p/verify')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Verify S3P payment status' })
+  @ApiBody({ type: VerifyS3PPaymentDto })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Payment status retrieved',
+  })
+  async verifyS3PPayment(
+    @Body() verifyDto: VerifyS3PPaymentDto,
+  ): Promise<any> {
+    return await this.s3pService.verifyTransaction(verifyDto.transactionRef);
+  }
+
+  @Get('s3p/ping')
+  @Public()
+  @ApiOperation({ summary: 'Test S3P API connectivity' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'S3P API connectivity status',
+  })
+  async pingS3P(): Promise<any> {
+    try {
+      const result = await this.s3pService.ping();
+      return { success: true, connected: true, result };
+    } catch (error) {
+      return { success: false, connected: false, error: error.message };
+    }
+  }
+
+  // ============================================
+  // NOUVEAUX ENDPOINTS E-NKAP - MULTI-CANAUX
+  // ============================================
+
+  @Post('enkap/initiate')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Initiate E-nkap multi-channel payment' })
+  @ApiBody({ type: EnkapPaymentDto })
+  @ApiResponse({
+    status: HttpStatus.CREATED,
+    description: 'E-nkap payment order created successfully',
+  })
+  async initiateEnkapPayment(
+    @Body() paymentDto: EnkapPaymentDto,
+  ): Promise<any> {
+    return await this.enkapService.createPaymentOrder({
+      merchantReference: paymentDto.merchantReference,
+      customerName: paymentDto.customerName,
+      customerEmail: paymentDto.customerEmail,
+      customerPhone: paymentDto.customerPhone,
+      totalAmount: paymentDto.totalAmount,
+      currency: paymentDto.currency,
+      description: paymentDto.description,
+      items: paymentDto.items,
+      returnUrl: paymentDto.returnUrl,
+      notificationUrl: paymentDto.notificationUrl,
+    });
+  }
+
+  @Get('enkap/status')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Check E-nkap payment status' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Payment status retrieved',
+  })
+  async checkEnkapStatus(
+    @Query('txid') txid: string,
+  ): Promise<any> {
+    return await this.enkapService.checkOrderStatus(txid, 'txid');
+  }
+
+  @Post('enkap/webhook')
+  @Public()
+  @ApiOperation({ summary: 'E-nkap webhook endpoint' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Webhook processed successfully',
+  })
+  async enkapWebhook(@Body() webhookData: any): Promise<any> {
+    const result = this.enkapService.processWebhook(webhookData);
+
+    // TODO: Implémenter la logique de traitement du paiement
+    // Par exemple: mettre à jour le statut de la commande dans la base de données
+
+    return {
+      status: 'success',
+      message: 'Webhook processed',
+      result,
+    };
+  }
+
+  @Get('enkap/test-token')
+  @Public()
+  @ApiOperation({ summary: 'Test E-nkap token generation' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Token generation test result',
+  })
+  async testEnkapToken(): Promise<any> {
+    try {
+      const connected = await this.enkapService.testConnection();
+      return {
+        success: connected,
+        message: connected
+          ? 'E-nkap token generated successfully'
+          : 'Failed to generate E-nkap token',
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message,
+      };
+    }
   }
 }

@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { Check, Zap, Shield, Crown, Star, CreditCard, ArrowRight, AlertTriangle, Sparkles, Smartphone } from 'lucide-react';
 import { format } from 'date-fns';
 import clsx from 'clsx';
-import { MobileMoneyModal } from './MobileMoneyModal';
+import { PaymentModal } from './PaymentModal';
 import { useAuth } from '@/providers/AuthProvider';
 
 interface Plan {
@@ -596,11 +596,20 @@ export function SubscriptionManager({
 
               {selectedPlanData.price > (currentPlanData?.price || 0) && (
                 <div className="mt-4 p-3 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-xl">
-                  <div className="flex items-center gap-2 text-sm text-emerald-700 dark:text-emerald-300">
-                    <Smartphone className="w-4 h-4" />
-                    <p>Paiement par Mobile Money (MTN / Orange)</p>
+                  <p className="text-sm font-medium text-emerald-700 dark:text-emerald-300 mb-2">
+                    Moyens de paiement disponibles:
+                  </p>
+                  <div className="flex items-center gap-4 text-xs text-emerald-600 dark:text-emerald-400">
+                    <div className="flex items-center gap-1">
+                      <Smartphone className="w-4 h-4" />
+                      <span>MTN / Orange</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <CreditCard className="w-4 h-4" />
+                      <span>Visa / MC / PayPal</span>
+                    </div>
                   </div>
-                  <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1">
+                  <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-300 mt-2">
                     {selectedPlanData.priceFCFA.toLocaleString()} FCFA
                   </p>
                 </div>
@@ -626,8 +635,8 @@ export function SubscriptionManager({
         </div>
       )}
 
-      {/* Mobile Money Payment Modal */}
-      <MobileMoneyModal
+      {/* Payment Modal (Mobile Money + Card) */}
+      <PaymentModal
         isOpen={showPaymentModal}
         onClose={() => {
           setShowPaymentModal(false);

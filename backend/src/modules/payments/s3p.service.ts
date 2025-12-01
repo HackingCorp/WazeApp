@@ -264,4 +264,160 @@ export class S3PService {
       return false;
     }
   }
+
+  /**
+   * Alias pour verifyPayment - utilisé par le controller
+   */
+  async verifyTransaction(transactionRef: string): Promise<any> {
+    // Déterminer si c'est un PTN ou un TRID
+    if (transactionRef.startsWith('99999')) {
+      return this.verifyPayment(transactionRef, undefined);
+    } else {
+      return this.verifyPayment(undefined, transactionRef);
+    }
+  }
+
+  /**
+   * Formate un numéro de téléphone pour S3P (sans le code pays +237)
+   */
+  private formatPhoneNumber(phone: string): string {
+    if (!phone) return phone;
+
+    // Nettoyer le numéro
+    let cleaned = phone.replace(/[\s\-\(\)]/g, '');
+
+    // Supprimer le préfixe +237 ou 237
+    if (cleaned.startsWith('+237')) {
+      cleaned = cleaned.substring(4);
+    } else if (cleaned.startsWith('237')) {
+      cleaned = cleaned.substring(3);
+    }
+
+    return cleaned;
+  }
+
+  /**
+   * Processus complet de paiement (nouvelle méthode)
+   */
+  async processPayment(paymentData: {
+    amount: number;
+    customerPhone: string;
+    paymentType: 'orange' | 'mtn';
+    customerName?: string;
+    description?: string;
+  }): Promise<any> {
+    const { amount, customerPhone, paymentType, customerName, description } = paymentData;
+
+    // Déterminer le Service ID selon le type de paiement
+    const isProduction = this.configService.get('NODE_ENV') === 'production';
+    let serviceId: string;
+
+    if (isProduction) {
+      serviceId = paymentType.toLowerCase() === 'orange' ? '30056' : '20056';
+    } else {
+      serviceId = paymentType.toLowerCase() === 'orange' ? '30053' : '20053';
+    }
+
+    // Formater le numéro du client
+    const formattedPhone = this.formatPhoneNumber(customerPhone);
+
+    // Générer un TRID unique
+    const trid = `WAZEAPP-${Date.now()}`;
+
+    try {
+      this.logger.log(`Initiation paiement S3P: ${trid} - ${amount} XAF - ${paymentType}`);
+
+      // ÉTAPE 1: Récupérer les informations du service
+      const url = `${this.baseUrl}/cashout`;
+      const params = { serviceid: serviceId };
+      const authHeader = this.generateAuthHeader('GET', url, params);
+
+      const serviceResponse = await firstValueFrom(
+        this.httpService.get(url, {
+          params,
+          headers: {
+            Authorization: authHeader,
+          },
+        }),
+      );
+
+      let payItemId: string;
+      const services = serviceResponse.data;
+
+      if (Array.isArray(services)) {
+        const service = services.find((s) => s.serviceid === serviceId);
+        if (!service) {
+          throw new Error(`Service ${serviceId} non trouvé`);
+        }
+        payItemId = service.payItemId;
+      } else if (services.payItemId) {
+        payItemId = services.payItemId;
+      } else {
+        throw new Error('Format de réponse inattendu');
+      }
+
+      this.logger.log(`PayItemId récupéré: ${payItemId}`);
+
+      // ÉTAPE 2: Demander un devis
+      const quote = await this.requestQuote(payItemId, amount);
+      const quoteId = quote.quoteId;
+
+      this.logger.log(`Quote généré: ${quoteId}`);
+
+      // ÉTAPE 3: Exécuter le paiement
+      const collectData = {
+        quoteId,
+        customerPhonenumber: this.configService.get('S3P_NOTIFICATION_PHONE', '237691371922'),
+        customerEmailaddress: this.configService.get('S3P_NOTIFICATION_EMAIL', 'lontsi05@gmail.com'),
+        customerName: customerName || 'Client WazeApp',
+        customerAddress: 'Cameroon',
+        serviceNumber: formattedPhone,
+        trid,
+      };
+
+      const collectUrl = `${this.baseUrl}/collectstd`;
+      const collectAuthHeader = this.generateAuthHeader('POST', collectUrl, collectData);
+
+      const collectResponse = await firstValueFrom(
+        this.httpService.post(collectUrl, collectData, {
+          headers: {
+            Authorization: collectAuthHeader,
+            'Content-Type': 'application/json',
+          },
+        }),
+      );
+
+      const ptn = collectResponse.data.ptn;
+
+      this.logger.log(`Paiement initié - PTN: ${ptn}`);
+
+      // ÉTAPE 4: Vérification après délai
+      await new Promise((resolve) => setTimeout(resolve, 15000)); // Attendre 15 secondes
+
+      const verifyResponse = await this.verifyPayment(ptn, trid);
+
+      const s3pStatus = verifyResponse.status || 'PENDING';
+      const finalStatus = s3pStatus === 'SUCCESS' ? 'SUCCESS' : s3pStatus === 'PENDING' ? 'PENDING' : 'FAILED';
+
+      this.logger.log(`Statut final: ${finalStatus} (S3P: ${s3pStatus})`);
+
+      return {
+        success: true,
+        transactionId: trid,
+        ptn,
+        status: finalStatus,
+        s3pStatus,
+        message: finalStatus === 'PENDING' ? 'Paiement initié avec succès' : 'Paiement confirmé',
+        verificationData: verifyResponse,
+      };
+    } catch (error) {
+      this.logger.error(`Erreur paiement S3P: ${error.message}`, error.stack);
+
+      return {
+        success: false,
+        error: error.message,
+        transactionId: trid,
+      };
+    }
+  }
 }

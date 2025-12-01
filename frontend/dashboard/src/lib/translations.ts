@@ -29,6 +29,9 @@ export const dashboardTranslations: Record<string, Translations> = {
       online: 'online',
       offline: 'offline',
       error: 'error',
+      noAgents: 'No agents yet',
+      createFirstAgent: 'Create your first AI agent to get started',
+      createAgent: 'Create Agent',
     },
     agents: {
       title: 'AI Agents',
@@ -434,6 +437,9 @@ export const dashboardTranslations: Record<string, Translations> = {
       online: 'en ligne',
       offline: 'hors ligne',
       error: 'erreur',
+      noAgents: 'Aucun agent',
+      createFirstAgent: 'Créez votre premier agent IA pour commencer',
+      createAgent: 'Créer un Agent',
     },
     agents: {
       title: 'Agents IA',
@@ -839,6 +845,9 @@ export const dashboardTranslations: Record<string, Translations> = {
       online: 'en línea',
       offline: 'desconectado',
       error: 'error',
+      noAgents: 'Sin agentes',
+      createFirstAgent: 'Crea tu primer agente IA para comenzar',
+      createAgent: 'Crear Agente',
     },
     agents: {
       title: 'Agentes IA',

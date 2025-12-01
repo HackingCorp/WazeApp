@@ -110,34 +110,61 @@ export default function DashboardPage() {
     try {
       setLoading(true);
       console.log('🔍 Dashboard: Loading real data from API...');
-      
+
       const [analyticsRes, agentsRes] = await Promise.all([
         apiHelpers.analytics.getDashboard(),
         apiHelpers.agents.getAll(),
       ]);
 
       console.log('🔍 Dashboard: Analytics response:', analyticsRes);
-      console.log('🔍 Dashboard: Analytics success:', analyticsRes?.success);
-      console.log('🔍 Dashboard: Analytics data exists:', !!analyticsRes?.data);
-      console.log('🔍 Dashboard: Analytics data stats:', analyticsRes?.data?.stats);
       console.log('🔍 Dashboard: Agents response:', agentsRes);
 
+      // Process analytics data
       if (analyticsRes.success && analyticsRes.data) {
-        console.log('✅ Dashboard: Setting real data from API');
-        console.log('📊 Stats to set:', analyticsRes.data.stats);
+        console.log('✅ Dashboard: Setting analytics data from API');
         setStats(analyticsRes.data.stats);
         setChartData(analyticsRes.data.chartData || []);
-        setAgentStatuses(analyticsRes.data.agentStatuses || []);
-        console.log('✅ Dashboard: Real data loaded successfully');
+      }
+
+      // Process real agents data
+      const agents = agentsRes?.data || agentsRes || [];
+      if (Array.isArray(agents) && agents.length > 0) {
+        console.log('✅ Dashboard: Setting real agents data:', agents.length, 'agents');
+        const realAgentStatuses: AgentStatus[] = agents.map((agent: any) => ({
+          id: agent.id,
+          name: agent.name || 'Unnamed Agent',
+          status: agent.isActive ? 'online' : 'offline',
+          conversations: agent.conversationCount || 0,
+          lastActive: agent.updatedAt
+            ? formatLastActive(new Date(agent.updatedAt))
+            : 'Never',
+        }));
+        setAgentStatuses(realAgentStatuses);
       } else {
-        console.log('⚠️ Dashboard: Failed to load analytics, using mock data');
-        console.log('❌ Condition failed: success=', analyticsRes?.success, 'data=', !!analyticsRes?.data);
+        console.log('ℹ️ Dashboard: No agents found, showing empty state');
+        setAgentStatuses([]);
       }
     } catch (error) {
       console.error('❌ Dashboard: Failed to load dashboard data:', error);
+      // On error, set empty arrays instead of mock data
+      setAgentStatuses([]);
     } finally {
       setLoading(false);
     }
+  };
+
+  // Helper function to format last active time
+  const formatLastActive = (date: Date): string => {
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins} min ago`;
+    if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+    return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
   };
 
   // Mock data for development
@@ -162,17 +189,20 @@ export default function DashboardPage() {
     { name: 'Sun', conversations: 29, messages: 98, responseTime: 1.1 },
   ];
 
-  const mockAgentStatuses: AgentStatus[] = [
-    { id: '1', name: 'Customer Support Bot', status: 'online', conversations: 12, lastActive: '2 min ago' },
-    { id: '2', name: 'Sales Assistant', status: 'online', conversations: 8, lastActive: '1 min ago' },
-    { id: '3', name: 'Technical Support', status: 'online', conversations: 3, lastActive: '5 min ago' },
-    { id: '4', name: 'Lead Qualifier', status: 'offline', conversations: 0, lastActive: '2 hours ago' },
-    { id: '5', name: 'FAQ Bot', status: 'error', conversations: 0, lastActive: '15 min ago' },
-  ];
-
-  const currentStats = stats || mockStats;
+  // Use real data or defaults (no more mock agent statuses)
+  const currentStats = stats || {
+    totalConversations: 0,
+    activeConversations: 0,
+    totalAgents: agentStatuses.length,
+    activeAgents: agentStatuses.filter(a => a.status === 'online').length,
+    responseTime: 0,
+    satisfactionRate: 0,
+    messagesThisMonth: 0,
+    conversionRate: 0,
+  };
   const currentChartData = (chartData && chartData.length > 0) ? chartData : mockChartData;
-  const currentAgentStatuses = (agentStatuses && agentStatuses.length > 0) ? agentStatuses : mockAgentStatuses;
+  // Use real agents only - no mock fallback
+  const currentAgentStatuses = agentStatuses;
 
   const pieData = [
     { name: 'Resolved', value: 78, color: '#10b981' },
@@ -453,9 +483,27 @@ export default function DashboardPage() {
             </button>
           </div>
           <div className="space-y-3">
-            {currentAgentStatuses.map((agent) => (
-              <AgentStatusCard key={agent.id} agent={agent} />
-            ))}
+            {currentAgentStatuses.length > 0 ? (
+              currentAgentStatuses.map((agent) => (
+                <AgentStatusCard key={agent.id} agent={agent} />
+              ))
+            ) : (
+              <div className="text-center py-8">
+                <Bot className="mx-auto h-12 w-12 text-gray-400" />
+                <h4 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">
+                  {t('dashboard.noAgents')}
+                </h4>
+                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                  {t('dashboard.createFirstAgent')}
+                </p>
+                <a
+                  href="/agents"
+                  className="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700"
+                >
+                  {t('dashboard.createAgent')}
+                </a>
+              </div>
+            )}
           </div>
         </div>
 

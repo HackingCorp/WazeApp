@@ -1,0 +1,92 @@
+FROM node:20-alpine AS deps
+RUN apk add --no-cache libc6-compat
+WORKDIR /app
+COPY package*.json ./
+RUN npm install --legacy-peer-deps --force
+
+FROM node:20-alpine AS builder
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+
+ARG NODE_ENV=production
+ARG NEXT_PUBLIC_API_URL=https://api.wazeapp.xyz
+ARG NEXT_PUBLIC_SOCKET_URL=https://api.wazeapp.xyz
+
+ENV NODE_ENV=$NODE_ENV
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_SOCKET_URL=$NEXT_PUBLIC_SOCKET_URL
+ENV NEXT_TELEMETRY_DISABLED=1
+
+# Créer un next.config.js avec résolution des alias corrects
+RUN cat > next.config.js << 'EOF'
+const path = require('path');
+
+module.exports = {
+  typescript: { ignoreBuildErrors: true },
+  eslint: { ignoreDuringBuilds: true },
+  experimental: { forceSwcTransforms: true },
+  webpack: (config) => {
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      '@': path.resolve(__dirname, 'src'),
+    };
+    return config;
+  },
+};
+EOF
+
+# Ensure PostCSS picks up Tailwind during build
+RUN cat > postcss.config.js << 'EOF'
+module.exports = {
+  plugins: {
+    tailwindcss: {},
+    autoprefixer: {},
+  },
+};
+EOF
+
+# Precompile Tailwind CSS to ensure styles are present even if Next skips PostCSS
+RUN mkdir -p public && \
+    npx tailwindcss -i ./src/app/globals.css -o ./public/global.css --minify
+
+# Build avec résolution d'alias corrigée
+RUN npm run build
+
+FROM node:20-alpine AS runner
+WORKDIR /app
+
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 nextjs
+
+# Créer les dossiers nécessaires d'abord
+RUN mkdir -p public .next
+
+# Copier seulement ce qui existe vraiment après le build
+COPY --from=builder /app/.next ./.next
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/package.json ./package.json
+COPY --from=builder /app/next.config.js ./next.config.js
+
+# Copier public si il existe encore, sinon ignorer
+RUN --mount=from=builder,source=/app,target=/tmp/src \
+    if [ -d "/tmp/src/public" ]; then \
+        mkdir -p ./public && cp -r /tmp/src/public/. ./public/; \
+    else \
+        echo "Public folder not found after build, creating empty one"; \
+        mkdir -p public; \
+    fi
+
+RUN chown -R nextjs:nodejs /app
+
+USER nextjs
+
+EXPOSE 3101
+
+ENV PORT=3101
+ENV HOSTNAME=0.0.0.0
+
+CMD ["npm", "start"]

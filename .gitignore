@@ -112,3 +112,10 @@ models/
 # Production secrets
 *.pem
 *.key
+
+# Archive files
+*.tar.gz
+*.zip
+
+# Whisper.cpp tools (large binary files)
+backend/tools/whisper.cpp/

@@ -1,0 +1,21 @@
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Install dependencies first
+COPY package*.json ./
+RUN npm install --force
+
+# Copy all source files
+COPY . .
+
+# Set environment variables
+ENV NODE_ENV=development
+ENV NEXT_PUBLIC_API_URL=https://api.wazeapp.xyz
+ENV NEXT_PUBLIC_DASHBOARD_URL=https://app.wazeapp.xyz
+ENV NEXT_TELEMETRY_DISABLED=1
+
+EXPOSE 3102
+
+# Always run in dev mode
+CMD ["npm", "run", "dev", "--", "-p", "3102"]

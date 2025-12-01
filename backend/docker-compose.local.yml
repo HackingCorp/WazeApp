@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:14-alpine
+    container_name: wazeapp_postgres_local
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: wizeapp
+      POSTGRES_USER: wizeapp
+      POSTGRES_PASSWORD: wizeapp123
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_data_local:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"  # Port différent pour éviter les conflits
+    networks:
+      - wazeapp_network_local
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U wizeapp -d wizeapp"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: wazeapp_redis_local
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data_local:/data
+    ports:
+      - "6380:6379"  # Port différent pour éviter les conflits
+    networks:
+      - wazeapp_network_local
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+networks:
+  wazeapp_network_local:
+    driver: bridge
+
+volumes:
+  postgres_data_local:
+  redis_data_local:

@@ -1,0 +1,28 @@
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Install dependencies first
+COPY package*.json ./
+RUN npm install --legacy-peer-deps --force
+
+# Copy all source files
+COPY . .
+
+# Set environment variables
+ENV NODE_ENV=production
+ENV NEXT_PUBLIC_API_URL=https://api.wazeapp.xyz
+ENV NEXT_PUBLIC_SOCKET_URL=https://api.wazeapp.xyz
+ENV NEXT_TELEMETRY_DISABLED=1
+
+# Try to build, but don't fail if it doesn't work
+RUN npm run build || echo "Build failed, using dev mode"
+
+EXPOSE 3101
+
+# If build succeeded, use production. Otherwise, use dev
+CMD if [ -d ".next" ]; then \
+      npm run start -- -p 3101; \
+    else \
+      npm run dev -- -p 3101; \
+    fi

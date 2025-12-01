@@ -1,0 +1,189 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+/* Import React Quill styles dynamically to avoid SSR issues */
+
+@layer base {
+  html {
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+  
+  body {
+    @apply bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100 transition-colors duration-300;
+  }
+  
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    @apply bg-gray-100 dark:bg-gray-800;
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    @apply bg-gray-300 dark:bg-gray-600 rounded-full;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-gray-400 dark:bg-gray-500;
+  }
+}
+
+@layer components {
+  /* Glass morphism effect */
+  .glass {
+    @apply backdrop-blur-sm bg-white/70 dark:bg-gray-900/70 border border-white/20 dark:border-gray-700/20;
+  }
+  
+  .glass-strong {
+    @apply backdrop-blur-md bg-white/90 dark:bg-gray-900/90 border border-white/30 dark:border-gray-700/30;
+  }
+  
+  /* Button variants */
+  .btn-primary {
+    @apply bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-lg font-medium transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  
+  .btn-secondary {
+    @apply bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-900 dark:text-gray-100 px-4 py-2 rounded-lg font-medium transition-colors duration-200;
+  }
+  
+  .btn-ghost {
+    @apply hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-lg font-medium transition-colors duration-200;
+  }
+  
+  /* Card styles */
+  .card {
+    @apply bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 transition-all duration-200;
+  }
+  
+  .card-hover {
+    @apply hover:shadow-md hover:border-gray-300 dark:hover:border-gray-600;
+  }
+  
+  /* Form styles */
+  .input {
+    @apply w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors duration-200;
+  }
+  
+  .label {
+    @apply block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2;
+  }
+  
+  /* Animation classes */
+  .animate-fade-in {
+    animation: fadeIn 0.5s ease-in-out;
+  }
+  
+  .animate-slide-up {
+    animation: slideUp 0.3s ease-out;
+  }
+  
+  .animate-slide-down {
+    animation: slideDown 0.3s ease-out;
+  }
+}
+
+/* Loading spinner */
+.spinner {
+  border: 2px solid transparent;
+  border-top: 2px solid currentColor;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes fadeIn {
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+@keyframes slideUp {
+  0% {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideDown {
+  0% {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Rich text editor custom styles */
+.ql-editor {
+  @apply text-gray-900 dark:text-gray-100;
+}
+
+.ql-toolbar {
+  @apply border-gray-300 dark:border-gray-600;
+}
+
+.ql-container {
+  @apply border-gray-300 dark:border-gray-600;
+}
+
+/* QR Scanner styles */
+.qr-scanner-container video {
+  @apply rounded-lg;
+}
+
+/* React Select custom styles */
+.react-select__control {
+  @apply border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 hover:border-gray-400 dark:hover:border-gray-500;
+}
+
+.react-select__menu {
+  @apply bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600;
+}
+
+.react-select__option {
+  @apply text-gray-900 dark:text-gray-100;
+}
+
+.react-select__option--is-selected {
+  @apply bg-primary-600 text-white;
+}
+
+.react-select__option--is-focused {
+  @apply bg-gray-100 dark:bg-gray-700;
+}
+
+/* Drag and drop styles */
+.dropzone {
+  @apply border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center transition-colors duration-200;
+}
+
+.dropzone-active {
+  @apply border-primary-500 bg-primary-50 dark:bg-primary-900/20;
+}
+
+/* Chart container */
+.chart-container {
+  @apply bg-white dark:bg-gray-800 rounded-lg p-4;
+}
+
+/* Progress bar */
+.progress-bar {
+  @apply w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 overflow-hidden;
+}
+
+.progress-fill {
+  @apply bg-primary-600 h-full rounded-full transition-all duration-300;
+}

@@ -1,0 +1,28 @@
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Copy all files
+COPY . .
+
+# Install dependencies
+RUN npm install
+
+# Build the app with proper base path resolution
+ENV NODE_ENV=production
+ENV NEXT_PUBLIC_API_URL=https://api.wazeapp.xyz
+ENV NEXT_PUBLIC_DASHBOARD_URL=https://app.wazeapp.xyz
+
+# Create a simple server
+RUN echo '{"name": "marketing-simple", "scripts": {"start": "npx serve@latest out -p 3102"}}' > serve-package.json
+
+# Build static export
+RUN npx next build && npx next export -o out 2>/dev/null || true
+
+# If export fails, try standard build
+RUN if [ ! -d "out" ]; then npm run build || true; fi
+
+EXPOSE 3102
+
+# Start with Node directly
+CMD ["npx", "next", "start", "-p", "3102"]

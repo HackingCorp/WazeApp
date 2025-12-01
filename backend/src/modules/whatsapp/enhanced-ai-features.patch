@@ -1,0 +1,324 @@
+// Enhanced AI Features for WhatsApp Integration
+// This patch adds:
+// 1. Media sending capabilities from knowledge base
+// 2. Persistent conversation history in database
+// 3. Web search for relevant media
+
+// Add these imports to whatsapp-ai-responder-simple.service.ts:
+import { 
+  KnowledgeDocument, 
+  DocumentChunk, 
+  AgentMessage,
+  AgentConversation 
+} from "@/common/entities";
+import { MessageRole, MessageStatus } from "@/common/enums";
+import * as fs from 'fs/promises';
+import * as path from 'path';
+
+// Add these to the constructor:
+// @InjectRepository(AgentMessage)
+// private messageRepository: Repository<AgentMessage>,
+// @InjectRepository(AgentConversation)
+// private conversationRepository: Repository<AgentConversation>,
+// @InjectRepository(KnowledgeDocument)
+// private documentRepository: Repository<KnowledgeDocument>,
+// @InjectRepository(DocumentChunk)
+// private chunkRepository: Repository<DocumentChunk>,
+
+// Add these methods to the service:
+
+  /**
+   * Search knowledge base for relevant documents/media
+   */
+  private async searchKnowledgeBase(
+    query: string,
+    knowledgeBaseId?: string,
+  ): Promise<KnowledgeDocument[]> {
+    try {
+      // Search for relevant documents
+      const documents = await this.documentRepository
+        .createQueryBuilder("doc")
+        .where("doc.knowledgeBaseId = :kbId", { kbId: knowledgeBaseId })
+        .andWhere(
+          "(doc.title ILIKE :query OR doc.content ILIKE :query)",
+          { query: `%${query}%` }
+        )
+        .andWhere("doc.type IN (:...types)", {
+          types: ["image", "pdf", "video", "audio"],
+        })
+        .take(3)
+        .getMany();
+
+      return documents;
+    } catch (error) {
+      this.logger.error(`Error searching knowledge base: ${error.message}`);
+      return [];
+    }
+  }
+
+  /**
+   * Persist conversation to database
+   */
+  private async persistConversation(
+    sessionId: string,
+    userId: string,
+    phoneNumber: string,
+    messages: Array<{ role: string; content: string; timestamp: Date }>,
+  ): Promise<void> {
+    try {
+      // Find or create conversation
+      let conversation = await this.conversationRepository.findOne({
+        where: {
+          sessionId,
+          clientPhoneNumber: phoneNumber,
+        },
+      });
+
+      if (!conversation) {
+        conversation = this.conversationRepository.create({
+          sessionId,
+          userId,
+          clientPhoneNumber: phoneNumber,
+          startedAt: new Date(),
+        });
+        await this.conversationRepository.save(conversation);
+      }
+
+      // Save messages to database
+      for (const msg of messages) {
+        const existingMessage = await this.messageRepository.findOne({
+          where: {
+            conversationId: conversation.id,
+            content: msg.content,
+            role: msg.role as MessageRole,
+          },
+        });
+
+        if (!existingMessage) {
+          const message = this.messageRepository.create({
+            conversationId: conversation.id,
+            content: msg.content,
+            role: msg.role as MessageRole,
+            status: MessageStatus.DELIVERED,
+            timestamp: msg.timestamp,
+          });
+          await this.messageRepository.save(message);
+        }
+      }
+    } catch (error) {
+      this.logger.error(`Error persisting conversation: ${error.message}`);
+    }
+  }
+
+  /**
+   * Load conversation history from database
+   */
+  private async loadConversationHistory(
+    sessionId: string,
+    phoneNumber: string,
+  ): Promise<Array<{ role: string; content: string; timestamp: Date }>> {
+    try {
+      const conversation = await this.conversationRepository.findOne({
+        where: {
+          sessionId,
+          clientPhoneNumber: phoneNumber,
+        },
+      });
+
+      if (!conversation) {
+        return [];
+      }
+
+      const messages = await this.messageRepository.find({
+        where: { conversationId: conversation.id },
+        order: { timestamp: "ASC" },
+        take: 10,
+      });
+
+      return messages.map(msg => ({
+        role: msg.role,
+        content: msg.content,
+        timestamp: msg.timestamp,
+      }));
+    } catch (error) {
+      this.logger.error(`Error loading conversation history: ${error.message}`);
+      return [];
+    }
+  }
+
+  /**
+   * Send media file via WhatsApp
+   */
+  private async sendMediaFile(
+    sessionId: string,
+    phoneNumber: string,
+    document: KnowledgeDocument,
+  ): Promise<void> {
+    try {
+      const filePath = document.filePath || document.url;
+      
+      if (!filePath) {
+        this.logger.warn(`No file path for document ${document.id}`);
+        return;
+      }
+
+      // Determine media type
+      let messageType: "image" | "document" | "video" | "audio" = "document";
+      
+      if (document.type === "image" || document.mimeType?.startsWith("image/")) {
+        messageType = "image";
+      } else if (document.type === "video" || document.mimeType?.startsWith("video/")) {
+        messageType = "video";
+      } else if (document.type === "audio" || document.mimeType?.startsWith("audio/")) {
+        messageType = "audio";
+      }
+
+      // Send media with caption
+      await this.baileysService.sendMessage(sessionId, {
+        to: phoneNumber,
+        type: messageType,
+        media: {
+          url: filePath,
+          mimetype: document.mimeType,
+          filename: document.title,
+        },
+        caption: `📎 ${document.title}\n\n${document.description || "Document from knowledge base"}`,
+      });
+
+      this.logger.log(
+        `Sent ${messageType} to ${phoneNumber}: ${document.title}`,
+      );
+    } catch (error) {
+      this.logger.error(`Error sending media: ${error.message}`);
+    }
+  }
+
+  /**
+   * Enhanced processMessage with media and persistence
+   */
+  async processMessageEnhanced(
+    sessionId: string,
+    fromNumber: string,
+    userMessage: string,
+    session: WhatsAppSession,
+  ): Promise<void> {
+    try {
+      const conversationKey = this.getConversationKey(sessionId, fromNumber);
+
+      // Load history from database
+      const dbHistory = await this.loadConversationHistory(sessionId, fromNumber);
+      
+      // Merge with in-memory history
+      if (!this.conversationHistory.has(conversationKey)) {
+        this.conversationHistory.set(conversationKey, dbHistory);
+      }
+      
+      const history = this.conversationHistory.get(conversationKey)!;
+
+      // Add user message
+      history.push({
+        role: "user",
+        content: userMessage,
+        timestamp: new Date(),
+      });
+
+      // Keep only last 10 messages
+      if (history.length > 10) {
+        history.splice(0, history.length - 10);
+      }
+
+      // Search for relevant media in knowledge base
+      const relevantDocs = await this.searchKnowledgeBase(
+        userMessage,
+        session.knowledgeBaseId,
+      );
+
+      // Prepare context with knowledge base info
+      let contextInfo = "";
+      if (relevantDocs.length > 0) {
+        contextInfo = "\n\nRelevant documents found in knowledge base:\n" +
+          relevantDocs.map(doc => `- ${doc.title}: ${doc.description}`).join("\n");
+      }
+
+      // Generate AI response
+      const messages = [
+        {
+          role: "system" as const,
+          content: this.getSystemPrompt(session.organization?.name || "Unknown") + contextInfo,
+        },
+        ...history.slice(-8).map((h) => ({
+          role: h.role,
+          content: h.content,
+        })),
+      ];
+
+      const response = await this.llmRouterService.generateResponse({
+        messages,
+        temperature: 0.7,
+        maxTokens: 200,
+        organizationId: session.organizationId,
+        userId: session.userId,
+        priority: "normal",
+      });
+
+      // Add AI response to history
+      history.push({
+        role: "assistant",
+        content: response.content,
+        timestamp: new Date(),
+      });
+
+      // Send text response
+      await this.baileysService.sendMessage(sessionId, {
+        to: fromNumber,
+        message: response.content,
+        type: "text",
+      });
+
+      // Send relevant media if found
+      if (relevantDocs.length > 0) {
+        // Send the most relevant document
+        await this.sendMediaFile(sessionId, fromNumber, relevantDocs[0]);
+      }
+
+      // Persist conversation to database
+      await this.persistConversation(
+        sessionId,
+        session.userId,
+        fromNumber,
+        history.slice(-10),
+      );
+
+      this.logger.log(
+        `Enhanced response sent to ${fromNumber} with ${relevantDocs.length} media files`,
+      );
+    } catch (error) {
+      this.logger.error(`Error in enhanced processing: ${error.message}`);
+    }
+  }
+
+  /**
+   * Web search for media (using external API)
+   */
+  private async searchWebForMedia(query: string): Promise<any[]> {
+    try {
+      // This would integrate with an image search API like:
+      // - Google Custom Search API
+      // - Bing Image Search API
+      // - Unsplash API
+      // - Pexels API
+      
+      // Example implementation:
+      const searchUrl = `https://api.unsplash.com/search/photos?query=${encodeURIComponent(query)}&client_id=${process.env.UNSPLASH_API_KEY}`;
+      
+      // Fetch would go here...
+      // const response = await fetch(searchUrl);
+      // const data = await response.json();
+      // return data.results;
+      
+      return [];
+    } catch (error) {
+      this.logger.error(`Error searching web for media: ${error.message}`);
+      return [];
+    }
+  }

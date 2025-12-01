@@ -1,0 +1,362 @@
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { Cron } from '@nestjs/schedule';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { UsageMetric } from '../../common/entities';
+import { UsageMetricType } from '../../common/enums';
+import { LLMRouterService, RouterRequest } from './llm-router.service';
+import { BaseLLMProvider, LLMResponse } from './interfaces/llm-provider.interface';
+import { DeepSeekProvider } from './providers/deepseek.provider';
+import { OllamaProvider } from './providers/ollama.provider';
+
+interface PhaseMetrics {
+  dailyMessages: number;
+  avgLatency: number;
+  errorRate: number;
+  currentCost: number;
+  peakConcurrency: number;
+}
+
+interface PhaseConfig {
+  maxMsg: number;
+  maxCost: number;
+  provider: string;
+  description: string;
+}
+
+@Injectable()
+export class AdaptiveRouterService implements OnModuleInit {
+  private readonly logger = new Logger(AdaptiveRouterService.name);
+  private currentPhase = 1;
+  private dailyMessageCount = 0;
+  private lastPhaseCheck = new Date();
+  
+  private readonly phases: Record<number, PhaseConfig> = {
+    1: { 
+      maxMsg: 1000, 
+      maxCost: 10, 
+      provider: 'hybrid', 
+      description: 'DeepSeek Primary + Ollama Fallback' 
+    },
+    2: { 
+      maxMsg: 5000, 
+      maxCost: 50, 
+      provider: 'deepseek', 
+      description: 'DeepSeek Only (Cost Optimized)' 
+    },
+    3: { 
+      maxMsg: 20000, 
+      maxCost: 200, 
+      provider: 'deepseek-scaled', 
+      description: 'DeepSeek High Volume' 
+    },
+    4: { 
+      maxMsg: Infinity, 
+      maxCost: 500, 
+      provider: 'enterprise', 
+      description: 'Enterprise Scale DeepSeek' 
+    }
+  };
+
+  private primaryProvider: BaseLLMProvider;
+  private fallbackProvider: BaseLLMProvider;
+  private deepseekProvider: BaseLLMProvider;
+
+  constructor(
+    private configService: ConfigService,
+    private llmRouter: LLMRouterService,
+    @InjectRepository(UsageMetric)
+    private usageMetricRepository: Repository<UsageMetric>,
+  ) {}
+
+  async onModuleInit() {
+    await this.initializeProviders();
+    await this.detectCurrentPhase();
+    this.logger.log(`🚀 Adaptive Router initialized - Current Phase: ${this.currentPhase}`);
+  }
+
+  async routeMessage(request: RouterRequest): Promise<LLMResponse> {
+    this.dailyMessageCount++;
+    const startTime = Date.now();
+
+    try {
+      // Analyser la complexité du message
+      const complexity = this.analyzeComplexity(request);
+      
+      // Router selon la phase actuelle et la complexité
+      let provider: BaseLLMProvider;
+      
+      switch (this.currentPhase) {
+        case 1:
+          provider = await this.routePhase1(request, complexity);
+          break;
+        case 2:
+          provider = await this.routePhase2(request, complexity);
+          break;
+        case 3:
+          provider = await this.routePhase3(request, complexity);
+          break;
+        case 4:
+          provider = await this.routePhase4(request, complexity);
+          break;
+        default:
+          provider = this.fallbackProvider;
+      }
+
+      const response = await provider.generateResponse(request);
+      
+      // Enregistrer les métriques
+      await this.recordMetrics(request, response, Date.now() - startTime, provider.getName());
+      
+      return response;
+
+    } catch (error) {
+      this.logger.error(`Routing failed: ${error.message}`);
+      
+      // Fallback en cas d'erreur
+      try {
+        const response = await this.fallbackProvider.generateResponse(request);
+        await this.recordMetrics(request, response, Date.now() - startTime, 'fallback');
+        return response;
+      } catch (fallbackError) {
+        this.logger.error(`Fallback also failed: ${fallbackError.message}`);
+        throw error;
+      }
+    }
+  }
+
+  private async routePhase1(request: RouterRequest, complexity: number): Promise<BaseLLMProvider> {
+    // Phase 1: DeepSeek Primary + Ollama Fallback pour messages simples
+    if (complexity < 0.3) {
+      try {
+        // Tester Ollama local d'abord pour économiser
+        const health = await this.fallbackProvider.checkHealth();
+        if (health.status === 'healthy') {
+          return this.fallbackProvider;
+        }
+      } catch (error) {
+        this.logger.warn('Local Ollama unavailable, using DeepSeek');
+      }
+    }
+    
+    return this.deepseekProvider;
+  }
+
+  private async routePhase2(request: RouterRequest, complexity: number): Promise<BaseLLMProvider> {
+    // Phase 2: DeepSeek Only (Cost Optimized)
+    return this.deepseekProvider;
+  }
+
+  private async routePhase3(request: RouterRequest, complexity: number): Promise<BaseLLMProvider> {
+    // Phase 3: DeepSeek High Volume
+    return this.deepseekProvider;
+  }
+
+  private async routePhase4(request: RouterRequest, complexity: number): Promise<BaseLLMProvider> {
+    // Phase 4: Enterprise Scale DeepSeek
+    return this.deepseekProvider;
+  }
+
+  private analyzeComplexity(request: RouterRequest): number {
+    const message = request.messages[request.messages.length - 1];
+    let complexity = 0;
+
+    // Longueur du message
+    complexity += Math.min(message.content.length / 1000, 0.3);
+
+    // Détection de code
+    if (message.content.includes('```') || message.content.includes('function') || message.content.includes('class')) {
+      complexity += 0.4;
+    }
+
+    // Détection de math
+    if (/\d+[\+\-\*/=]/.test(message.content) || message.content.includes('calcul')) {
+      complexity += 0.3;
+    }
+
+    // Questions multiples
+    const questionMarks = (message.content.match(/\?/g) || []).length;
+    complexity += Math.min(questionMarks * 0.1, 0.2);
+
+    // Contexte précédent
+    if (request.messages.length > 3) {
+      complexity += 0.2;
+    }
+
+    return Math.min(complexity, 1.0);
+  }
+
+  private async initializeProviders() {
+    // Provider principal (DeepSeek) - Cost-effective and scalable
+    const deepseekConfig = {
+      apiKey: this.configService.get('DEEPSEEK_API_KEY', ''),
+      apiEndpoint: this.configService.get('DEEPSEEK_BASE_URL', 'https://api.deepseek.com'),
+      model: 'deepseek-chat',
+      maxTokens: 4000,
+      temperature: 0.7,
+      timeout: 30000,
+      supportedFeatures: {
+        streaming: true,
+        functionCalling: true,
+        imageAnalysis: false,
+        codeGeneration: true,
+      },
+    };
+
+    if (deepseekConfig.apiKey && deepseekConfig.apiKey !== '') {
+      this.primaryProvider = new DeepSeekProvider(deepseekConfig);
+      this.deepseekProvider = this.primaryProvider;
+      this.logger.log('✅ DeepSeek configured as primary provider');
+    } else {
+      this.logger.warn('⚠️ DeepSeek API key not configured');
+    }
+
+    // Provider local (Ollama) - Fallback gratuit
+    const ollamaConfig = {
+      apiEndpoint: this.configService.get('OLLAMA_BASE_URL', 'http://localhost:11434'),
+      model: this.configService.get('OLLAMA_MODEL', 'qwen2.5:7b'),
+      maxTokens: 2000,
+      temperature: 0.7,
+      timeout: 30000,
+      supportedFeatures: {
+        streaming: true,
+        functionCalling: false,
+        imageAnalysis: false,
+        codeGeneration: true,
+      },
+    };
+
+    const ollamaProvider = new OllamaProvider(ollamaConfig);
+    
+    // Si DeepSeek n'est pas configuré, utiliser Ollama comme principal
+    if (!this.primaryProvider) {
+      this.primaryProvider = ollamaProvider;
+      this.deepseekProvider = ollamaProvider;
+      this.logger.warn('🔄 Using Ollama as primary provider (DeepSeek not configured)');
+    }
+
+    this.fallbackProvider = ollamaProvider;
+    this.logger.log('✅ Providers initialized - Primary: DeepSeek, Fallback: Ollama');
+  }
+
+  private async detectCurrentPhase(): Promise<void> {
+    try {
+      const metrics = await this.collectMetrics();
+      const optimalPhase = this.calculateOptimalPhase(metrics);
+      
+      if (optimalPhase !== this.currentPhase) {
+        this.logger.log(`🔄 Phase change detected: ${this.currentPhase} → ${optimalPhase}`);
+        await this.migrateToPhase(optimalPhase);
+      }
+    } catch (error) {
+      this.logger.error(`Phase detection failed: ${error.message}`);
+    }
+  }
+
+  private async collectMetrics(): Promise<PhaseMetrics> {
+    const today = new Date().toISOString().split('T')[0];
+    
+    // Messages aujourd'hui
+    const dailyMessages = await this.usageMetricRepository.count({
+      where: {
+        type: UsageMetricType.LLM_TOKENS,
+        date: today,
+      },
+    });
+
+    // Autres métriques (simulées pour l'instant)
+    return {
+      dailyMessages,
+      avgLatency: 3000, // 3 secondes moyenne
+      errorRate: 0.01, // 1% d'erreurs
+      currentCost: dailyMessages * 0.0001, // $0.0001 par message (DeepSeek)
+      peakConcurrency: Math.ceil(dailyMessages / 1440), // Messages par minute au pic
+    };
+  }
+
+  private calculateOptimalPhase(metrics: PhaseMetrics): number {
+    // Scale up conditions
+    if (metrics.dailyMessages > this.phases[this.currentPhase].maxMsg ||
+        metrics.avgLatency > 8000 ||
+        metrics.errorRate > 0.02) {
+      return Math.min(this.currentPhase + 1, 4);
+    }
+    
+    // Scale down conditions (avec hystérésis)
+    const previousPhase = this.currentPhase - 1;
+    if (previousPhase > 0 &&
+        metrics.dailyMessages < this.phases[previousPhase].maxMsg * 0.5 &&
+        metrics.currentCost < this.phases[previousPhase].maxCost * 0.7) {
+      return previousPhase;
+    }
+    
+    return this.currentPhase;
+  }
+
+  private async migrateToPhase(targetPhase: number): Promise<void> {
+    try {
+      this.logger.log(`🚀 Migrating to Phase ${targetPhase}: ${this.phases[targetPhase].description}`);
+      
+      // Pour l'instant, juste changer la phase
+      // Dans une vraie implémentation, on provisionnerait les nouvelles ressources
+      this.currentPhase = targetPhase;
+      
+      // Notifier l'admin
+      this.logger.log(`✅ Successfully scaled to Phase ${targetPhase}`);
+      
+    } catch (error) {
+      this.logger.error(`Migration to Phase ${targetPhase} failed: ${error.message}`);
+    }
+  }
+
+  private async recordMetrics(
+    request: RouterRequest,
+    response: LLMResponse,
+    latency: number,
+    provider: string
+  ): Promise<void> {
+    try {
+      const metric = this.usageMetricRepository.create({
+        organizationId: request.organizationId,
+        type: UsageMetricType.LLM_TOKENS,
+        value: response.usage?.totalTokens || 0,
+        date: new Date().toISOString().split('T')[0],
+        metadata: {
+          provider,
+          latency,
+          phase: this.currentPhase,
+          complexity: this.analyzeComplexity(request),
+        },
+      });
+
+      await this.usageMetricRepository.save(metric);
+    } catch (error) {
+      this.logger.error(`Failed to record metrics: ${error.message}`);
+    }
+  }
+
+  @Cron('0 */6 * * *') // Every 6 hours
+  async evaluateScaling() {
+    await this.detectCurrentPhase();
+  }
+
+  @Cron('0 0 * * *') // Daily reset
+  async resetDailyMetrics() {
+    this.dailyMessageCount = 0;
+    this.lastPhaseCheck = new Date();
+  }
+
+  // Méthodes publiques pour monitoring
+  getCurrentPhase(): number {
+    return this.currentPhase;
+  }
+
+  getDailyMessageCount(): number {
+    return this.dailyMessageCount;
+  }
+
+  getPhaseInfo(): PhaseConfig {
+    return this.phases[this.currentPhase];
+  }
+}

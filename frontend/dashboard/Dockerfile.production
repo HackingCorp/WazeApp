@@ -23,6 +23,7 @@ RUN cat > next.config.js << 'EOF'
 const path = require('path');
 
 module.exports = {
+  output: 'standalone',
   typescript: { ignoreBuildErrors: true },
   eslint: { ignoreDuringBuilds: true },
   experimental: { forceSwcTransforms: true },

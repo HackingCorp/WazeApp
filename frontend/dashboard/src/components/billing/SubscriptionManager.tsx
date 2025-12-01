@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Check, Zap, Shield, Crown, Star, CreditCard, Calendar, ArrowRight, AlertTriangle } from 'lucide-react';
+import { Check, Zap, Shield, Crown, Star, CreditCard, ArrowRight, AlertTriangle, Sparkles } from 'lucide-react';
 import { format } from 'date-fns';
 import clsx from 'clsx';
 
@@ -17,10 +17,10 @@ interface Plan {
     maxAgents: number;
     maxRequests: number;
     maxStorage: string;
-    features: string[];
   };
   popular?: boolean;
-  current?: boolean;
+  gradient?: string;
+  iconBg?: string;
 }
 
 interface SubscriptionManagerProps {
@@ -39,6 +39,8 @@ const plans: Plan[] = [
     interval: 'month',
     description: 'Perfect for trying out our platform',
     icon: Zap,
+    gradient: 'from-gray-500 to-gray-600',
+    iconBg: 'bg-gray-100 dark:bg-gray-800',
     features: [
       '1 WhatsApp agent',
       'Basic analytics',
@@ -49,7 +51,6 @@ const plans: Plan[] = [
       maxAgents: 1,
       maxRequests: 100,
       maxStorage: '100MB',
-      features: ['Basic Chat', 'Templates'],
     },
   },
   {
@@ -59,6 +60,8 @@ const plans: Plan[] = [
     interval: 'month',
     description: 'Great for small businesses',
     icon: Shield,
+    gradient: 'from-blue-500 to-blue-600',
+    iconBg: 'bg-blue-100 dark:bg-blue-900/30',
     features: [
       '1 WhatsApp agent',
       'Advanced analytics',
@@ -71,7 +74,6 @@ const plans: Plan[] = [
       maxAgents: 1,
       maxRequests: 2000,
       maxStorage: '500MB',
-      features: ['Advanced Chat', 'Automation', 'Analytics'],
     },
   },
   {
@@ -81,6 +83,8 @@ const plans: Plan[] = [
     interval: 'month',
     description: 'Perfect for growing teams',
     icon: Crown,
+    gradient: 'from-emerald-500 to-green-600',
+    iconBg: 'bg-emerald-100 dark:bg-emerald-900/30',
     popular: true,
     features: [
       '3 WhatsApp agents',
@@ -95,7 +99,6 @@ const plans: Plan[] = [
       maxAgents: 3,
       maxRequests: 8000,
       maxStorage: '5GB',
-      features: ['Everything in Standard', 'Multi-agent', 'API', 'Branding'],
     },
   },
   {
@@ -105,6 +108,8 @@ const plans: Plan[] = [
     interval: 'month',
     description: 'For large organizations',
     icon: Star,
+    gradient: 'from-purple-500 to-indigo-600',
+    iconBg: 'bg-purple-100 dark:bg-purple-900/30',
     features: [
       '10 WhatsApp agents',
       'Custom analytics dashboard',
@@ -119,7 +124,6 @@ const plans: Plan[] = [
       maxAgents: 10,
       maxRequests: 30000,
       maxStorage: '20GB',
-      features: ['Everything in Pro', 'White-label', 'SLA', 'On-premise'],
     },
   },
 ];
@@ -139,7 +143,7 @@ export function SubscriptionManager({
   const selectedPlanData = plans.find(p => p.id === selectedPlan);
 
   const getDiscountedPrice = (price: number, cycle: 'monthly' | 'annual') => {
-    return cycle === 'annual' ? Math.round(price * 0.83) : price; // ~17% discount for annual
+    return cycle === 'annual' ? Math.round(price * 0.83) : price;
   };
 
   const getYearlyTotal = (price: number) => {
@@ -161,177 +165,209 @@ export function SubscriptionManager({
 
   const PlanCard = ({ plan }: { plan: Plan }) => {
     const isCurrentPlan = plan.id === currentPlan;
-    const isSelectedPlan = plan.id === selectedPlan;
     const Icon = plan.icon;
     const price = getDiscountedPrice(plan.price, selectedCycle);
     const yearlyPrice = getYearlyTotal(plan.price);
-    
+    const monthlyOriginal = plan.price;
+
     return (
       <div
         className={clsx(
-          'relative rounded-xl border-2 p-6 transition-all duration-200',
-          isCurrentPlan && 'border-green-500 bg-green-50 dark:bg-green-900/20',
-          isSelectedPlan && !isCurrentPlan && 'border-blue-500 bg-blue-50 dark:bg-blue-900/20',
-          !isCurrentPlan && !isSelectedPlan && 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600',
-          plan.popular && 'scale-105 shadow-lg'
+          'relative flex flex-col rounded-2xl border transition-all duration-300 overflow-hidden group',
+          plan.popular
+            ? 'border-emerald-500 dark:border-emerald-400 shadow-xl shadow-emerald-500/10 dark:shadow-emerald-500/5 scale-[1.02] lg:scale-105'
+            : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 hover:shadow-lg',
+          isCurrentPlan && 'ring-2 ring-emerald-500 ring-offset-2 dark:ring-offset-gray-900'
         )}
       >
         {/* Popular badge */}
         {plan.popular && (
-          <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-            <span className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-4 py-1 rounded-full text-sm font-medium shadow-lg">
-              Most Popular
-            </span>
+          <div className="absolute top-0 left-0 right-0 bg-gradient-to-r from-emerald-500 to-green-500 text-white text-center py-2 text-sm font-semibold flex items-center justify-center gap-2">
+            <Sparkles className="w-4 h-4" />
+            Most Popular
           </div>
         )}
 
         {/* Current plan badge */}
-        {isCurrentPlan && (
-          <div className="absolute -top-4 right-4">
-            <span className="bg-green-500 text-white px-3 py-1 rounded-full text-sm font-medium">
-              Current Plan
+        {isCurrentPlan && !plan.popular && (
+          <div className="absolute top-0 left-0 right-0 bg-gradient-to-r from-gray-700 to-gray-800 dark:from-gray-600 dark:to-gray-700 text-white text-center py-2 text-sm font-semibold">
+            Current Plan
+          </div>
+        )}
+
+        {isCurrentPlan && plan.popular && (
+          <div className="absolute top-9 right-3 z-10">
+            <span className="bg-white dark:bg-gray-800 text-emerald-600 dark:text-emerald-400 px-3 py-1 rounded-full text-xs font-semibold shadow-md">
+              Current
             </span>
           </div>
         )}
 
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center">
-            <Icon className={clsx(
-              'w-8 h-8 mr-3',
-              isCurrentPlan ? 'text-green-600' : 'text-blue-600'
-            )} />
-            <div>
-              <h3 className="text-xl font-bold text-gray-900 dark:text-white">
-                {plan.name}
-              </h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                {plan.description}
-              </p>
+        <div className={clsx(
+          'p-6 flex-1 flex flex-col',
+          (plan.popular || isCurrentPlan) && 'pt-12'
+        )}>
+          {/* Header */}
+          <div className="mb-6">
+            <div className={clsx(
+              'w-14 h-14 rounded-xl flex items-center justify-center mb-4 transition-transform group-hover:scale-110',
+              plan.iconBg
+            )}>
+              <Icon className={clsx(
+                'w-7 h-7',
+                plan.popular ? 'text-emerald-600 dark:text-emerald-400' :
+                plan.id === 'enterprise' ? 'text-purple-600 dark:text-purple-400' :
+                plan.id === 'standard' ? 'text-blue-600 dark:text-blue-400' :
+                'text-gray-600 dark:text-gray-400'
+              )} />
+            </div>
+            <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-1">
+              {plan.name}
+            </h3>
+            <p className="text-gray-500 dark:text-gray-400 text-sm">
+              {plan.description}
+            </p>
+          </div>
+
+          {/* Pricing */}
+          <div className="mb-6">
+            {plan.price === 0 ? (
+              <div className="flex items-baseline">
+                <span className="text-5xl font-bold text-gray-900 dark:text-white">Free</span>
+              </div>
+            ) : (
+              <>
+                <div className="flex items-baseline gap-1">
+                  <span className="text-5xl font-bold text-gray-900 dark:text-white">
+                    ${price}
+                  </span>
+                  <span className="text-gray-500 dark:text-gray-400 text-lg">
+                    /month
+                  </span>
+                </div>
+                {selectedCycle === 'annual' && (
+                  <div className="mt-2 space-y-1">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      <span className="line-through">${monthlyOriginal}</span>
+                      <span className="ml-2 text-emerald-600 dark:text-emerald-400 font-semibold">
+                        Save {Math.round((1 - price/monthlyOriginal) * 100)}%
+                      </span>
+                    </p>
+                    <p className="text-xs text-gray-400 dark:text-gray-500">
+                      ${yearlyPrice} billed annually
+                    </p>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+
+          {/* Features */}
+          <div className="flex-1">
+            <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4">
+              What's included
+            </h4>
+            <ul className="space-y-3">
+              {plan.features.map((feature, index) => (
+                <li key={index} className="flex items-start gap-3">
+                  <div className={clsx(
+                    'w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5',
+                    plan.popular ? 'bg-emerald-100 dark:bg-emerald-900/30' : 'bg-gray-100 dark:bg-gray-800'
+                  )}>
+                    <Check className={clsx(
+                      'w-3 h-3',
+                      plan.popular ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-600 dark:text-gray-400'
+                    )} />
+                  </div>
+                  <span className="text-gray-700 dark:text-gray-300 text-sm">
+                    {feature}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Limits */}
+          <div className="mt-6 pt-6 border-t border-gray-100 dark:border-gray-800">
+            <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">
+              Usage Limits
+            </h4>
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-2">
+                <p className="text-lg font-bold text-gray-900 dark:text-white">
+                  {plan.limits.maxAgents}
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Agents</p>
+              </div>
+              <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-2">
+                <p className="text-lg font-bold text-gray-900 dark:text-white">
+                  {plan.limits.maxRequests >= 1000
+                    ? `${plan.limits.maxRequests / 1000}K`
+                    : plan.limits.maxRequests}
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Req/mo</p>
+              </div>
+              <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-2">
+                <p className="text-lg font-bold text-gray-900 dark:text-white">
+                  {plan.limits.maxStorage}
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Storage</p>
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Pricing */}
-        <div className="mb-6">
-          {plan.price === 0 ? (
-            <div className="flex items-baseline">
-              <span className="text-4xl font-bold text-gray-900 dark:text-white">Free</span>
-            </div>
-          ) : (
-            <div className="flex items-baseline">
-              <span className="text-4xl font-bold text-gray-900 dark:text-white">
-                ${price}
-              </span>
-              <span className="text-lg text-gray-500 dark:text-gray-400 ml-1">
-                /{selectedCycle === 'annual' ? 'month' : 'month'}
-              </span>
-            </div>
-          )}
-          
-          {plan.price > 0 && selectedCycle === 'annual' && (
-            <div className="mt-1">
-              <span className="text-sm text-gray-500 dark:text-gray-400">
-                ${yearlyPrice} billed annually
-              </span>
-              <span className="ml-2 text-sm text-green-600 font-medium">
-                Save ${(plan.price * 12) - yearlyPrice}
-              </span>
-            </div>
-          )}
+          {/* Action Button */}
+          <button
+            onClick={() => handlePlanSelect(plan.id)}
+            disabled={isLoading || isCurrentPlan}
+            className={clsx(
+              'mt-6 w-full py-3.5 px-4 rounded-xl font-semibold transition-all duration-200 flex items-center justify-center gap-2',
+              isCurrentPlan
+                ? 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed'
+                : plan.popular
+                ? 'bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-600 hover:to-green-600 text-white shadow-lg shadow-emerald-500/25 hover:shadow-xl hover:shadow-emerald-500/30 hover:-translate-y-0.5'
+                : plan.id === 'enterprise'
+                ? 'bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white shadow-lg shadow-purple-500/25 hover:shadow-xl hover:shadow-purple-500/30 hover:-translate-y-0.5'
+                : 'bg-gray-900 dark:bg-white hover:bg-gray-800 dark:hover:bg-gray-100 text-white dark:text-gray-900 hover:-translate-y-0.5',
+              isLoading && 'opacity-50 cursor-not-allowed'
+            )}
+          >
+            {isCurrentPlan ? (
+              'Current Plan'
+            ) : (
+              <>
+                {plan.price === 0 ? 'Downgrade' : `Upgrade to ${plan.name}`}
+                <ArrowRight className="w-4 h-4" />
+              </>
+            )}
+          </button>
         </div>
-
-        {/* Features */}
-        <div className="space-y-3 mb-8">
-          <h4 className="font-semibold text-gray-900 dark:text-white text-sm uppercase tracking-wide">
-            What's included
-          </h4>
-          <ul className="space-y-2">
-            {plan.features.map((feature, index) => (
-              <li key={index} className="flex items-start">
-                <Check className="w-5 h-5 text-green-500 mr-3 mt-0.5 flex-shrink-0" />
-                <span className="text-gray-700 dark:text-gray-300 text-sm">
-                  {feature}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        {/* Limits */}
-        <div className="border-t border-gray-200 dark:border-gray-700 pt-4 mb-6">
-          <h4 className="font-semibold text-gray-900 dark:text-white text-sm mb-3">
-            Usage Limits
-          </h4>
-          <div className="grid grid-cols-2 gap-4 text-sm">
-            <div>
-              <span className="text-gray-500 dark:text-gray-400">Agents:</span>
-              <span className="ml-2 font-medium text-gray-900 dark:text-white">
-                {plan.limits.maxAgents}
-              </span>
-            </div>
-            <div>
-              <span className="text-gray-500 dark:text-gray-400">Requests:</span>
-              <span className="ml-2 font-medium text-gray-900 dark:text-white">
-                {plan.limits.maxRequests.toLocaleString()}/mo
-              </span>
-            </div>
-            <div className="col-span-2">
-              <span className="text-gray-500 dark:text-gray-400">Storage:</span>
-              <span className="ml-2 font-medium text-gray-900 dark:text-white">
-                {plan.limits.maxStorage}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Action Button */}
-        <button
-          onClick={() => handlePlanSelect(plan.id)}
-          disabled={isLoading}
-          className={clsx(
-            'w-full py-3 px-4 rounded-lg font-medium transition-all duration-200 flex items-center justify-center',
-            isCurrentPlan
-              ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 cursor-default'
-              : plan.popular
-              ? 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg hover:shadow-xl'
-              : 'bg-gray-900 dark:bg-gray-700 hover:bg-gray-800 dark:hover:bg-gray-600 text-white',
-            isLoading && 'opacity-50 cursor-not-allowed'
-          )}
-        >
-          {isCurrentPlan ? (
-            'Current Plan'
-          ) : (
-            <>
-              {plan.price === 0 ? 'Downgrade to Free' : 'Upgrade to ' + plan.name}
-              <ArrowRight className="w-4 h-4 ml-2" />
-            </>
-          )}
-        </button>
       </div>
     );
   };
 
   return (
-    <div className="max-w-6xl mx-auto p-6">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
       {/* Header */}
-      <div className="text-center mb-12">
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
-          Choose Your Plan
+      <div className="text-center mb-16">
+        <h1 className="text-4xl md:text-5xl font-bold text-gray-900 dark:text-white mb-4">
+          Simple, transparent pricing
         </h1>
-        <p className="text-lg text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
+        <p className="text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
           Scale your WhatsApp automation with plans designed for businesses of all sizes.
+          No hidden fees, cancel anytime.
         </p>
       </div>
 
       {/* Billing Toggle */}
       <div className="flex justify-center mb-12">
-        <div className="bg-gray-100 dark:bg-gray-800 p-1 rounded-lg">
+        <div className="bg-gray-100 dark:bg-gray-800 p-1.5 rounded-xl inline-flex items-center">
           <button
             onClick={() => setSelectedCycle('monthly')}
             className={clsx(
-              'px-6 py-2 rounded-md text-sm font-medium transition-all',
+              'px-6 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200',
               selectedCycle === 'monthly'
-                ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow'
+                ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-md'
                 : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
             )}
           >
@@ -340,14 +376,14 @@ export function SubscriptionManager({
           <button
             onClick={() => setSelectedCycle('annual')}
             className={clsx(
-              'px-6 py-2 rounded-md text-sm font-medium transition-all relative',
+              'px-6 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 relative',
               selectedCycle === 'annual'
-                ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow'
+                ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-md'
                 : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
             )}
           >
             Annual
-            <span className="absolute -top-2 -right-2 bg-green-500 text-white text-xs px-1.5 py-0.5 rounded-full">
+            <span className="absolute -top-3 -right-3 bg-gradient-to-r from-emerald-500 to-green-500 text-white text-xs px-2 py-0.5 rounded-full font-bold shadow-lg">
               -17%
             </span>
           </button>
@@ -355,70 +391,174 @@ export function SubscriptionManager({
       </div>
 
       {/* Plans Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-12">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-4 mb-16">
         {plans.map((plan) => (
           <PlanCard key={plan.id} plan={plan} />
         ))}
       </div>
 
+      {/* Features Comparison */}
+      <div className="mt-20">
+        <h2 className="text-2xl font-bold text-center text-gray-900 dark:text-white mb-8">
+          Compare plans in detail
+        </h2>
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse">
+            <thead>
+              <tr className="border-b border-gray-200 dark:border-gray-700">
+                <th className="text-left py-4 px-4 text-gray-500 dark:text-gray-400 font-medium">Feature</th>
+                {plans.map(plan => (
+                  <th key={plan.id} className={clsx(
+                    'text-center py-4 px-4 font-semibold',
+                    plan.popular ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-900 dark:text-white'
+                  )}>
+                    {plan.name}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+              <tr>
+                <td className="py-4 px-4 text-gray-700 dark:text-gray-300">WhatsApp Agents</td>
+                {plans.map(plan => (
+                  <td key={plan.id} className="text-center py-4 px-4 font-semibold text-gray-900 dark:text-white">
+                    {plan.limits.maxAgents}
+                  </td>
+                ))}
+              </tr>
+              <tr>
+                <td className="py-4 px-4 text-gray-700 dark:text-gray-300">Monthly Requests</td>
+                {plans.map(plan => (
+                  <td key={plan.id} className="text-center py-4 px-4 font-semibold text-gray-900 dark:text-white">
+                    {plan.limits.maxRequests.toLocaleString()}
+                  </td>
+                ))}
+              </tr>
+              <tr>
+                <td className="py-4 px-4 text-gray-700 dark:text-gray-300">Storage</td>
+                {plans.map(plan => (
+                  <td key={plan.id} className="text-center py-4 px-4 font-semibold text-gray-900 dark:text-white">
+                    {plan.limits.maxStorage}
+                  </td>
+                ))}
+              </tr>
+              <tr>
+                <td className="py-4 px-4 text-gray-700 dark:text-gray-300">Analytics</td>
+                <td className="text-center py-4 px-4 text-gray-500 dark:text-gray-400">Basic</td>
+                <td className="text-center py-4 px-4 text-gray-900 dark:text-white font-medium">Advanced</td>
+                <td className="text-center py-4 px-4 text-emerald-600 dark:text-emerald-400 font-medium">Advanced + Reports</td>
+                <td className="text-center py-4 px-4 text-purple-600 dark:text-purple-400 font-medium">Custom Dashboard</td>
+              </tr>
+              <tr>
+                <td className="py-4 px-4 text-gray-700 dark:text-gray-300">Support</td>
+                <td className="text-center py-4 px-4 text-gray-500 dark:text-gray-400">Email</td>
+                <td className="text-center py-4 px-4 text-gray-900 dark:text-white font-medium">Priority</td>
+                <td className="text-center py-4 px-4 text-emerald-600 dark:text-emerald-400 font-medium">24/7 Priority</td>
+                <td className="text-center py-4 px-4 text-purple-600 dark:text-purple-400 font-medium">Dedicated Manager</td>
+              </tr>
+              <tr>
+                <td className="py-4 px-4 text-gray-700 dark:text-gray-300">API Access</td>
+                <td className="text-center py-4 px-4"><span className="text-gray-300 dark:text-gray-600">—</span></td>
+                <td className="text-center py-4 px-4"><span className="text-gray-300 dark:text-gray-600">—</span></td>
+                <td className="text-center py-4 px-4"><Check className="w-5 h-5 text-emerald-500 mx-auto" /></td>
+                <td className="text-center py-4 px-4"><Check className="w-5 h-5 text-purple-500 mx-auto" /></td>
+              </tr>
+              <tr>
+                <td className="py-4 px-4 text-gray-700 dark:text-gray-300">White-label</td>
+                <td className="text-center py-4 px-4"><span className="text-gray-300 dark:text-gray-600">—</span></td>
+                <td className="text-center py-4 px-4"><span className="text-gray-300 dark:text-gray-600">—</span></td>
+                <td className="text-center py-4 px-4"><span className="text-gray-300 dark:text-gray-600">—</span></td>
+                <td className="text-center py-4 px-4"><Check className="w-5 h-5 text-purple-500 mx-auto" /></td>
+              </tr>
+              <tr>
+                <td className="py-4 px-4 text-gray-700 dark:text-gray-300">SLA Guarantee</td>
+                <td className="text-center py-4 px-4"><span className="text-gray-300 dark:text-gray-600">—</span></td>
+                <td className="text-center py-4 px-4"><span className="text-gray-300 dark:text-gray-600">—</span></td>
+                <td className="text-center py-4 px-4"><span className="text-gray-300 dark:text-gray-600">—</span></td>
+                <td className="text-center py-4 px-4"><Check className="w-5 h-5 text-purple-500 mx-auto" /></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       {/* Current Plan Summary */}
       {currentPlanData && (
-        <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-6 mb-8">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center mr-4">
-                <CreditCard className="w-6 h-6 text-green-600 dark:text-green-400" />
+        <div className="mt-16 bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-800/50 rounded-2xl p-6 md:p-8">
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 bg-white dark:bg-gray-700 rounded-xl flex items-center justify-center shadow-sm">
+                <CreditCard className="w-7 h-7 text-emerald-600 dark:text-emerald-400" />
               </div>
               <div>
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                  Current Plan: {currentPlanData.name}
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Your current plan</p>
+                <h3 className="text-xl font-bold text-gray-900 dark:text-white">
+                  {currentPlanData.name} Plan
                 </h3>
                 <p className="text-gray-600 dark:text-gray-300">
-                  {currentPlanData.price === 0 ? 'Free' : `$${currentPlanData.price}/month`}
+                  {currentPlanData.price === 0 ? 'Free forever' : `$${currentPlanData.price}/month`}
                 </p>
               </div>
             </div>
-            <div className="text-right">
-              <p className="text-sm text-gray-500 dark:text-gray-400">Next billing date</p>
-              <p className="font-semibold text-gray-900 dark:text-white">
-                {format(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), 'MMM dd, yyyy')}
-              </p>
-            </div>
+            {currentPlanData.price > 0 && (
+              <div className="text-left md:text-right">
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Next billing date</p>
+                <p className="text-lg font-semibold text-gray-900 dark:text-white">
+                  {format(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), 'MMMM dd, yyyy')}
+                </p>
+              </div>
+            )}
           </div>
         </div>
       )}
 
+      {/* FAQ Section */}
+      <div className="mt-20 text-center">
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+          Have questions?
+        </h2>
+        <p className="text-gray-600 dark:text-gray-300 mb-6">
+          Contact our sales team for custom enterprise solutions or any pricing questions.
+        </p>
+        <button className="inline-flex items-center gap-2 px-6 py-3 bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-semibold rounded-xl hover:bg-gray-800 dark:hover:bg-gray-100 transition-colors">
+          Contact Sales
+          <ArrowRight className="w-4 h-4" />
+        </button>
+      </div>
+
       {/* Upgrade Modal */}
       {showUpgradeModal && selectedPlanData && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 max-w-md w-full">
-            <div className="flex items-center mb-4">
-              <AlertTriangle className="w-6 h-6 text-amber-500 mr-3" />
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 md:p-8 max-w-md w-full shadow-2xl">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-12 h-12 bg-amber-100 dark:bg-amber-900/30 rounded-xl flex items-center justify-center">
+                <AlertTriangle className="w-6 h-6 text-amber-600 dark:text-amber-400" />
+              </div>
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white">
                 Confirm Plan Change
               </h3>
             </div>
-            
+
             <div className="mb-6">
               <p className="text-gray-600 dark:text-gray-300 mb-4">
-                You're about to {selectedPlanData.price > (currentPlanData?.price || 0) ? 'upgrade' : 'downgrade'} to the <strong>{selectedPlanData.name}</strong> plan.
+                You're about to {selectedPlanData.price > (currentPlanData?.price || 0) ? 'upgrade' : 'downgrade'} to the <strong className="text-gray-900 dark:text-white">{selectedPlanData.name}</strong> plan.
               </p>
-              
-              <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 mb-4">
-                <div className="flex justify-between items-center mb-2">
-                  <span className="text-sm text-gray-600 dark:text-gray-300">Plan</span>
+
+              <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 space-y-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600 dark:text-gray-400">Plan</span>
                   <span className="font-semibold text-gray-900 dark:text-white">
                     {selectedPlanData.name}
                   </span>
                 </div>
-                <div className="flex justify-between items-center mb-2">
-                  <span className="text-sm text-gray-600 dark:text-gray-300">Price</span>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600 dark:text-gray-400">Price</span>
                   <span className="font-semibold text-gray-900 dark:text-white">
-                    {selectedPlanData.price === 0 ? 'Free' : `$${getDiscountedPrice(selectedPlanData.price, selectedCycle)}/${selectedCycle === 'annual' ? 'month' : 'month'}`}
+                    {selectedPlanData.price === 0 ? 'Free' : `$${getDiscountedPrice(selectedPlanData.price, selectedCycle)}/month`}
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600 dark:text-gray-300">Billing</span>
+                  <span className="text-gray-600 dark:text-gray-400">Billing</span>
                   <span className="font-semibold text-gray-900 dark:text-white">
                     {selectedCycle === 'annual' ? 'Annual' : 'Monthly'}
                   </span>
@@ -426,23 +566,25 @@ export function SubscriptionManager({
               </div>
 
               {selectedPlanData.price > (currentPlanData?.price || 0) && (
-                <p className="text-sm text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 p-3 rounded-lg">
-                  Your card will be charged immediately for the prorated amount.
-                </p>
+                <div className="mt-4 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl">
+                  <p className="text-sm text-amber-700 dark:text-amber-300">
+                    Your card will be charged immediately for the prorated amount.
+                  </p>
+                </div>
               )}
             </div>
 
-            <div className="flex space-x-3">
+            <div className="flex gap-3">
               <button
                 onClick={() => setShowUpgradeModal(false)}
-                className="flex-1 py-2 px-4 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                className="flex-1 py-3 px-4 border border-gray-200 dark:border-gray-600 rounded-xl text-gray-700 dark:text-gray-300 font-semibold hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={handleUpgrade}
                 disabled={isLoading}
-                className="flex-1 py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 py-3 px-4 bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-600 hover:to-green-600 text-white font-semibold rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-emerald-500/25"
               >
                 {isLoading ? 'Processing...' : 'Confirm'}
               </button>

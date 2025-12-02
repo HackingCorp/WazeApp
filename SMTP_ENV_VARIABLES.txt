@@ -1,0 +1,17 @@
+# Variables d'environnement SMTP pour WazeApp Backend
+# À ajouter dans Dokploy pour le service backend
+
+# Configuration SMTP
+# NOTE: Using container name since mailserver is on dokploy-network
+# Port 587 is the internal container port (not 3587 which is the host mapped port)
+SMTP_HOST=wazeapp-mailserver
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=noreply@wazeapp.xyz
+SMTP_PASS=/6vft3CdgBS56ou9hZftxt72jTfiFWts
+SMTP_FROM=noreply@wazeapp.xyz
+SMTP_FROM_NAME=WazeApp
+
+# URLs de l'application (déjà configurées, vérifier)
+APP_URL=https://wazeapp.xyz
+DASHBOARD_URL=https://app.wazeapp.xyz

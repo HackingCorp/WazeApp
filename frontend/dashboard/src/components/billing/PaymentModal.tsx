@@ -565,7 +565,7 @@ export function PaymentModal({
               {/* Submit Button */}
               <button
                 onClick={handleMobilePayment}
-                disabled={!mobileProvider || phoneNumber.replace(/\D/g, '').length < 9 || providerMismatch}
+                disabled={!mobileProvider || phoneNumber.replace(/\D/g, '').length < 9 || !!providerMismatch}
                 className={clsx(
                   'w-full py-3.5 rounded-xl font-semibold transition-all flex items-center justify-center gap-2',
                   mobileProvider && phoneNumber.replace(/\D/g, '').length >= 9 && !providerMismatch

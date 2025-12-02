@@ -283,7 +283,7 @@ export default function WhatsAppPage() {
         const errorMessage = getWhatsAppErrorMessage(response.error);
         if (retryCount < 3 && isRetriableError(response.error)) {
           toast.dismiss('whatsapp-connecting');
-          toast.warning(`${errorMessage} Nouvelle tentative dans 3 secondes...`);
+          toast(`${errorMessage} Nouvelle tentative dans 3 secondes...`, { icon: '⚠️' });
           setTimeout(() => connectSession(sessionId, retryCount + 1), 3000);
           return;
         } else {

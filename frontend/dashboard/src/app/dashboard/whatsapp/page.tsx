@@ -661,9 +661,13 @@ export default function WhatsAppPage() {
   // Fonctions utilitaires pour la gestion d'erreurs
   const getWhatsAppErrorMessage = (error: string | undefined): string => {
     if (!error) return 'Une erreur inconnue s\'est produite';
-    
+
     const errorLower = error.toLowerCase();
-    
+
+    // Device removed / 401 conflict error - most common issue
+    if (errorLower.includes('device_removed') || errorLower.includes('401') || errorLower.includes('conflict')) {
+      return '⚠️ Connexion rejetée par WhatsApp. Veuillez aller dans WhatsApp → Appareils liés et supprimer les anciens appareils avant de réessayer (max 4 appareils).';
+    }
     if (errorLower.includes('failed to connect to whatsapp') || errorLower.includes('connection failed')) {
       return 'Impossible de se connecter à WhatsApp. Vérifiez que votre téléphone est connecté à internet.';
     }
@@ -685,7 +689,10 @@ export default function WhatsAppPage() {
     if (errorLower.includes('service unavailable') || errorLower.includes('server error')) {
       return 'Le service WhatsApp est temporairement indisponible. Veuillez réessayer plus tard.';
     }
-    
+    if (errorLower.includes('unlink') || errorLower.includes('max')) {
+      return '⚠️ Maximum d\'appareils atteint. Délier les anciens appareils dans WhatsApp → Appareils liés.';
+    }
+
     // Retourner l'erreur originale si aucune correspondance
     return `Erreur WhatsApp: ${error}`;
   };
@@ -857,6 +864,17 @@ export default function WhatsAppPage() {
                   <>
                     <p className="text-gray-600 mb-4">Scannez ce QR code avec WhatsApp</p>
 
+                    {/* Warning about linked devices */}
+                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4 text-left">
+                      <div className="flex items-start space-x-2">
+                        <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                        <div className="text-sm">
+                          <p className="font-medium text-amber-800">Si la connexion échoue:</p>
+                          <p className="text-amber-700 mt-1">Allez dans WhatsApp → Appareils liés et supprimez les anciens appareils (max 4 autorisés)</p>
+                        </div>
+                      </div>
+                    </div>
+
                     <div className="bg-white p-4 rounded-lg border-2 border-gray-200 mb-4">
                       <img
                         src={qrData.qrCode}
@@ -909,6 +927,21 @@ export default function WhatsAppPage() {
                         ? 'Entrez ce code dans WhatsApp'
                         : 'Entrez votre numéro de téléphone WhatsApp'}
                     </p>
+
+                    {/* Warning about linked devices */}
+                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4 text-left">
+                      <div className="flex items-start space-x-2">
+                        <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                        <div className="text-sm">
+                          <p className="font-medium text-amber-800">Important avant de connecter:</p>
+                          <ul className="text-amber-700 mt-1 space-y-1 list-disc list-inside">
+                            <li>Délier les anciens appareils dans WhatsApp → Appareils liés</li>
+                            <li>Maximum 4 appareils liés autorisés par WhatsApp</li>
+                            <li>L'erreur "connexion échouée" signifie souvent trop d'appareils</li>
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
 
                     {!pairingCode ? (
                       <>

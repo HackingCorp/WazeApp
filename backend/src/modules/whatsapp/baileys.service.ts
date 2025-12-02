@@ -658,25 +658,53 @@ export class BaileysService implements OnModuleDestroy {
   /**
    * Request a pairing code as an alternative to QR code scanning
    * This is useful for Android devices that have trouble scanning QR codes
+   *
+   * IMPORTANT: The pairing code must be requested when the connection is in "connecting" state
+   * Reference: https://baileys.wiki/docs/socket/connecting/
    */
   async requestPairingCode(sessionId: string, phoneNumber: string): Promise<string> {
-    this.logger.log(`Requesting pairing code for session ${sessionId} with phone ${phoneNumber}`);
+    this.logger.log(`📱 Requesting pairing code for session ${sessionId} with phone ${phoneNumber}`);
 
-    // Get existing socket or create a new connection
-    let sock = this.sessions.get(sessionId);
-
-    if (!sock) {
-      // Initialize session if not exists
-      await this.initializeSession(sessionId);
-
-      const authState = this.authStates.get(sessionId);
-      if (!authState) {
-        throw new Error("Failed to initialize auth state for pairing");
+    // Clear any existing session for fresh start
+    const existingSocket = this.sessions.get(sessionId);
+    if (existingSocket) {
+      this.logger.log(`Clearing existing session ${sessionId} for fresh pairing code connection`);
+      try {
+        existingSocket.ws?.close();
+      } catch (e) {
+        // Ignore close errors
       }
+      this.sessions.delete(sessionId);
+    }
 
-      const { version } = await fetchLatestBaileysVersion();
+    // Clear existing session files for a clean start
+    const sessionPath = path.join(
+      this.configService.get("WHATSAPP_SESSION_PATH", "./whatsapp-sessions"),
+      sessionId,
+    );
+    try {
+      await fs.rm(sessionPath, { recursive: true, force: true });
+      this.logger.log(`Cleared session directory for ${sessionId}`);
+    } catch (error) {
+      this.logger.warn(`Failed to clear session directory: ${error.message}`);
+    }
 
-      sock = makeWASocket({
+    // Initialize fresh session
+    await this.initializeSession(sessionId);
+    const authState = this.authStates.get(sessionId);
+    if (!authState) {
+      throw new Error("Failed to initialize auth state for pairing");
+    }
+
+    const { version, isLatest } = await fetchLatestBaileysVersion();
+    this.logger.log(`Using WA version ${version.join(".")}, isLatest: ${isLatest} for pairing`);
+
+    return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        reject(new Error("Pairing code request timed out - please try again"));
+      }, 30000); // 30 second timeout
+
+      const sock = makeWASocket({
         version,
         printQRInTerminal: false,
         browser: Browsers.ubuntu("Chrome"),
@@ -686,13 +714,40 @@ export class BaileysService implements OnModuleDestroy {
         },
         generateHighQualityLinkPreview: false,
         markOnlineOnConnect: true,
+        syncFullHistory: false,
+        defaultQueryTimeoutMs: 60000,
+        keepAliveIntervalMs: 10000,
+        connectTimeoutMs: 120000,
       });
 
       this.sessions.set(sessionId, sock);
+      let pairingCodeRequested = false;
 
       // Set up connection event handlers
-      sock.ev.on("connection.update", (update) => {
-        const { connection, lastDisconnect } = update;
+      sock.ev.on("connection.update", async (update) => {
+        const { connection, lastDisconnect, qr } = update;
+
+        this.logger.log(`🔄 Pairing connection update: ${JSON.stringify({ connection, hasQR: !!qr })}`);
+
+        // Request pairing code when connecting or QR is available
+        // This is the correct flow according to Baileys documentation
+        if (!pairingCodeRequested && (connection === "connecting" || qr)) {
+          pairingCodeRequested = true;
+          this.logger.log(`📲 Requesting pairing code now (state: ${connection || 'qr_available'})`);
+
+          try {
+            // Small delay to ensure socket is ready
+            await new Promise(r => setTimeout(r, 500));
+            const code = await sock.requestPairingCode(phoneNumber);
+            this.logger.log(`✅ Pairing code generated: ${code}`);
+            clearTimeout(timeout);
+            resolve(code);
+          } catch (error) {
+            this.logger.error(`❌ Failed to request pairing code: ${error.message}`);
+            clearTimeout(timeout);
+            reject(error);
+          }
+        }
 
         this.eventEmitter.emit("whatsapp.connection.update", {
           sessionId,
@@ -700,14 +755,47 @@ export class BaileysService implements OnModuleDestroy {
         });
 
         if (connection === "open") {
-          this.logger.log(`✅ Session ${sessionId} connected via pairing code`);
+          this.logger.log(`✅ Session ${sessionId} connected via pairing code!`);
+
+          // Start keep-alive for the session
+          this.startKeepAlive(sessionId);
+
+          // Start credentials save
+          this.startCredentialsSave(sessionId, authState);
+
           this.eventEmitter.emit("whatsapp.session.connected", { sessionId });
+          this.eventEmitter.emit("whatsapp.session.ready", {
+            sessionId,
+            status: "connected",
+          });
         }
 
         if (connection === "close") {
-          const shouldReconnect =
-            (lastDisconnect?.error as Boom)?.output?.statusCode !== DisconnectReason.loggedOut;
-          this.logger.log(`Connection closed for session ${sessionId} (pairing), shouldReconnect: ${shouldReconnect}`);
+          const statusCode = (lastDisconnect?.error as Boom)?.output?.statusCode;
+          const errorPayload = (lastDisconnect?.error as Boom)?.output?.payload;
+
+          this.logger.log(`🔌 Pairing connection closed for session ${sessionId}`);
+          this.logger.log(`   Status code: ${statusCode}`);
+          this.logger.log(`   Error payload: ${JSON.stringify(errorPayload)}`);
+
+          const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
+
+          if (statusCode === 401) {
+            this.logger.warn(`⚠️ Session ${sessionId} received 401 error - this may indicate:`);
+            this.logger.warn(`   - Maximum linked devices reached (unlink old devices from WhatsApp)`);
+            this.logger.warn(`   - Session conflict with another connection`);
+            this.logger.warn(`   - Account restrictions`);
+
+            this.eventEmitter.emit("whatsapp.pairing.error", {
+              sessionId,
+              errorCode: 401,
+              message: "Connection rejected - please unlink old devices from WhatsApp > Linked Devices and try again",
+            });
+          }
+
+          if (shouldReconnect && connection === "close" && statusCode !== 401) {
+            this.logger.log(`🔄 Will attempt to reconnect session ${sessionId}`);
+          }
         }
       });
 
@@ -716,22 +804,36 @@ export class BaileysService implements OnModuleDestroy {
         const authStateUpdate = this.authStates.get(sessionId);
         if (authStateUpdate?.saveCreds) {
           await authStateUpdate.saveCreds();
+          this.logger.debug(`💾 Credentials saved for pairing session ${sessionId}`);
         }
       });
-    }
 
-    // Wait a bit for the socket to be ready
-    await new Promise(resolve => setTimeout(resolve, 1000));
+      // Handle messages for the paired session
+      sock.ev.on("messages.upsert", ({ messages, type }) => {
+        messages.forEach((message) => {
+          if (!message.key.fromMe && message.message) {
+            this.eventEmitter.emit("whatsapp.message.received", {
+              sessionId,
+              message,
+              type,
+            });
+          }
+        });
+      });
 
-    // Request pairing code
-    try {
-      const code = await sock.requestPairingCode(phoneNumber);
-      this.logger.log(`Pairing code generated for session ${sessionId}: ${code}`);
-      return code;
-    } catch (error) {
-      this.logger.error(`Failed to request pairing code: ${error.message}`);
-      throw error;
-    }
+      // Handle history sync for paired session
+      sock.ev.on("messaging-history.set", (data) => {
+        this.logger.log(`📚 History sync received for paired session ${sessionId}:`);
+        this.logger.log(`  - Chats: ${data.chats?.length || 0}`);
+        this.logger.log(`  - Messages: ${data.messages?.length || 0}`);
+
+        this.eventEmitter.emit("whatsapp.history.sync.received", {
+          sessionId,
+          chatsCount: data.chats?.length || 0,
+          messagesCount: data.messages?.length || 0,
+        });
+      });
+    });
   }
 
   async disconnectSession(sessionId: string): Promise<void> {

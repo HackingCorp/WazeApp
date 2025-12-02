@@ -58,7 +58,7 @@
     "@nestjs/websockets": "^10.2.7",
     "@qdrant/js-client-rest": "^1.15.0",
     "@types/multer": "^1.4.8",
-    "@whiskeysockets/baileys": "^6.7.18",
+    "@whiskeysockets/baileys": "^6.7.21",
     "aws-sdk": "^2.1692.0",
     "axios": "^1.6.7",
     "bcryptjs": "^2.4.3",

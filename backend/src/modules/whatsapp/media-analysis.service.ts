@@ -10,8 +10,14 @@ import { AudioTranscriptionService } from "./audio-transcription.service";
 let downloadMediaMessage: any;
 
 async function loadBaileysMedia() {
-  const baileys = await import("@whiskeysockets/baileys");
-  downloadMediaMessage = baileys.downloadMediaMessage;
+  try {
+    const baileys = await import("@whiskeysockets/baileys");
+    downloadMediaMessage = baileys.downloadMediaMessage;
+    console.log('[Baileys Media] Loaded downloadMediaMessage:', !!downloadMediaMessage);
+  } catch (error) {
+    console.error('[Baileys Media] Failed to load:', error);
+    throw error;
+  }
 }
 
 export interface MediaAnalysisResult {

@@ -17,15 +17,36 @@ let downloadMediaMessage: any;
 let isJidBroadcast: any;
 
 async function loadBaileys() {
-  const baileys = await import("@whiskeysockets/baileys");
-  makeWASocket = baileys.default;
-  DisconnectReason = baileys.DisconnectReason;
-  useMultiFileAuthState = baileys.useMultiFileAuthState;
-  fetchLatestBaileysVersion = baileys.fetchLatestBaileysVersion;
-  Browsers = baileys.Browsers;
-  makeCacheableSignalKeyStore = baileys.makeCacheableSignalKeyStore;
-  downloadMediaMessage = baileys.downloadMediaMessage;
-  isJidBroadcast = baileys.isJidBroadcast;
+  try {
+    const baileys = await import("@whiskeysockets/baileys");
+
+    // Handle both ESM default export and CommonJS interop
+    makeWASocket = baileys.default || baileys.makeWASocket || baileys;
+    DisconnectReason = baileys.DisconnectReason;
+    useMultiFileAuthState = baileys.useMultiFileAuthState;
+    fetchLatestBaileysVersion = baileys.fetchLatestBaileysVersion;
+    Browsers = baileys.Browsers;
+    makeCacheableSignalKeyStore = baileys.makeCacheableSignalKeyStore;
+    downloadMediaMessage = baileys.downloadMediaMessage;
+    isJidBroadcast = baileys.isJidBroadcast;
+
+    // Log what we got to debug
+    console.log('[Baileys] Loaded exports:', {
+      hasDefault: !!baileys.default,
+      hasMakeWASocket: !!baileys.makeWASocket,
+      makeWASocketType: typeof makeWASocket,
+      hasDisconnectReason: !!DisconnectReason,
+      hasUseMultiFileAuthState: !!useMultiFileAuthState,
+      hasBrowsers: !!Browsers,
+    });
+
+    if (typeof makeWASocket !== 'function') {
+      throw new Error(`makeWASocket is not a function, got: ${typeof makeWASocket}`);
+    }
+  } catch (error) {
+    console.error('[Baileys] Failed to load library:', error);
+    throw error;
+  }
 }
 
 @Injectable()

@@ -1,28 +1,41 @@
-import { Injectable, Logger, OnModuleDestroy } from "@nestjs/common";
+import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { EventEmitter2 } from "@nestjs/event-emitter";
-import {
-  makeWASocket,
-  DisconnectReason,
-  useMultiFileAuthState,
-  fetchLatestBaileysVersion,
-  Browsers,
-  makeCacheableSignalKeyStore,
-  downloadMediaMessage,
-  isJidBroadcast,
-} from "@whiskeysockets/baileys";
 import { Boom } from "@hapi/boom";
 import * as path from "path";
 import * as fs from "fs/promises";
 import { SendMessageDto } from "./dto/whatsapp.dto";
 
+// Baileys v7 requires dynamic imports (ESM)
+let makeWASocket: any;
+let DisconnectReason: any;
+let useMultiFileAuthState: any;
+let fetchLatestBaileysVersion: any;
+let Browsers: any;
+let makeCacheableSignalKeyStore: any;
+let downloadMediaMessage: any;
+let isJidBroadcast: any;
+
+async function loadBaileys() {
+  const baileys = await import("@whiskeysockets/baileys");
+  makeWASocket = baileys.default;
+  DisconnectReason = baileys.DisconnectReason;
+  useMultiFileAuthState = baileys.useMultiFileAuthState;
+  fetchLatestBaileysVersion = baileys.fetchLatestBaileysVersion;
+  Browsers = baileys.Browsers;
+  makeCacheableSignalKeyStore = baileys.makeCacheableSignalKeyStore;
+  downloadMediaMessage = baileys.downloadMediaMessage;
+  isJidBroadcast = baileys.isJidBroadcast;
+}
+
 @Injectable()
-export class BaileysService implements OnModuleDestroy {
+export class BaileysService implements OnModuleDestroy, OnModuleInit {
   private readonly logger = new Logger(BaileysService.name);
   private sessions = new Map<string, any>();
   private authStates = new Map<string, any>();
   private keepAliveTimers = new Map<string, NodeJS.Timeout>();
   private credentialsSaveTimers = new Map<string, NodeJS.Timeout>();
+  private baileysLoaded = false;
 
   // Memory management configuration
   private readonly MAX_SESSIONS = 50; // Maximum concurrent sessions
@@ -47,11 +60,19 @@ export class BaileysService implements OnModuleDestroy {
       this.handleForceDownloadImages.bind(this),
     );
 
-    // Auto-restore sessions on service startup
-    this.restoreExistingSessions();
-
     // Start periodic cleanup to prevent memory leaks
     this.startSessionCleanup();
+  }
+
+  async onModuleInit() {
+    // Load Baileys library dynamically (ESM requirement for v7)
+    this.logger.log("Loading Baileys library v7...");
+    await loadBaileys();
+    this.baileysLoaded = true;
+    this.logger.log("✅ Baileys library loaded successfully");
+
+    // Auto-restore sessions on service startup
+    this.restoreExistingSessions();
   }
 
   /**

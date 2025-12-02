@@ -1,11 +1,18 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import * as fs from "fs/promises";
 import * as path from "path";
 import { WebSearchService } from "./web-search.service";
 import { VisionService } from "./vision.service";
 import { AudioTranscriptionService } from "./audio-transcription.service";
-import { downloadMediaMessage } from "@whiskeysockets/baileys";
+
+// Baileys v7 requires dynamic imports (ESM)
+let downloadMediaMessage: any;
+
+async function loadBaileysMedia() {
+  const baileys = await import("@whiskeysockets/baileys");
+  downloadMediaMessage = baileys.downloadMediaMessage;
+}
 
 export interface MediaAnalysisResult {
   type: 'image' | 'document' | 'audio' | 'video' | 'link';
@@ -17,7 +24,7 @@ export interface MediaAnalysisResult {
 }
 
 @Injectable()
-export class MediaAnalysisService {
+export class MediaAnalysisService implements OnModuleInit {
   private readonly logger = new Logger(MediaAnalysisService.name);
 
   constructor(
@@ -26,6 +33,11 @@ export class MediaAnalysisService {
     private visionService: VisionService,
     private audioTranscriptionService: AudioTranscriptionService,
   ) {}
+
+  async onModuleInit() {
+    await loadBaileysMedia();
+    this.logger.log("Baileys media module loaded");
+  }
 
   /**
    * Analyse une image envoyée par l'utilisateur

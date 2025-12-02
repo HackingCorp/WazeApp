@@ -310,11 +310,11 @@ export class BaileysService implements OnModuleDestroy {
         version,
         printQRInTerminal: false,
 
-        // 📚 OFFICIAL BAILEYS DOCUMENTATION CONFIGURATION FOR HISTORY SYNC
+        // 📚 OFFICIAL BAILEYS DOCUMENTATION CONFIGURATION
         // Reference: https://github.com/WhiskeySockets/Baileys README.md
         // Using Chrome on Ubuntu for better Android compatibility
         browser: Browsers.ubuntu("Chrome"),
-        syncFullHistory: true, // 🔥 CRITICAL: This tells WhatsApp to send full history
+        syncFullHistory: false, // Disabled for better Android compatibility
 
         auth: {
           creds: authState.state.creds,

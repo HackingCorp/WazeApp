@@ -359,11 +359,17 @@ export class WhatsAppService {
       }
     }
 
-    // Disconnect session first
-    await this.baileysService.disconnectSession(id);
+    // Disconnect session first (don't fail if already disconnected)
+    try {
+      await this.baileysService.disconnectSession(id);
+    } catch (error) {
+      this.logger.warn(`Failed to disconnect session ${id} during deletion (may already be disconnected):`, error);
+      // Continue with deletion even if disconnect fails
+    }
 
-    // Delete session
+    // Delete session from database
     await this.sessionRepository.delete(id);
+    this.logger.log(`Session ${id} deleted from database`);
 
     // Log audit event (only if organizationId exists)
     if (organizationId) {

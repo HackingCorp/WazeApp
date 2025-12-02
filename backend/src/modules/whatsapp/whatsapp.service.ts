@@ -769,13 +769,47 @@ export class WhatsAppService {
         };
         this.logger.log(`🔄 Session ${sessionId} is CONNECTING`);
       } else if (update.connection === "close") {
-        status = WhatsAppSessionStatus.DISCONNECTED;
-        isActive = false;
-        updateData = {
-          status,
-          isActive,
-        };
-        this.logger.log(`❌ Session ${sessionId} is now DISCONNECTED`);
+        // Check if this is a permanent disconnect or temporary
+        const statusCode = update.lastDisconnect?.error?.output?.statusCode;
+        const isLoggedOut = statusCode === 401 || statusCode === 403 || statusCode === 515;
+
+        if (isLoggedOut) {
+          // Permanent disconnect - update immediately
+          status = WhatsAppSessionStatus.DISCONNECTED;
+          isActive = false;
+          updateData = {
+            status,
+            isActive,
+          };
+          this.logger.log(`🚪 Session ${sessionId} logged out permanently (code: ${statusCode})`);
+        } else {
+          // Temporary disconnect - keep status as connecting to allow reconnection
+          // Only update to disconnected after a delay if not reconnected
+          this.logger.log(`⏳ Session ${sessionId} temporarily disconnected (code: ${statusCode}) - waiting for reconnection...`);
+
+          // Schedule a delayed status update (30 seconds)
+          setTimeout(async () => {
+            try {
+              // Re-check if session is still disconnected
+              const currentSession = await this.sessionRepository.findOne({
+                where: { id: sessionId },
+              });
+              // Only mark as disconnected if still not connected
+              if (currentSession && currentSession.status !== WhatsAppSessionStatus.CONNECTED) {
+                await this.sessionRepository.update(sessionId, {
+                  status: WhatsAppSessionStatus.DISCONNECTED,
+                  isActive: false,
+                });
+                this.logger.log(`❌ Session ${sessionId} confirmed DISCONNECTED after timeout`);
+              }
+            } catch (error) {
+              this.logger.error(`Failed to update delayed disconnect status:`, error);
+            }
+          }, 30000); // 30 second delay
+
+          // Don't update database immediately for temporary disconnects
+          return;
+        }
       } else {
         this.logger.debug(`Session ${sessionId} received update without connection state change`);
         return;

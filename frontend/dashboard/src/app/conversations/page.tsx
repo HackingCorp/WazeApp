@@ -97,19 +97,32 @@ export default function ConversationsPage() {
         // Convert backend format to frontend format
         const formattedContacts = conversations.map((conv: any) => {
           const isGroup = conv.phoneNumber?.includes('@g.us') || false;
-          let displayName = conv.name || conv.phoneNumber;
-          
-          // Better formatting for groups vs individuals
-          if (isGroup && !displayName.includes('📱')) {
-            const groupId = conv.phoneNumber.includes('@g.us') 
-              ? conv.phoneNumber.split('@')[0] 
-              : conv.phoneNumber;
-            displayName = `📱 Group ${groupId}`;
-          } else if (!isGroup && !displayName.startsWith('+')) {
-            const cleanNumber = conv.phoneNumber.replace('@s.whatsapp.net', '');
+
+          // Clean phone number - remove all WhatsApp suffixes (@s.whatsapp.net, @lid, @c.us)
+          const cleanPhoneNumber = (phone: string) => {
+            if (!phone) return '';
+            return phone
+              .replace(/@s\.whatsapp\.net$/i, '')
+              .replace(/@lid$/i, '')
+              .replace(/@c\.us$/i, '')
+              .replace(/@g\.us$/i, '');
+          };
+
+          // Use contact name if available, otherwise clean phone number
+          let displayName = conv.name;
+          if (!displayName || displayName === conv.phoneNumber || displayName.includes('@')) {
+            const cleanNumber = cleanPhoneNumber(conv.phoneNumber);
             displayName = cleanNumber.startsWith('+') ? cleanNumber : `+${cleanNumber}`;
           }
-          
+
+          // Better formatting for groups
+          if (isGroup && !displayName.includes('📱')) {
+            const groupId = cleanPhoneNumber(conv.phoneNumber);
+            displayName = conv.name && !conv.name.includes('@')
+              ? `📱 ${conv.name}`
+              : `📱 Group ${groupId}`;
+          }
+
           return {
             id: conv.id,
             name: displayName,

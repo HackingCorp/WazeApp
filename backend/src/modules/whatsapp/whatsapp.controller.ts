@@ -274,6 +274,46 @@ export class WhatsAppController {
     );
   }
 
+  @Get("sessions/:id/contacts")
+  @ApiOperation({ summary: "Get contacts for a WhatsApp session" })
+  @ApiResponse({
+    status: 200,
+    description: "Contacts retrieved successfully",
+  })
+  async getSessionContacts(
+    @Param("id", ParseUUIDPipe) id: string,
+    @CurrentUser() user: AuthenticatedRequest,
+  ) {
+    const contacts = await this.whatsappService.getContacts(
+      id,
+      user.userId,
+      user.organizationId || null,
+    );
+
+    return {
+      success: true,
+      data: contacts,
+      count: contacts.length,
+    };
+  }
+
+  @Get("contacts/lookup")
+  @ApiOperation({ summary: "Lookup contact name by phone number" })
+  @ApiResponse({
+    status: 200,
+    description: "Contact name retrieved",
+  })
+  async lookupContactName(
+    @Query("sessionId") sessionId: string,
+    @Query("phoneNumber") phoneNumber: string,
+  ) {
+    const name = await this.whatsappService.getContactName(sessionId, phoneNumber);
+    return {
+      success: true,
+      data: { phoneNumber, name },
+    };
+  }
+
   @Get("sessions/:id/status")
   @Public()
   @ApiOperation({ summary: "Get real-time session status" })

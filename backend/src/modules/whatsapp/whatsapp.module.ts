@@ -16,6 +16,7 @@ import { OpenSourceVisionService } from "./open-source-vision.service";
 import { AudioTranscriptionService } from "./audio-transcription.service";
 import {
   WhatsAppSession,
+  WhatsAppContact,
   OrganizationMember,
   UsageMetric,
   AuditLog,
@@ -36,6 +37,7 @@ import { LlmProvidersModule } from "../llm-providers/llm-providers.module";
   imports: [
     TypeOrmModule.forFeature([
       WhatsAppSession,
+      WhatsAppContact,
       OrganizationMember,
       UsageMetric,
       AuditLog,

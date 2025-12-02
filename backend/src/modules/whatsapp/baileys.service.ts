@@ -557,6 +557,42 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
         this.handleChatsReceived(sessionId, sock, chats);
       });
 
+      // Handle contacts sync - Initial batch of contacts
+      sock.ev.on("contacts.set", (data) => {
+        const contacts = data.contacts || [];
+        this.logger.log(`📇 Received ${contacts.length} contacts for session ${sessionId}`);
+        if (contacts.length > 0) {
+          this.eventEmitter.emit("whatsapp.contacts.sync", {
+            sessionId,
+            contacts,
+            isInitial: true,
+          });
+        }
+      });
+
+      // Handle contact updates - Individual contact changes
+      sock.ev.on("contacts.update", (contacts) => {
+        this.logger.log(`📇 Contact update: ${contacts.length} contacts updated for session ${sessionId}`);
+        if (contacts.length > 0) {
+          this.eventEmitter.emit("whatsapp.contacts.update", {
+            sessionId,
+            contacts,
+          });
+        }
+      });
+
+      // Handle contacts upsert - New contacts added
+      sock.ev.on("contacts.upsert", (contacts) => {
+        this.logger.log(`📇 Contact upsert: ${contacts.length} new contacts for session ${sessionId}`);
+        if (contacts.length > 0) {
+          this.eventEmitter.emit("whatsapp.contacts.sync", {
+            sessionId,
+            contacts,
+            isInitial: false,
+          });
+        }
+      });
+
       // Handle historical data sync - This is the key event for proper history sync
       sock.ev.on("messaging-history.set", (data) => {
         this.logger.log(

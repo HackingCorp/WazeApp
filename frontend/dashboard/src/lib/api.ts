@@ -310,6 +310,14 @@ class ApiClient {
     return this.request(`/whatsapp/sessions/${sessionId}/qr`);
   }
 
+  async getSessionContacts(sessionId: string) {
+    return this.request(`/whatsapp/sessions/${sessionId}/contacts`);
+  }
+
+  async lookupContactName(sessionId: string, phoneNumber: string) {
+    return this.request(`/whatsapp/contacts/lookup?sessionId=${sessionId}&phoneNumber=${encodeURIComponent(phoneNumber)}`);
+  }
+
   async sendMessage(data: {
     sessionId: string;
     phone: string;

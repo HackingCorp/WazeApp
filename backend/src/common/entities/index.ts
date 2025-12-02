@@ -10,6 +10,7 @@ export {
 export { UsageMetric } from "./usage-metric.entity";
 export { AuditLog } from "./audit-log.entity";
 export { WhatsAppSession } from "./whatsapp-session.entity";
+export { WhatsAppContact } from "./whatsapp-contact.entity";
 
 // AI Agent & Knowledge Base Entities
 export { KnowledgeBase } from "./knowledge-base.entity";

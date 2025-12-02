@@ -13,6 +13,7 @@ import { EventEmitter2, OnEvent } from "@nestjs/event-emitter";
 import * as QRCode from "qrcode";
 import {
   WhatsAppSession,
+  WhatsAppContact,
   User,
   Organization,
   OrganizationMember,
@@ -42,6 +43,8 @@ export class WhatsAppService {
   constructor(
     @InjectRepository(WhatsAppSession)
     private sessionRepository: Repository<WhatsAppSession>,
+    @InjectRepository(WhatsAppContact)
+    private contactRepository: Repository<WhatsAppContact>,
     @InjectRepository(OrganizationMember)
     private organizationMemberRepository: Repository<OrganizationMember>,
     @InjectRepository(UsageMetric)
@@ -1386,5 +1389,137 @@ export class WhatsAppService {
     }
 
     await this.usageMetricRepository.save(usageMetric);
+  }
+
+  // ==================== CONTACT SYNCHRONIZATION ====================
+
+  @OnEvent("whatsapp.contacts.sync")
+  async handleContactsSync(data: { sessionId: string; contacts: any[]; isInitial: boolean }) {
+    const { sessionId, contacts, isInitial } = data;
+    this.logger.log(`📇 Processing ${contacts.length} contacts for session ${sessionId} (initial: ${isInitial})`);
+
+    try {
+      for (const contact of contacts) {
+        await this.upsertContact(sessionId, contact);
+      }
+      this.logger.log(`✅ Successfully synced ${contacts.length} contacts for session ${sessionId}`);
+    } catch (error) {
+      this.logger.error(`❌ Failed to sync contacts for session ${sessionId}:`, error);
+    }
+  }
+
+  @OnEvent("whatsapp.contacts.update")
+  async handleContactsUpdate(data: { sessionId: string; contacts: any[] }) {
+    const { sessionId, contacts } = data;
+    this.logger.log(`📇 Updating ${contacts.length} contacts for session ${sessionId}`);
+
+    try {
+      for (const contact of contacts) {
+        await this.upsertContact(sessionId, contact);
+      }
+      this.logger.log(`✅ Successfully updated ${contacts.length} contacts for session ${sessionId}`);
+    } catch (error) {
+      this.logger.error(`❌ Failed to update contacts for session ${sessionId}:`, error);
+    }
+  }
+
+  private async upsertContact(sessionId: string, contact: any): Promise<void> {
+    try {
+      // Extract phone number from contact id (remove @s.whatsapp.net, @lid, etc.)
+      const contactId = contact.id || contact.jid || '';
+      const phoneNumber = this.cleanPhoneNumber(contactId);
+
+      if (!phoneNumber) {
+        return; // Skip contacts without valid phone numbers
+      }
+
+      // Check if contact exists
+      let existingContact = await this.contactRepository.findOne({
+        where: { sessionId, phoneNumber },
+      });
+
+      if (existingContact) {
+        // Update existing contact
+        existingContact.name = contact.name || contact.notify || existingContact.name;
+        existingContact.pushName = contact.notify || contact.verifiedName || existingContact.pushName;
+        existingContact.shortName = contact.shortName || existingContact.shortName;
+        existingContact.lid = contact.lid || contactId.includes('@lid') ? contactId : existingContact.lid;
+        existingContact.isBusiness = contact.isBusiness || existingContact.isBusiness;
+        existingContact.profilePictureUrl = contact.imgUrl || existingContact.profilePictureUrl;
+        existingContact.lastInteractionAt = new Date();
+        existingContact.metadata = {
+          ...existingContact.metadata,
+          verifiedName: contact.verifiedName,
+          status: contact.status,
+        };
+
+        await this.contactRepository.save(existingContact);
+      } else {
+        // Create new contact
+        const newContact = this.contactRepository.create({
+          sessionId,
+          phoneNumber,
+          lid: contactId.includes('@lid') ? contactId : undefined,
+          name: contact.name || contact.notify,
+          pushName: contact.notify || contact.verifiedName,
+          shortName: contact.shortName,
+          isBusiness: contact.isBusiness || false,
+          isGroup: contactId.includes('@g.us'),
+          profilePictureUrl: contact.imgUrl,
+          lastInteractionAt: new Date(),
+          metadata: {
+            verifiedName: contact.verifiedName,
+            status: contact.status,
+            rawId: contactId,
+          },
+        });
+
+        await this.contactRepository.save(newContact);
+      }
+    } catch (error) {
+      this.logger.error(`Failed to upsert contact:`, error);
+    }
+  }
+
+  private cleanPhoneNumber(contactId: string): string {
+    if (!contactId) return '';
+
+    return contactId
+      .replace(/@s\.whatsapp\.net$/i, '')
+      .replace(/@lid$/i, '')
+      .replace(/@c\.us$/i, '')
+      .replace(/@g\.us$/i, '')
+      .replace(/[^\d+]/g, ''); // Keep only digits and +
+  }
+
+  // Get contacts for a session
+  async getContacts(sessionId: string, userId: string, organizationId: string | null): Promise<WhatsAppContact[]> {
+    // Verify session access
+    const session = await this.findOne(sessionId, userId, organizationId);
+
+    return this.contactRepository.find({
+      where: { sessionId },
+      order: { name: 'ASC', phoneNumber: 'ASC' },
+    });
+  }
+
+  // Get contact by phone number
+  async getContactByPhone(sessionId: string, phoneNumber: string): Promise<WhatsAppContact | null> {
+    const cleanPhone = this.cleanPhoneNumber(phoneNumber);
+
+    return this.contactRepository.findOne({
+      where: { sessionId, phoneNumber: cleanPhone },
+    });
+  }
+
+  // Get contact name for display
+  async getContactName(sessionId: string, phoneNumber: string): Promise<string> {
+    const contact = await this.getContactByPhone(sessionId, phoneNumber);
+
+    if (contact) {
+      return contact.name || contact.pushName || contact.shortName || phoneNumber;
+    }
+
+    return phoneNumber;
   }
 }

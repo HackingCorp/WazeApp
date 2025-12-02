@@ -25,6 +25,7 @@ export default function ConversationsPage() {
     currentChat: string;
     error?: string;
   } | null>(null);
+  const [contactsMap, setContactsMap] = useState<Record<string, any>>({});
   const { socket, subscribe } = useSocket();
 
   // Load WhatsApp sessions on mount
@@ -33,6 +34,13 @@ export default function ConversationsPage() {
       loadWhatsAppSessions();
     }
   }, [user]);
+
+  // Load contacts when session changes
+  useEffect(() => {
+    if (selectedSessionId) {
+      loadContactsForSession(selectedSessionId);
+    }
+  }, [selectedSessionId]);
 
   // Load conversations when selected session changes
   useEffect(() => {
@@ -75,6 +83,57 @@ export default function ConversationsPage() {
     }
   };
 
+  const loadContactsForSession = async (sessionId: string) => {
+    try {
+      console.log('Loading contacts for session:', sessionId);
+      const response = await api.getSessionContacts(sessionId);
+
+      if (response.success && response.data) {
+        // Create a map of phone numbers to contact info
+        const map: Record<string, any> = {};
+        const contacts = response.data || [];
+
+        contacts.forEach((contact: any) => {
+          if (contact.phoneNumber) {
+            map[contact.phoneNumber] = contact;
+            // Also map with + prefix if not present
+            if (!contact.phoneNumber.startsWith('+')) {
+              map[`+${contact.phoneNumber}`] = contact;
+            }
+          }
+        });
+
+        setContactsMap(map);
+        console.log(`Loaded ${contacts.length} contacts for session ${sessionId}`);
+      }
+    } catch (error) {
+      console.error('Failed to load contacts:', error);
+      // Don't show error toast - contacts are optional
+    }
+  };
+
+  // Helper function to get contact display name
+  const getContactDisplayName = (phoneNumber: string): string => {
+    if (!phoneNumber) return 'Unknown';
+
+    // Clean phone number for lookup
+    const cleanPhone = phoneNumber
+      .replace(/@s\.whatsapp\.net$/i, '')
+      .replace(/@lid$/i, '')
+      .replace(/@c\.us$/i, '')
+      .replace(/@g\.us$/i, '');
+
+    // Try to find contact in our map
+    const contact = contactsMap[cleanPhone] || contactsMap[`+${cleanPhone}`] || contactsMap[cleanPhone.replace(/^\+/, '')];
+
+    if (contact) {
+      return contact.name || contact.pushName || contact.shortName || cleanPhone;
+    }
+
+    // Format phone number nicely if no contact found
+    return cleanPhone.startsWith('+') ? cleanPhone : `+${cleanPhone}`;
+  };
+
   const loadConversations = async () => {
     if (!selectedSessionId || !selectedSessionId.trim()) {
       setContacts([]);
@@ -108,11 +167,11 @@ export default function ConversationsPage() {
               .replace(/@g\.us$/i, '');
           };
 
-          // Use contact name if available, otherwise clean phone number
+          // Use contact name from our contacts map, or fallback to conversation name, or clean phone
           let displayName = conv.name;
           if (!displayName || displayName === conv.phoneNumber || displayName.includes('@')) {
-            const cleanNumber = cleanPhoneNumber(conv.phoneNumber);
-            displayName = cleanNumber.startsWith('+') ? cleanNumber : `+${cleanNumber}`;
+            // Try to get name from contacts map
+            displayName = getContactDisplayName(conv.phoneNumber);
           }
 
           // Better formatting for groups

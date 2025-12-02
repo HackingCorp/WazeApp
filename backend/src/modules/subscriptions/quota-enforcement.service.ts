@@ -66,11 +66,12 @@ export class QuotaEnforcementService {
     const subscription = await this.getActiveSubscription(organizationId);
     const limit = subscription.limits.maxAgents;
 
-    const current = await this.aiAgentRepository.count({
+    // Count WhatsApp sessions for the organization (not AI agents)
+    const current = await this.sessionRepository.count({
       where: { organizationId },
     });
 
-    return this.buildQuotaCheck(current, limit, "AI agents");
+    return this.buildQuotaCheck(current, limit, "WhatsApp sessions");
   }
 
   async checkUserAgentQuota(userId: string): Promise<QuotaCheck> {

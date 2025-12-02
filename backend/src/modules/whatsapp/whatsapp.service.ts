@@ -836,6 +836,35 @@ export class WhatsAppService {
     }
   }
 
+  @OnEvent("whatsapp.device.removed")
+  async handleDeviceRemoved(data: { sessionId: string; message: string; statusCode: number }) {
+    const { sessionId, message, statusCode } = data;
+
+    try {
+      this.logger.warn(`🔴 Device removed event for session ${sessionId}: ${message}`);
+
+      // Update session status in database
+      const result = await this.sessionRepository.update(sessionId, {
+        status: WhatsAppSessionStatus.DISCONNECTED,
+        isActive: false,
+        retryCount: 0,
+      });
+
+      this.logger.log(`📝 Updated session ${sessionId} to DISCONNECTED after device removal`);
+
+      // Emit WebSocket event to frontend
+      this.eventEmitter.emit("whatsapp.session.error", {
+        sessionId,
+        errorType: "device_removed",
+        errorCode: statusCode,
+        message: "Session disconnected by WhatsApp. Please unlink old devices and reconnect.",
+        requiresReauth: true,
+      });
+    } catch (error) {
+      this.logger.error(`Failed to handle device removed for session ${sessionId}:`, error);
+    }
+  }
+
   private lastSeenTimers = new Map<string, NodeJS.Timeout>();
 
   private scheduleLastSeenUpdate(sessionId: string) {

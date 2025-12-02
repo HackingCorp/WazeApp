@@ -422,32 +422,71 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
         }
 
         if (connection === "close") {
-          const shouldReconnect =
-            (lastDisconnect?.error as Boom)?.output?.statusCode !==
-            DisconnectReason.loggedOut;
+          const statusCode = (lastDisconnect?.error as Boom)?.output?.statusCode;
+          const errorMessage = (lastDisconnect?.error as Boom)?.output?.payload?.message || '';
+
+          // Check for various disconnect reasons
+          const isLoggedOut = statusCode === DisconnectReason.loggedOut;
+          const isDeviceRemoved = statusCode === 401 || errorMessage.includes('device_removed');
+          const isConflict = statusCode === 409 || statusCode === 440;
+          const isPermanentError = isLoggedOut || isDeviceRemoved || isConflict;
 
           this.logger.log(
-            `Connection closed for session ${sessionId}, shouldReconnect: ${shouldReconnect}`,
+            `Connection closed for session ${sessionId}, statusCode: ${statusCode}, isDeviceRemoved: ${isDeviceRemoved}, isPermanent: ${isPermanentError}`,
           );
 
-          if (shouldReconnect) {
-            // Enhanced auto-reconnect logic with exponential backoff
-            const maxRetries = 10; // Increased retries
-            const baseDelay = 3000; // Reduced initial delay
+          if (isDeviceRemoved) {
+            // 401/device_removed: Clear credentials and require new QR scan
+            this.logger.warn(`⚠️ Session ${sessionId} received device_removed (401) - clearing credentials`);
+            this.logger.warn(`💡 User needs to unlink old devices from WhatsApp > Linked Devices and scan QR again`);
+
+            // Stop timers
+            this.stopKeepAlive(sessionId);
+            this.stopCredentialsSave(sessionId);
+
+            // Clean up session files to force fresh QR on next connect
+            const sessionPath = path.join(
+              this.configService.get("WHATSAPP_SESSION_PATH", "./whatsapp-sessions"),
+              sessionId,
+            );
+            try {
+              await fs.rm(sessionPath, { recursive: true, force: true });
+              this.logger.log(`🧹 Cleared session files for ${sessionId} - will need fresh QR code`);
+            } catch (error) {
+              this.logger.warn(`Failed to clear session files: ${error.message}`);
+            }
+
+            this.sessions.delete(sessionId);
+            this.authStates.delete(sessionId);
+
+            // Emit specific event for device removed
+            this.eventEmitter.emit("whatsapp.device.removed", {
+              sessionId,
+              message: "Session was removed by WhatsApp. Please unlink old devices and scan QR code again.",
+              statusCode,
+            });
+          } else if (isPermanentError) {
+            this.logger.log(`🚪 Session ${sessionId} logged out permanently (code: ${statusCode}) - cleaning up`);
+            this.sessions.delete(sessionId);
+            this.authStates.delete(sessionId);
+          } else {
+            // Temporary disconnect - try to reconnect with exponential backoff
+            const maxRetries = 5; // Reduced retries for faster failure
+            const baseDelay = 5000; // 5 second initial delay
             let retryCount = 0;
 
             const attemptReconnect = () => {
               if (retryCount < maxRetries) {
-                const delay = Math.min(baseDelay * Math.pow(1.5, retryCount), 60000); // Max 60s delay
+                const delay = Math.min(baseDelay * Math.pow(2, retryCount), 60000); // Max 60s delay
                 this.logger.log(
                   `🔄 Attempting reconnection ${retryCount + 1}/${maxRetries} for session ${sessionId} in ${delay}ms`,
                 );
 
                 setTimeout(async () => {
                   try {
-                    // Try to reconnect using existing auth state (don't force reset)
+                    // Try to reconnect using existing auth state
                     const result = await this.connectSession(sessionId, false);
-                    
+
                     if (result.needsQR) {
                       this.logger.warn(
                         `⚠️ Session ${sessionId} needs QR code - stopping auto-reconnect`,
@@ -488,10 +527,6 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
             };
 
             attemptReconnect();
-          } else {
-            this.logger.log(`🚪 Session ${sessionId} logged out - cleaning up`);
-            this.sessions.delete(sessionId);
-            this.authStates.delete(sessionId);
           }
         } else if (connection === "open") {
           this.logger.log(`✅ Session ${sessionId} connected successfully`);

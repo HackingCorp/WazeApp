@@ -332,6 +332,13 @@ export class S3PService {
     // Générer un TRID unique
     const trid = `WAZEAPP-${Date.now()}`;
 
+    this.logger.log(`=== S3P PAYMENT DEBUG ===`);
+    this.logger.log(`Original customerPhone: ${customerPhone}`);
+    this.logger.log(`Formatted serviceNumber: ${formattedPhone}`);
+    this.logger.log(`Payment type: ${paymentType}`);
+    this.logger.log(`Amount: ${amount} XAF`);
+    this.logger.log(`TRID: ${trid}`);
+
     try {
       this.logger.log(`Initiation paiement S3P: ${trid} - ${amount} XAF - ${paymentType}`);
 
@@ -383,6 +390,12 @@ export class S3PService {
         trid,
       };
 
+      this.logger.log(`=== S3P COLLECT DATA ===`);
+      this.logger.log(`serviceNumber (customer to debit): ${collectData.serviceNumber}`);
+      this.logger.log(`customerPhonenumber (notification): ${collectData.customerPhonenumber}`);
+      this.logger.log(`quoteId: ${collectData.quoteId}`);
+      this.logger.log(`Full collectData: ${JSON.stringify(collectData, null, 2)}`);
+
       const collectUrl = `${this.baseUrl}/collectstd`;
       const collectAuthHeader = this.generateAuthHeader('POST', collectUrl, collectData);
 
@@ -398,6 +411,7 @@ export class S3PService {
       const ptn = collectResponse.data.ptn;
 
       this.logger.log(`Paiement initié - PTN: ${ptn}`);
+      this.logger.log(`S3P Collect Response: ${JSON.stringify(collectResponse.data, null, 2)}`);
 
       // ÉTAPE 4: Vérification après délai
       await new Promise((resolve) => setTimeout(resolve, 15000)); // Attendre 15 secondes
@@ -417,6 +431,14 @@ export class S3PService {
         s3pStatus,
         message: finalStatus === 'PENDING' ? 'Paiement initié avec succès' : 'Paiement confirmé',
         verificationData: verifyResponse,
+        // Debug info
+        debug: {
+          originalPhone: customerPhone,
+          formattedServiceNumber: formattedPhone,
+          serviceId,
+          paymentType,
+          amount,
+        },
       };
     } catch (error) {
       this.logger.error(`Erreur paiement S3P: ${error.message}`, error.stack);

@@ -734,43 +734,68 @@ export class WhatsAppService {
   async handleConnectionUpdate(data: { sessionId: string; update: any }) {
     const { sessionId, update } = data;
 
-    let status = WhatsAppSessionStatus.DISCONNECTED;
-    let isActive = false;
-    let updateData: any = {};
+    try {
+      this.logger.log(`📡 Connection update received for session ${sessionId}: ${JSON.stringify(update)}`);
 
-    if (update.connection === "open") {
-      status = WhatsAppSessionStatus.CONNECTED;
-      isActive = true;
-      updateData = {
-        status,
-        isActive,
-        lastSeenAt: new Date(),
-        retryCount: 0,
-      };
-    } else if (update.connection === "connecting") {
-      status = WhatsAppSessionStatus.CONNECTING;
-      updateData = {
-        status,
-        lastConnectionAttempt: new Date(),
-      };
-    } else if (update.connection === "close") {
-      status = WhatsAppSessionStatus.DISCONNECTED;
-      isActive = false;
-      updateData = {
-        status,
-        isActive,
-      };
-    }
+      // Check if session exists in database
+      const existingSession = await this.sessionRepository.findOne({
+        where: { id: sessionId },
+      });
 
-    await this.sessionRepository.update(sessionId, updateData);
+      if (!existingSession) {
+        this.logger.warn(`⚠️ Session ${sessionId} not found in database - cannot update status`);
+        return;
+      }
 
-    this.logger.log(
-      `Session ${sessionId} connection updated: ${update.connection} - Status: ${status}`,
-    );
+      let status = WhatsAppSessionStatus.DISCONNECTED;
+      let isActive = false;
+      let updateData: any = {};
 
-    // Also update lastSeenAt periodically for active sessions
-    if (isActive) {
-      this.scheduleLastSeenUpdate(sessionId);
+      if (update.connection === "open") {
+        status = WhatsAppSessionStatus.CONNECTED;
+        isActive = true;
+        updateData = {
+          status,
+          isActive,
+          lastSeenAt: new Date(),
+          retryCount: 0,
+        };
+        this.logger.log(`✅ Session ${sessionId} is now CONNECTED in database`);
+      } else if (update.connection === "connecting") {
+        status = WhatsAppSessionStatus.CONNECTING;
+        updateData = {
+          status,
+          lastConnectionAttempt: new Date(),
+        };
+        this.logger.log(`🔄 Session ${sessionId} is CONNECTING`);
+      } else if (update.connection === "close") {
+        status = WhatsAppSessionStatus.DISCONNECTED;
+        isActive = false;
+        updateData = {
+          status,
+          isActive,
+        };
+        this.logger.log(`❌ Session ${sessionId} is now DISCONNECTED`);
+      } else {
+        this.logger.debug(`Session ${sessionId} received update without connection state change`);
+        return;
+      }
+
+      const result = await this.sessionRepository.update(sessionId, updateData);
+      this.logger.log(`📝 Database update result for ${sessionId}: ${JSON.stringify(result)}`);
+
+      // Verify the update worked
+      const verifySession = await this.sessionRepository.findOne({
+        where: { id: sessionId },
+      });
+      this.logger.log(`✓ Verified session ${sessionId} status in DB: ${verifySession?.status}, isActive: ${verifySession?.isActive}`);
+
+      // Also update lastSeenAt periodically for active sessions
+      if (isActive) {
+        this.scheduleLastSeenUpdate(sessionId);
+      }
+    } catch (error) {
+      this.logger.error(`❌ Failed to update connection status for session ${sessionId}:`, error);
     }
   }
 

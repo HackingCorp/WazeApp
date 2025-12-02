@@ -63,21 +63,34 @@ export function PaymentModal({
     }
   }, [isOpen]);
 
-  // Auto-detect provider from phone number
-  useEffect(() => {
-    const cleanPhone = phoneNumber.replace(/\D/g, '');
+  // Detect provider from phone number
+  const detectProvider = (phone: string): MobileProvider | null => {
+    const cleanPhone = phone.replace(/\D/g, '');
     if (cleanPhone.length >= 2) {
       const prefix = cleanPhone.startsWith('237') ? cleanPhone.substring(3, 5) : cleanPhone.substring(0, 2);
       // MTN prefixes: 67, 68, 650-654
       if (['67', '68'].includes(prefix) || (prefix.startsWith('65') && parseInt(prefix) <= 54)) {
-        setMobileProvider('mtn');
+        return 'mtn';
       }
-      // Orange prefixes: 69, 655-659, 6[9]
+      // Orange prefixes: 69, 655-659, 55-59
       else if (['69'].includes(prefix) || (prefix.startsWith('65') && parseInt(prefix) >= 55) || ['55', '56', '57', '58', '59'].includes(prefix)) {
-        setMobileProvider('orange');
+        return 'orange';
       }
     }
+    return null;
+  };
+
+  // Auto-detect and auto-select provider from phone number
+  useEffect(() => {
+    const detected = detectProvider(phoneNumber);
+    if (detected) {
+      setMobileProvider(detected);
+    }
   }, [phoneNumber]);
+
+  // Check if provider matches phone number
+  const detectedProvider = detectProvider(phoneNumber);
+  const providerMismatch = detectedProvider && mobileProvider && detectedProvider !== mobileProvider;
 
   const formatPhoneNumber = (value: string) => {
     const digits = value.replace(/\D/g, '');
@@ -110,14 +123,24 @@ export function PaymentModal({
 
     try {
       const amount = PLAN_PRICES_FCFA[plan.id] || plan.priceFCFA || plan.price * 655;
+      const cleanPhone = getCleanPhoneNumber();
+
+      console.log('=== S3P PAYMENT DEBUG (Frontend) ===');
+      console.log('Phone entered:', phoneNumber);
+      console.log('Phone sent to API:', cleanPhone);
+      console.log('Provider:', mobileProvider);
+      console.log('Amount:', amount, 'FCFA');
+      console.log('Plan:', plan.id);
 
       const response = await api.initiateS3PPayment({
         amount,
-        customerPhone: getCleanPhoneNumber(),
+        customerPhone: cleanPhone,
         paymentType: mobileProvider,
         customerName: customerName || 'Client WazeApp',
         description: `Abonnement WazeApp - Plan ${plan.name}`,
       });
+
+      console.log('S3P API Response:', response);
 
       if (response.success && response.data) {
         const data = response.data;
@@ -519,6 +542,17 @@ export function PaymentModal({
                 )}
               </div>
 
+              {/* Provider Mismatch Warning */}
+              {providerMismatch && (
+                <div className="flex items-start gap-3 p-3 bg-red-50 dark:bg-red-900/20 rounded-xl mb-4">
+                  <XCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+                  <p className="text-sm text-red-700 dark:text-red-300">
+                    Le numero commence par {detectedProvider === 'orange' ? '69 (Orange)' : '67/68 (MTN)'}.
+                    Veuillez selectionner le bon operateur.
+                  </p>
+                </div>
+              )}
+
               {/* Info Message */}
               <div className="flex items-start gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl mb-6">
                 <AlertCircle className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
@@ -531,10 +565,10 @@ export function PaymentModal({
               {/* Submit Button */}
               <button
                 onClick={handleMobilePayment}
-                disabled={!mobileProvider || phoneNumber.replace(/\D/g, '').length < 9}
+                disabled={!mobileProvider || phoneNumber.replace(/\D/g, '').length < 9 || providerMismatch}
                 className={clsx(
                   'w-full py-3.5 rounded-xl font-semibold transition-all flex items-center justify-center gap-2',
-                  mobileProvider && phoneNumber.replace(/\D/g, '').length >= 9
+                  mobileProvider && phoneNumber.replace(/\D/g, '').length >= 9 && !providerMismatch
                     ? 'bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-600 hover:to-green-600 text-white shadow-lg shadow-emerald-500/25'
                     : 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed'
                 )}

@@ -86,9 +86,36 @@ export default function WhatsAppPage() {
 
   // Pairing code state
   const [connectionMethod, setConnectionMethod] = useState<'qr' | 'pairing'>('qr');
+  const [countryCode, setCountryCode] = useState('+237');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [pairingCode, setPairingCode] = useState<string | null>(null);
   const [pairingLoading, setPairingLoading] = useState(false);
+
+  // Country codes list
+  const countryCodes = [
+    { code: '+237', country: 'Cameroun', flag: '🇨🇲' },
+    { code: '+225', country: 'Côte d\'Ivoire', flag: '🇨🇮' },
+    { code: '+221', country: 'Sénégal', flag: '🇸🇳' },
+    { code: '+223', country: 'Mali', flag: '🇲🇱' },
+    { code: '+226', country: 'Burkina Faso', flag: '🇧🇫' },
+    { code: '+228', country: 'Togo', flag: '🇹🇬' },
+    { code: '+229', country: 'Bénin', flag: '🇧🇯' },
+    { code: '+241', country: 'Gabon', flag: '🇬🇦' },
+    { code: '+242', country: 'Congo', flag: '🇨🇬' },
+    { code: '+243', country: 'RD Congo', flag: '🇨🇩' },
+    { code: '+234', country: 'Nigeria', flag: '🇳🇬' },
+    { code: '+233', country: 'Ghana', flag: '🇬🇭' },
+    { code: '+254', country: 'Kenya', flag: '🇰🇪' },
+    { code: '+27', country: 'Afrique du Sud', flag: '🇿🇦' },
+    { code: '+212', country: 'Maroc', flag: '🇲🇦' },
+    { code: '+216', country: 'Tunisie', flag: '🇹🇳' },
+    { code: '+213', country: 'Algérie', flag: '🇩🇿' },
+    { code: '+33', country: 'France', flag: '🇫🇷' },
+    { code: '+32', country: 'Belgique', flag: '🇧🇪' },
+    { code: '+41', country: 'Suisse', flag: '🇨🇭' },
+    { code: '+1', country: 'USA/Canada', flag: '🇺🇸' },
+    { code: '+44', country: 'Royaume-Uni', flag: '🇬🇧' },
+  ];
 
   useEffect(() => {
     if (user) {
@@ -462,8 +489,11 @@ export default function WhatsAppPage() {
 
       toast.loading('Génération du code d\'appairage...', { id: 'pairing-code' });
 
+      // Combine country code with phone number
+      const fullPhoneNumber = countryCode + phoneNumber.trim();
+
       const response = await api.post(`/whatsapp/sessions/${sessionId}/pairing-code`, {
-        phoneNumber: phoneNumber.trim()
+        phoneNumber: fullPhoneNumber
       });
 
       if (!response.success) {
@@ -864,17 +894,6 @@ export default function WhatsAppPage() {
                   <>
                     <p className="text-gray-600 mb-4">Scannez ce QR code avec WhatsApp</p>
 
-                    {/* Warning about linked devices */}
-                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4 text-left">
-                      <div className="flex items-start space-x-2">
-                        <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
-                        <div className="text-sm">
-                          <p className="font-medium text-amber-800">Si la connexion échoue:</p>
-                          <p className="text-amber-700 mt-1">Allez dans WhatsApp → Appareils liés et supprimez les anciens appareils (max 4 autorisés)</p>
-                        </div>
-                      </div>
-                    </div>
-
                     <div className="bg-white p-4 rounded-lg border-2 border-gray-200 mb-4">
                       <img
                         src={qrData.qrCode}
@@ -928,30 +947,28 @@ export default function WhatsAppPage() {
                         : 'Entrez votre numéro de téléphone WhatsApp'}
                     </p>
 
-                    {/* Warning about linked devices */}
-                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4 text-left">
-                      <div className="flex items-start space-x-2">
-                        <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
-                        <div className="text-sm">
-                          <p className="font-medium text-amber-800">Important avant de connecter:</p>
-                          <ul className="text-amber-700 mt-1 space-y-1 list-disc list-inside">
-                            <li>Délier les anciens appareils dans WhatsApp → Appareils liés</li>
-                            <li>Maximum 4 appareils liés autorisés par WhatsApp</li>
-                            <li>L'erreur "connexion échouée" signifie souvent trop d'appareils</li>
-                          </ul>
-                        </div>
-                      </div>
-                    </div>
-
                     {!pairingCode ? (
                       <>
-                        <input
-                          type="tel"
-                          placeholder="+237 6XX XXX XXX"
-                          value={phoneNumber}
-                          onChange={(e) => setPhoneNumber(e.target.value)}
-                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent mb-4 text-center text-lg"
-                        />
+                        <div className="flex gap-2 mb-4">
+                          <select
+                            value={countryCode}
+                            onChange={(e) => setCountryCode(e.target.value)}
+                            className="px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white text-sm"
+                          >
+                            {countryCodes.map((c) => (
+                              <option key={c.code} value={c.code}>
+                                {c.flag} {c.code}
+                              </option>
+                            ))}
+                          </select>
+                          <input
+                            type="tel"
+                            placeholder="6XX XXX XXX"
+                            value={phoneNumber}
+                            onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, ''))}
+                            className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-center text-lg"
+                          />
+                        </div>
 
                         <button
                           onClick={() => connecting && requestPairingCode(connecting)}

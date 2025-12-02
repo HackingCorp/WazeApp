@@ -406,7 +406,7 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
       this.sessions.set(sessionId, sock);
 
       // Handle connection updates
-      sock.ev.on("connection.update", (update) => {
+      sock.ev.on("connection.update", async (update) => {
         const { connection, lastDisconnect, qr } = update;
 
         this.eventEmitter.emit("whatsapp.connection.update", {

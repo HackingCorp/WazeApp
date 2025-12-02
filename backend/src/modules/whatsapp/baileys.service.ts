@@ -655,6 +655,85 @@ export class BaileysService implements OnModuleDestroy {
     }
   }
 
+  /**
+   * Request a pairing code as an alternative to QR code scanning
+   * This is useful for Android devices that have trouble scanning QR codes
+   */
+  async requestPairingCode(sessionId: string, phoneNumber: string): Promise<string> {
+    this.logger.log(`Requesting pairing code for session ${sessionId} with phone ${phoneNumber}`);
+
+    // Get existing socket or create a new connection
+    let sock = this.sessions.get(sessionId);
+
+    if (!sock) {
+      // Initialize session if not exists
+      await this.initializeSession(sessionId);
+
+      const authState = this.authStates.get(sessionId);
+      if (!authState) {
+        throw new Error("Failed to initialize auth state for pairing");
+      }
+
+      const { version } = await fetchLatestBaileysVersion();
+
+      sock = makeWASocket({
+        version,
+        printQRInTerminal: false,
+        browser: Browsers.ubuntu("Chrome"),
+        auth: {
+          creds: authState.state.creds,
+          keys: makeCacheableSignalKeyStore(authState.state.keys, undefined),
+        },
+        generateHighQualityLinkPreview: false,
+        markOnlineOnConnect: true,
+      });
+
+      this.sessions.set(sessionId, sock);
+
+      // Set up connection event handlers
+      sock.ev.on("connection.update", (update) => {
+        const { connection, lastDisconnect } = update;
+
+        this.eventEmitter.emit("whatsapp.connection.update", {
+          sessionId,
+          update,
+        });
+
+        if (connection === "open") {
+          this.logger.log(`✅ Session ${sessionId} connected via pairing code`);
+          this.eventEmitter.emit("whatsapp.session.connected", { sessionId });
+        }
+
+        if (connection === "close") {
+          const shouldReconnect =
+            (lastDisconnect?.error as Boom)?.output?.statusCode !== DisconnectReason.loggedOut;
+          this.logger.log(`Connection closed for session ${sessionId} (pairing), shouldReconnect: ${shouldReconnect}`);
+        }
+      });
+
+      // Handle credential updates
+      sock.ev.on("creds.update", async () => {
+        const authStateUpdate = this.authStates.get(sessionId);
+        if (authStateUpdate?.saveCreds) {
+          await authStateUpdate.saveCreds();
+        }
+      });
+    }
+
+    // Wait a bit for the socket to be ready
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    // Request pairing code
+    try {
+      const code = await sock.requestPairingCode(phoneNumber);
+      this.logger.log(`Pairing code generated for session ${sessionId}: ${code}`);
+      return code;
+    } catch (error) {
+      this.logger.error(`Failed to request pairing code: ${error.message}`);
+      throw error;
+    }
+  }
+
   async disconnectSession(sessionId: string): Promise<void> {
     // Stop timers first
     this.stopKeepAlive(sessionId);

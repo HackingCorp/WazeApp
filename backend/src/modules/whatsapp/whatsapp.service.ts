@@ -554,6 +554,47 @@ export class WhatsAppService {
     };
   }
 
+  /**
+   * Request a pairing code as alternative to QR code scanning
+   * This is useful for Android devices that have issues with QR scanning
+   */
+  async requestPairingCode(
+    id: string,
+    phoneNumber: string,
+    userId: string,
+    organizationId: string | null,
+  ): Promise<{ pairingCode: string; expiresAt: Date }> {
+    const session = await this.findOne(id, userId, organizationId);
+
+    if (session.status === WhatsAppSessionStatus.CONNECTED) {
+      throw new BadRequestException("Session is already connected");
+    }
+
+    // Format phone number: remove +, spaces, dashes, parentheses
+    const formattedPhone = phoneNumber.replace(/[\s\-\(\)\+]/g, '');
+
+    this.logger.log(`Requesting pairing code for session ${id} with phone ${formattedPhone}`);
+
+    try {
+      // Request pairing code from Baileys
+      const pairingCode = await this.baileysService.requestPairingCode(id, formattedPhone);
+
+      // Update session status
+      await this.sessionRepository.update(id, {
+        status: WhatsAppSessionStatus.CONNECTING,
+        lastConnectionAttempt: new Date(),
+      });
+
+      return {
+        pairingCode,
+        expiresAt: new Date(Date.now() + 300000), // 5 minutes
+      };
+    } catch (error) {
+      this.logger.error(`Failed to get pairing code: ${error.message}`);
+      throw new BadRequestException(`Failed to generate pairing code: ${error.message}`);
+    }
+  }
+
   async getSessionStats(
     id: string,
     userId: string,

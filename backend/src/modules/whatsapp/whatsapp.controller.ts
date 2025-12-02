@@ -209,6 +209,26 @@ export class WhatsAppController {
     return this.whatsappService.getQRCode(id, userId, organizationId);
   }
 
+  @Post("sessions/:id/pairing-code")
+  @ApiOperation({ summary: "Get pairing code for session connection (alternative to QR)" })
+  @ApiResponse({
+    status: 200,
+    description: "Pairing code generated successfully",
+  })
+  @ApiResponse({ status: 400, description: "Could not generate pairing code" })
+  async getPairingCode(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body() body: { phoneNumber: string },
+    @CurrentUser() user: AuthenticatedRequest,
+  ): Promise<{ pairingCode: string; expiresAt: Date }> {
+    return this.whatsappService.requestPairingCode(
+      id,
+      body.phoneNumber,
+      user.userId,
+      user.organizationId || null,
+    );
+  }
+
   @Post("sessions/:id/send")
   @ApiOperation({ summary: "Send WhatsApp message" })
   @ApiResponse({

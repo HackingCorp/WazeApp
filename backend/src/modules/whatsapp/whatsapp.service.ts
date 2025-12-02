@@ -412,8 +412,16 @@ export class WhatsAppService {
       );
 
       if (connectionResult.needsQR && connectionResult.qr) {
-        // Generate QR code data URL from actual QR string
-        const qrCodeDataUrl = await QRCode.toDataURL(connectionResult.qr);
+        // Generate QR code data URL with enhanced options for better Android compatibility
+        const qrCodeDataUrl = await QRCode.toDataURL(connectionResult.qr, {
+          width: 512,                    // Larger size for better scanning
+          margin: 2,                     // Adequate margin
+          errorCorrectionLevel: 'H',     // Highest error correction for reliable scanning
+          color: {
+            dark: '#000000',             // Pure black for maximum contrast
+            light: '#FFFFFF',            // Pure white background
+          },
+        });
 
         // Update session with QR code and expiry (extended to 5 minutes)
         await this.sessionRepository.update(id, {
@@ -1168,7 +1176,16 @@ export class WhatsAppService {
   async handleQRUpdate(data: { sessionId: string; qr: string }) {
     const { sessionId, qr } = data;
 
-    const qrCodeDataUrl = await QRCode.toDataURL(qr);
+    // Generate QR code with enhanced options for better Android compatibility
+    const qrCodeDataUrl = await QRCode.toDataURL(qr, {
+      width: 512,                    // Larger size for better scanning
+      margin: 2,                     // Adequate margin
+      errorCorrectionLevel: 'H',     // Highest error correction for reliable scanning
+      color: {
+        dark: '#000000',             // Pure black for maximum contrast
+        light: '#FFFFFF',            // Pure white background
+      },
+    });
 
     await this.sessionRepository.update(sessionId, {
       qrCode: qrCodeDataUrl,

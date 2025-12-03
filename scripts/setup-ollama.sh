@@ -12,8 +12,8 @@ done
 echo "✅ Ollama is running!"
 
 # Pull the Qwen model
-echo "📥 Pulling Qwen 2.5 7B model (this may take a while)..."
-docker exec wazeapp_ollama ollama pull qwen2.5:7b
+echo "📥 Pulling Qwen 2.5 14B model (this may take a while)..."
+docker exec wazeapp_ollama ollama pull qwen2.5:14b
 
 echo ""
 echo "✅ Setup complete!"

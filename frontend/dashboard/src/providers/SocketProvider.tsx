@@ -39,7 +39,9 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
     const connectSocket = () => {
       console.log('Connecting to WhatsApp WebSocket...');
       
-      const newSocket = io(process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3100', {
+      // Connect to the /whatsapp namespace (must match backend gateway)
+      const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3100';
+      const newSocket = io(`${socketUrl}/whatsapp`, {
         auth: {
           token,
         },

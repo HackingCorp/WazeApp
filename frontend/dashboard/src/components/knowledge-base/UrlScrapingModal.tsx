@@ -272,16 +272,31 @@ export default function UrlScrapingModal({
       return;
     }
 
-    console.log('[UrlScrapingModal] Saving document to knowledge base...');
+    console.log('[UrlScrapingModal] Saving scraped content to knowledge base...');
     setIsSaving(true);
 
     try {
-      // Save the scraped content to the knowledge base
-      const response = await api.uploadFromUrl({
-        url: url.trim(),
+      // Build the content to save (include AI synthesis if available)
+      let contentToSave = scrapedContent.text || '';
+      if (aiSynthesis) {
+        contentToSave = `## Synthèse IA\n${aiSynthesis}\n\n## Contenu extrait\n${contentToSave}`;
+      }
+
+      // Save the scraped content directly using createRichTextDocument
+      const response = await api.createRichTextDocument({
         title: title.trim() || scrapedContent.metadata.title || 'Document extrait',
+        content: contentToSave,
         knowledgeBaseId,
         tags: scrapedContent.metadata.keywords || [],
+        filename: `${url.trim().replace(/[^a-zA-Z0-9]/g, '_')}.html`,
+        metadata: {
+          sourceUrl: url.trim(),
+          extractionMethod: 'url_scraping',
+          scrapedAt: new Date().toISOString(),
+          wordCount: scrapedContent.metadata.wordCount,
+          imagesCount: scrapedContent.images?.length || 0,
+          linksCount: scrapedContent.links?.length || 0,
+        },
       });
 
       console.log('[UrlScrapingModal] Save response:', response);

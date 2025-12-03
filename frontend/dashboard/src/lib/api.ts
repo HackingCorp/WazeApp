@@ -495,8 +495,8 @@ class ApiClient {
   }
 
   // Real-time URL scraping method
-  async scrapeUrl(data: { 
-    url: string; 
+  async scrapeUrl(data: {
+    url: string;
     options?: {
       waitForSelector?: string;
       removeSelectors?: string[];
@@ -506,6 +506,22 @@ class ApiClient {
     };
   }) {
     return this.request('/documents/scrape-url', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Create rich text document (for saving scraped content directly)
+  async createRichTextDocument(data: {
+    title: string;
+    content: string;
+    knowledgeBaseId: string;
+    tags?: string[];
+    filename?: string;
+    mimeType?: string;
+    metadata?: Record<string, any>;
+  }) {
+    return this.request('/documents/rich-text', {
       method: 'POST',
       body: JSON.stringify(data),
     });

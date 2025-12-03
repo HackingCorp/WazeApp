@@ -90,6 +90,7 @@ export class DocumentProcessorService {
       // Update document with results
       document.content = result.content;
       document.characterCount = result.content.length;
+      document.fileSize = Buffer.byteLength(result.content, 'utf8'); // Update fileSize based on content
       document.status = DocumentStatus.PROCESSED;
       document.contentHash = this.generateContentHash(result.content);
       document.metadata = {

@@ -152,11 +152,13 @@ export class DocumentService {
       type: DocumentType.URL,
       filename: uploadDto.url,
       fileSize: 0,
+      characterCount: 0,
       mimeType: "text/html",
       filePath: uploadDto.url,
       uploadedBy: userId,
       knowledgeBaseId: uploadDto.knowledgeBaseId,
       tags: uploadDto.tags,
+      status: DocumentStatus.PENDING,
       metadata: {
         extractionMethod: "url_scraping",
       },

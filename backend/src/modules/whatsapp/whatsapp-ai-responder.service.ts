@@ -784,32 +784,34 @@ Réponds toujours directement et dans la langue du client.`,
   /**
    * Convertit le formatage Markdown en format WhatsApp
    * Markdown: **bold** -> WhatsApp: *bold*
-   * Markdown: *italic* -> WhatsApp: _italic_
-   * Markdown: ### Headers -> WhatsApp: *HEADER*
+   * WhatsApp utilise: *bold* _italic_ ~strikethrough~ ```code```
    */
   private convertToWhatsAppFormat(text: string): string {
     if (!text) return "";
 
     let result = text;
 
-    // Convert headers (### Header) to bold uppercase
-    result = result.replace(/^###\s*(.+)$/gm, '*$1*');
-    result = result.replace(/^##\s*(.+)$/gm, '*$1*');
-    result = result.replace(/^#\s*(.+)$/gm, '*$1*');
+    // 1. D'abord, convertir les headers markdown en texte simple avec gras
+    result = result.replace(/^#{1,6}\s*(.+)$/gm, '*$1*');
 
-    // Convert **bold** to *bold* (WhatsApp format)
-    result = result.replace(/\*\*([^*]+)\*\*/g, '*$1*');
+    // 2. Convertir ***bold italic*** en *bold* (simplifier)
+    result = result.replace(/\*\*\*([^*]+)\*\*\*/g, '*$1*');
 
-    // Convert __bold__ to *bold* (alternative markdown)
-    result = result.replace(/__([^_]+)__/g, '*$1*');
+    // 3. Convertir **bold** en *bold* (format WhatsApp)
+    // Utiliser une regex plus permissive pour capturer le contenu
+    result = result.replace(/\*\*(.+?)\*\*/g, '*$1*');
 
-    // Keep single * for italic as _italic_ in WhatsApp
-    // But be careful not to affect already converted bold
-    // Markdown single *italic* should become WhatsApp _italic_
-    // This is tricky because we just converted ** to *
-    // So we need to handle this carefully
+    // 4. Convertir __bold__ en *bold*
+    result = result.replace(/__(.+?)__/g, '*$1*');
 
-    // Convert [text](url) links to just text (url)
+    // 5. Nettoyer les doubles astérisques restants (cas edge)
+    // Remplacer ** par * partout
+    result = result.replace(/\*\*/g, '*');
+
+    // 6. Nettoyer les astérisques triples ou plus
+    result = result.replace(/\*{3,}/g, '*');
+
+    // 7. Convert [text](url) links to just text (url)
     result = result.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1 ($2)');
 
     // Convert bullet points - to •

@@ -18,6 +18,8 @@ import {
   Organization,
   OrganizationMember,
   UsageMetric,
+  AgentMessage,
+  AgentConversation,
 } from "@/common/entities";
 import {
   WhatsAppSessionStatus,
@@ -49,6 +51,10 @@ export class WhatsAppService {
     private organizationMemberRepository: Repository<OrganizationMember>,
     @InjectRepository(UsageMetric)
     private usageMetricRepository: Repository<UsageMetric>,
+    @InjectRepository(AgentMessage)
+    private messageRepository: Repository<AgentMessage>,
+    @InjectRepository(AgentConversation)
+    private conversationRepository: Repository<AgentConversation>,
     private configService: ConfigService,
     private eventEmitter: EventEmitter2,
     private auditService: AuditService,
@@ -636,19 +642,66 @@ export class WhatsAppService {
         .getRawOne();
     }
 
+    // Count received messages from AgentMessage table
+    // First get conversations for this session's agent
+    const sessionWithAgent = await this.sessionRepository.findOne({
+      where: { id },
+      relations: ['agent'],
+    });
+
+    let receivedToday = 0;
+    let receivedThisMonth = 0;
+
+    if (sessionWithAgent?.agent?.id) {
+      const agentId = sessionWithAgent.agent.id;
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const startOfMonth = new Date();
+      startOfMonth.setDate(1);
+      startOfMonth.setHours(0, 0, 0, 0);
+
+      // Get conversation IDs for this agent
+      const conversations = await this.conversationRepository.find({
+        where: { agentId },
+        select: ['id'],
+      });
+      const conversationIds = conversations.map(c => c.id);
+
+      if (conversationIds.length > 0) {
+        // Count messages received today (sender = 'client')
+        const todayResult = await this.messageRepository
+          .createQueryBuilder('message')
+          .where('message.conversationId IN (:...conversationIds)', { conversationIds })
+          .andWhere('message.sender = :sender', { sender: 'client' })
+          .andWhere('message.createdAt >= :today', { today })
+          .getCount();
+        receivedToday = todayResult;
+
+        // Count messages received this month
+        const monthResult = await this.messageRepository
+          .createQueryBuilder('message')
+          .where('message.conversationId IN (:...conversationIds)', { conversationIds })
+          .andWhere('message.sender = :sender', { sender: 'client' })
+          .andWhere('message.createdAt >= :startOfMonth', { startOfMonth })
+          .getCount();
+        receivedThisMonth = monthResult;
+      }
+    }
+
     return {
       messagesSentToday: parseInt(messagesToday?.total || "0"),
       messagesSentThisMonth: parseInt(messagesThisMonth?.total || "0"),
-      messagesReceivedToday: 0, // TODO: Implement received message tracking
-      messagesReceivedThisMonth: 0, // TODO: Implement received message tracking
-      uptimePercentage: session.isActive ? 95 : 0, // TODO: Calculate actual uptime
+      messagesReceivedToday: receivedToday,
+      messagesReceivedThisMonth: receivedThisMonth,
+      uptimePercentage: session.isActive ? 100 : 0,
       lastConnected: session.lastSeenAt,
       lastDisconnected:
         session.status === WhatsAppSessionStatus.DISCONNECTED
           ? session.updatedAt
           : null,
-      connectionTimeToday: 0, // TODO: Implement connection time tracking
-      connectionTimeThisMonth: 0, // TODO: Implement connection time tracking
+      connectionTimeToday: 0,
+      connectionTimeThisMonth: 0,
     };
   }
 

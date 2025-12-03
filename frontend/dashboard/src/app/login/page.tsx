@@ -12,8 +12,8 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
-    email: 'prouser@example.com', // Pre-filled for convenience
-    password: 'password123'
+    email: '',
+    password: ''
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -223,13 +223,6 @@ export default function LoginPage() {
                 </button>
               </div>
 
-              {/* Test credentials */}
-              <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                <p className="text-sm text-blue-800 font-medium mb-2">🚀 Compte de démonstration :</p>
-                <p className="text-sm text-blue-700">Email: <code className="bg-blue-100 px-1 rounded">prouser@example.com</code></p>
-                <p className="text-sm text-blue-700">Mot de passe: <code className="bg-blue-100 px-1 rounded">password123</code></p>
-              </div>
-
               {/* Alternative login */}
               <div className="mt-6 text-center">
                 <div className="relative">
@@ -240,11 +233,11 @@ export default function LoginPage() {
                     <span className="px-2 bg-white text-gray-500">Ou</span>
                   </div>
                 </div>
-                
+
                 <div className="mt-4">
                   <a
-                    href="http://localhost:3102/login"
-                    className="text-indigo-600 hover:text-indigo-500 font-medium transition-colors"
+                    href="https://wazeapp.xyz/login"
+                    className="text-green-600 hover:text-green-500 font-medium transition-colors"
                   >
                     Utiliser la connexion du site principal →
                   </a>

@@ -142,6 +142,15 @@ export class WhatsAppAIResponderService {
       return;
     }
 
+    // Skip group messages - AI only responds to private chats
+    const isGroupMessage = fromNumber.endsWith("@g.us");
+    if (isGroupMessage) {
+      this.logger.log(
+        `⏭️ Skipping GROUP message from ${fromNumber} - AI only responds to private chats`,
+      );
+      return;
+    }
+
     // Mark message as being processed
     this.processingMessages.add(messageId);
 

@@ -75,6 +75,16 @@ export class WhatsAppAIResponderSimpleService {
       // Extract message details
       const message = event.message;
       const fromNumber = message.key.remoteJid;
+
+      // Skip group messages - AI only responds to private chats
+      const isGroupMessage = fromNumber?.endsWith("@g.us");
+      if (isGroupMessage) {
+        this.logger.log(
+          `⏭️ Skipping GROUP message from ${fromNumber} - AI only responds to private chats`,
+        );
+        return;
+      }
+
       const messageText = this.extractMessageText(message);
 
       if (!messageText || messageText.trim() === "") {

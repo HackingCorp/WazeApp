@@ -15,6 +15,7 @@ import {
 import { WhatsAppSessionStatus, MessageRole, MessageStatus } from "@/common/enums";
 import { LLMRouterService } from "../llm-providers/llm-router.service";
 import { BaileysService } from "./baileys.service";
+import { QuotaEnforcementService } from "../subscriptions/quota-enforcement.service";
 import * as fs from 'fs/promises';
 import * as path from 'path';
 
@@ -50,6 +51,7 @@ export class WhatsAppAIResponderSimpleService {
     private llmRouterService: LLMRouterService,
     private baileysService: BaileysService,
     private configService: ConfigService,
+    private quotaEnforcementService: QuotaEnforcementService,
   ) {}
 
   @OnEvent("whatsapp.message.received")
@@ -75,6 +77,28 @@ export class WhatsAppAIResponderSimpleService {
       // Extract message details
       const message = event.message;
       const fromNumber = message.key.remoteJid;
+
+      // Check message quota before processing
+      try {
+        if (session.organizationId) {
+          await this.quotaEnforcementService.enforceWhatsAppMessageQuota(session.organizationId);
+        } else if (session.userId) {
+          await this.quotaEnforcementService.enforceUserWhatsAppMessageQuota(session.userId);
+        }
+      } catch (quotaError) {
+        this.logger.warn(`Message quota exceeded for session ${session.id}: ${quotaError.message}`);
+        // Send a message to the user explaining the limit
+        try {
+          await this.baileysService.sendMessage(session.id, {
+            to: fromNumber,
+            message: "Sorry, the monthly message limit has been reached. Please contact the administrator to upgrade the plan.",
+            type: "text",
+          });
+        } catch (sendError) {
+          this.logger.error(`Failed to send quota exceeded message: ${sendError.message}`);
+        }
+        return;
+      }
 
       // Skip group messages - AI only responds to private chats
       const isGroupMessage = fromNumber?.endsWith("@g.us");

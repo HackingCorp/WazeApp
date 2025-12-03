@@ -30,6 +30,7 @@ import { LLMRouterService } from "../llm-providers/llm-router.service";
 import { BaileysService } from "./baileys.service";
 import { WebSearchService } from "./web-search.service";
 import { MediaAnalysisService } from "./media-analysis.service";
+import { QuotaEnforcementService } from "../subscriptions/quota-enforcement.service";
 
 interface WhatsAppMessageEvent {
   sessionId: string;
@@ -105,6 +106,7 @@ export class WhatsAppAIResponderService {
     private mediaAnalysisService: MediaAnalysisService,
     private configService: ConfigService,
     private eventEmitter: EventEmitter2,
+    private quotaEnforcementService: QuotaEnforcementService,
   ) {
     console.log('🔧 WhatsAppAIResponderService: Service initialized and ready to receive events');
     this.logger.log('WhatsAppAIResponderService initialized');
@@ -179,6 +181,28 @@ export class WhatsAppAIResponderService {
       }
 
       this.logger.log(`✅ Session found: ${session.id}, status: ${session.status}, agent: ${session.agent ? `${session.agent.id} (${session.agent.name})` : 'none'}, organizationId: ${session.organizationId}`);
+
+      // Check message quota before processing
+      try {
+        if (session.organizationId) {
+          await this.quotaEnforcementService.enforceWhatsAppMessageQuota(session.organizationId);
+        } else if (session.userId) {
+          await this.quotaEnforcementService.enforceUserWhatsAppMessageQuota(session.userId);
+        }
+      } catch (quotaError) {
+        this.logger.warn(`Message quota exceeded for session ${session.id}: ${quotaError.message}`);
+        // Send a message to the user explaining the limit
+        try {
+          await this.baileysService.sendMessage(session.id, {
+            to: fromNumber,
+            message: "Sorry, the monthly message limit has been reached. Please contact the administrator to upgrade the plan.",
+            type: "text",
+          });
+        } catch (sendError) {
+          this.logger.error(`Failed to send quota exceeded message: ${sendError.message}`);
+        }
+        return;
+      }
 
       // Extract message details and analyze media
       const messageText = this.extractMessageText(message);

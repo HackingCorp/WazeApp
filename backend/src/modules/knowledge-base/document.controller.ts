@@ -180,7 +180,7 @@ export class DocumentController {
     );
   }
 
-  @Post()
+  @Post("rich-text")
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.OWNER, UserRole.ADMIN, UserRole.MEMBER)
   @ApiOperation({ summary: "Create rich text document" })

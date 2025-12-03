@@ -153,19 +153,30 @@ export default function ConversationsPage() {
       const conversations = Array.isArray(response) ? response : response?.data || [];
       
       if (conversations.length > 0) {
+        // Clean phone number - remove all WhatsApp suffixes (@s.whatsapp.net, @lid, @c.us)
+        const cleanPhoneNumber = (phone: string) => {
+          if (!phone) return '';
+          return phone
+            .replace(/@s\.whatsapp\.net$/i, '')
+            .replace(/@lid$/i, '')
+            .replace(/@c\.us$/i, '')
+            .replace(/@g\.us$/i, '');
+        };
+
+        // Clean any text that might contain @lid or other suffixes
+        const cleanText = (text: string) => {
+          if (!text) return '';
+          return text
+            .replace(/@s\.whatsapp\.net/gi, '')
+            .replace(/@lid/gi, '')
+            .replace(/@c\.us/gi, '')
+            .replace(/@g\.us/gi, '');
+        };
+
         // Convert backend format to frontend format
         const formattedContacts = conversations.map((conv: any) => {
           const isGroup = conv.phoneNumber?.includes('@g.us') || false;
-
-          // Clean phone number - remove all WhatsApp suffixes (@s.whatsapp.net, @lid, @c.us)
-          const cleanPhoneNumber = (phone: string) => {
-            if (!phone) return '';
-            return phone
-              .replace(/@s\.whatsapp\.net$/i, '')
-              .replace(/@lid$/i, '')
-              .replace(/@c\.us$/i, '')
-              .replace(/@g\.us$/i, '');
-          };
+          const cleanedPhone = cleanPhoneNumber(conv.phoneNumber);
 
           // Use contact name from our contacts map, or fallback to conversation name, or clean phone
           let displayName = conv.name;
@@ -173,19 +184,20 @@ export default function ConversationsPage() {
             // Try to get name from contacts map
             displayName = getContactDisplayName(conv.phoneNumber);
           }
+          // Also clean the display name if it still has suffixes
+          displayName = cleanText(displayName);
 
           // Better formatting for groups
           if (isGroup && !displayName.includes('📱')) {
-            const groupId = cleanPhoneNumber(conv.phoneNumber);
             displayName = conv.name && !conv.name.includes('@')
               ? `📱 ${conv.name}`
-              : `📱 Group ${groupId}`;
+              : `📱 Group ${cleanedPhone}`;
           }
 
           // Format phone number for display
-          let displayPhone = cleanPhoneNumber(conv.phoneNumber);
+          let displayPhone = cleanedPhone;
           if (isGroup) {
-            displayPhone = `Group: ${displayPhone}`;
+            displayPhone = `Group: ${cleanedPhone}`;
           } else if (displayPhone && !displayPhone.startsWith('+')) {
             // Format as international number if not already
             displayPhone = `+${displayPhone}`;
@@ -195,7 +207,8 @@ export default function ConversationsPage() {
             id: conv.id,
             name: displayName,
             phone: displayPhone,
-            lastMessage: conv.lastMessage || '',
+            cleanedPhone: cleanedPhone, // Used for deduplication
+            lastMessage: cleanText(conv.lastMessage || ''),
             lastMessageTime: new Date(conv.lastMessageTime),
             unreadCount: conv.unreadCount || 0,
             isOnline: conv.isOnline || false,
@@ -203,8 +216,31 @@ export default function ConversationsPage() {
             isGroup: isGroup,
           };
         });
-        
-        setContacts(formattedContacts);
+
+        // Deduplicate by cleaned phone number - keep the most recent conversation
+        const deduplicatedContacts = formattedContacts.reduce((acc: any[], contact: any) => {
+          const existingIndex = acc.findIndex(c => c.cleanedPhone === contact.cleanedPhone);
+          if (existingIndex === -1) {
+            acc.push(contact);
+          } else {
+            // Keep the one with the more recent lastMessageTime
+            const existing = acc[existingIndex];
+            if (contact.lastMessageTime > existing.lastMessageTime) {
+              acc[existingIndex] = contact;
+            } else {
+              // Merge unread counts
+              acc[existingIndex].unreadCount += contact.unreadCount;
+            }
+          }
+          return acc;
+        }, []);
+
+        // Sort by last message time (most recent first)
+        deduplicatedContacts.sort((a: any, b: any) =>
+          b.lastMessageTime.getTime() - a.lastMessageTime.getTime()
+        );
+
+        setContacts(deduplicatedContacts);
       } else {
         // No real conversations, show empty state
         setContacts([]);

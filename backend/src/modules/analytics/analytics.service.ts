@@ -36,29 +36,34 @@ export class AnalyticsService {
       // Get real data from database
       console.log('🔍 Analytics Service: Fetching real data from database...');
 
-      // Build proper where conditions based on whether organizationId exists
+      // Build proper where conditions - find ALL agents the user has access to
+      // Always search for agents created by the user (regardless of org assignment)
+      // Plus org-level agents if user has an organization
       let agentWhereConditions: any[];
       let sessionWhereConditions: any[];
 
       if (organizationId) {
-        // Has organization - search org agents AND personal agents
+        // Has organization - search org agents AND all user-created agents
         agentWhereConditions = [
           { organizationId },
-          { createdBy: userId, organizationId: IsNull() }
+          { createdBy: userId }  // All agents created by user (with or without org)
         ];
         sessionWhereConditions = [
           { organizationId },
-          { userId, organizationId: IsNull() }
+          { userId }  // All sessions for this user
         ];
       } else {
-        // Personal workspace only - search only user's personal agents
+        // No organization - search all agents created by user
         agentWhereConditions = [
-          { createdBy: userId, organizationId: IsNull() }
+          { createdBy: userId }
         ];
         sessionWhereConditions = [
-          { userId, organizationId: IsNull() }
+          { userId }
         ];
       }
+
+      console.log('📊 Analytics: Where conditions for agents:', JSON.stringify(agentWhereConditions));
+      console.log('📊 Analytics: Where conditions for sessions:', JSON.stringify(sessionWhereConditions));
 
       // Get AI Agents
       const agents = await this.agentRepository.find({
@@ -169,32 +174,39 @@ export class AnalyticsService {
       // Generate real chart data for last 7 days
       const chartData = await this.generateRealChartData(agents, period);
 
-      console.log('✅ Analytics Service: Returning data with stats:', stats);
-      console.log('✅ Analytics Service: AI Agent statuses count:', agentStatuses.length);
+      console.log('✅ Analytics Service: Returning REAL data with stats:', JSON.stringify(stats));
+      console.log('✅ Analytics Service: AI Agent statuses:', JSON.stringify(agentStatuses));
+      console.log('✅ Analytics Service: Chart data points:', chartData.length);
       return {
         stats,
         chartData,
         agentStatuses, // Now only contains AI Agents
         organizationId,
+        userId,
+        isRealData: true, // Flag to verify this is real data
         generatedAt: new Date().toISOString(),
       };
     } catch (error) {
       console.error('❌ Analytics Service: Error occurred:', error);
-      // Return mock data as fallback
+      console.error('❌ Analytics Service: Error stack:', error.stack);
+      // Return ZERO data on error - don't show fake numbers
       return {
         stats: {
-          totalConversations: 1247,
-          activeConversations: 23,
-          totalAgents: 5,
-          activeAgents: 4,
-          responseTime: 1.2,
-          satisfactionRate: 94.5,
-          messagesThisMonth: 5678,
-          conversionRate: 12.8,
+          totalConversations: 0,
+          activeConversations: 0,
+          totalAgents: 0,
+          activeAgents: 0,
+          responseTime: 0,
+          satisfactionRate: 0,
+          messagesThisMonth: 0,
+          conversionRate: 0,
         },
         chartData: [],
         agentStatuses: [],
         organizationId,
+        userId,
+        isRealData: false,
+        error: error.message,
         generatedAt: new Date().toISOString(),
       };
     }

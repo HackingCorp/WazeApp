@@ -353,7 +353,7 @@ export default function WhatsAppPage() {
         const pollInterval = setInterval(async () => {
           try {
             // First check the force-complete-connection endpoint to see if connection is ready
-            const forceCompleteResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3103/api/v1'}/whatsapp/debug/force-complete-connection/${sessionId}`, {
+            const forceCompleteResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3100/api/v1'}/whatsapp/debug/force-complete-connection/${sessionId}`, {
               method: 'POST'
             });
             

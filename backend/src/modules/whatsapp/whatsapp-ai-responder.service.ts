@@ -921,11 +921,11 @@ Always respond directly in the user's language without any formatting.`,
         `Generating AI response for conversation: ${conversation.id}`,
       );
 
-      // Get conversation history (last 10 messages)
+      // Get conversation history (last 20 messages for better context)
       const recentMessages = await this.messageRepository.find({
         where: { conversationId: conversation.id },
         order: { createdAt: "DESC" },
-        take: 10,
+        take: 20,
       });
 
       // Search knowledge base for relevant information
@@ -1058,12 +1058,13 @@ EXEMPLE DE RÉPONSE CORRECTE:
       }
 
       // Create a simple context for the LLM Router
+      // Use last 15 messages for better conversation context
       const messages = [
         {
           role: "system" as const,
           content: systemPrompt,
         },
-        ...recentMessages.slice(-5).map((msg) => ({
+        ...recentMessages.slice(-15).reverse().map((msg) => ({
           role:
             msg.role === MessageRole.USER
               ? ("user" as const)

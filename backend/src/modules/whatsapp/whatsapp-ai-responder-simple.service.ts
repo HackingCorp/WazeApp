@@ -25,13 +25,23 @@ interface WhatsAppMessageEvent {
   type: string;
 }
 
+// Configuration for conversation history
+const HISTORY_CONFIG = {
+  MAX_MESSAGES_IN_MEMORY: 20,      // Maximum messages to keep in memory per conversation
+  MESSAGES_TO_SEND_LLM: 15,        // Number of recent messages to send to LLM for context
+  MESSAGES_FOR_SUMMARY: 30,        // Threshold to trigger conversation summary
+  SUMMARY_KEEP_RECENT: 10,         // Keep this many recent messages when summarizing
+};
+
 @Injectable()
 export class WhatsAppAIResponderSimpleService {
   private readonly logger = new Logger(WhatsAppAIResponderSimpleService.name);
   private conversationHistory = new Map<
     string,
-    Array<{ role: "user" | "assistant"; content: string; timestamp: Date }>
+    Array<{ role: "user" | "assistant" | "system"; content: string; timestamp: Date }>
   >();
+  // Store conversation summaries for long conversations
+  private conversationSummaries = new Map<string, string>();
 
   constructor(
     @InjectRepository(WhatsAppSession)
@@ -172,9 +182,15 @@ export class WhatsAppAIResponderSimpleService {
 
       const conversationKey = this.getConversationKey(session.id, fromNumber);
 
-      // Get or initialize conversation history
+      // Load history from database if not in memory
       if (!this.conversationHistory.has(conversationKey)) {
-        this.conversationHistory.set(conversationKey, []);
+        const dbHistory = await this.loadConversationHistory(session.id, fromNumber);
+        this.conversationHistory.set(conversationKey, dbHistory.map(h => ({
+          role: h.role as "user" | "assistant" | "system",
+          content: h.content,
+          timestamp: h.timestamp,
+        })));
+        this.logger.log(`Loaded ${dbHistory.length} messages from database for ${conversationKey}`);
       }
 
       const history = this.conversationHistory.get(conversationKey)!;
@@ -186,32 +202,43 @@ export class WhatsAppAIResponderSimpleService {
         timestamp: new Date(),
       });
 
-      // Keep only last 10 messages
-      if (history.length > 10) {
-        history.splice(0, history.length - 10);
+      // Check if we need to create a summary for long conversations
+      if (history.length > HISTORY_CONFIG.MESSAGES_FOR_SUMMARY) {
+        await this.createConversationSummary(conversationKey, history);
       }
 
-      // Prepare messages for LLM
+      // Keep only last MAX_MESSAGES_IN_MEMORY messages
+      if (history.length > HISTORY_CONFIG.MAX_MESSAGES_IN_MEMORY) {
+        history.splice(0, history.length - HISTORY_CONFIG.MAX_MESSAGES_IN_MEMORY);
+      }
+
+      // Build messages array for LLM
+      const systemPrompt = this.getSystemPrompt(session.organization?.name || "Unknown");
+
+      // Include summary if available for long conversations
+      const summary = this.conversationSummaries.get(conversationKey);
+      const contextWithSummary = summary
+        ? `${systemPrompt}\n\nPREVIOUS CONVERSATION SUMMARY:\n${summary}\n\nContinue the conversation based on this context.`
+        : systemPrompt;
+
+      // Prepare messages for LLM with more context
       const messages = [
         {
           role: "system" as const,
-          content: this.getSystemPrompt(
-            session.organization?.name || "Unknown",
-          ),
+          content: contextWithSummary,
         },
-        ...history.slice(-8).map((h) => ({
-          // Last 8 messages for context
-          role: h.role,
+        ...history.slice(-HISTORY_CONFIG.MESSAGES_TO_SEND_LLM).map((h) => ({
+          role: h.role as "user" | "assistant",
           content: h.content,
         })),
       ];
 
       // Log conversation context for debugging
       this.logger.debug(
-        `Sending ${messages.length} messages to LLM (including ${history.length} history messages) for conversation ${conversationKey}`,
+        `Sending ${messages.length} messages to LLM (${history.length} in history, summary: ${!!summary}) for ${conversationKey}`,
       );
       this.logger.debug(
-        `Conversation history: ${JSON.stringify(history.slice(-3).map(h => ({ role: h.role, content: h.content.substring(0, 50) })))}`,
+        `Recent history: ${JSON.stringify(history.slice(-3).map(h => ({ role: h.role, content: h.content.substring(0, 50) })))}`,
       );
 
       // Generate response using LLM Router
@@ -388,10 +415,11 @@ Respond naturally and helpfully in the user's language.`;
         return [];
       }
 
+      // Load more messages from DB for better context
       const messages = await this.messageRepository.find({
         where: { conversationId: conversation.id },
         order: { timestamp: "ASC" },
-        take: 10,
+        take: HISTORY_CONFIG.MAX_MESSAGES_IN_MEMORY,
       });
 
       return messages.map(msg => ({
@@ -402,6 +430,69 @@ Respond naturally and helpfully in the user's language.`;
     } catch (error) {
       this.logger.error(`Error loading conversation history: ${error.message}`);
       return [];
+    }
+  }
+
+  /**
+   * Create a summary of the conversation for very long conversations
+   * This helps maintain context without sending too many tokens to the LLM
+   */
+  private async createConversationSummary(
+    conversationKey: string,
+    history: Array<{ role: string; content: string; timestamp: Date }>,
+  ): Promise<void> {
+    try {
+      // Only summarize if we don't already have a recent summary
+      const existingSummary = this.conversationSummaries.get(conversationKey);
+      if (existingSummary && history.length < HISTORY_CONFIG.MESSAGES_FOR_SUMMARY + 10) {
+        return; // Don't re-summarize too frequently
+      }
+
+      this.logger.log(`Creating conversation summary for ${conversationKey} (${history.length} messages)`);
+
+      // Get messages to summarize (excluding recent ones we'll keep in full)
+      const messagesToSummarize = history.slice(0, -HISTORY_CONFIG.SUMMARY_KEEP_RECENT);
+
+      if (messagesToSummarize.length < 5) {
+        return; // Not enough messages to summarize
+      }
+
+      // Format conversation for summarization
+      const conversationText = messagesToSummarize
+        .map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`)
+        .join('\n');
+
+      // Generate summary using LLM
+      const summaryResponse = await this.llmRouterService.generateResponse({
+        messages: [
+          {
+            role: "system",
+            content: `You are a conversation summarizer. Create a brief, factual summary of the following conversation.
+Focus on:
+- Main topics discussed
+- Key information shared by the user (name, preferences, questions asked)
+- Important decisions or conclusions
+- Any pending questions or requests
+
+Keep the summary concise (max 200 words) and in the same language as the conversation.`,
+          },
+          {
+            role: "user",
+            content: `Summarize this conversation:\n\n${conversationText}`,
+          },
+        ],
+        temperature: 0.3,
+        maxTokens: 300,
+        priority: "low",
+      });
+
+      // Store the summary
+      this.conversationSummaries.set(conversationKey, summaryResponse.content);
+
+      this.logger.log(`Created summary for ${conversationKey}: "${summaryResponse.content.substring(0, 100)}..."`);
+    } catch (error) {
+      this.logger.error(`Error creating conversation summary: ${error.message}`);
+      // Don't throw - summary is optional enhancement
     }
   }
 
@@ -468,12 +559,13 @@ Respond naturally and helpfully in the user's language.`;
       // Merge with in-memory history
       if (!this.conversationHistory.has(conversationKey)) {
         this.conversationHistory.set(conversationKey, dbHistory.map(h => ({
-          role: h.role as "user" | "assistant",
+          role: h.role as "user" | "assistant" | "system",
           content: h.content,
           timestamp: h.timestamp,
         })));
+        this.logger.log(`Loaded ${dbHistory.length} messages from database for enhanced processing`);
       }
-      
+
       const history = this.conversationHistory.get(conversationKey)!;
 
       // Add user message
@@ -483,9 +575,14 @@ Respond naturally and helpfully in the user's language.`;
         timestamp: new Date(),
       });
 
-      // Keep only last 10 messages
-      if (history.length > 10) {
-        history.splice(0, history.length - 10);
+      // Check if we need to create a summary for long conversations
+      if (history.length > HISTORY_CONFIG.MESSAGES_FOR_SUMMARY) {
+        await this.createConversationSummary(conversationKey, history);
+      }
+
+      // Keep only last MAX_MESSAGES_IN_MEMORY messages
+      if (history.length > HISTORY_CONFIG.MAX_MESSAGES_IN_MEMORY) {
+        history.splice(0, history.length - HISTORY_CONFIG.MAX_MESSAGES_IN_MEMORY);
       }
 
       // Search for relevant media in knowledge base
@@ -501,14 +598,20 @@ Respond naturally and helpfully in the user's language.`;
           relevantDocs.map(doc => `- ${doc.title}`).join("\n");
       }
 
-      // Generate AI response
+      // Include summary if available for long conversations
+      const summary = this.conversationSummaries.get(conversationKey);
+      const summaryContext = summary
+        ? `\n\nPREVIOUS CONVERSATION SUMMARY:\n${summary}\n\nContinue the conversation based on this context.`
+        : "";
+
+      // Generate AI response with enhanced context
       const messages = [
         {
           role: "system" as const,
-          content: this.getSystemPrompt(session.organization?.name || "Unknown") + contextInfo,
+          content: this.getSystemPrompt(session.organization?.name || "Unknown") + contextInfo + summaryContext,
         },
-        ...history.slice(-8).map((h) => ({
-          role: h.role,
+        ...history.slice(-HISTORY_CONFIG.MESSAGES_TO_SEND_LLM).map((h) => ({
+          role: h.role as "user" | "assistant",
           content: h.content,
         })),
       ];
@@ -547,7 +650,7 @@ Respond naturally and helpfully in the user's language.`;
         sessionId,
         session.userId,
         fromNumber,
-        history.slice(-10),
+        history.slice(-HISTORY_CONFIG.MAX_MESSAGES_IN_MEMORY),
       );
 
       this.logger.log(

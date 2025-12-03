@@ -43,6 +43,25 @@ services:
       retries: 3
       start_period: 30s
 
+  ollama:
+    image: ollama/ollama:latest
+    container_name: wazeapp_ollama
+    restart: unless-stopped
+    volumes:
+      - ollama_data:/root/.ollama
+    ports:
+      - "11434:11434"
+    networks:
+      - wazeapp_network
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/version"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
   backend:
     build:
       context: ./backend
@@ -53,6 +72,8 @@ services:
       postgres:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      ollama:
         condition: service_healthy
     command: ["dumb-init", "--", "node", "dist/main.js"]
     labels:
@@ -86,7 +107,7 @@ services:
       DASHBOARD_URL: https://app.wazeapp.xyz
       API_URL: https://api.wazeapp.xyz
       BAILEYS_WEBHOOK_URL: http://localhost:3100/api/whatsapp/webhook
-      OLLAMA_BASE_URL: http://host.docker.internal:11434
+      OLLAMA_BASE_URL: http://ollama:11434
       OLLAMA_MODEL: qwen2.5:7b
       GOOGLE_CLIENT_ID: "disabled"
       GOOGLE_CLIENT_SECRET: "disabled"
@@ -167,3 +188,4 @@ networks:
 volumes:
   postgres_data:
   redis_data:
+  ollama_data:

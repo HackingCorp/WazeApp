@@ -614,51 +614,114 @@ Réponds toujours directement et dans la langue du client.`,
         `Searching knowledge base ${knowledgeBase.id} for: "${userMessage}"`,
       );
 
-      // Recherche simple par mots-clés dans les documents
+      // Mots-clés importants pour le contexte commercial/logistique
+      const importantKeywords = [
+        'prix', 'tarif', 'coût', 'cout', 'fcfa', 'xaf', 'usd', 'dollar', 'euro',
+        'kg', 'kilo', 'kilogramme', 'poids', 'cbm', 'volume',
+        'transport', 'fret', 'cargo', 'expédition', 'expedition', 'envoi', 'livraison',
+        'aérien', 'aerien', 'avion', 'maritime', 'bateau', 'mer',
+        'chine', 'china', 'guangzhou', 'canton', 'shenzhen', 'yiwu',
+        'cameroun', 'douala', 'yaoundé', 'yaounde',
+        'délai', 'delai', 'durée', 'duree', 'jours', 'semaines',
+        'douane', 'dédouanement', 'dedouanement',
+        'contact', 'téléphone', 'telephone', 'whatsapp', 'adresse'
+      ];
+
+      // Recherche élargie par mots-clés dans les documents
+      const lowerMessage = userMessage.toLowerCase();
       const searchTerms = userMessage
         .toLowerCase()
-        .split(" ")
-        .filter((term) => term.length > 2); // Ignorer les mots de moins de 3 caractères
+        .split(/[\s,.'?!]+/)
+        .filter((term) => term.length > 2);
 
+      // Ajouter les mots-clés importants trouvés dans le message
+      const matchedImportantKeywords = importantKeywords.filter(kw =>
+        lowerMessage.includes(kw)
+      );
+
+      // Combiner les termes de recherche
+      const allSearchTerms = [...new Set([...searchTerms, ...matchedImportantKeywords])];
+
+      this.logger.log(`Search terms: ${allSearchTerms.join(', ')}`);
+
+      // Recherche dans les documents - chercher aussi dans les documents "uploaded" car ils peuvent contenir du contenu
       const documents = await this.knowledgeDocumentRepository
         .createQueryBuilder("doc")
         .where("doc.knowledgeBaseId = :kbId", { kbId: knowledgeBase.id })
-        .andWhere("doc.status = :status", { status: "processed" })
-        .andWhere(
-          searchTerms
-            .map(
-              (_, index) =>
-                `(LOWER(doc.content) LIKE :term${index} OR LOWER(doc.title) LIKE :term${index})`,
-            )
-            .join(" OR "),
-          Object.fromEntries(
-            searchTerms.map((term, index) => [`term${index}`, `%${term}%`]),
-          ),
-        )
+        .andWhere("doc.status IN (:...statuses)", { statuses: ["processed", "uploaded"] })
+        .andWhere("doc.content IS NOT NULL")
+        .andWhere("LENGTH(doc.content) > 10")
         .orderBy("doc.createdAt", "DESC")
-        .limit(3)
         .getMany();
+
+      this.logger.log(`Found ${documents.length} documents in knowledge base`);
 
       if (documents.length === 0) {
         this.logger.debug(
-          `No relevant documents found in knowledge base ${knowledgeBase.id}`,
+          `No documents found in knowledge base ${knowledgeBase.id}`,
         );
         return "";
       }
 
-      // Construire le contexte à partir des documents trouvés
-      const contextParts = documents.map((doc) => {
-        // Extraire un extrait pertinent du contenu
-        const content = doc.content || "";
-        const excerpt = this.extractRelevantExcerpt(content, searchTerms, 200);
+      // Scorer et trier les documents par pertinence
+      const scoredDocuments = documents.map(doc => {
+        let score = 0;
+        const content = (doc.content || "").toLowerCase();
+        const title = (doc.title || "").toLowerCase();
 
-        return `**${doc.title}**:\n${excerpt}`;
+        for (const term of allSearchTerms) {
+          // Score pour le titre (plus important)
+          if (title.includes(term)) {
+            score += 10;
+          }
+          // Score pour le contenu
+          const contentMatches = (content.match(new RegExp(term, 'gi')) || []).length;
+          score += contentMatches * 2;
+        }
+
+        // Bonus pour les mots-clés importants
+        for (const kw of matchedImportantKeywords) {
+          if (content.includes(kw)) {
+            score += 5;
+          }
+        }
+
+        return { doc, score };
+      })
+      .filter(item => item.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 5); // Top 5 documents les plus pertinents
+
+      if (scoredDocuments.length === 0) {
+        // Si aucun document pertinent, retourner TOUT le contenu de la KB pour contexte général
+        this.logger.log(`No specific matches, returning all KB content for context`);
+
+        const allContent = documents
+          .filter(doc => doc.content && doc.content.length > 50)
+          .slice(0, 3)
+          .map(doc => {
+            const content = doc.content || "";
+            return `**${doc.title}**:\n${content.substring(0, 1500)}${content.length > 1500 ? '...' : ''}`;
+          });
+
+        if (allContent.length > 0) {
+          return `📚 BASE DE CONNAISSANCES DISPONIBLE:\n\n${allContent.join("\n\n---\n\n")}\n\n⚠️ UTILISE CES INFORMATIONS POUR RÉPONDRE AU CLIENT!`;
+        }
+        return "";
+      }
+
+      // Construire le contexte à partir des documents trouvés avec des extraits plus longs
+      const contextParts = scoredDocuments.map(({ doc, score }) => {
+        const content = doc.content || "";
+        // Extraits plus longs (800 caractères) pour plus de contexte
+        const excerpt = this.extractRelevantExcerpt(content, allSearchTerms, 800);
+        return `**${doc.title}** (pertinence: ${score}):\n${excerpt}`;
       });
 
-      const context = `INFORMATIONS DE LA BASE DE CONNAISSANCES:\n\n${contextParts.join("\n\n---\n\n")}`;
+      const context = `📚 INFORMATIONS TROUVÉES DANS LA BASE DE CONNAISSANCES (TRÈS IMPORTANT - UTILISE CES DONNÉES!):\n\n${contextParts.join("\n\n---\n\n")}`;
 
       this.logger.log(
-        `Found ${documents.length} relevant documents in knowledge base`,
+        `Found ${scoredDocuments.length} relevant documents in knowledge base (top scores: ${scoredDocuments.slice(0, 3).map(d => d.score).join(', ')})`,
       );
       return context;
     } catch (error) {
@@ -674,34 +737,63 @@ Réponds toujours directement et dans la langue du client.`,
   ): string {
     if (!content) return "";
 
-    // Chercher la première occurrence d'un terme de recherche
+    // Chercher toutes les occurrences des termes de recherche et trouver la zone la plus dense
     const lowerContent = content.toLowerCase();
-    let bestPosition = -1;
+    const positions: number[] = [];
 
     for (const term of searchTerms) {
-      const position = lowerContent.indexOf(term.toLowerCase());
-      if (position !== -1 && (bestPosition === -1 || position < bestPosition)) {
-        bestPosition = position;
+      let pos = 0;
+      while ((pos = lowerContent.indexOf(term.toLowerCase(), pos)) !== -1) {
+        positions.push(pos);
+        pos += term.length;
       }
     }
 
-    if (bestPosition === -1) {
-      // Aucun terme trouvé, prendre le début
+    if (positions.length === 0) {
+      // Aucun terme trouvé, prendre le début du document
       return (
         content.substring(0, maxLength) +
         (content.length > maxLength ? "..." : "")
       );
     }
 
-    // Extraire autour de la position trouvée
-    const start = Math.max(0, bestPosition - maxLength / 2);
-    const end = Math.min(content.length, start + maxLength);
+    // Trier les positions et trouver la zone avec le plus de matches
+    positions.sort((a, b) => a - b);
 
-    let excerpt = content.substring(start, end);
+    // Trouver le meilleur point de départ (zone avec le plus de termes)
+    let bestStart = 0;
+    let bestCount = 0;
+
+    for (let i = 0; i < positions.length; i++) {
+      const windowStart = Math.max(0, positions[i] - 100);
+      const windowEnd = windowStart + maxLength;
+      const count = positions.filter(p => p >= windowStart && p <= windowEnd).length;
+
+      if (count > bestCount) {
+        bestCount = count;
+        bestStart = windowStart;
+      }
+    }
+
+    // Ajuster pour commencer au début d'une phrase si possible
+    const sentenceStart = content.lastIndexOf('.', bestStart);
+    if (sentenceStart !== -1 && bestStart - sentenceStart < 100) {
+      bestStart = sentenceStart + 1;
+    }
+
+    const end = Math.min(content.length, bestStart + maxLength);
+
+    let excerpt = content.substring(bestStart, end).trim();
+
+    // Essayer de terminer à la fin d'une phrase
+    const lastPeriod = excerpt.lastIndexOf('.');
+    if (lastPeriod > excerpt.length * 0.7) {
+      excerpt = excerpt.substring(0, lastPeriod + 1);
+    }
 
     // Ajouter des points de suspension si nécessaire
-    if (start > 0) excerpt = "..." + excerpt;
-    if (end < content.length) excerpt = excerpt + "...";
+    if (bestStart > 0) excerpt = "..." + excerpt;
+    if (end < content.length && !excerpt.endsWith('.')) excerpt = excerpt + "...";
 
     return excerpt;
   }
@@ -814,7 +906,23 @@ EXEMPLES DE CONTEXTE:
       }
       
       if (knowledgeContext) {
-        systemPrompt += `\n\n${knowledgeContext}\n\nUtilise ces informations pour enrichir ta réponse si elles sont pertinentes à la question.`;
+        systemPrompt += `\n\n${knowledgeContext}
+
+🚨 RÈGLES CRITIQUES POUR LA BASE DE CONNAISSANCES:
+1. Tu DOIS utiliser les informations ci-dessus pour répondre - elles sont PRIORITAIRES
+2. NE REDEMANDE PAS des informations que le client a déjà fournies
+3. Si les prix/tarifs sont dans la base de connaissances, UTILISE-LES directement
+4. Si le client demande un prix en FCFA et que tu as le prix en USD, CONVERTIS-LE (1 USD ≈ 600 FCFA)
+5. Ne dis JAMAIS "je n'ai pas cette information" si elle est dans la base de connaissances ci-dessus
+6. RAPPELLE-TOI du contexte de la conversation - si le client a dit "transport aérien vers Yaoundé", tu le SAIS déjà
+
+EXEMPLE DE MAUVAISE RÉPONSE (À ÉVITER):
+Client: "J'ai 10KG à Guangzhou, transport aérien vers Yaoundé"
+IA: "Pour vous fournir un tarif, j'ai besoin de: 1. Type de transport..."  ❌ MAUVAIS!
+
+EXEMPLE DE BONNE RÉPONSE:
+Client: "J'ai 10KG à Guangzhou, transport aérien vers Yaoundé"
+IA: "Pour votre envoi de 10KG de Guangzhou vers Yaoundé par avion, voici nos tarifs: [UTILISE LES PRIX DE LA BASE DE CONNAISSANCES]" ✅ BON!`;
       }
       if (webContext) {
         systemPrompt += `\n\n${webContext}`;
@@ -867,10 +975,10 @@ EXEMPLES DE CONTEXTE:
       // Use LLM router directly with enhanced parameters for better quality
       const response = await this.llmRouterService.generateResponse({
         messages: enhancedMessages,
-        temperature: agent.config.temperature || 0.6,
-        maxTokens: agent.config.maxTokens || 300,
-        topP: 0.9, // For better response diversity
-        frequencyPenalty: 0.1, // Reduce repetition
+        temperature: agent.config.temperature || 0.5, // Lower for more consistent/accurate responses
+        maxTokens: agent.config.maxTokens || 600, // Increased for more detailed responses
+        topP: 0.85, // For balanced response diversity
+        frequencyPenalty: 0.2, // Reduce repetition more
         presencePenalty: 0.1, // Encourage topic diversity
         organizationId: agent.organizationId,
         agentId: agent.id,

@@ -315,9 +315,9 @@ export function ConversationInterface({
   );
 
   return (
-    <div className="flex h-full bg-gray-100 dark:bg-gray-900">
+    <div className="flex h-full overflow-hidden bg-gray-100 dark:bg-gray-900">
       {/* Contacts Sidebar */}
-      <div className="w-[340px] bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col">
+      <div className="w-[340px] h-full bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col overflow-hidden">
         {/* Sidebar Header */}
         <div className="p-4 bg-emerald-600 dark:bg-emerald-700">
           <div className="flex items-center justify-between mb-4">
@@ -365,7 +365,7 @@ export function ConversationInterface({
       </div>
 
       {/* Chat Area */}
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col h-full overflow-hidden">
         {selectedContact ? (
           <>
             {/* Chat Header */}

@@ -464,14 +464,14 @@ export default function ConversationsPage() {
   }
 
   return (
-    <div className="h-screen relative">
+    <div className="h-screen flex flex-col overflow-hidden">
       {/* WhatsApp Session Selector */}
       {whatsappSessions.length > 1 && (
-        <div className="bg-gray-50 border-b border-gray-200 p-3">
+        <div className="flex-shrink-0 bg-gray-50 border-b border-gray-200 p-3">
           <div className="flex items-center space-x-3">
             <span className="text-sm font-medium text-gray-700">WhatsApp Account:</span>
-            <select 
-              value={selectedSessionId} 
+            <select
+              value={selectedSessionId}
               onChange={(e) => setSelectedSessionId(e.target.value)}
               className="text-sm border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
@@ -487,10 +487,10 @@ export default function ConversationsPage() {
           </div>
         </div>
       )}
-      
+
       {/* No Sessions Warning */}
       {whatsappSessions.length === 0 && !loadingConversations && (
-        <div className="bg-yellow-50 border-b border-yellow-200 p-3">
+        <div className="flex-shrink-0 bg-yellow-50 border-b border-yellow-200 p-3">
           <div className="text-sm text-yellow-800">
             <strong>No WhatsApp accounts connected.</strong>{' '}
             <a href="/whatsapp" className="text-blue-600 hover:underline">
@@ -500,17 +500,17 @@ export default function ConversationsPage() {
           </div>
         </div>
       )}
-      
+
       {/* Sync Status Banner */}
       {syncStatus && syncStatus.isActive && (
-        <div className="absolute top-0 left-0 right-0 z-50 bg-blue-600 text-white p-3">
+        <div className="flex-shrink-0 bg-blue-600 text-white p-3 z-50">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
               <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
               <div>
                 <p className="font-medium">Synchronizing WhatsApp conversations...</p>
                 <p className="text-sm opacity-90">
-                  {syncStatus.status === 'started' 
+                  {syncStatus.status === 'started'
                     ? `Found ${syncStatus.totalChats} conversations to sync`
                     : `${syncStatus.syncedChats}/${syncStatus.totalChats} conversations synced`
                   }
@@ -526,7 +526,7 @@ export default function ConversationsPage() {
           </div>
           {syncStatus.totalChats > 0 && (
             <div className="mt-2 w-full bg-blue-500 rounded-full h-2">
-              <div 
+              <div
                 className="bg-white rounded-full h-2 transition-all duration-300"
                 style={{ width: `${Math.round((syncStatus.syncedChats / syncStatus.totalChats) * 100)}%` }}
               ></div>
@@ -534,8 +534,8 @@ export default function ConversationsPage() {
           )}
         </div>
       )}
-      
-      <div className={syncStatus?.isActive ? 'mt-24' : ''}>
+
+      <div className="flex-1 overflow-hidden">
         <ConversationInterface
           contacts={contacts}
           selectedContactId={selectedContactId}

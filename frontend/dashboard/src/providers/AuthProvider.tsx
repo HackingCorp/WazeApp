@@ -203,9 +203,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       const { user: userData, accessToken, refreshToken } = response.data;
 
+      // Set token FIRST before any API calls
       setToken(accessToken);
+      localStorage.setItem('auth-token', accessToken);
+      if (refreshToken) {
+        localStorage.setItem('refresh-token', refreshToken);
+      }
+      api.setToken(accessToken);
 
-      // Get subscription plan info with user data
+      // Now get subscription plan info (requires token)
       const planInfo = await getUserPlanInfo(userData);
 
       setUser({
@@ -224,12 +230,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           },
         },
       });
-      
-      localStorage.setItem('auth-token', accessToken);
-      if (refreshToken) {
-        localStorage.setItem('refresh-token', refreshToken);
-      }
-      api.setToken(accessToken);
       
       toast.success(`Welcome back, ${userData.firstName}!`);
       router.push('/dashboard');

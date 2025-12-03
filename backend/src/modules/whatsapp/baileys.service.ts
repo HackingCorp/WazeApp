@@ -1,10 +1,13 @@
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { EventEmitter2 } from "@nestjs/event-emitter";
+import { InjectRepository } from "@nestjs/typeorm";
+import { Repository } from "typeorm";
 import { Boom } from "@hapi/boom";
 import * as path from "path";
 import * as fs from "fs/promises";
 import { SendMessageDto } from "./dto/whatsapp.dto";
+import { WhatsAppSession } from "@/common/entities";
 
 // Baileys v7 requires dynamic imports (ESM)
 let makeWASocket: any;
@@ -66,6 +69,8 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
   constructor(
     private configService: ConfigService,
     private eventEmitter: EventEmitter2,
+    @InjectRepository(WhatsAppSession)
+    private sessionRepository: Repository<WhatsAppSession>,
   ) {
     // Listen for manual sync triggers
     this.eventEmitter.on(
@@ -533,9 +538,9 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
       });
 
       // Handle credentials update
-      sock.ev.on("creds.update", (creds) => {
+      sock.ev.on("creds.update", async (creds) => {
         try {
-          // Save credentials immediately
+          // Save credentials immediately to filesystem
           authState.saveCreds(creds);
           this.logger.debug(`💾 Credentials updated for session ${sessionId}`);
 
@@ -545,10 +550,13 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
               `🔑 myAppStateKeyId updated for session ${sessionId} - history sync now possible!`,
             );
           }
-          
+
           // Start periodic credentials backup
           this.startCredentialsSave(sessionId, authState);
-          
+
+          // Also backup credentials to database for persistence across deployments
+          await this.backupCredentialsToDatabase(sessionId);
+
         } catch (error) {
           this.logger.error(`Failed to save credentials for session ${sessionId}:`, error);
         }
@@ -1636,59 +1644,145 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
   }
 
   /**
+   * Backup credentials to database for persistence across deployments
+   */
+  private async backupCredentialsToDatabase(sessionId: string): Promise<void> {
+    try {
+      const sessionsPath = this.configService.get("WHATSAPP_SESSION_PATH", "./whatsapp-sessions");
+      const sessionPath = path.join(sessionsPath, sessionId);
+      const credentialsPath = path.join(sessionPath, "creds.json");
+
+      // Read all auth files
+      const authData: Record<string, any> = {};
+
+      try {
+        const creds = await fs.readFile(credentialsPath, "utf-8");
+        authData.creds = JSON.parse(creds);
+      } catch (error) {
+        // No creds file
+      }
+
+      // Read app state keys if they exist
+      const files = await fs.readdir(sessionPath);
+      for (const file of files) {
+        if (file.startsWith("app-state-sync-key-") || file.startsWith("pre-key-") || file.startsWith("sender-key-")) {
+          try {
+            const content = await fs.readFile(path.join(sessionPath, file), "utf-8");
+            authData[file] = JSON.parse(content);
+          } catch (error) {
+            // Skip files that can't be parsed
+          }
+        }
+      }
+
+      // Save to database
+      if (Object.keys(authData).length > 0) {
+        await this.sessionRepository.update(sessionId, {
+          authData,
+          lastSeenAt: new Date(),
+        });
+        this.logger.log(`💾 Backed up credentials to database for session ${sessionId}`);
+      }
+    } catch (error) {
+      this.logger.warn(`Failed to backup credentials to database for session ${sessionId}:`, error.message);
+    }
+  }
+
+  /**
+   * Restore credentials from database to filesystem
+   */
+  private async restoreCredentialsFromDatabase(sessionId: string): Promise<boolean> {
+    try {
+      const session = await this.sessionRepository.findOne({ where: { id: sessionId } });
+
+      if (!session || !session.authData || Object.keys(session.authData).length === 0) {
+        return false;
+      }
+
+      const sessionsPath = this.configService.get("WHATSAPP_SESSION_PATH", "./whatsapp-sessions");
+      const sessionPath = path.join(sessionsPath, sessionId);
+
+      // Create session directory
+      await fs.mkdir(sessionPath, { recursive: true });
+
+      // Restore all auth files
+      for (const [filename, content] of Object.entries(session.authData)) {
+        if (filename === "creds") {
+          await fs.writeFile(path.join(sessionPath, "creds.json"), JSON.stringify(content, null, 2));
+        } else {
+          await fs.writeFile(path.join(sessionPath, filename), JSON.stringify(content, null, 2));
+        }
+      }
+
+      this.logger.log(`🔄 Restored credentials from database for session ${sessionId}`);
+      return true;
+    } catch (error) {
+      this.logger.warn(`Failed to restore credentials from database for session ${sessionId}:`, error.message);
+      return false;
+    }
+  }
+
+  /**
    * Auto-restore existing sessions on service startup
    */
   private async restoreExistingSessions(): Promise<void> {
     try {
       this.logger.log(`🔄 Auto-restoring existing WhatsApp sessions...`);
-      
+
+      // Get all sessions that were connected from the database
+      const dbSessions = await this.sessionRepository.find({
+        where: { autoReconnect: true },
+      });
+
+      this.logger.log(`📊 Found ${dbSessions.length} sessions in database with autoReconnect enabled`);
+
       const sessionsPath = this.configService.get("WHATSAPP_SESSION_PATH", "./whatsapp-sessions");
-      
-      // Check if sessions directory exists
-      try {
-        const sessionDirs = await fs.readdir(sessionsPath);
-        this.logger.log(`📁 Found ${sessionDirs.length} session directories`);
-        
-        for (const sessionId of sessionDirs) {
-          const sessionPath = path.join(sessionsPath, sessionId);
-          
-          try {
-            // Check if this is a valid session directory
-            const stats = await fs.stat(sessionPath);
-            if (stats.isDirectory()) {
-              // Check for auth files
-              const credentialsPath = path.join(sessionPath, "creds.json");
-              try {
-                await fs.access(credentialsPath);
-                this.logger.log(`🔑 Found credentials for session ${sessionId}, attempting restore...`);
-                
-                // Initialize the session
-                await this.initializeSession(sessionId);
-                
-                // Try to connect without forcing reset
-                setTimeout(async () => {
-                  try {
-                    const result = await this.connectSession(sessionId, false);
-                    if (!result.needsQR) {
-                      this.logger.log(`✅ Session ${sessionId} restored successfully`);
-                    } else {
-                      this.logger.log(`⚠️ Session ${sessionId} requires QR code`);
-                    }
-                  } catch (error) {
-                    this.logger.warn(`❌ Failed to restore session ${sessionId}:`, error.message);
-                  }
-                }, Math.random() * 5000); // Random delay 0-5s to avoid overwhelming WhatsApp
-                
-              } catch (error) {
-                this.logger.log(`📁 Session ${sessionId} has no valid credentials file`);
-              }
-            }
-          } catch (error) {
-            this.logger.warn(`Error checking session ${sessionId}:`, error);
-          }
+
+      for (const dbSession of dbSessions) {
+        const sessionId = dbSession.id;
+        const sessionPath = path.join(sessionsPath, sessionId);
+        const credentialsPath = path.join(sessionPath, "creds.json");
+
+        let hasFilesystemCreds = false;
+
+        // Check if credentials exist in filesystem
+        try {
+          await fs.access(credentialsPath);
+          hasFilesystemCreds = true;
+          this.logger.log(`🔑 Found filesystem credentials for session ${sessionId}`);
+        } catch (error) {
+          this.logger.log(`📁 No filesystem credentials for session ${sessionId}`);
         }
-      } catch (error) {
-        this.logger.log(`📁 Sessions directory doesn't exist or is empty`);
+
+        // If no filesystem creds, try to restore from database
+        if (!hasFilesystemCreds && dbSession.authData && Object.keys(dbSession.authData).length > 0) {
+          this.logger.log(`💾 Restoring credentials from database for session ${sessionId}...`);
+          hasFilesystemCreds = await this.restoreCredentialsFromDatabase(sessionId);
+        }
+
+        if (hasFilesystemCreds) {
+          // Initialize and connect the session
+          setTimeout(async () => {
+            try {
+              await this.initializeSession(sessionId);
+              const result = await this.connectSession(sessionId, false);
+              if (!result.needsQR) {
+                this.logger.log(`✅ Session ${sessionId} restored successfully`);
+                await this.sessionRepository.update(sessionId, {
+                  status: "connected" as any,
+                  isActive: true,
+                  lastSeenAt: new Date(),
+                });
+              } else {
+                this.logger.log(`⚠️ Session ${sessionId} requires QR code`);
+              }
+            } catch (error) {
+              this.logger.warn(`❌ Failed to restore session ${sessionId}:`, error.message);
+            }
+          }, Math.random() * 5000); // Random delay 0-5s to avoid overwhelming WhatsApp
+        } else {
+          this.logger.log(`⚠️ No credentials available for session ${sessionId}`);
+        }
       }
     } catch (error) {
       this.logger.error(`Failed to restore existing sessions:`, error);
@@ -1698,6 +1792,7 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
   // Cleanup method to be called on application shutdown
   async cleanup(): Promise<void> {
     const sessionIds = Array.from(this.sessions.keys());
+    this.logger.log(`🧹 Starting cleanup for ${sessionIds.length} sessions...`);
 
     // Stop all timers
     for (const sessionId of sessionIds) {
@@ -1712,10 +1807,13 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
         if (authState && authState.saveCreds) {
           // Save current credentials before shutdown
           await authState.saveCreds();
-          this.logger.log(`💾 Saved credentials for session ${sessionId}`);
+          this.logger.log(`💾 Saved filesystem credentials for session ${sessionId}`);
         }
-        
-        // Close socket without logging out
+
+        // Backup credentials to database for persistence across deployments
+        await this.backupCredentialsToDatabase(sessionId);
+
+        // Close socket without logging out (just disconnect, don't invalidate session)
         const sock = this.sessions.get(sessionId);
         if (sock && sock.ws) {
           sock.ws.close();
@@ -1729,7 +1827,7 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
     this.authStates.clear();
     this.keepAliveTimers.clear();
     this.credentialsSaveTimers.clear();
-    
+
     this.logger.log(`🧹 Cleanup completed for ${sessionIds.length} sessions`);
   }
 

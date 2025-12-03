@@ -720,11 +720,10 @@ Réponds toujours directement et dans la langue du client.`,
 
         const allContent = documents
           .filter(doc => doc.content && doc.content.length > 50)
-          .slice(0, 3)
           .map(doc => {
             const content = doc.content || "";
-            // Envoyer jusqu'à 5000 chars pour inclure tous les prix
-            return `**${doc.title}**:\n${content.substring(0, 5000)}${content.length > 5000 ? '...' : ''}`;
+            // Envoyer le contenu COMPLET sans aucune limite
+            return `**${doc.title}**:\n${content}`;
           });
 
         if (allContent.length > 0) {
@@ -734,14 +733,11 @@ Réponds toujours directement et dans la langue du client.`,
       }
 
       // Construire le contexte à partir des documents trouvés - ENVOYER LE CONTENU COMPLET
-      // La KB est petite (généralement < 10k chars) donc on envoie tout pour avoir les prix
+      // AUCUNE LIMITE - l'IA doit avoir accès à 100% de la KB pour trouver toutes les infos
       const contextParts = scoredDocuments.map(({ doc, score }) => {
         const content = doc.content || "";
-        // Envoyer le contenu complet (jusqu'à 5000 chars) pour inclure tous les prix
-        const fullContent = content.length > 5000
-          ? content.substring(0, 5000) + "..."
-          : content;
-        return `**${doc.title}** (pertinence: ${score}):\n${fullContent}`;
+        // Envoyer le contenu COMPLET sans aucune limite
+        return `**${doc.title}** (pertinence: ${score}):\n${content}`;
       });
 
       const context = `📚 INFORMATIONS TROUVÉES DANS LA BASE DE CONNAISSANCES (TRÈS IMPORTANT - UTILISE CES DONNÉES!):\n\n${contextParts.join("\n\n---\n\n")}`;

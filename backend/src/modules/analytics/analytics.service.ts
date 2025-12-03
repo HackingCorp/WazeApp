@@ -29,47 +29,73 @@ export class AnalyticsService {
 
   async getAnalytics(organizationId: string, userId: string, params: any) {
     const { period = "7d", startDate, endDate } = params;
-    
+
     console.log('🔍 Analytics Service: Getting analytics for org:', organizationId, 'user:', userId);
-    
+
     try {
       // Get real data from database
       console.log('🔍 Analytics Service: Fetching real data from database...');
-      
-      // Get AI Agents - check both organization and user-level agents
+
+      // Build proper where conditions based on whether organizationId exists
+      let agentWhereConditions: any[];
+      let sessionWhereConditions: any[];
+
+      if (organizationId) {
+        // Has organization - search org agents AND personal agents
+        agentWhereConditions = [
+          { organizationId },
+          { createdBy: userId, organizationId: IsNull() }
+        ];
+        sessionWhereConditions = [
+          { organizationId },
+          { userId, organizationId: IsNull() }
+        ];
+      } else {
+        // Personal workspace only - search only user's personal agents
+        agentWhereConditions = [
+          { createdBy: userId, organizationId: IsNull() }
+        ];
+        sessionWhereConditions = [
+          { userId, organizationId: IsNull() }
+        ];
+      }
+
+      // Get AI Agents
       const agents = await this.agentRepository.find({
-        where: [
-          { organizationId }, // Organization-level agents
-          { createdBy: userId, organizationId: IsNull() } // User personal agents
-        ],
+        where: agentWhereConditions,
         relations: ['organization', 'conversations']
       });
-      
-      // Get WhatsApp Sessions 
+
+      // Get WhatsApp Sessions
       const sessions = await this.sessionRepository.find({
-        where: [
-          { organizationId }, // Organization-scoped sessions
-          { userId, organizationId: IsNull() } // User personal sessions
-        ],
+        where: sessionWhereConditions,
         relations: ['agent', 'user'],
         order: { updatedAt: 'DESC' }
       });
       
       // Get agent IDs for querying
       const agentIds = agents.map(agent => agent.id);
-      
-      // Get real conversations count
-      let conversationsQuery = this.conversationRepository.createQueryBuilder('conversation');
+
+      console.log('📊 Analytics: Agent IDs found:', agentIds);
+      console.log('📊 Analytics: User ID:', userId);
+
+      // Get real conversations count - filter by agent IDs only
+      // Note: userId is nullable in AgentConversation (WhatsApp chats don't have userId)
+      // The agents already belong to the user, so filtering by agentId is sufficient
+      let conversations = 0;
+      let conversationIds: string[] = [];
+
       if (agentIds.length > 0) {
-        conversationsQuery = conversationsQuery.where('conversation.agentId IN (:...agentIds)', { agentIds });
-      } else {
-        conversationsQuery = conversationsQuery.where('conversation.userId = :userId', { userId });
+        const conversationsQuery = this.conversationRepository.createQueryBuilder('conversation')
+          .where('conversation.agentId IN (:...agentIds)', { agentIds });
+
+        conversations = await conversationsQuery.getCount();
+        conversationIds = await conversationsQuery.select('conversation.id').getRawMany()
+          .then(results => results.map(r => r.conversation_id));
       }
-      const conversations = await conversationsQuery.getCount();
-      
-      // Get conversation IDs for message queries
-      const conversationIds = await conversationsQuery.select('conversation.id').getRawMany()
-        .then(results => results.map(r => r.conversation_id));
+
+      console.log('📊 Analytics: Conversations count:', conversations);
+      console.log('📊 Analytics: Conversation IDs count:', conversationIds.length);
       
       // Get real messages count for the period
       const dateFilter = this.getDateFilter(period, startDate, endDate);

@@ -573,6 +573,17 @@ Réponds toujours directement et dans la langue du client.`,
     userMessage: string,
   ): Promise<string> {
     try {
+      // Log session state for debugging
+      this.logger.log(`🔍 KB Search: Session ID = ${session.id}`);
+      this.logger.log(`🔍 KB Search: Session has agent = ${!!session.agent}`);
+      if (session.agent) {
+        this.logger.log(`🔍 KB Search: Agent ID = ${session.agent.id}, Name = ${session.agent.name}`);
+        this.logger.log(`🔍 KB Search: Agent has knowledgeBases array = ${!!session.agent.knowledgeBases}`);
+        this.logger.log(`🔍 KB Search: Agent knowledgeBases count = ${session.agent.knowledgeBases?.length || 0}`);
+      }
+      this.logger.log(`🔍 KB Search: Session has direct knowledgeBase = ${!!session.knowledgeBase}`);
+      this.logger.log(`🔍 KB Search: Organization ID = ${session.organizationId}`);
+
       // Priorité : base de connaissances de l'agent assigné à la session
       let knowledgeBase: any = null;
 
@@ -584,24 +595,27 @@ Réponds toujours directement et dans la langue du client.`,
         // Utiliser la première base de connaissances de l'agent (ou on pourrait avoir une logique plus complexe)
         knowledgeBase = session.agent.knowledgeBases[0];
         this.logger.log(
-          `Using agent's knowledge base: ${knowledgeBase.name} (${knowledgeBase.id})`,
+          `✅ Using agent's knowledge base: ${knowledgeBase.name} (${knowledgeBase.id})`,
         );
       } else if (session.knowledgeBase) {
         // Fallback: base de connaissances directement associée à la session (legacy)
         knowledgeBase = session.knowledgeBase;
         this.logger.log(
-          `Using session's direct knowledge base: ${knowledgeBase.name} (${knowledgeBase.id})`,
+          `✅ Using session's direct knowledge base: ${knowledgeBase.name} (${knowledgeBase.id})`,
         );
       } else {
         // Fallback: chercher par organisation
+        this.logger.log(`⚠️ No agent KB or session KB, searching by organization...`);
         knowledgeBase = await this.knowledgeBaseRepository.findOne({
           where: { organizationId: session.organizationId },
           relations: ["documents"],
         });
         if (knowledgeBase) {
           this.logger.log(
-            `Using organization's default knowledge base: ${knowledgeBase.name} (${knowledgeBase.id})`,
+            `✅ Using organization's default knowledge base: ${knowledgeBase.name} (${knowledgeBase.id})`,
           );
+        } else {
+          this.logger.warn(`❌ No knowledge base found for organization ${session.organizationId}`);
         }
       }
 
@@ -655,6 +669,14 @@ Réponds toujours directement et dans la langue du client.`,
         .getMany();
 
       this.logger.log(`Found ${documents.length} documents in knowledge base`);
+
+      // Log document details for debugging
+      documents.forEach((doc, idx) => {
+        this.logger.log(`📄 Doc ${idx + 1}: "${doc.title}" - ${doc.content?.length || 0} chars - Status: ${doc.status}`);
+        if (doc.content) {
+          this.logger.log(`   Preview: ${doc.content.substring(0, 200).replace(/\n/g, ' ')}...`);
+        }
+      });
 
       if (documents.length === 0) {
         this.logger.debug(
@@ -960,21 +982,41 @@ EXEMPLES DE CONTEXTE:
       if (knowledgeContext) {
         systemPrompt += `\n\n${knowledgeContext}
 
-🚨 RÈGLES CRITIQUES POUR LA BASE DE CONNAISSANCES:
-1. Tu DOIS utiliser les informations ci-dessus pour répondre - elles sont PRIORITAIRES
-2. NE REDEMANDE PAS des informations que le client a déjà fournies
-3. Si les prix/tarifs sont dans la base de connaissances, UTILISE-LES directement
-4. Si le client demande un prix en FCFA et que tu as le prix en USD, CONVERTIS-LE (1 USD ≈ 600 FCFA)
-5. Ne dis JAMAIS "je n'ai pas cette information" si elle est dans la base de connaissances ci-dessus
-6. RAPPELLE-TOI du contexte de la conversation - si le client a dit "transport aérien vers Yaoundé", tu le SAIS déjà
+🚨🚨🚨 RÈGLES ABSOLUES - VIOLATION = ERREUR GRAVE 🚨🚨🚨
 
-EXEMPLE DE MAUVAISE RÉPONSE (À ÉVITER):
-Client: "J'ai 10KG à Guangzhou, transport aérien vers Yaoundé"
-IA: "Pour vous fournir un tarif, j'ai besoin de: 1. Type de transport..."  ❌ MAUVAIS!
+1. ⛔ NE JAMAIS INVENTER DE PRIX ⛔
+   - Si un prix N'EST PAS dans la base de connaissances ci-dessus, dis "Je n'ai pas le tarif exact, contactez-nous"
+   - N'INVENTE JAMAIS de fourchettes de prix comme "140-180 USD/CBM" si ce n'est pas écrit ci-dessus
+   - Les prix inventés = MENSONGE au client = INTERDIT
 
-EXEMPLE DE BONNE RÉPONSE:
-Client: "J'ai 10KG à Guangzhou, transport aérien vers Yaoundé"
-IA: "Pour votre envoi de 10KG de Guangzhou vers Yaoundé par avion, voici nos tarifs: [UTILISE LES PRIX DE LA BASE DE CONNAISSANCES]" ✅ BON!`;
+2. ✅ UTILISE UNIQUEMENT les informations EXACTES ci-dessus
+   - Cite les prix EXACTEMENT comme ils sont écrits
+   - Si le prix est "850 USD/CBM", dis "850 USD/CBM", pas "environ 850" ou "140-180"
+
+3. 🔄 Conversion FCFA:
+   - Si le client demande en FCFA et que tu as le prix en USD: multiplie par 600
+   - Exemple: 850 USD = 510 000 FCFA
+
+4. ❌ NE REDEMANDE PAS les infos déjà fournies
+   - Si le client a dit "CBM maritime", tu SAIS que c'est du maritime
+
+5. 📞 Si tu n'as PAS l'info dans la base de connaissances:
+   - Dis: "Pour le tarif exact, contactez-nous: Yaoundé +237 691 371 922 / Douala +237 694 562 409"
+   - NE DONNE PAS de prix approximatif inventé
+
+EXEMPLE DE RÉPONSE INCORRECTE (INTERDIT):
+"Le tarif maritime est d'environ 140-180 USD/CBM" ← SI CE PRIX N'EST PAS DANS LA KB CI-DESSUS = MENSONGE!
+
+EXEMPLE DE RÉPONSE CORRECTE:
+"Voici nos tarifs [COPIE EXACTE DE LA KB]. Pour plus de détails, contactez-nous."`;
+      } else {
+        // Pas de base de connaissances trouvée - être honnête
+        systemPrompt += `
+
+⚠️ ATTENTION: Aucune base de connaissances n'est disponible pour cette session.
+- NE DONNE PAS de prix spécifiques - tu ne les connais pas
+- Redirige le client vers les contacts: Yaoundé +237 691 371 922 / Douala +237 694 562 409
+- Tu peux donner des informations générales sur les services, mais PAS de tarifs`;
       }
       if (webContext) {
         systemPrompt += `\n\n${webContext}`;
@@ -1023,6 +1065,14 @@ IA: "Pour votre envoi de 10KG de Guangzhou vers Yaoundé par avion, voici nos ta
       };
 
       const enhancedMessages = [languageInstruction, ...messages];
+
+      // Log KB context status for debugging
+      this.logger.log(`🧠 AI Context: KB context length = ${knowledgeContext?.length || 0} chars`);
+      if (knowledgeContext) {
+        this.logger.log(`🧠 AI Context Preview: ${knowledgeContext.substring(0, 500).replace(/\n/g, ' ')}...`);
+      } else {
+        this.logger.warn(`⚠️ NO KNOWLEDGE BASE CONTEXT AVAILABLE - AI will redirect to contacts`);
+      }
 
       // Use LLM router directly with enhanced parameters for better quality
       const response = await this.llmRouterService.generateResponse({

@@ -483,6 +483,7 @@ Keep the summary concise (max 200 words) and in the same language as the convers
         ],
         temperature: 0.3,
         maxTokens: 300,
+        organizationId: null,
         priority: "low",
       });
 

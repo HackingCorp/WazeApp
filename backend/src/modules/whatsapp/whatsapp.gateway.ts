@@ -182,6 +182,73 @@ export class WhatsAppGateway
     });
   }
 
+  /**
+   * Handle conversation message events (real-time and sync)
+   * This is the primary handler for new messages with proper user context
+   */
+  @OnEvent("whatsapp.conversation.message")
+  async handleConversationMessage(data: {
+    sessionId: string;
+    userId: string;
+    organizationId: string;
+    fromNumber: string;
+    messageText: string;
+    messageId: string;
+    timestamp: Date;
+    isGroup: boolean;
+    isFromMe: boolean;
+    isHistorical: boolean;
+    messageType: string;
+  }) {
+    // Skip historical messages for real-time updates
+    if (data.isHistorical) {
+      return;
+    }
+
+    this.logger.log(
+      `📨 GATEWAY: New conversation message for user ${data.userId} from ${data.fromNumber}`,
+    );
+
+    // Only broadcast incoming messages (not messages sent by us)
+    if (data.isFromMe) {
+      return;
+    }
+
+    // Check if user is connected
+    if (!this.isUserOnline(data.userId)) {
+      this.logger.warn(`📨 User ${data.userId} is not connected to WebSocket`);
+      return;
+    }
+
+    // Clean phone number for display
+    const cleanPhone = data.fromNumber
+      .replace(/@s\.whatsapp\.net$/i, '')
+      .replace(/@lid$/i, '')
+      .replace(/@c\.us$/i, '')
+      .replace(/@g\.us$/i, '');
+
+    // Emit to specific user
+    this.server.to(`user:${data.userId}`).emit("whatsapp:message", {
+      contactId: data.fromNumber, // Use full JID as contact ID
+      message: {
+        id: data.messageId,
+        content: data.messageText,
+        timestamp: data.timestamp,
+        sender: "contact",
+        type: data.messageType || "text",
+        status: "delivered",
+      },
+      contact: {
+        id: data.fromNumber,
+        phone: cleanPhone,
+        name: cleanPhone,
+        isGroup: data.isGroup,
+      },
+    });
+
+    this.logger.log(`📨 Message broadcast completed for user ${data.userId}`);
+  }
+
   @OnEvent("whatsapp.session.status")
   async handleSessionStatus(data: {
     userId: string;

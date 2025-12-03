@@ -34,7 +34,7 @@ async function bootstrap() {
 
     // Swagger documentation
     const config = new DocumentBuilder()
-      .setTitle("WizeApp API (Standalone Mode)")
+      .setTitle("WazeApp API (Standalone Mode)")
       .setDescription("WhatsApp AI Agents SaaS Platform - Standalone Demo")
       .setVersion("1.0.0")
       .addBearerAuth()
@@ -54,11 +54,11 @@ async function bootstrap() {
     await app.listen(port);
 
     logger.log(
-      `🚀 WizeApp Standalone is running on: http://localhost:${port}/${apiPrefix}`,
+      `🚀 WazeApp Standalone is running on: http://localhost:${port}/${apiPrefix}`,
     );
     logger.log(`📖 Swagger Docs: http://localhost:${port}/${apiPrefix}/docs`);
     logger.log(`🏥 Health Check: http://localhost:${port}/${apiPrefix}/health`);
-    logger.log(`🔐 Mock Auth: Login with admin@wizeapp.com / Admin123!`);
+    logger.log(`🔐 Mock Auth: Login with admin@wazeapp.com / Admin123!`);
     logger.log(`💡 Mode: Standalone (no database required)`);
   } catch (error) {
     logger.error("Failed to start application:", error);

@@ -84,7 +84,7 @@ export default function LoginPage() {
               <span className="text-white font-bold text-xl">W</span>
             </div>
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Welcome back</h1>
-            <p className="text-muted-foreground mt-2">Sign in to your WizeApp account</p>
+            <p className="text-muted-foreground mt-2">Sign in to your WazeApp account</p>
           </div>
 
           {error && (

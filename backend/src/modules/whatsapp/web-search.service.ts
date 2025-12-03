@@ -24,7 +24,7 @@ export class WebSearchService {
     this.httpClient = axios.create({
       timeout: 10000,
       headers: {
-        "User-Agent": "Mozilla/5.0 (compatible; WizeApp-Bot/1.0)",
+        "User-Agent": "Mozilla/5.0 (compatible; WazeApp-Bot/1.0)",
       },
     });
   }

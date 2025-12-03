@@ -95,7 +95,7 @@ function WhatsAppMockup() {
           <span className="text-lg font-bold">AI</span>
         </div>
         <div>
-          <p className="font-semibold">WizeApp Assistant</p>
+          <p className="font-semibold">WazeApp Assistant</p>
           <p className="text-xs opacity-90">Always online</p>
         </div>
       </div>

@@ -69,7 +69,7 @@ export default function UseCasesPage() {
                 <span className="text-primary"> Business Type</span>
               </h1>
               <p className="text-lg sm:text-xl text-muted-foreground max-w-3xl mx-auto mb-8">
-                See how businesses across industries are using WizeApp to transform their WhatsApp communication.
+                See how businesses across industries are using WazeApp to transform their WhatsApp communication.
               </p>
             </motion.div>
           </div>
@@ -156,7 +156,7 @@ export default function UseCasesPage() {
               Ready to Transform Your Business?
             </h2>
             <p className="text-xl mb-8 max-w-2xl mx-auto">
-              Join thousands of businesses already using WizeApp to automate their WhatsApp communication.
+              Join thousands of businesses already using WazeApp to automate their WhatsApp communication.
             </p>
             <Link href="/register">
               <Button size="lg" variant="secondary">

@@ -54,7 +54,7 @@ export default function LoginPage() {
                 <div className="w-12 h-12 bg-white bg-opacity-20 rounded-lg flex items-center justify-center">
                   <MessageCircle className="w-6 h-6 text-white" />
                 </div>
-                <h1 className="text-2xl font-bold">WizeApp</h1>
+                <h1 className="text-2xl font-bold">WazeApp</h1>
               </div>
               <h2 className="text-4xl font-bold mb-4">
                 Turn WhatsApp into Your <span className="text-green-200">AI Assistant</span>
@@ -106,7 +106,7 @@ export default function LoginPage() {
               <div className="mx-auto w-16 h-16 bg-gradient-to-br from-green-600 to-emerald-600 rounded-xl flex items-center justify-center mb-4">
                 <MessageCircle className="w-8 h-8 text-white" />
               </div>
-              <h1 className="text-2xl font-bold text-gray-900">WizeApp</h1>
+              <h1 className="text-2xl font-bold text-gray-900">WazeApp</h1>
             </div>
 
             {/* Login form header */}

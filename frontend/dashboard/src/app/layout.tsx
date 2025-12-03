@@ -11,12 +11,12 @@ import './globals.css';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'WizeApp Dashboard - AI WhatsApp Agents',
+  title: 'WazeApp Dashboard - AI WhatsApp Agents',
   description: 'Comprehensive dashboard for managing AI-powered WhatsApp agents, analytics, and business automation',
   keywords: 'WhatsApp, AI, Automation, Dashboard, Analytics, Chatbot, Business',
-  authors: [{ name: 'WizeApp Team' }],
-  creator: 'WizeApp',
-  publisher: 'WizeApp',
+  authors: [{ name: 'WazeApp Team' }],
+  creator: 'WazeApp',
+  publisher: 'WazeApp',
   robots: 'index,follow',
   viewport: 'width=device-width, initial-scale=1',
   themeColor: [
@@ -27,28 +27,28 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
-    title: 'WizeApp Dashboard',
+    title: 'WazeApp Dashboard',
   },
   formatDetection: {
     telephone: false,
   },
   openGraph: {
     type: 'website',
-    siteName: 'WizeApp Dashboard',
-    title: 'WizeApp Dashboard - AI WhatsApp Agents',
+    siteName: 'WazeApp Dashboard',
+    title: 'WazeApp Dashboard - AI WhatsApp Agents',
     description: 'Comprehensive dashboard for managing AI-powered WhatsApp agents',
     images: [
       {
         url: '/og-image.png',
         width: 1200,
         height: 630,
-        alt: 'WizeApp Dashboard',
+        alt: 'WazeApp Dashboard',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'WizeApp Dashboard - AI WhatsApp Agents',
+    title: 'WazeApp Dashboard - AI WhatsApp Agents',
     description: 'Comprehensive dashboard for managing AI-powered WhatsApp agents',
     images: ['/og-image.png'],
   },

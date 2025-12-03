@@ -1,8 +1,8 @@
 import { Metadata } from "next"
 
 export const metadata: Metadata = {
-  title: "Contact WizeApp - Get in Touch",
-  description: "Contact the WizeApp team for support, sales inquiries, or partnership opportunities.",
+  title: "Contact WazeApp - Get in Touch",
+  description: "Contact the WazeApp team for support, sales inquiries, or partnership opportunities.",
 }
 
 export default function ContactPage() {
@@ -15,15 +15,15 @@ export default function ContactPage() {
             <div className="space-y-6">
               <div>
                 <h2 className="text-xl font-semibold mb-2">Support</h2>
-                <p className="text-muted-foreground">support@wizeapp.com</p>
+                <p className="text-muted-foreground">support@wazeapp.com</p>
               </div>
               <div>
                 <h2 className="text-xl font-semibold mb-2">Sales</h2>
-                <p className="text-muted-foreground">sales@wizeapp.com</p>
+                <p className="text-muted-foreground">sales@wazeapp.com</p>
               </div>
               <div>
                 <h2 className="text-xl font-semibold mb-2">Partnerships</h2>
-                <p className="text-muted-foreground">partners@wizeapp.com</p>
+                <p className="text-muted-foreground">partners@wazeapp.com</p>
               </div>
             </div>
           </div>

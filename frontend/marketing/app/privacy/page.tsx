@@ -1,8 +1,8 @@
 import { Metadata } from "next"
 
 export const metadata: Metadata = {
-  title: "Privacy Policy - WizeApp",
-  description: "WizeApp's privacy policy explaining how we collect, use, and protect your data.",
+  title: "Privacy Policy - WazeApp",
+  description: "WazeApp's privacy policy explaining how we collect, use, and protect your data.",
 }
 
 export default function PrivacyPage() {
@@ -24,7 +24,7 @@ export default function PrivacyPage() {
             <p>We implement appropriate technical and organizational measures to protect your personal data against unauthorized access, alteration, disclosure, or destruction.</p>
             
             <h2>Contact Us</h2>
-            <p>If you have any questions about this Privacy Policy, please contact us at privacy@wizeapp.com.</p>
+            <p>If you have any questions about this Privacy Policy, please contact us at privacy@wazeapp.com.</p>
           </div>
         </div>
       </div>

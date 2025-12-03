@@ -29,7 +29,7 @@
   ],
   "exclude": [
     "dashboard/**/*",
-    "wizeapp-marketing/**/*",
+    "wazeapp-marketing/**/*",
     "src/modules/conversation-management/**/*",
     "src/modules/knowledge-base/**/*",
     "node_modules",

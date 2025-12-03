@@ -7,7 +7,7 @@ export class HealthStandaloneController {
     return {
       status: "ok",
       timestamp: new Date().toISOString(),
-      service: "WizeApp Standalone",
+      service: "WazeApp Standalone",
       version: "1.0.0",
       mode: "standalone (no database)",
       features: [

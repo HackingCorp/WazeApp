@@ -1,8 +1,8 @@
 {
-  "name": "wizeapp",
+  "name": "wazeapp",
   "version": "1.0.0",
   "description": "Production-ready WhatsApp AI Agents SaaS Platform",
-  "author": "WizeApp Team",
+  "author": "WazeApp Team",
   "private": true,
   "license": "MIT",
   "scripts": {

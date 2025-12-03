@@ -557,7 +557,7 @@ export class VectorEmbeddingService {
    * Generate collection name for organization
    */
   private getCollectionName(organizationId: string): string {
-    return `wizeapp_org_${organizationId.replace(/-/g, "_")}`;
+    return `wazeapp_org_${organizationId.replace(/-/g, "_")}`;
   }
 
   /**

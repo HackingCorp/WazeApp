@@ -72,7 +72,7 @@ async function bootstrap() {
 
   // Swagger documentation
   const config = new DocumentBuilder()
-    .setTitle("WizeApp API")
+    .setTitle("WazeApp API")
     .setDescription("Production-ready WhatsApp AI Agents SaaS Platform API")
     .setVersion("1.0")
     .addBearerAuth()

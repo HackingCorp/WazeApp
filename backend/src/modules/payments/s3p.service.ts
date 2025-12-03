@@ -31,7 +31,7 @@ export class S3PService {
   private readonly apiKey: string;
   private readonly apiSecret: string;
 
-  // Services configurés pour les abonnements WizeApp
+  // Services configurés pour les abonnements WazeApp
   private readonly services = {
     STANDARD: '20052', // Service ID pour abonnement STANDARD
     PRO: '20053',      // Service ID pour abonnement PRO  

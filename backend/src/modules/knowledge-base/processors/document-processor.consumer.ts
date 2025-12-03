@@ -1,5 +1,5 @@
-import { OnQueueActive, OnQueueCompleted, OnQueueFailed } from "@nestjs/bull";
-import { Logger } from "@nestjs/common";
+import { OnQueueActive, OnQueueCompleted, OnQueueFailed, Process, Processor } from "@nestjs/bull";
+import { Injectable, Logger } from "@nestjs/common";
 import { Job } from "bull";
 import { DocumentProcessorService } from "../document-processor.service";
 import { KnowledgeBaseService } from "../knowledge-base.service";
@@ -10,6 +10,8 @@ export interface DocumentProcessingJob {
   userId: string;
 }
 
+@Injectable()
+@Processor("document-processing")
 export class DocumentProcessorConsumer {
   private readonly logger = new Logger(DocumentProcessorConsumer.name);
 
@@ -18,6 +20,7 @@ export class DocumentProcessorConsumer {
     private readonly knowledgeBaseService: KnowledgeBaseService,
   ) {}
 
+  @Process("process-document")
   async processDocument(job: Job<DocumentProcessingJob>) {
     const { documentId, organizationId, userId } = job.data;
 
@@ -50,6 +53,7 @@ export class DocumentProcessorConsumer {
     }
   }
 
+  @Process("reprocess-knowledge-base")
   async reprocessKnowledgeBase(
     job: Job<{
       knowledgeBaseId: string;
@@ -77,5 +81,26 @@ export class DocumentProcessorConsumer {
       );
       throw error;
     }
+  }
+
+  @OnQueueActive()
+  onActive(job: Job) {
+    this.logger.log(
+      `Processing job ${job.id} of type ${job.name}...`,
+    );
+  }
+
+  @OnQueueCompleted()
+  onCompleted(job: Job, result: any) {
+    this.logger.log(
+      `Job ${job.id} completed with result: ${JSON.stringify(result)}`,
+    );
+  }
+
+  @OnQueueFailed()
+  onFailed(job: Job, error: Error) {
+    this.logger.error(
+      `Job ${job.id} failed with error: ${error.message}`,
+    );
   }
 }

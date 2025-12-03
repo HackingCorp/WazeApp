@@ -55,18 +55,18 @@ export const translations = {
     
     // Testimonials Section
     testimonialsTitle: "Trusted by 10,000+ Businesses Worldwide",
-    testimonialsSubtitle: "See how companies are transforming their WhatsApp communication with WizeApp",
+    testimonialsSubtitle: "See how companies are transforming their WhatsApp communication with WazeApp",
     trustedByCompanies: "Trusted by leading companies worldwide",
-    testimonialSarah: "WizeApp transformed our customer support. We're handling 10x more inquiries with the same team size. Response time went from hours to seconds!",
-    testimonialMichael: "Our conversion rate increased by 35% after implementing WizeApp. The AI handles initial inquiries perfectly, qualifying leads 24/7.",
+    testimonialSarah: "WazeApp transformed our customer support. We're handling 10x more inquiries with the same team size. Response time went from hours to seconds!",
+    testimonialMichael: "Our conversion rate increased by 35% after implementing WazeApp. The AI handles initial inquiries perfectly, qualifying leads 24/7.",
     testimonialEmma: "The multilingual support is a game-changer. We're now serving customers in 20+ countries without hiring additional support staff.",
     testimonialDavid: "Order taking via WhatsApp increased our delivery orders by 50%. Customers love the convenience and instant responses.",
-    testimonialLisa: "WizeApp's AI perfectly captures our brand voice. It's like having our best sales rep available 24/7 on WhatsApp.",
+    testimonialLisa: "WazeApp's AI perfectly captures our brand voice. It's like having our best sales rep available 24/7 on WhatsApp.",
     testimonialTom: "Property inquiries are handled instantly. Our agents now focus on closing deals instead of answering repetitive questions.",
     
     // Stats Section
     statsActiveUsers: "Active Users",
-    statsActiveUsersDesc: "Businesses using WizeApp",
+    statsActiveUsersDesc: "Businesses using WazeApp",
     statsMessagesHandled: "Messages Handled",
     statsMessagesHandledDesc: "Automated conversations",
     statsResponseTime: "Response Time",
@@ -87,7 +87,7 @@ export const translations = {
     
     // Plan Names & Descriptions
     planFree: "Free",
-    planFreeDesc: "Perfect for trying out WizeApp",
+    planFreeDesc: "Perfect for trying out WazeApp",
     planStandard: "Standard", 
     planStandardDesc: "Great for small businesses",
     planPro: "Pro",
@@ -130,7 +130,7 @@ export const translations = {
     faqQuestion2: "What happens if I exceed my message limit?",
     faqAnswer2: "You'll be notified when you reach 80% of your limit. You can upgrade your plan or purchase additional messages.",
     faqQuestion3: "Is there a setup fee?",
-    faqAnswer3: "No, there are no setup fees. You can start using WizeApp immediately after signing up.",
+    faqAnswer3: "No, there are no setup fees. You can start using WazeApp immediately after signing up.",
     faqQuestion4: "Do you offer refunds?",
     faqAnswer4: "We offer a 14-day money-back guarantee for all paid plans. No questions asked.",
     faqQuestion5: "Can I use multiple WhatsApp numbers?",
@@ -204,12 +204,12 @@ export const translations = {
     
     // CTA Section
     ctaReadyTransform: "Ready to Transform Your WhatsApp?",
-    ctaJoinBusinesses: "Join 10,000+ businesses already using WizeApp to automate their customer communication.",
+    ctaJoinBusinesses: "Join 10,000+ businesses already using WazeApp to automate their customer communication.",
     ctaViewPricing: "View Pricing",
     
     // Chat Widget
-    chatInitialMessage: "Hi! I'm WizeApp AI. Ask me anything about our platform!",
-    chatTitle: "WizeApp AI Demo",
+    chatInitialMessage: "Hi! I'm WazeApp AI. Ask me anything about our platform!",
+    chatTitle: "WazeApp AI Demo",
     chatStatus: "Online • Responds instantly",
     chatPlaceholder: "Type a message..."
   },
@@ -267,18 +267,18 @@ export const translations = {
     
     // Testimonials Section
     testimonialsTitle: "Approuvé par plus de 10 000 entreprises dans le monde",
-    testimonialsSubtitle: "Découvrez comment les entreprises transforment leur communication WhatsApp avec WizeApp",
+    testimonialsSubtitle: "Découvrez comment les entreprises transforment leur communication WhatsApp avec WazeApp",
     trustedByCompanies: "Approuvé par les entreprises leaders mondiales",
-    testimonialSarah: "WizeApp a transformé notre support client. Nous traitons 10x plus de demandes avec la même taille d'équipe. Le temps de réponse est passé d'heures à secondes !",
-    testimonialMichael: "Notre taux de conversion a augmenté de 35% après l'implémentation de WizeApp. L'IA gère parfaitement les demandes initiales, qualifiant les prospects 24h/24.",
+    testimonialSarah: "WazeApp a transformé notre support client. Nous traitons 10x plus de demandes avec la même taille d'équipe. Le temps de réponse est passé d'heures à secondes !",
+    testimonialMichael: "Notre taux de conversion a augmenté de 35% après l'implémentation de WazeApp. L'IA gère parfaitement les demandes initiales, qualifiant les prospects 24h/24.",
     testimonialEmma: "Le support multilingue change la donne. Nous servons maintenant des clients dans plus de 20 pays sans embaucher de personnel de support supplémentaire.",
     testimonialDavid: "La prise de commandes via WhatsApp a augmenté nos commandes de livraison de 50%. Les clients adorent la commodité et les réponses instantanées.",
-    testimonialLisa: "L'IA de WizeApp capture parfaitement la voix de notre marque. C'est comme avoir notre meilleur commercial disponible 24h/24 sur WhatsApp.",
+    testimonialLisa: "L'IA de WazeApp capture parfaitement la voix de notre marque. C'est comme avoir notre meilleur commercial disponible 24h/24 sur WhatsApp.",
     testimonialTom: "Les demandes immobilières sont traitées instantanément. Nos agents se concentrent maintenant sur la conclusion d'affaires au lieu de répondre aux questions répétitives.",
     
     // Stats Section
     statsActiveUsers: "Utilisateurs Actifs",
-    statsActiveUsersDesc: "Entreprises utilisant WizeApp",
+    statsActiveUsersDesc: "Entreprises utilisant WazeApp",
     statsMessagesHandled: "Messages Traités",
     statsMessagesHandledDesc: "Conversations automatisées",
     statsResponseTime: "Temps de Réponse",
@@ -299,7 +299,7 @@ export const translations = {
     
     // Plan Names & Descriptions
     planFree: "Gratuit",
-    planFreeDesc: "Parfait pour essayer WizeApp",
+    planFreeDesc: "Parfait pour essayer WazeApp",
     planStandard: "Standard", 
     planStandardDesc: "Idéal pour les petites entreprises",
     planPro: "Pro",
@@ -342,7 +342,7 @@ export const translations = {
     faqQuestion2: "Que se passe-t-il si je dépasse ma limite de messages ?",
     faqAnswer2: "Vous serez notifié lorsque vous atteignez 80% de votre limite. Vous pouvez passer à un plan supérieur ou acheter des messages supplémentaires.",
     faqQuestion3: "Y a-t-il des frais d'installation ?",
-    faqAnswer3: "Non, il n'y a aucun frais d'installation. Vous pouvez commencer à utiliser WizeApp immédiatement après votre inscription.",
+    faqAnswer3: "Non, il n'y a aucun frais d'installation. Vous pouvez commencer à utiliser WazeApp immédiatement après votre inscription.",
     faqQuestion4: "Offrez-vous des remboursements ?",
     faqAnswer4: "Nous offrons une garantie de remboursement de 14 jours pour tous les plans payants. Sans aucune question.",
     faqQuestion5: "Puis-je utiliser plusieurs numéros WhatsApp ?",
@@ -416,12 +416,12 @@ export const translations = {
     
     // CTA Section
     ctaReadyTransform: "Prêt à Transformer Votre WhatsApp ?",
-    ctaJoinBusinesses: "Rejoignez plus de 10 000 entreprises utilisant déjà WizeApp pour automatiser leur communication client.",
+    ctaJoinBusinesses: "Rejoignez plus de 10 000 entreprises utilisant déjà WazeApp pour automatiser leur communication client.",
     ctaViewPricing: "Voir les Tarifs",
     
     // Chat Widget
-    chatInitialMessage: "Salut ! Je suis l'IA de WizeApp. Demandez-moi tout sur notre plateforme !",
-    chatTitle: "Démo WizeApp AI",
+    chatInitialMessage: "Salut ! Je suis l'IA de WazeApp. Demandez-moi tout sur notre plateforme !",
+    chatTitle: "Démo WazeApp AI",
     chatStatus: "En ligne • Répond instantanément",
     chatPlaceholder: "Tapez votre message..."
   },
@@ -459,18 +459,18 @@ export const translations = {
     
     // Testimonials Section
     testimonialsTitle: "Confiado por más de 10,000 empresas en todo el mundo",
-    testimonialsSubtitle: "Ve cómo las empresas están transformando su comunicación de WhatsApp con WizeApp",
+    testimonialsSubtitle: "Ve cómo las empresas están transformando su comunicación de WhatsApp con WazeApp",
     trustedByCompanies: "Confiado por empresas líderes mundiales",
-    testimonialSarah: "WizeApp transformó nuestro soporte al cliente. Manejamos 10x más consultas con el mismo tamaño de equipo. ¡El tiempo de respuesta pasó de horas a segundos!",
-    testimonialMichael: "Nuestra tasa de conversión aumentó un 35% después de implementar WizeApp. La IA maneja las consultas iniciales perfectamente, calificando leads 24/7.",
+    testimonialSarah: "WazeApp transformó nuestro soporte al cliente. Manejamos 10x más consultas con el mismo tamaño de equipo. ¡El tiempo de respuesta pasó de horas a segundos!",
+    testimonialMichael: "Nuestra tasa de conversión aumentó un 35% después de implementar WazeApp. La IA maneja las consultas iniciales perfectamente, calificando leads 24/7.",
     testimonialEmma: "El soporte multilingüe es un cambio total. Ahora servimos clientes en más de 20 países sin contratar personal de soporte adicional.",
     testimonialDavid: "Tomar pedidos vía WhatsApp aumentó nuestros pedidos de entrega un 50%. Los clientes aman la comodidad y las respuestas instantáneas.",
-    testimonialLisa: "La IA de WizeApp captura perfectamente la voz de nuestra marca. Es como tener nuestro mejor vendedor disponible 24/7 en WhatsApp.",
+    testimonialLisa: "La IA de WazeApp captura perfectamente la voz de nuestra marca. Es como tener nuestro mejor vendedor disponible 24/7 en WhatsApp.",
     testimonialTom: "Las consultas inmobiliarias se manejan instantáneamente. Nuestros agentes ahora se enfocan en cerrar tratos en lugar de responder preguntas repetitivas.",
     
     // Stats Section
     statsActiveUsers: "Usuarios Activos",
-    statsActiveUsersDesc: "Empresas usando WizeApp",
+    statsActiveUsersDesc: "Empresas usando WazeApp",
     statsMessagesHandled: "Mensajes Manejados",
     statsMessagesHandledDesc: "Conversaciones automatizadas",
     statsResponseTime: "Tiempo de Respuesta",
@@ -491,7 +491,7 @@ export const translations = {
     
     // Plan Names & Descriptions
     planFree: "Gratis",
-    planFreeDesc: "Perfecto para probar WizeApp",
+    planFreeDesc: "Perfecto para probar WazeApp",
     planStandard: "Estándar", 
     planStandardDesc: "Ideal para pequeñas empresas",
     planPro: "Pro",
@@ -534,7 +534,7 @@ export const translations = {
     faqQuestion2: "¿Qué pasa si excedo mi límite de mensajes?",
     faqAnswer2: "Te notificaremos cuando alcances el 80% de tu límite. Puedes actualizar tu plan o comprar mensajes adicionales.",
     faqQuestion3: "¿Hay una tarifa de configuración?",
-    faqAnswer3: "No, no hay tarifas de configuración. Puedes empezar a usar WizeApp inmediatamente después de registrarte.",
+    faqAnswer3: "No, no hay tarifas de configuración. Puedes empezar a usar WazeApp inmediatamente después de registrarte.",
     faqQuestion4: "¿Ofrecen reembolsos?",
     faqAnswer4: "Ofrecemos una garantía de devolución de dinero de 14 días para todos los planes pagos. Sin preguntas.",
     faqQuestion5: "¿Puedo usar múltiples números de WhatsApp?",
@@ -608,12 +608,12 @@ export const translations = {
     
     // CTA Section
     ctaReadyTransform: "¿Listo para Transformar tu WhatsApp?",
-    ctaJoinBusinesses: "Únete a más de 10,000 empresas que ya usan WizeApp para automatizar su comunicación con clientes.",
+    ctaJoinBusinesses: "Únete a más de 10,000 empresas que ya usan WazeApp para automatizar su comunicación con clientes.",
     ctaViewPricing: "Ver Precios",
     
     // Chat Widget
-    chatInitialMessage: "¡Hola! Soy la IA de WizeApp. ¡Pregúntame cualquier cosa sobre nuestra plataforma!",
-    chatTitle: "Demo WizeApp AI",
+    chatInitialMessage: "¡Hola! Soy la IA de WazeApp. ¡Pregúntame cualquier cosa sobre nuestra plataforma!",
+    chatTitle: "Demo WazeApp AI",
     chatStatus: "En línea • Responde al instante",
     chatPlaceholder: "Escribe un mensaje..."
   },
@@ -671,18 +671,18 @@ export const translations = {
     
     // Testimonials Section
     testimonialsTitle: "Vertraut von über 10.000 Unternehmen weltweit",
-    testimonialsSubtitle: "Erfahre, wie Unternehmen ihre WhatsApp-Kommunikation mit WizeApp transformieren",
+    testimonialsSubtitle: "Erfahre, wie Unternehmen ihre WhatsApp-Kommunikation mit WazeApp transformieren",
     trustedByCompanies: "Vertraut von führenden Unternehmen weltweit",
-    testimonialSarah: "WizeApp hat unseren Kundensupport transformiert. Wir bearbeiten 10x mehr Anfragen mit derselben Teamgröße. Die Antwortzeit ging von Stunden auf Sekunden!",
-    testimonialMichael: "Unsere Conversion-Rate stieg um 35% nach der WizeApp-Implementierung. Die KI behandelt Erstanfragen perfekt und qualifiziert Leads 24/7.",
+    testimonialSarah: "WazeApp hat unseren Kundensupport transformiert. Wir bearbeiten 10x mehr Anfragen mit derselben Teamgröße. Die Antwortzeit ging von Stunden auf Sekunden!",
+    testimonialMichael: "Unsere Conversion-Rate stieg um 35% nach der WazeApp-Implementierung. Die KI behandelt Erstanfragen perfekt und qualifiziert Leads 24/7.",
     testimonialEmma: "Der mehrsprachige Support ist ein Game-Changer. Wir bedienen jetzt Kunden in über 20 Ländern ohne zusätzliches Support-Personal einzustellen.",
     testimonialDavid: "Bestellungen über WhatsApp haben unsere Lieferbestellungen um 50% erhöht. Kunden lieben die Bequemlichkeit und sofortigen Antworten.",
-    testimonialLisa: "WizeApps KI erfasst perfekt unsere Marken-Stimme. Es ist, als hätte man unseren besten Verkäufer 24/7 auf WhatsApp verfügbar.",
+    testimonialLisa: "WazeApps KI erfasst perfekt unsere Marken-Stimme. Es ist, als hätte man unseren besten Verkäufer 24/7 auf WhatsApp verfügbar.",
     testimonialTom: "Immobilienanfragen werden sofort behandelt. Unsere Makler konzentrieren sich jetzt auf Abschlüsse statt auf sich wiederholende Fragen.",
     
     // Stats Section
     statsActiveUsers: "Aktive Nutzer",
-    statsActiveUsersDesc: "Unternehmen nutzen WizeApp",
+    statsActiveUsersDesc: "Unternehmen nutzen WazeApp",
     statsMessagesHandled: "Bearbeitete Nachrichten",
     statsMessagesHandledDesc: "Automatisierte Unterhaltungen",
     statsResponseTime: "Antwortzeit",
@@ -703,7 +703,7 @@ export const translations = {
     
     // Plan Names & Descriptions
     planFree: "Kostenlos",
-    planFreeDesc: "Perfekt zum Ausprobieren von WizeApp",
+    planFreeDesc: "Perfekt zum Ausprobieren von WazeApp",
     planStandard: "Standard", 
     planStandardDesc: "Ideal für kleine Unternehmen",
     planPro: "Pro",
@@ -746,7 +746,7 @@ export const translations = {
     faqQuestion2: "Was passiert, wenn ich mein Nachrichtenlimit überschreite?",
     faqAnswer2: "Du wirst benachrichtigt, wenn du 80% deines Limits erreichst. Du kannst deinen Plan upgraden oder zusätzliche Nachrichten kaufen.",
     faqQuestion3: "Gibt es eine Einrichtungsgebühr?",
-    faqAnswer3: "Nein, es gibt keine Einrichtungsgebühren. Du kannst WizeApp sofort nach der Anmeldung nutzen.",
+    faqAnswer3: "Nein, es gibt keine Einrichtungsgebühren. Du kannst WazeApp sofort nach der Anmeldung nutzen.",
     faqQuestion4: "Bietet ihr Rückerstattungen an?",
     faqAnswer4: "Wir bieten eine 14-tägige Geld-zurück-Garantie für alle bezahlten Pläne. Keine Fragen gestellt.",
     faqQuestion5: "Kann ich mehrere WhatsApp-Nummern verwenden?",
@@ -820,12 +820,12 @@ export const translations = {
     
     // CTA Section
     ctaReadyTransform: "Bereit, dein WhatsApp zu transformieren?",
-    ctaJoinBusinesses: "Schließe dich über 10.000 Unternehmen an, die bereits WizeApp nutzen, um ihre Kundenkommunikation zu automatisieren.",
+    ctaJoinBusinesses: "Schließe dich über 10.000 Unternehmen an, die bereits WazeApp nutzen, um ihre Kundenkommunikation zu automatisieren.",
     ctaViewPricing: "Preise anzeigen",
     
     // Chat Widget
-    chatInitialMessage: "Hallo! Ich bin WizeApp KI. Fragen Sie mich alles über unsere Plattform!",
-    chatTitle: "WizeApp KI Demo",
+    chatInitialMessage: "Hallo! Ich bin WazeApp KI. Fragen Sie mich alles über unsere Plattform!",
+    chatTitle: "WazeApp KI Demo",
     chatStatus: "Online • Antwortet sofort",
     chatPlaceholder: "Nachricht eingeben..."
   },
@@ -883,18 +883,18 @@ export const translations = {
     
     // Testimonials Section
     testimonialsTitle: "Fidato da oltre 10.000 aziende in tutto il mondo",
-    testimonialsSubtitle: "Scopri come le aziende stanno trasformando la loro comunicazione WhatsApp con WizeApp",
+    testimonialsSubtitle: "Scopri come le aziende stanno trasformando la loro comunicazione WhatsApp con WazeApp",
     trustedByCompanies: "Fidato da aziende leader mondiali",
-    testimonialSarah: "WizeApp ha trasformato il nostro supporto clienti. Gestiamo 10 volte più richieste con la stessa dimensione del team. Il tempo di risposta è passato da ore a secondi!",
-    testimonialMichael: "Il nostro tasso di conversione è aumentato del 35% dopo aver implementato WizeApp. L'IA gestisce perfettamente le richieste iniziali, qualificando i lead 24/7.",
+    testimonialSarah: "WazeApp ha trasformato il nostro supporto clienti. Gestiamo 10 volte più richieste con la stessa dimensione del team. Il tempo di risposta è passato da ore a secondi!",
+    testimonialMichael: "Il nostro tasso di conversione è aumentato del 35% dopo aver implementato WazeApp. L'IA gestisce perfettamente le richieste iniziali, qualificando i lead 24/7.",
     testimonialEmma: "Il supporto multilingue è un game-changer. Ora serviamo clienti in oltre 20 paesi senza assumere personale di supporto aggiuntivo.",
     testimonialDavid: "Prendere ordini via WhatsApp ha aumentato i nostri ordini di consegna del 50%. I clienti amano la comodità e le risposte istantanee.",
-    testimonialLisa: "L'IA di WizeApp cattura perfettamente la voce del nostro brand. È come avere il nostro miglior venditore disponibile 24/7 su WhatsApp.",
+    testimonialLisa: "L'IA di WazeApp cattura perfettamente la voce del nostro brand. È come avere il nostro miglior venditore disponibile 24/7 su WhatsApp.",
     testimonialTom: "Le richieste immobiliari vengono gestite istantaneamente. I nostri agenti ora si concentrano sulla chiusura degli affari invece di rispondere a domande ripetitive.",
     
     // Stats Section
     statsActiveUsers: "Utenti Attivi",
-    statsActiveUsersDesc: "Aziende che usano WizeApp",
+    statsActiveUsersDesc: "Aziende che usano WazeApp",
     statsMessagesHandled: "Messaggi Gestiti",
     statsMessagesHandledDesc: "Conversazioni automatizzate",
     statsResponseTime: "Tempo di Risposta",
@@ -915,7 +915,7 @@ export const translations = {
     
     // Plan Names & Descriptions
     planFree: "Gratuito",
-    planFreeDesc: "Perfetto per provare WizeApp",
+    planFreeDesc: "Perfetto per provare WazeApp",
     planStandard: "Standard", 
     planStandardDesc: "Ideale per piccole aziende",
     planPro: "Pro",
@@ -958,7 +958,7 @@ export const translations = {
     faqQuestion2: "Cosa succede se supero il limite dei messaggi?",
     faqAnswer2: "Verrai avvisato quando raggiungi l'80% del tuo limite. Puoi aggiornare il tuo piano o acquistare messaggi aggiuntivi.",
     faqQuestion3: "C'è una commissione di configurazione?",
-    faqAnswer3: "No, non ci sono commissioni di configurazione. Puoi iniziare a usare WizeApp immediatamente dopo la registrazione.",
+    faqAnswer3: "No, non ci sono commissioni di configurazione. Puoi iniziare a usare WazeApp immediatamente dopo la registrazione.",
     faqQuestion4: "Offrite rimborsi?",
     faqAnswer4: "Offriamo una garanzia di rimborso di 14 giorni per tutti i piani a pagamento. Nessuna domanda posta.",
     faqQuestion5: "Posso usare più numeri WhatsApp?",
@@ -1032,12 +1032,12 @@ export const translations = {
     
     // CTA Section
     ctaReadyTransform: "Pronto a Trasformare il Tuo WhatsApp?",
-    ctaJoinBusinesses: "Unisciti a oltre 10.000 aziende che utilizzano già WizeApp per automatizzare la loro comunicazione con i clienti.",
+    ctaJoinBusinesses: "Unisciti a oltre 10.000 aziende che utilizzano già WazeApp per automatizzare la loro comunicazione con i clienti.",
     ctaViewPricing: "Visualizza Prezzi",
     
     // Chat Widget
-    chatInitialMessage: "Ciao! Sono l'IA di WizeApp. Chiedimi tutto sulla nostra piattaforma!",
-    chatTitle: "Demo WizeApp AI",
+    chatInitialMessage: "Ciao! Sono l'IA di WazeApp. Chiedimi tutto sulla nostra piattaforma!",
+    chatTitle: "Demo WazeApp AI",
     chatStatus: "Online • Risponde istantaneamente",
     chatPlaceholder: "Scrivi un messaggio..."
   },
@@ -1095,18 +1095,18 @@ export const translations = {
     
     // Testimonials Section
     testimonialsTitle: "Confiável por mais de 10.000 empresas no mundo",
-    testimonialsSubtitle: "Veja como empresas estão transformando sua comunicação WhatsApp com WizeApp",
+    testimonialsSubtitle: "Veja como empresas estão transformando sua comunicação WhatsApp com WazeApp",
     trustedByCompanies: "Confiável por empresas líderes mundiais",
-    testimonialSarah: "WizeApp transformou nosso suporte ao cliente. Lidamos com 10x mais consultas com o mesmo tamanho de equipe. Tempo de resposta passou de horas para segundos!",
-    testimonialMichael: "Nossa taxa de conversão aumentou 35% após implementar WizeApp. A IA lida perfeitamente com consultas iniciais, qualificando leads 24/7.",
+    testimonialSarah: "WazeApp transformou nosso suporte ao cliente. Lidamos com 10x mais consultas com o mesmo tamanho de equipe. Tempo de resposta passou de horas para segundos!",
+    testimonialMichael: "Nossa taxa de conversão aumentou 35% após implementar WazeApp. A IA lida perfeitamente com consultas iniciais, qualificando leads 24/7.",
     testimonialEmma: "O suporte multilíngue é revolucionário. Agora servimos clientes em mais de 20 países sem contratar pessoal de suporte adicional.",
     testimonialDavid: "Receber pedidos via WhatsApp aumentou nossos pedidos de entrega em 50%. Clientes adoram a conveniência e respostas instantâneas.",
-    testimonialLisa: "A IA do WizeApp captura perfeitamente a voz da nossa marca. É como ter nosso melhor vendedor disponível 24/7 no WhatsApp.",
+    testimonialLisa: "A IA do WazeApp captura perfeitamente a voz da nossa marca. É como ter nosso melhor vendedor disponível 24/7 no WhatsApp.",
     testimonialTom: "Consultas imobiliárias são tratadas instantaneamente. Nossos corretores agora focam em fechar negócios em vez de responder perguntas repetitivas.",
     
     // Stats Section
     statsActiveUsers: "Usuários Ativos",
-    statsActiveUsersDesc: "Empresas usando WizeApp",
+    statsActiveUsersDesc: "Empresas usando WazeApp",
     statsMessagesHandled: "Mensagens Processadas",
     statsMessagesHandledDesc: "Conversas automatizadas",
     statsResponseTime: "Tempo de Resposta",
@@ -1127,7 +1127,7 @@ export const translations = {
     
     // Plan Names & Descriptions
     planFree: "Gratuito",
-    planFreeDesc: "Perfeito para experimentar WizeApp",
+    planFreeDesc: "Perfeito para experimentar WazeApp",
     planStandard: "Padrão", 
     planStandardDesc: "Ideal para pequenas empresas",
     planPro: "Pro",
@@ -1170,7 +1170,7 @@ export const translations = {
     faqQuestion2: "O que acontece se eu exceder meu limite de mensagens?",
     faqAnswer2: "Você será notificado quando alcançar 80% do seu limite. Pode fazer upgrade do plano ou comprar mensagens adicionais.",
     faqQuestion3: "Há taxa de configuração?",
-    faqAnswer3: "Não, não há taxas de configuração. Você pode começar a usar WizeApp imediatamente após se cadastrar.",
+    faqAnswer3: "Não, não há taxas de configuração. Você pode começar a usar WazeApp imediatamente após se cadastrar.",
     faqQuestion4: "Vocês oferecem reembolso?",
     faqAnswer4: "Oferecemos garantia de reembolso de 14 dias para todos os planos pagos. Sem perguntas.",
     faqQuestion5: "Posso usar múltiplos números WhatsApp?",
@@ -1244,12 +1244,12 @@ export const translations = {
     
     // CTA Section
     ctaReadyTransform: "Pronto para Transformar seu WhatsApp?",
-    ctaJoinBusinesses: "Junte-se a mais de 10.000 empresas que já usam WizeApp para automatizar sua comunicação com clientes.",
+    ctaJoinBusinesses: "Junte-se a mais de 10.000 empresas que já usam WazeApp para automatizar sua comunicação com clientes.",
     ctaViewPricing: "Ver Preços",
     
     // Chat Widget
-    chatInitialMessage: "Olá! Eu sou a IA do WizeApp. Pergunte-me qualquer coisa sobre nossa plataforma!",
-    chatTitle: "Demo WizeApp AI",
+    chatInitialMessage: "Olá! Eu sou a IA do WazeApp. Pergunte-me qualquer coisa sobre nossa plataforma!",
+    chatTitle: "Demo WazeApp AI",
     chatStatus: "Online • Responde instantaneamente",
     chatPlaceholder: "Digite uma mensagem..."
   },
@@ -1307,18 +1307,18 @@ export const translations = {
     
     // Testimonials Section
     testimonialsTitle: "全球超10,000+家企业信赖",
-    testimonialsSubtitle: "查看企业如何使用WizeApp改造他们的WhatsApp沟通",
+    testimonialsSubtitle: "查看企业如何使用WazeApp改造他们的WhatsApp沟通",
     trustedByCompanies: "全球领先企业信赖",
-    testimonialSarah: "WizeApp改造了我们的客户支持。相同的团队规模处理了10倍的查询。响应时间从小时变成了秒！",
-    testimonialMichael: "实施WizeApp后，我们的转化率提高35%。AI完美处理初始查询，24/7限定潜在客户。",
+    testimonialSarah: "WazeApp改造了我们的客户支持。相同的团队规模处理了10倍的查询。响应时间从小时变成了秒！",
+    testimonialMichael: "实施WazeApp后，我们的转化率提高35%。AI完美处理初始查询，24/7限定潜在客户。",
     testimonialEmma: "多语言支持是游戏改变者。我们现在在20+个国家服务客户，无需雇佣额外的支持人员。",
     testimonialDavid: "通过WhatsApp接单使我们的外卖订单增加了50%。客户喜爱这种便利和即时响应。",
-    testimonialLisa: "WizeApp的AI完美捕捉我们的品牌声音。就像在2WhatsApp上24/7拥有我们最好的销售代表。",
+    testimonialLisa: "WazeApp的AI完美捕捉我们的品牌声音。就像在2WhatsApp上24/7拥有我们最好的销售代表。",
     testimonialTom: "房地产查询即时处理。我们的经纪人现在专注于成交而不是回答重复问题。",
     
     // Stats Section
     statsActiveUsers: "活跃用户",
-    statsActiveUsersDesc: "使用WizeApp的企业",
+    statsActiveUsersDesc: "使用WazeApp的企业",
     statsMessagesHandled: "处理消息",
     statsMessagesHandledDesc: "自动化对话",
     statsResponseTime: "响应时间",
@@ -1339,7 +1339,7 @@ export const translations = {
     
     // Plan Names & Descriptions
     planFree: "免费",
-    planFreeDesc: "适合试用WizeApp",
+    planFreeDesc: "适合试用WazeApp",
     planStandard: "标准版", 
     planStandardDesc: "适合小型企业",
     planPro: "专业版",
@@ -1382,7 +1382,7 @@ export const translations = {
     faqQuestion2: "如果我超过消息限制会怎么样？",
     faqAnswer2: "当您达到80%限制时我们会通知您。您可以升级计划或购买额外消息。",
     faqQuestion3: "有设置费用吗？",
-    faqAnswer3: "没有，没有设置费用。您可以在注册后立即开始使用WizeApp。",
+    faqAnswer3: "没有，没有设置费用。您可以在注册后立即开始使用WazeApp。",
     faqQuestion4: "你们提供退款吗？",
     faqAnswer4: "我们为所有付费计划提供14天退款保证。无条件退款。",
     faqQuestion5: "我可以使用多个WhatsApp号码吗？",
@@ -1456,12 +1456,12 @@ export const translations = {
     
     // CTA Section
     ctaReadyTransform: "准备好改造您的WhatsApp了吗？",
-    ctaJoinBusinesses: "加入10,000+家已经在使用WizeApp自动化客户沟通的企业。",
+    ctaJoinBusinesses: "加入10,000+家已经在使用WazeApp自动化客户沟通的企业。",
     ctaViewPricing: "查看价格",
     
     // Chat Widget
-    chatInitialMessage: "你好！我是WizeApp AI。问我关于我们平台的任何问题！",
-    chatTitle: "WizeApp AI 演示",
+    chatInitialMessage: "你好！我是WazeApp AI。问我关于我们平台的任何问题！",
+    chatTitle: "WazeApp AI 演示",
     chatStatus: "在线 • 即时回应",
     chatPlaceholder: "输入消息..."
   },
@@ -1519,18 +1519,18 @@ export const translations = {
     
     // Testimonials Section
     testimonialsTitle: "世界中の10,000以上の企業が信頼",
-    testimonialsSubtitle: "WizeAppでWhatsAppコミュニケーションを変革した企業の事例をご覧ください",
+    testimonialsSubtitle: "WazeAppでWhatsAppコミュニケーションを変革した企業の事例をご覧ください",
     trustedByCompanies: "世界のリーディングカンパニーが信頼",
-    testimonialSarah: "WizeAppは私たちの顧客サポートを変革しました。同じチームサイズで10倍の問い合わせを処理しています。応答時間が時間から秒になりました！",
-    testimonialMichael: "WizeAppを導入後、コンバージョン率が35%向上しました。AIが初期問い合わせを完璧に処理し、24/7でリードを絞り込んでいます。",
+    testimonialSarah: "WazeAppは私たちの顧客サポートを変革しました。同じチームサイズで10倍の問い合わせを処理しています。応答時間が時間から秒になりました！",
+    testimonialMichael: "WazeAppを導入後、コンバージョン率が35%向上しました。AIが初期問い合わせを完璧に処理し、24/7でリードを絞り込んでいます。",
     testimonialEmma: "多言語サポートはゲームチェンジャーです。現在20以上の国の顧客にサービスを提供し、追加のサポートスタッフを雇用せずに済みました。",
     testimonialDavid: "WhatsApp経由の注文で配送注文が50%増加しました。顧客は便利さと即座対応を気に入っています。",
-    testimonialLisa: "WizeAppのAIは私たちのブランドボイスを完璧にキャプチャしています。WhatsAppで24/7最高の営業担当がいるようなものです。",
+    testimonialLisa: "WazeAppのAIは私たちのブランドボイスを完璧にキャプチャしています。WhatsAppで24/7最高の営業担当がいるようなものです。",
     testimonialTom: "不動産の問い合わせが即座処理されます。エージェントは繰り返しの質問に答える代わりに取引の成約に集中できるようになりました。",
     
     // Stats Section
     statsActiveUsers: "アクティブユーザー",
-    statsActiveUsersDesc: "WizeAppを使用している企業",
+    statsActiveUsersDesc: "WazeAppを使用している企業",
     statsMessagesHandled: "処理されたメッセージ",
     statsMessagesHandledDesc: "自動化された会話",
     statsResponseTime: "応答時間",
@@ -1551,7 +1551,7 @@ export const translations = {
     
     // Plan Names & Descriptions
     planFree: "無料",
-    planFreeDesc: "WizeAppを試すのに最適",
+    planFreeDesc: "WazeAppを試すのに最適",
     planStandard: "スタンダード", 
     planStandardDesc: "中小企業に最適",
     planPro: "プロ",
@@ -1594,7 +1594,7 @@ export const translations = {
     faqQuestion2: "メッセージ上限を超えた場合はどうなりますか？",
     faqAnswer2: "上限の80%に達した時点でお知らせします。プランをアップグレードするか、追加メッセージを購入できます。",
     faqQuestion3: "セットアップ料金はありますか？",
-    faqAnswer3: "いいえ、セットアップ料金はありません。登録後すぐにWizeAppを使い始めることができます。",
+    faqAnswer3: "いいえ、セットアップ料金はありません。登録後すぐにWazeAppを使い始めることができます。",
     faqQuestion4: "返金はありますか？",
     faqAnswer4: "すべての有料プランに対して14日間の返金保証を提供しています。無条件です。",
     faqQuestion5: "複数のWhatsApp番号を使用できますか？",
@@ -1668,12 +1668,12 @@ export const translations = {
     
     // CTA Section
     ctaReadyTransform: "WhatsAppを変革する準備はできましたか？",
-    ctaJoinBusinesses: "すでにWizeAppを使って顧客コミュニケーションを自動化した10,000以上の企業の仲間入りをしよう。",
+    ctaJoinBusinesses: "すでにWazeAppを使って顧客コミュニケーションを自動化した10,000以上の企業の仲間入りをしよう。",
     ctaViewPricing: "料金を見る",
     
     // Chat Widget
-    chatInitialMessage: "こんにちは！WizeApp AIです。プラットフォームについて何でもお聞きください！",
-    chatTitle: "WizeApp AI デモ",
+    chatInitialMessage: "こんにちは！WazeApp AIです。プラットフォームについて何でもお聞きください！",
+    chatTitle: "WazeApp AI デモ",
     chatStatus: "オンライン • 即座に応答",
     chatPlaceholder: "メッセージを入力..."
   },
@@ -1731,18 +1731,18 @@ export const translations = {
     
     // Testimonials Section
     testimonialsTitle: "موثوق به من أكثر من 10،000 شركة عالمياً",
-    testimonialsSubtitle: "انظر كيف تحوّل الشركات تواصلها عبر واتساب بواسطة WizeApp",
+    testimonialsSubtitle: "انظر كيف تحوّل الشركات تواصلها عبر واتساب بواسطة WazeApp",
     trustedByCompanies: "موثوق به من شركات رائدة عالمياً",
-    testimonialSarah: "WizeApp حوّل دعم عملائنا. نعالج 10 أضعاف من الاستفسارات بنفس حجم الفريق. وقت الاستجابة تحوّل من ساعات إلى ثوان!",
-    testimonialMichael: "زاد معدل تحويلنا 35% بعد تطبيق WizeApp. الذكاء الاصطناعي يتعامل مع الاستفسارات الأولية بشكل مثالي، يؤهل العملاء المحتملين 24/7.",
+    testimonialSarah: "WazeApp حوّل دعم عملائنا. نعالج 10 أضعاف من الاستفسارات بنفس حجم الفريق. وقت الاستجابة تحوّل من ساعات إلى ثوان!",
+    testimonialMichael: "زاد معدل تحويلنا 35% بعد تطبيق WazeApp. الذكاء الاصطناعي يتعامل مع الاستفسارات الأولية بشكل مثالي، يؤهل العملاء المحتملين 24/7.",
     testimonialEmma: "الدعم متعدد اللغات مغير لعبة. نخدم الآن عملاء في أكثر من 20 دولة بدون توظيف طاقم دعم إضافي.",
     testimonialDavid: "طلب الطعام عبر واتساب زاد طلبات التوصيل 50%. العملاء يحبون الراحة والردود الفورية.",
-    testimonialLisa: "ذكاء WizeApp الاصطناعي يجسد صوت علامتنا بشكل مثالي. إنه مثل وجود أفضل مندوب مبيعات لدينا متاح 24/7 على واتساب.",
+    testimonialLisa: "ذكاء WazeApp الاصطناعي يجسد صوت علامتنا بشكل مثالي. إنه مثل وجود أفضل مندوب مبيعات لدينا متاح 24/7 على واتساب.",
     testimonialTom: "استفسارات العقارات يتم تعامل معها فوراً. وكلاؤنا يركزون الآن على إغلاق الصفقات بدلاً من الإجابة على أسئلة متكررة.",
     
     // Stats Section
     statsActiveUsers: "مستخدمين نشطين",
-    statsActiveUsersDesc: "شركات تستخدم WizeApp",
+    statsActiveUsersDesc: "شركات تستخدم WazeApp",
     statsMessagesHandled: "رسائل معالجة",
     statsMessagesHandledDesc: "محادثات آلية",
     statsResponseTime: "وقت الاستجابة",
@@ -1763,7 +1763,7 @@ export const translations = {
     
     // Plan Names & Descriptions
     planFree: "مجاني",
-    planFreeDesc: "مثالي لتجربة WizeApp",
+    planFreeDesc: "مثالي لتجربة WazeApp",
     planStandard: "قياسي", 
     planStandardDesc: "مثالي للشركات الصغيرة",
     planPro: "محترف",
@@ -1806,7 +1806,7 @@ export const translations = {
     faqQuestion2: "ماذا يحدث إذا تجاوزت حد رسائلي؟",
     faqAnswer2: "سيتم إشعارك عندما تصل إلى 80% من حدّك. يمكنك ترقية خطتك أو شراء رسائل إضافية.",
     faqQuestion3: "هل توجد رسوم إعداد؟",
-    faqAnswer3: "لا، لا توجد رسوم إعداد. يمكنك البدء في استخدام WizeApp فوراً بعد التسجيل.",
+    faqAnswer3: "لا، لا توجد رسوم إعداد. يمكنك البدء في استخدام WazeApp فوراً بعد التسجيل.",
     faqQuestion4: "هل تقدمون استرداداً؟",
     faqAnswer4: "نقدم ضمان استرداد لمدة 14 يوم لجميع الخطط المدفوعة. بدون أسئلة.",
     faqQuestion5: "هل يمكنني استخدام أرقام واتساب متعددة؟",
@@ -1880,12 +1880,12 @@ export const translations = {
     
     // CTA Section
     ctaReadyTransform: "جاهز لتحويل واتسابك؟",
-    ctaJoinBusinesses: "انضم إلى أكثر من 10،000 شركة تستخدم بالفعل WizeApp لأتمتة تواصلها مع العملاء.",
+    ctaJoinBusinesses: "انضم إلى أكثر من 10،000 شركة تستخدم بالفعل WazeApp لأتمتة تواصلها مع العملاء.",
     ctaViewPricing: "عرض الأسعار",
     
     // Chat Widget
-    chatInitialMessage: "مرحباً! أنا ذكاء WizeApp الاصطناعي. اسألني أي شيء عن منصتنا!",
-    chatTitle: "عرض تجريبي WizeApp AI",
+    chatInitialMessage: "مرحباً! أنا ذكاء WazeApp الاصطناعي. اسألني أي شيء عن منصتنا!",
+    chatTitle: "عرض تجريبي WazeApp AI",
     chatStatus: "متصل • يرد فوراً",
     chatPlaceholder: "اكتب رسالة..."
   }

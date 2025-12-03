@@ -2,7 +2,7 @@ import { Metadata } from "next"
 import Link from "next/link"
 
 export const metadata: Metadata = {
-  title: "Blog - WizeApp WhatsApp AI Insights",
+  title: "Blog - WazeApp WhatsApp AI Insights",
   description: "Latest insights, tips, and updates about WhatsApp AI automation and business communication.",
 }
 
@@ -35,7 +35,7 @@ export default function BlogPage() {
     <div className="min-h-screen bg-background py-20">
       <div className="container mx-auto px-4">
         <div className="max-w-4xl mx-auto">
-          <h1 className="text-4xl font-bold text-center mb-12">WizeApp Blog</h1>
+          <h1 className="text-4xl font-bold text-center mb-12">WazeApp Blog</h1>
           <div className="grid gap-8">
             {blogPosts.map((post) => (
               <article key={post.slug} className="bg-white dark:bg-gray-800 rounded-lg p-8 shadow-sm hover:shadow-lg transition-shadow">

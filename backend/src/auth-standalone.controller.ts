@@ -6,7 +6,7 @@ import { ApiTags, ApiOperation, ApiResponse } from "@nestjs/swagger";
 const mockUsers = [
   {
     id: "1",
-    email: "admin@wizeapp.com",
+    email: "admin@wazeapp.com",
     password: "Admin123!", // En prod, serait hashé
     firstName: "Admin",
     lastName: "User",
@@ -42,7 +42,7 @@ export class AuthStandaloneController {
       return {
         success: false,
         message: "Invalid credentials",
-        hint: "Try: admin@wizeapp.com / Admin123! or test@example.com / TestPassword123!",
+        hint: "Try: admin@wazeapp.com / Admin123! or test@example.com / TestPassword123!",
       };
     }
 

@@ -8,7 +8,7 @@ export function useLanguage() {
 
   // Initialiser avec la langue du navigateur
   useEffect(() => {
-    const savedLang = localStorage.getItem('wizeapp-language');
+    const savedLang = localStorage.getItem('wazeapp-language');
     const initialLang = savedLang || detectBrowserLanguage();
     setCurrentLanguage(initialLang);
   }, []);
@@ -29,7 +29,7 @@ export function useLanguage() {
   // Fonction pour changer de langue
   const changeLanguage = useCallback((newLang: string) => {
     setCurrentLanguage(newLang);
-    localStorage.setItem('wizeapp-language', newLang);
+    localStorage.setItem('wazeapp-language', newLang);
     
     // Dispatch custom event pour notifier les autres composants
     window.dispatchEvent(new CustomEvent('languageChanged', { 

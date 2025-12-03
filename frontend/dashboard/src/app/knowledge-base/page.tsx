@@ -38,8 +38,8 @@ interface KnowledgeBase {
   name: string;
   description?: string;
   status: 'active' | 'processing' | 'error' | 'inactive';
-  documentsCount: number;
-  charactersCount: number;
+  documentCount: number;
+  totalCharacters: number;
   tags?: string[];
   agentId: string;
   createdAt: Date;
@@ -113,8 +113,8 @@ export default function KnowledgeBasePage() {
         const agentsWithKB = agentsWithKnowledgeBase.filter((a: Agent) => a.knowledgeBase);
         const activeKB = agentsWithKB.filter((a: Agent) => a.knowledgeBase?.status === 'active').length;
         const processingKB = agentsWithKB.filter((a: Agent) => a.knowledgeBase?.status === 'processing').length;
-        const totalDocs = agentsWithKB.reduce((sum: number, a: Agent) => sum + (a.knowledgeBase?.documentsCount || 0), 0);
-        const totalChars = agentsWithKB.reduce((sum: number, a: Agent) => sum + (a.knowledgeBase?.charactersCount || 0), 0);
+        const totalDocs = agentsWithKB.reduce((sum: number, a: Agent) => sum + (a.knowledgeBase?.documentCount || 0), 0);
+        const totalChars = agentsWithKB.reduce((sum: number, a: Agent) => sum + (a.knowledgeBase?.totalCharacters || 0), 0);
         
         console.log('🔍 FRONTEND: Stats calculation:', {
           agentsWithKB: agentsWithKB.length,
@@ -122,8 +122,8 @@ export default function KnowledgeBasePage() {
           totalChars,
           charactersFromEachKB: agentsWithKB.map((a: any) => ({
             name: a.knowledgeBase?.name,
-            charactersCount: a.knowledgeBase?.charactersCount,
-            documentsCount: a.knowledgeBase?.documentsCount
+            totalCharacters: a.knowledgeBase?.totalCharacters,
+            documentCount: a.knowledgeBase?.documentCount
           }))
         });
         
@@ -438,13 +438,13 @@ export default function KnowledgeBasePage() {
                           <div className="flex items-center space-x-6 text-sm text-gray-500 dark:text-gray-400 mb-3">
                             <div className="flex items-center space-x-1">
                               <FileText className="w-4 h-4" />
-                              <span>{agent.knowledgeBase.documentsCount} documents</span>
+                              <span>{agent.knowledgeBase.documentCount} documents</span>
                             </div>
                             <div className="flex items-center space-x-1">
                               <Database className="w-4 h-4" />
                               <span>
                                 {(() => {
-                                  const chars = agent.knowledgeBase.charactersCount;
+                                  const chars = agent.knowledgeBase.totalCharacters;
                                   const display = `${(chars / 1000).toFixed(0)}k caractères`;
                                   console.log('🔍 FRONTEND: Displaying characters for KB', agent.knowledgeBase.name, '- Raw:', chars, 'Display:', display);
                                   return display;

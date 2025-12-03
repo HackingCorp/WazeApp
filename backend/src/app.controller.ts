@@ -14,7 +14,7 @@ export class AppController {
   })
   getApiInfo() {
     return {
-      name: "WizeApp API",
+      name: "WazeApp API",
       description: "Production-ready WhatsApp AI Agents SaaS Platform",
       version: "1.0.0",
       status: "running",

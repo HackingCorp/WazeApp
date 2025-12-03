@@ -53,14 +53,14 @@ export class MarketingChatController {
       
       const targetLanguage = languageMap[userLanguage] || 'English';
       
-      const systemPrompt = `You are WizeApp's AI assistant. WizeApp transforms WhatsApp into an intelligent AI assistant for businesses.
+      const systemPrompt = `You are WazeApp's AI assistant. WazeApp transforms WhatsApp into an intelligent AI assistant for businesses.
 
 CRITICAL: Respond ONLY in ${targetLanguage}. Do not use any other language.
 
 Your role:
 - WhatsApp automation expert
 - Professional yet friendly
-- Enthusiastic about WizeApp solutions
+- Enthusiastic about WazeApp solutions
 
 KEY FEATURES TO PROMOTE:
 🤖 Complete WhatsApp conversation automation
@@ -74,7 +74,7 @@ KEY FEATURES TO PROMOTE:
 
 OBJECTIVES:
 - Educate about benefits of WhatsApp automation
-- Show how WizeApp solves concrete business problems
+- Show how WazeApp solves concrete business problems
 - Encourage visitors to try the platform for free
 - Address objections with convincing arguments
 
@@ -145,28 +145,28 @@ Respond naturally and engagingly to the following question:`;
     // Réponses multilingues
     const responses = {
       fr: {
-        greeting: "Salut ! 👋 Je suis l'IA de WizeApp. Je peux vous expliquer comment transformer votre WhatsApp en assistant IA puissant qui automatise vos conversations client 24/7. Que souhaitez-vous savoir ?",
-        pricing: "Excellente question ! 💰 WizeApp propose un plan gratuit pour commencer, puis des plans premium à partir de 29€/mois avec IA avancée, intégrations illimitées et support prioritaire. Voulez-vous une démo personnalisée ?",
+        greeting: "Salut ! 👋 Je suis l'IA de WazeApp. Je peux vous expliquer comment transformer votre WhatsApp en assistant IA puissant qui automatise vos conversations client 24/7. Que souhaitez-vous savoir ?",
+        pricing: "Excellente question ! 💰 WazeApp propose un plan gratuit pour commencer, puis des plans premium à partir de 29€/mois avec IA avancée, intégrations illimitées et support prioritaire. Voulez-vous une démo personnalisée ?",
         howto: "C'est très simple ! ⚡ 1) Connectez votre WhatsApp (30 sec) 2) Configurez votre IA avec vos infos business 3) Votre assistant automatise tout ! Il répond aux clients, prend des RDV, gère le SAV... Envie d'essayer gratuitement ?",
-        features: "WizeApp c'est magique ! 🚀 Votre IA peut : répondre en 95+ langues, s'intégrer à vos outils (CRM, calendrier...), analyser les sentiments, créer des rapports... Plus jamais de messages perdus ! Quelle fonctionnalité vous intéresse le plus ?",
+        features: "WazeApp c'est magique ! 🚀 Votre IA peut : répondre en 95+ langues, s'intégrer à vos outils (CRM, calendrier...), analyser les sentiments, créer des rapports... Plus jamais de messages perdus ! Quelle fonctionnalité vous intéresse le plus ?",
         security: "La sécurité est notre priorité ! 🛡️ Chiffrement bout-en-bout, conformité RGPD totale, vos données restent privées. Nous ne lisons jamais vos conversations. Audit de sécurité disponible pour les entreprises. Rassuré(e) ?",
-        default: "Excellente question ! 🤔 WizeApp transforme WhatsApp en assistant IA complet pour automatiser votre communication client. Que vous cherchiez à améliorer votre SAV, augmenter vos ventes ou optimiser vos RDV, on a la solution ! Sur quoi puis-je vous éclairer précisément ?"
+        default: "Excellente question ! 🤔 WazeApp transforme WhatsApp en assistant IA complet pour automatiser votre communication client. Que vous cherchiez à améliorer votre SAV, augmenter vos ventes ou optimiser vos RDV, on a la solution ! Sur quoi puis-je vous éclairer précisément ?"
       },
       en: {
-        greeting: "Hi there! 👋 I'm WizeApp's AI assistant. I can explain how to transform your WhatsApp into a powerful AI assistant that automates your customer conversations 24/7. What would you like to know?",
-        pricing: "Great question! 💰 WizeApp offers a free plan to start, then premium plans from €29/month with advanced AI, unlimited integrations and priority support. Would you like a personalized demo?",
+        greeting: "Hi there! 👋 I'm WazeApp's AI assistant. I can explain how to transform your WhatsApp into a powerful AI assistant that automates your customer conversations 24/7. What would you like to know?",
+        pricing: "Great question! 💰 WazeApp offers a free plan to start, then premium plans from €29/month with advanced AI, unlimited integrations and priority support. Would you like a personalized demo?",
         howto: "It's super simple! ⚡ 1) Connect your WhatsApp (30 sec) 2) Configure your AI with your business info 3) Your assistant automates everything! It answers customers, books appointments, handles support... Want to try for free?",
-        features: "WizeApp is amazing! 🚀 Your AI can: respond in 95+ languages, integrate with your tools (CRM, calendar...), analyze sentiment, create reports... Never miss a message again! Which feature interests you most?",
+        features: "WazeApp is amazing! 🚀 Your AI can: respond in 95+ languages, integrate with your tools (CRM, calendar...), analyze sentiment, create reports... Never miss a message again! Which feature interests you most?",
         security: "Security is our priority! 🛡️ End-to-end encryption, full GDPR compliance, your data stays private. We never read your conversations. Security audit available for enterprises. Feeling confident?",
-        default: "Great question! 🤔 WizeApp transforms WhatsApp into a complete AI assistant to automate your customer communication. Whether you want to improve support, boost sales or optimize appointments, we have the solution! What can I clarify for you?"
+        default: "Great question! 🤔 WazeApp transforms WhatsApp into a complete AI assistant to automate your customer communication. Whether you want to improve support, boost sales or optimize appointments, we have the solution! What can I clarify for you?"
       },
       es: {
-        greeting: "¡Hola! 👋 Soy el asistente IA de WizeApp. Puedo explicarte cómo transformar tu WhatsApp en un asistente IA potente que automatiza tus conversaciones con clientes 24/7. ¿Qué te gustaría saber?",
-        pricing: "¡Excelente pregunta! 💰 WizeApp ofrece un plan gratuito para empezar, luego planes premium desde €29/mes con IA avanzada, integraciones ilimitadas y soporte prioritario. ¿Te gustaría una demo personalizada?",
+        greeting: "¡Hola! 👋 Soy el asistente IA de WazeApp. Puedo explicarte cómo transformar tu WhatsApp en un asistente IA potente que automatiza tus conversaciones con clientes 24/7. ¿Qué te gustaría saber?",
+        pricing: "¡Excelente pregunta! 💰 WazeApp ofrece un plan gratuito para empezar, luego planes premium desde €29/mes con IA avanzada, integraciones ilimitadas y soporte prioritario. ¿Te gustaría una demo personalizada?",
         howto: "¡Es súper simple! ⚡ 1) Conecta tu WhatsApp (30 seg) 2) Configura tu IA con tu info empresarial 3) ¡Tu asistente automatiza todo! Responde clientes, agenda citas, maneja soporte... ¿Quieres probar gratis?",
-        features: "¡WizeApp es increíble! 🚀 Tu IA puede: responder en 95+ idiomas, integrarse con tus herramientas (CRM, calendario...), analizar sentimientos, crear reportes... ¡Nunca más perderás un mensaje! ¿Qué función te interesa más?",
+        features: "¡WazeApp es increíble! 🚀 Tu IA puede: responder en 95+ idiomas, integrarse con tus herramientas (CRM, calendario...), analizar sentimientos, crear reportes... ¡Nunca más perderás un mensaje! ¿Qué función te interesa más?",
         security: "¡La seguridad es nuestra prioridad! 🛡️ Cifrado punto a punto, cumplimiento RGPD completo, tus datos permanecen privados. Nunca leemos tus conversaciones. Auditoría de seguridad disponible para empresas. ¿Te sientes seguro?",
-        default: "¡Excelente pregunta! 🤔 WizeApp transforma WhatsApp en un asistente IA completo para automatizar tu comunicación con clientes. Ya sea que quieras mejorar soporte, aumentar ventas u optimizar citas, ¡tenemos la solución! ¿Qué puedo aclarar?"
+        default: "¡Excelente pregunta! 🤔 WazeApp transforma WhatsApp en un asistente IA completo para automatizar tu comunicación con clientes. Ya sea que quieras mejorar soporte, aumentar ventas u optimizar citas, ¡tenemos la solución! ¿Qué puedo aclarar?"
       }
     };
 

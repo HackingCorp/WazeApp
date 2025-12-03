@@ -3,7 +3,7 @@ import runpod
 import json
 
 def handler(job):
-    """Handler simple pour WizeApp"""
+    """Handler simple pour WazeApp"""
     try:
         input_data = job.get("input", {})
         messages = input_data.get("messages", [])

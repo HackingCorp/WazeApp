@@ -1,4 +1,4 @@
-# Configuration des modèles Ollama pour WizeApp
+# Configuration des modèles Ollama pour WazeApp
 
 ## Modèles disponibles
 

@@ -1,8 +1,8 @@
 import { Metadata } from "next"
 
 export const metadata: Metadata = {
-  title: "About WizeApp - WhatsApp AI Assistant",
-  description: "Learn about WizeApp's mission to transform business communication through AI-powered WhatsApp automation.",
+  title: "About WazeApp - WhatsApp AI Assistant",
+  description: "Learn about WazeApp's mission to transform business communication through AI-powered WhatsApp automation.",
 }
 
 export default function AboutPage() {
@@ -10,10 +10,10 @@ export default function AboutPage() {
     <div className="min-h-screen bg-background py-20">
       <div className="container mx-auto px-4">
         <div className="max-w-4xl mx-auto">
-          <h1 className="text-4xl font-bold text-center mb-8">About WizeApp</h1>
+          <h1 className="text-4xl font-bold text-center mb-8">About WazeApp</h1>
           <div className="prose prose-lg mx-auto dark:prose-invert">
             <p>
-              WizeApp is revolutionizing business communication by making AI-powered WhatsApp automation 
+              WazeApp is revolutionizing business communication by making AI-powered WhatsApp automation 
               accessible to businesses of all sizes. Founded in 2024, our mission is to help businesses 
               provide exceptional customer experiences 24/7.
             </p>

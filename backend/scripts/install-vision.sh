@@ -36,7 +36,7 @@ LLAVA_INSTALLED=false
 
 # Fonction d'aide
 show_help() {
-    echo "🎯 Installation des services de vision open source pour WizeApp"
+    echo "🎯 Installation des services de vision open source pour WazeApp"
     echo ""
     echo "Usage: $0 [options]"
     echo ""
@@ -282,7 +282,7 @@ show_summary() {
     [ "$TESSERACT_INSTALLED" = true ] && echo "  ✅ Tesseract OCR (extraction de texte)"
     echo ""
     echo "Prochaines étapes :"
-    echo "  1. Redémarrez votre application WizeApp"
+    echo "  1. Redémarrez votre application WazeApp"
     echo "  2. Testez avec: npm run vision:test"
     echo "  3. Vérifiez le statut: GET /api/v1/whatsapp/vision/status"
     echo ""

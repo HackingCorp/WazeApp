@@ -640,8 +640,8 @@ export class QuotaEnforcementService {
 
     // Helper to map demo/test emails to plans
     const mapEmailToPlan = (): SubscriptionPlan => {
-      if (email === 'standard.user@wizeapp.com') return SubscriptionPlan.STANDARD;
-      if (email === 'prouser@example.com' || email === 'pro.user@wizeapp.com') return SubscriptionPlan.PRO;
+      if (email === 'standard.user@wazeapp.com') return SubscriptionPlan.STANDARD;
+      if (email === 'prouser@example.com' || email === 'pro.user@wazeapp.com') return SubscriptionPlan.PRO;
       if (email === 'enterprise@example.com') return SubscriptionPlan.ENTERPRISE;
       return SubscriptionPlan.FREE;
     };

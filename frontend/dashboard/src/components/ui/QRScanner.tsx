@@ -85,7 +85,7 @@ export function QRScanner({
     
     if (detected) {
       const qrData: DetectedQR = {
-        data: (detected as any).data || 'https://wizeapp.demo',
+        data: (detected as any).data || 'https://wazeapp.demo',
         timestamp: Date.now(),
         format: (detected as any).format || 'QR_CODE',
       };

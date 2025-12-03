@@ -3,7 +3,7 @@
 const API_BASE_URL = 'http://localhost:3103/api/v1';
 
 async function testAuth() {
-  console.log('🚀 Test d\'authentification WizeApp Backend\n');
+  console.log('🚀 Test d\'authentification WazeApp Backend\n');
   
   // Test 1: Health check
   console.log('1️⃣ Test de santé de l\'API...');
@@ -21,7 +21,7 @@ async function testAuth() {
   const testUser = {
     firstName: 'Test',
     lastName: 'Demo',
-    email: 'demo@wizeapp.local',
+    email: 'demo@wazeapp.local',
     password: 'TestPassword123!'
   };
 
@@ -98,7 +98,7 @@ async function testAuth() {
   // Test 5: Tester les identifiants de démo du frontend
   console.log('\n5️⃣ Test avec les identifiants de démo du frontend...');
   const demoCredentials = [
-    { email: 'demo@wizeapp.com', password: 'password123' },
+    { email: 'demo@wazeapp.com', password: 'password123' },
     { email: 'testuser@example.com', password: 'password123' },
     { email: 'enterprise@example.com', password: 'password123' }
   ];

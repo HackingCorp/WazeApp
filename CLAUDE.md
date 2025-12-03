@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-WizeApp is a production-ready WhatsApp AI Agents SaaS Platform that enables businesses to create and manage AI-powered WhatsApp bots. The platform includes:
+WazeApp is a production-ready WhatsApp AI Agents SaaS Platform that enables businesses to create and manage AI-powered WhatsApp bots. The platform includes:
 
 - **Backend**: NestJS-based API server with TypeORM/PostgreSQL
 - **Dashboard**: Next.js frontend for managing agents, conversations, and knowledge bases
@@ -192,7 +192,7 @@ Key environment variables are defined in the Docker Compose file and include:
 
 **Database:**
 - `DATABASE_URL`, `DATABASE_HOST`, `DATABASE_PORT`
-- `DATABASE_NAME` (default: wizeapp)
+- `DATABASE_NAME` (default: wazeapp)
 - `DATABASE_USERNAME`, `DATABASE_PASSWORD`
 - `DATABASE_SSL_ENABLED`
 

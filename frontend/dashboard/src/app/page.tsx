@@ -23,7 +23,7 @@ export default function HomePage() {
   return (
     <div className="min-h-screen flex items-center justify-center">
       <div className="text-center">
-        <h1 className="text-2xl font-bold mb-4">WizeApp Dashboard</h1>
+        <h1 className="text-2xl font-bold mb-4">WazeApp Dashboard</h1>
         <p className="text-gray-600">
           {isLoading ? 'Loading...' : user ? 'Redirecting to dashboard...' : 'Redirecting to login...'}
         </p>

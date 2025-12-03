@@ -12,9 +12,9 @@ const AppDataSource = new DataSource({
   type: "postgres",
   host: configService.get("DATABASE_HOST", "localhost"),
   port: +configService.get("DATABASE_PORT", 5432),
-  username: configService.get("DATABASE_USERNAME", "wizeapp"),
-  password: configService.get("DATABASE_PASSWORD", "wizeapp123"),
-  database: configService.get("DATABASE_NAME", "wizeapp"),
+  username: configService.get("DATABASE_USERNAME", "wazeapp"),
+  password: configService.get("DATABASE_PASSWORD", "wazeapp123"),
+  database: configService.get("DATABASE_NAME", "wazeapp"),
   synchronize: configService.get("DATABASE_SYNCHRONIZE", "false") === "true",
   logging: configService.get("NODE_ENV") === "development",
   ssl:

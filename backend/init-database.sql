@@ -1,4 +1,4 @@
--- Create database schema for WizeApp
+-- Create database schema for WazeApp
 -- Run this script to initialize all required tables
 
 -- Enable UUID extension
@@ -270,10 +270,10 @@ CREATE INDEX IF NOT EXISTS idx_llm_providers_org ON llm_providers("organizationI
 
 -- Create default admin user (change password after first login!)
 INSERT INTO users (email, password, "firstName", "lastName", "emailVerified", "isActive")
-VALUES ('admin@wizeapp.com', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY3pPF3I/PscUr6', 'Admin', 'User', true, true)
+VALUES ('admin@wazeapp.com', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY3pPF3I/PscUr6', 'Admin', 'User', true, true)
 ON CONFLICT (email) DO NOTHING;
 
 -- Grant permissions
-GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO wizeapp;
-GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO wizeapp;
-GRANT ALL PRIVILEGES ON ALL FUNCTIONS IN SCHEMA public TO wizeapp;
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO wazeapp;
+GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO wazeapp;
+GRANT ALL PRIVILEGES ON ALL FUNCTIONS IN SCHEMA public TO wazeapp;

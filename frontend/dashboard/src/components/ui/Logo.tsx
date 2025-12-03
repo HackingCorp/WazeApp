@@ -22,7 +22,7 @@ export function Logo({ collapsed = false, className = '' }: LogoProps) {
       {!collapsed && (
         <div className="ml-3">
           <h1 className="text-xl font-bold bg-gradient-to-r from-green-600 to-green-700 dark:from-green-400 dark:to-green-500 bg-clip-text text-transparent">
-            WizeApp
+            WazeApp
           </h1>
           <p className="text-xs text-gray-500 dark:text-gray-400 -mt-1">
             AI Agents Platform

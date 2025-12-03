@@ -24,7 +24,7 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
   // Initialiser avec la langue du navigateur
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const savedLang = localStorage.getItem('wizeapp-language');
+      const savedLang = localStorage.getItem('wazeapp-language');
       const initialLang = savedLang || detectBrowserLanguage();
       setCurrentLanguage(initialLang);
     }
@@ -49,7 +49,7 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
   const changeLanguage = useCallback((newLang: string) => {
     setCurrentLanguage(newLang);
     if (typeof window !== 'undefined') {
-      localStorage.setItem('wizeapp-language', newLang);
+      localStorage.setItem('wazeapp-language', newLang);
       
       // Dispatch custom event pour notifier les autres composants
       window.dispatchEvent(new CustomEvent('languageChanged', { 

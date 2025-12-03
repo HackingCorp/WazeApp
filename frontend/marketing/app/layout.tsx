@@ -9,22 +9,22 @@ import { DemoChatWidget } from "@/components/sections/demo-chat";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "WizeApp - Turn WhatsApp into Your AI Assistant",
+  title: "WazeApp - Turn WhatsApp into Your AI Assistant",
   description: "Transform your WhatsApp into an intelligent customer engagement platform. Handle customer support, sales, and engagement 24/7. No coding required.",
   keywords: "WhatsApp AI, customer support, automation, chatbot, business communication",
-  authors: [{ name: "WizeApp" }],
-  creator: "WizeApp",
+  authors: [{ name: "WazeApp" }],
+  creator: "WazeApp",
   openGraph: {
-    title: "WizeApp - WhatsApp AI Assistant",
+    title: "WazeApp - WhatsApp AI Assistant",
     description: "Turn your WhatsApp into an AI-powered customer engagement platform in 30 seconds.",
-    url: "https://wizeapp.com",
-    siteName: "WizeApp",
+    url: "https://wazeapp.com",
+    siteName: "WazeApp",
     images: [
       {
-        url: "https://wizeapp.com/og-image.jpg",
+        url: "https://wazeapp.com/og-image.jpg",
         width: 1200,
         height: 630,
-        alt: "WizeApp - WhatsApp AI Assistant",
+        alt: "WazeApp - WhatsApp AI Assistant",
       },
     ],
     locale: "en_US",
@@ -32,9 +32,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "WizeApp - WhatsApp AI Assistant",
+    title: "WazeApp - WhatsApp AI Assistant",
     description: "Transform your WhatsApp into an intelligent AI assistant in 30 seconds.",
-    images: ["https://wizeapp.com/twitter-image.jpg"],
+    images: ["https://wazeapp.com/twitter-image.jpg"],
   },
   robots: {
     index: true,

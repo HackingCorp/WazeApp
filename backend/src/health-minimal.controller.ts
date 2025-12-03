@@ -7,7 +7,7 @@ export class HealthMinimalController {
     return {
       status: "ok",
       timestamp: new Date().toISOString(),
-      service: "WizeApp",
+      service: "WazeApp",
       version: "1.0.0",
     };
   }

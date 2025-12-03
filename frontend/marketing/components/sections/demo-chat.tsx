@@ -16,7 +16,7 @@ interface Message {
 // Configuration API - Use environment variable with fallback
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3100/api/v1"
 
-// Fonction pour appeler l'API WizeApp AI avec support de langues
+// Fonction pour appeler l'API WazeApp AI avec support de langues
 async function getAIResponse(message: string, userLanguage: string = 'en'): Promise<string> {
   // TEST TEMPORAIRE - Force un message de succès pour voir si le problème vient de l'API
   if (message.toLowerCase().includes('test')) {
@@ -59,12 +59,12 @@ async function getAIResponse(message: string, userLanguage: string = 'en'): Prom
     console.error('❌ Fetch error:', error)
     
     // Fallback intelligent avec prompt système complet
-    const systemPrompt = `Tu es l'assistant IA de WizeApp, une plateforme révolutionnaire qui transforme WhatsApp en assistant IA intelligent pour les entreprises.
+    const systemPrompt = `Tu es l'assistant IA de WazeApp, une plateforme révolutionnaire qui transforme WhatsApp en assistant IA intelligent pour les entreprises.
 
 PERSONNALITÉ :
 - Professionnel mais chaleureux et accessible
 - Expert en automatisation WhatsApp et IA conversationnelle  
-- Enthousiaste et passionné par les solutions WizeApp
+- Enthousiaste et passionné par les solutions WazeApp
 - Réponds toujours en français avec des emojis pour plus de vivacité
 
 FONCTIONNALITÉS CLÉS À PROMOUVOIR :
@@ -79,7 +79,7 @@ FONCTIONNALITÉS CLÉS À PROMOUVOIR :
 
 OBJECTIFS :
 - Éduquer sur les bénéfices concrets de l'automatisation WhatsApp
-- Montrer comment WizeApp résout les vrais problèmes business
+- Montrer comment WazeApp résout les vrais problèmes business
 - Encourager les visiteurs à essayer la plateforme gratuitement
 - Répondre aux objections avec des arguments convaincants et des preuves
 
@@ -91,14 +91,14 @@ STYLE DE RÉPONSE :
 
     // Réponses fallback intelligentes basées sur le prompt système
     const fallbackResponses = {
-      greeting: "Salut ! 👋 Je suis l'IA de WizeApp, votre futur assistant WhatsApp ! Je peux vous expliquer comment automatiser complètement vos conversations client, améliorer votre SAV et booster vos ventes. Que souhaitez-vous découvrir en premier ?",
-      features: "WizeApp c'est magique ! 🚀 Votre IA peut répondre en 95+ langues, s'intégrer à vos outils (CRM, calendrier...), analyser les sentiments clients, créer des rapports détaillés... Plus jamais de messages perdus ! Quelle fonctionnalité vous intéresse le plus ?",
-      pricing: "Excellente question ! 💰 WizeApp propose un plan gratuit pour démarrer, puis des plans premium à partir de 29€/mois avec IA avancée, intégrations illimitées et support prioritaire. Voulez-vous une démo personnalisée pour voir le ROI concret ?",
+      greeting: "Salut ! 👋 Je suis l'IA de WazeApp, votre futur assistant WhatsApp ! Je peux vous expliquer comment automatiser complètement vos conversations client, améliorer votre SAV et booster vos ventes. Que souhaitez-vous découvrir en premier ?",
+      features: "WazeApp c'est magique ! 🚀 Votre IA peut répondre en 95+ langues, s'intégrer à vos outils (CRM, calendrier...), analyser les sentiments clients, créer des rapports détaillés... Plus jamais de messages perdus ! Quelle fonctionnalité vous intéresse le plus ?",
+      pricing: "Excellente question ! 💰 WazeApp propose un plan gratuit pour démarrer, puis des plans premium à partir de 29€/mois avec IA avancée, intégrations illimitées et support prioritaire. Voulez-vous une démo personnalisée pour voir le ROI concret ?",
       setup: "C'est incroyablement simple ! ⚡ 1) Connectez votre WhatsApp (30 sec) 2) Configurez votre IA avec vos infos business 3) Votre assistant automatise tout : réponses, RDV, SAV... Envie d'essayer gratuitement maintenant ?",
       security: "La sécurité est notre priorité absolue ! 🛡️ Chiffrement bout-en-bout, conformité RGPD totale, vos données restent 100% privées. Nous ne lisons jamais vos conversations. Audit de sécurité disponible pour les entreprises. Rassuré(e) ?",
-      integration: "WizeApp se connecte à tout ! 🔗 CRM (Salesforce, HubSpot...), calendriers, helpdesk, e-commerce, outils de paiement... L'API REST permet des intégrations custom. Quels outils utilisez-vous actuellement ?",
+      integration: "WazeApp se connecte à tout ! 🔗 CRM (Salesforce, HubSpot...), calendriers, helpdesk, e-commerce, outils de paiement... L'API REST permet des intégrations custom. Quels outils utilisez-vous actuellement ?",
       languages: "Impressionnant, non ? 🌍 95+ langues supportées avec traduction automatique ! Vos clients parlent chinois, arabe, espagnol ? L'IA répond dans leur langue natale. Plus de barrières linguistiques pour votre business international !",
-      default: "Excellente question ! 🤔 WizeApp transforme radicalement votre WhatsApp en assistant IA puissant pour automatiser support client, ventes et communication. Que vous cherchiez à améliorer votre SAV, booster vos conversions ou optimiser vos RDV, j'ai LA solution ! Sur quoi puis-je vous éclairer précisément ?"
+      default: "Excellente question ! 🤔 WazeApp transforme radicalement votre WhatsApp en assistant IA puissant pour automatiser support client, ventes et communication. Que vous cherchiez à améliorer votre SAV, booster vos conversions ou optimiser vos RDV, j'ai LA solution ! Sur quoi puis-je vous éclairer précisément ?"
     }
     
     const lowerMessage = message.toLowerCase()
@@ -176,7 +176,7 @@ export function DemoChatWidget() {
     setIsTyping(true)
 
     try {
-      // Appel à l'API WizeApp AI avec la langue de l'utilisateur  
+      // Appel à l'API WazeApp AI avec la langue de l'utilisateur  
       const aiResponse = await getAIResponse(currentMessage, currentLanguage)
       
       const botMessage: Message = {
@@ -194,7 +194,7 @@ export function DemoChatWidget() {
       // Message d'erreur fallback
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
-        text: "Désolé, je rencontre un petit problème technique. Mais je suis toujours là pour vous aider avec WizeApp ! Pouvez-vous reformuler votre question ?",
+        text: "Désolé, je rencontre un petit problème technique. Mais je suis toujours là pour vous aider avec WazeApp ! Pouvez-vous reformuler votre question ?",
         sender: "bot",
         timestamp: new Date(),
       }

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Handler RunPod pour DeepSeek-R1 avec WizeApp
+Handler RunPod pour DeepSeek-R1 avec WazeApp
 """
 import runpod
 import torch

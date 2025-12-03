@@ -1,4 +1,4 @@
-// API client for connecting to the WizeApp backend
+// API client for connecting to the WazeApp backend
 // Ensure we always target the versioned API prefix even if env omits it
 const rawBase = process.env.NEXT_PUBLIC_API_URL || 'https://api.wazeapp.xyz/api/v1';
 const API_BASE_URL = (() => {

@@ -1,4 +1,4 @@
-# WizeApp Dashboard Testing Commands
+# WazeApp Dashboard Testing Commands
 
 ## Start Development Environment
 ```bash

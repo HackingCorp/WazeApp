@@ -31,7 +31,7 @@ export function Navbar() {
               <div className="h-8 w-8 rounded-lg bg-whatsapp flex items-center justify-center">
                 <span className="text-white font-bold text-lg">W</span>
               </div>
-              <span className="text-xl font-bold">WizeApp</span>
+              <span className="text-xl font-bold">WazeApp</span>
             </Link>
           </div>
 

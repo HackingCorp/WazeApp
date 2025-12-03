@@ -1,4 +1,4 @@
-# WizeApp Dashboard - Server Status
+# WazeApp Dashboard - Server Status
 
 ## ✅ Both Servers Running Successfully!
 

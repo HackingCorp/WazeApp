@@ -13,7 +13,7 @@ export default function DashboardRedirect() {
     <div className="min-h-screen flex items-center justify-center bg-background">
       <div className="text-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-        <h2 className="text-xl font-semibold mb-2">Redirecting to WizeApp Dashboard</h2>
+        <h2 className="text-xl font-semibold mb-2">Redirecting to WazeApp Dashboard</h2>
         <p className="text-muted-foreground">
           You are being redirected to the main dashboard...
         </p>

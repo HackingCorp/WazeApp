@@ -9,7 +9,7 @@ const steps = [
   {
     number: "01",
     title: "Connect Your WhatsApp",
-    description: "Scan a QR code to connect your WhatsApp Business account to WizeApp. Takes less than 30 seconds.",
+    description: "Scan a QR code to connect your WhatsApp Business account to WazeApp. Takes less than 30 seconds.",
     icon: MessageSquare,
     details: [
       "No phone installation required",
@@ -132,7 +132,7 @@ export default function HowItWorksPage() {
             className="text-center"
           >
             <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 dark:text-white mb-6">
-              Why Choose WizeApp?
+              Why Choose WazeApp?
             </h2>
             <div className="grid md:grid-cols-3 gap-8 mt-12">
               {[
@@ -146,7 +146,7 @@ export default function HowItWorksPage() {
                 },
                 {
                   title: "Scales with Your Business",
-                  description: "Whether you're handling 10 or 10,000 conversations, WizeApp grows with your needs.",
+                  description: "Whether you're handling 10 or 10,000 conversations, WazeApp grows with your needs.",
                 },
               ].map((benefit) => (
                 <div key={benefit.title} className="bg-white dark:bg-gray-800 rounded-xl p-6">
@@ -173,7 +173,7 @@ export default function HowItWorksPage() {
               Ready to Get Started?
             </h2>
             <p className="text-xl mb-8 max-w-2xl mx-auto">
-              Join thousands of businesses already using WizeApp to transform their customer communication.
+              Join thousands of businesses already using WazeApp to transform their customer communication.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link href="/register">

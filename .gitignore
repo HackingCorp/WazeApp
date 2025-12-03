@@ -103,7 +103,7 @@ coverage/
 
 # Misc
 .tmp/
-.cache/wizeapp-marketing/
+.cache/wazeapp-marketing/
 .vercel
 
 # AI Models (large files)

@@ -3,11 +3,11 @@
 set -e
 
 # Configuration pour CapRover existant
-CAPROVER_URL="captain.wizeapp.ai"  # ou l'URL de votre CapRover existant
-APP_NAME="wizeapp"
-DOMAIN="wizeapp.ai"
+CAPROVER_URL="captain.wazeapp.ai"  # ou l'URL de votre CapRover existant
+APP_NAME="wazeapp"
+DOMAIN="wazeapp.ai"
 
-echo "🚀 Starting CapRover deployment for WizeApp..."
+echo "🚀 Starting CapRover deployment for WazeApp..."
 
 # Check if CapRover CLI is installed
 if ! command -v caprover &> /dev/null; then
@@ -35,17 +35,17 @@ echo "⚙️ Configuring environment variables..."
 caprover api --path "/user/apps/appDefinitions/$APP_NAME" --method POST --data "{
     \"envVars\": [
         {\"key\": \"NODE_ENV\", \"value\": \"production\"},
-        {\"key\": \"DATABASE_HOST\", \"value\": \"srv-captain--wizeapp-db\"},
+        {\"key\": \"DATABASE_HOST\", \"value\": \"srv-captain--wazeapp-db\"},
         {\"key\": \"DATABASE_PORT\", \"value\": \"5432\"},
-        {\"key\": \"DATABASE_USERNAME\", \"value\": \"wizeapp\"},
-        {\"key\": \"DATABASE_PASSWORD\", \"value\": \"wizeapp123\"},
-        {\"key\": \"DATABASE_NAME\", \"value\": \"wizeapp\"},
-        {\"key\": \"REDIS_HOST\", \"value\": \"srv-captain--wizeapp-redis\"},
+        {\"key\": \"DATABASE_USERNAME\", \"value\": \"wazeapp\"},
+        {\"key\": \"DATABASE_PASSWORD\", \"value\": \"wazeapp123\"},
+        {\"key\": \"DATABASE_NAME\", \"value\": \"wazeapp\"},
+        {\"key\": \"REDIS_HOST\", \"value\": \"srv-captain--wazeapp-redis\"},
         {\"key\": \"REDIS_PORT\", \"value\": \"6379\"},
-        {\"key\": \"MINIO_ENDPOINT\", \"value\": \"srv-captain--wizeapp-minio\"},
+        {\"key\": \"MINIO_ENDPOINT\", \"value\": \"srv-captain--wazeapp-minio\"},
         {\"key\": \"MINIO_PORT\", \"value\": \"9000\"},
-        {\"key\": \"MINIO_ACCESS_KEY\", \"value\": \"wizeapp\"},
-        {\"key\": \"MINIO_SECRET_KEY\", \"value\": \"wizeapp123\"},
+        {\"key\": \"MINIO_ACCESS_KEY\", \"value\": \"wazeapp\"},
+        {\"key\": \"MINIO_SECRET_KEY\", \"value\": \"wazeapp123\"},
         {\"key\": \"RUNPOD_API_KEY\", \"value\": \"your-runpod-api-key\"},
         {\"key\": \"RUNPOD_ENDPOINT_ID\", \"value\": \"your-endpoint-id\"},
         {\"key\": \"JWT_ACCESS_SECRET\", \"value\": \"$(openssl rand -base64 32)\"},
@@ -60,9 +60,9 @@ caprover api --path "/user/apps/oneClickApps" --method POST --data "{
     \"oneClickApp\": {
         \"templateId\": \"postgresql\",
         \"variables\": [
-            {\"id\": \"POSTGRES_DB\", \"value\": \"wizeapp\"},
-            {\"id\": \"POSTGRES_USER\", \"value\": \"wizeapp\"},
-            {\"id\": \"POSTGRES_PASSWORD\", \"value\": \"wizeapp123\"}
+            {\"id\": \"POSTGRES_DB\", \"value\": \"wazeapp\"},
+            {\"id\": \"POSTGRES_USER\", \"value\": \"wazeapp\"},
+            {\"id\": \"POSTGRES_PASSWORD\", \"value\": \"wazeapp123\"}
         ]
     }
 }"
@@ -82,8 +82,8 @@ caprover api --path "/user/apps/oneClickApps" --method POST --data "{
     \"oneClickApp\": {
         \"templateId\": \"minio\",
         \"variables\": [
-            {\"id\": \"MINIO_ROOT_USER\", \"value\": \"wizeapp\"},
-            {\"id\": \"MINIO_ROOT_PASSWORD\", \"value\": \"wizeapp123\"}
+            {\"id\": \"MINIO_ROOT_USER\", \"value\": \"wazeapp\"},
+            {\"id\": \"MINIO_ROOT_PASSWORD\", \"value\": \"wazeapp123\"}
         ]
     }
 }"
@@ -118,8 +118,8 @@ caprover api --path "/user/apps/appDefinitions/$APP_NAME" --method POST --data "
 
 echo "✅ Deployment completed!"
 echo "🌐 Your app is available at: https://$DOMAIN"
-echo "📊 Grafana dashboard: https://$APP_NAME-grafana.apps.wizeapp.ai (admin/admin123)"
-echo "💾 MinIO console: https://$APP_NAME-minio.apps.wizeapp.ai (wizeapp/wizeapp123)"
+echo "📊 Grafana dashboard: https://$APP_NAME-grafana.apps.wazeapp.ai (admin/admin123)"
+echo "💾 MinIO console: https://$APP_NAME-minio.apps.wazeapp.ai (wazeapp/wazeapp123)"
 
 echo ""
 echo "📋 Next steps:"

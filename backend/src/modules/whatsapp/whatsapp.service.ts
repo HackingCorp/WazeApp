@@ -26,6 +26,7 @@ import {
   UserRole,
   UsageMetricType,
   AuditAction,
+  MessageRole,
 } from "@/common/enums";
 import {
   CreateWhatsAppSessionDto,
@@ -669,11 +670,11 @@ export class WhatsAppService {
       const conversationIds = conversations.map(c => c.id);
 
       if (conversationIds.length > 0) {
-        // Count messages received today (sender = 'client')
+        // Count messages received today (from users, not AI)
         const todayResult = await this.messageRepository
           .createQueryBuilder('message')
           .where('message.conversationId IN (:...conversationIds)', { conversationIds })
-          .andWhere('message.sender = :sender', { sender: 'client' })
+          .andWhere('message.role = :role', { role: MessageRole.USER })
           .andWhere('message.createdAt >= :today', { today })
           .getCount();
         receivedToday = todayResult;
@@ -682,7 +683,7 @@ export class WhatsAppService {
         const monthResult = await this.messageRepository
           .createQueryBuilder('message')
           .where('message.conversationId IN (:...conversationIds)', { conversationIds })
-          .andWhere('message.sender = :sender', { sender: 'client' })
+          .andWhere('message.role = :role', { role: MessageRole.USER })
           .andWhere('message.createdAt >= :startOfMonth', { startOfMonth })
           .getCount();
         receivedThisMonth = monthResult;

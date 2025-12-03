@@ -432,57 +432,32 @@ export class WhatsAppAIResponderService {
       organizationId: organizationId || null,
       name: `Agent WhatsApp - ${organization?.name || "Default"}`,
       description: "Agent IA automatique pour WhatsApp avec Ollama",
-      systemPrompt: `Tu es un assistant IA spécialisé pour ${organization?.name || "cette organisation"} qui répond aux messages WhatsApp.
+      systemPrompt: `You are an AI assistant for ${organization?.name || "this organization"} responding to WhatsApp messages.
 
-INSTRUCTIONS CRITIQUES:
-- Réponds UNIQUEMENT avec ta réponse finale dans la langue du client
-- Ne montre JAMAIS ton processus de réflexion ou d'analyse
-- N'utilise JAMAIS de phrases comme "Laisse-moi analyser", "Je vois que", "D'après", "En regardant", etc.
-- Ne traduis PAS les messages du client ni n'expliques ce qu'il a dit
-- Réponds directement et utilement
+CRITICAL RULES (MUST FOLLOW):
+1. LANGUAGE: Detect and respond in the EXACT same language the user writes. If English, respond in English. If French, respond in French. NEVER switch languages.
+2. NO MARKDOWN: NEVER use asterisks, underscores, or any formatting. Write plain text only. No bold, no italics.
+3. NO THINKING OUT LOUD: Never say "Let me analyze", "I see that", "Looking at". Just respond directly.
+4. Be concise and helpful (2-4 sentences max).
 
-RÈGLES DE RÉPONSE:
-- Détecte automatiquement la langue du client (français, anglais, espagnol, etc.)
-- Réponds dans la même langue que le client utilise
-- Sois utile, précis et informatif
-- Utilise un ton amical et professionnel
-- Si tu ne connais pas une information, propose des alternatives
+MEDIA HANDLING:
+- When user sends an IMAGE, you can see its content and refer to it
+- When user sends a LINK, you can see the metadata
+- React naturally to media as if you're seeing it
 
-GESTION DES MÉDIAS:
-- Quand un client envoie une IMAGE, tu peux voir le contenu et y faire référence
-- Si c'est une image de produit, aide avec les questions sur ce produit
-- Si c'est une image générale, commente ce que tu vois de manière utile
-- Quand un client envoie un LIEN FACEBOOK/E-COMMERCE, tu peux voir les métadonnées produit
-- Quand un client envoie une VIDÉO de produit, aide avec des questions sur ce produit
-- Quand un client envoie un DOCUMENT, tu peux voir le contenu si lisible
-- RÉAGIS naturellement aux médias comme si tu les voyais vraiment
+KNOWLEDGE BASE:
+- Use the organization's knowledge base when relevant
+- For product/service questions, use available information
+- If you don't have specific pricing, direct to contact numbers
 
-GESTION DES DEMANDES D'ACHAT:
-- Si le client dit "Je voudrais acheter ce produit" après avoir partagé un lien/image
-- Confirme le produit qu'il veut acheter en étant spécifique
-- Demande les détails nécessaires (couleur, taille, quantité si applicable)
-- Propose d'aider pour la commande ou le contact du vendeur
-- Sois proactif pour faciliter la transaction
+EXAMPLES:
+User: "What products do you sell?"
+You: "We sell Android TV Boxes for streaming. These devices let you watch your favorite content in high definition."
 
-BASE DE CONNAISSANCES:
-- Tu as accès à une base de connaissances spécifique à cette organisation
-- Utilise cette base de connaissances pour enrichir tes réponses quand c'est pertinent
-- Si la question concerne les produits/services, utilise les informations disponibles
+User (French): "Quel produit vendez-vous?"
+You: "Nous vendons des Box TV Android pour le streaming. Ces appareils permettent de regarder vos contenus préférés."
 
-EXEMPLES DE BONNES RÉPONSES:
-Client: "Quel produit vendez vous?"
-Toi: "Nous vendons des Box TV Android pour le streaming. Ces appareils permettent de regarder vos contenus préférés en haute définition."
-
-Client: [envoie un lien Facebook E-Market avec sac à dos 8000 FCFA]
-Toi: "Je vois ce sac à dos E-Market en promotion à 8000 FCFA ! C'est un excellent modèle pour enfants, très solide avec plusieurs compartiments. Il est disponible en plusieurs couleurs (bleu, rouge, rose). Souhaitez-vous passer commande ?"
-
-Client: "Je voudrais acheter ce produit"
-Toi: "Parfait ! Je confirme que vous souhaitez acheter le sac à dos E-Market à 8000 FCFA. Quelle couleur préférez-vous ? Et avez-vous besoin des coordonnées du vendeur (Ydc: 673226374, Dia: 673209196) ?"
-
-MAUVAIS EXEMPLE (à éviter):
-"Alright, let me figure out what's going on. The user just said 'Quel produit vendez vous' which means..."
-
-Réponds toujours directement et dans la langue du client.`,
+Always respond directly in the user's language without any formatting.`,
       status: AgentStatus.ACTIVE,
       primaryLanguage: AgentLanguage.FRENCH,
       supportedLanguages: [
@@ -791,55 +766,51 @@ Réponds toujours directement et dans la langue du client.`,
   }
 
   /**
-   * Convertit le formatage Markdown en format WhatsApp
-   * Markdown: **bold** -> WhatsApp: *bold*
-   * WhatsApp utilise: *bold* _italic_ ~strikethrough~ ```code```
+   * Remove ALL markdown formatting for plain text output
+   * No asterisks, no underscores, no formatting - just clean text
    */
   private convertToWhatsAppFormat(text: string): string {
     if (!text) return "";
 
     let result = text;
 
-    // 1. D'abord, convertir les headers markdown en texte simple avec gras
-    result = result.replace(/^#{1,6}\s*(.+)$/gm, '*$1*');
+    // 1. Remove markdown headers (# ## ### etc)
+    result = result.replace(/^#{1,6}\s*(.+)$/gm, '$1');
 
-    // 2. Convertir ***bold italic*** en *bold* (simplifier)
-    result = result.replace(/\*\*\*([^*]+)\*\*\*/g, '*$1*');
+    // 2. Remove all bold/italic formatting (***text***, **text**, *text*, __text__, _text_)
+    result = result.replace(/\*\*\*([^*]+)\*\*\*/g, '$1');
+    result = result.replace(/\*\*([^*]+)\*\*/g, '$1');
+    result = result.replace(/\*([^*\n]+)\*/g, '$1');
+    result = result.replace(/__([^_]+)__/g, '$1');
+    result = result.replace(/_([^_\n]+)_/g, '$1');
 
-    // 3. Convertir **bold** en *bold* (format WhatsApp)
-    // Utiliser une regex plus permissive pour capturer le contenu
-    result = result.replace(/\*\*(.+?)\*\*/g, '*$1*');
-
-    // 4. Convertir __bold__ en *bold*
-    result = result.replace(/__(.+?)__/g, '*$1*');
-
-    // 5. Nettoyer les doubles astérisques restants (cas edge)
-    // Remplacer ** par * partout
-    result = result.replace(/\*\*/g, '*');
-
-    // 6. Nettoyer les astérisques triples ou plus
-    result = result.replace(/\*{3,}/g, '*');
-
-    // 7. Convert [text](url) links to just text (url)
+    // 3. Convert [text](url) links to just text (url)
     result = result.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1 ($2)');
 
-    // Convert bullet points - to •
+    // 4. Convert bullet points to readable format
     result = result.replace(/^-\s+/gm, '• ');
-    result = result.replace(/^\*\s+(?!\*)/gm, '• '); // * at start of line (not bold)
+    result = result.replace(/^\*\s+/gm, '• ');
 
-    // Convert numbered lists with proper formatting
+    // 5. Convert numbered lists with proper formatting
     result = result.replace(/^(\d+)\.\s+/gm, '$1. ');
 
-    // Remove triple backticks code blocks
-    result = result.replace(/```[\s\S]*?```/g, (match) => {
-      return match.replace(/```\w*\n?/g, '').trim();
-    });
+    // 6. Remove triple backticks code blocks but keep content
+    result = result.replace(/```[\w]*\n?([\s\S]*?)```/g, '$1');
 
-    // Remove single backticks
+    // 7. Remove single backticks
     result = result.replace(/`([^`]+)`/g, '$1');
 
-    // Clean up multiple consecutive newlines
+    // 8. Remove strikethrough
+    result = result.replace(/~~([^~]+)~~/g, '$1');
+
+    // 9. Remove ALL remaining asterisks (this is the key fix)
+    result = result.replace(/\*/g, '');
+
+    // 10. Clean up multiple consecutive newlines
     result = result.replace(/\n{3,}/g, '\n\n');
+
+    // 11. Clean up extra spaces
+    result = result.replace(/  +/g, ' ');
 
     return result.trim();
   }
@@ -1098,10 +1069,13 @@ EXEMPLE DE RÉPONSE CORRECTE:
         'ar': 'Arabic'
       };
 
-      // Ajouter instruction de langue spécifique au début des messages
+      // Add critical language and formatting instructions at the start
       const languageInstruction = {
         role: "system" as const,
-        content: `CRITICAL: You MUST respond ONLY in ${languageNames[detectedLanguage] || 'English'}. The user is writing in ${languageNames[detectedLanguage] || 'English'}, so respond in the same language.`
+        content: `CRITICAL INSTRUCTIONS (MUST FOLLOW):
+1. RESPOND ONLY IN ${(languageNames[detectedLanguage] || 'English').toUpperCase()}. The user wrote in ${languageNames[detectedLanguage] || 'English'}, so you MUST reply in the same language.
+2. NO FORMATTING: Do NOT use asterisks (*), underscores (_), or any markdown. Write plain text only.
+3. Be direct and concise. No "thinking out loud" phrases.`
       };
 
       const enhancedMessages = [languageInstruction, ...messages];

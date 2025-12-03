@@ -63,15 +63,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
 
-  const getUserPlanInfo = async () => {
+  const getUserPlanInfo = async (userData: any) => {
     try {
       const response = await api.get('/subscriptions/usage-summary');
       if (response.success && response.data) {
         const planData = response.data;
+
+        // Check if user has a real organization
+        const hasOrganization = userData?.currentOrganizationId || userData?.organizationId;
+        const orgName = userData?.currentOrganization?.name ||
+                        userData?.organization?.name ||
+                        planData?.organizationName ||
+                        (hasOrganization ? 'Mon Organisation' : 'Personal Workspace');
+
         return {
           organization: {
-            id: 'personal',
-            name: 'Personal Workspace',
+            id: hasOrganization || 'personal',
+            name: orgName,
             plan: planData.plan,
             limits: {
               maxAgents: planData.usage?.agents?.limit || 1,
@@ -84,12 +92,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       console.log('Error fetching plan info:', error);
     }
-    
+
     // Fallback to free plan
+    const hasOrganization = userData?.currentOrganizationId || userData?.organizationId;
     return {
       organization: {
-        id: 'personal',
-        name: 'Personal Workspace',
+        id: hasOrganization || 'personal',
+        name: hasOrganization ? 'Mon Organisation' : 'Personal Workspace',
         plan: 'free',
         limits: {
           maxAgents: 1,
@@ -137,14 +146,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           console.log('AuthProvider: Full response.data:', response.data);
           const userData = response.data.user;
           setToken(savedToken);
-          
-          // Get subscription plan info
-          const planInfo = await getUserPlanInfo();
-          
+
+          // Get subscription plan info with user data
+          const planInfo = await getUserPlanInfo(userData);
+
           setUser({
             ...userData,
             role: 'owner', // Default role for users without organizations
-            organizationId: null, // No organization required per user feedback
+            organizationId: userData.currentOrganizationId || null,
             organization: planInfo.organization,
             preferences: {
               theme: 'system',
@@ -195,14 +204,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const { user: userData, accessToken, refreshToken } = response.data;
 
       setToken(accessToken);
-      
-      // Get subscription plan info
-      const planInfo = await getUserPlanInfo();
-      
+
+      // Get subscription plan info with user data
+      const planInfo = await getUserPlanInfo(userData);
+
       setUser({
         ...userData,
         role: 'owner', // Default role
-        organizationId: null, // No organization required per user feedback
+        organizationId: userData.currentOrganizationId || null,
         organization: planInfo.organization,
         preferences: {
           theme: 'system',

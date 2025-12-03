@@ -530,6 +530,7 @@ export class AuthService {
         "lastName",
         "emailVerified",
         "twoFactorEnabled",
+        "currentOrganizationId",
         "createdAt",
         "updatedAt",
       ],
@@ -545,8 +546,33 @@ export class AuthService {
       relations: ["organization"],
     });
 
+    // Get current organization details if exists
+    let currentOrganization = null;
+    if (user.currentOrganizationId) {
+      const currentMembership = memberships.find(
+        (m) => m.organization.id === user.currentOrganizationId
+      );
+      if (currentMembership) {
+        currentOrganization = {
+          id: currentMembership.organization.id,
+          name: currentMembership.organization.name,
+          role: currentMembership.role,
+        };
+      }
+    } else if (memberships.length > 0) {
+      // If no current org set, use the first one
+      currentOrganization = {
+        id: memberships[0].organization.id,
+        name: memberships[0].organization.name,
+        role: memberships[0].role,
+      };
+    }
+
     return {
-      user,
+      user: {
+        ...user,
+        currentOrganization,
+      },
       organizations: memberships.map((m) => ({
         id: m.organization.id,
         name: m.organization.name,

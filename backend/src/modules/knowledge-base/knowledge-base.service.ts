@@ -449,7 +449,8 @@ export class KnowledgeBaseService {
         title: doc.title,
         status: doc.status,
         contentLength: doc.content?.length || 0,
-        preview: doc.content?.substring(0, 500) || '[No content]',
+        preview: doc.content?.substring(0, 2000) || '[No content]',
+        fullContent: doc.content || '[No content]',
       };
     });
 

@@ -130,14 +130,18 @@ export default function DashboardPage() {
       const agents = agentsRes?.data || agentsRes || [];
       if (Array.isArray(agents) && agents.length > 0) {
         console.log('✅ Dashboard: Setting real agents data:', agents.length, 'agents');
+        console.log('✅ Dashboard: First agent data:', agents[0]);
         const realAgentStatuses: AgentStatus[] = agents.map((agent: any) => ({
           id: agent.id,
           name: agent.name || 'Unnamed Agent',
-          status: agent.isActive ? 'online' : 'offline',
-          conversations: agent.conversationCount || 0,
-          lastActive: agent.updatedAt
-            ? formatLastActive(new Date(agent.updatedAt))
-            : 'Never',
+          // AI Agent uses 'status' enum (active, inactive, training, maintenance), not 'isActive' boolean
+          status: agent.status === 'active' ? 'online' : 'offline',
+          conversations: agent.metrics?.totalConversations || agent.conversationCount || 0,
+          lastActive: agent.metrics?.lastActive
+            ? formatLastActive(new Date(agent.metrics.lastActive))
+            : agent.updatedAt
+              ? formatLastActive(new Date(agent.updatedAt))
+              : 'Never',
         }));
         setAgentStatuses(realAgentStatuses);
       } else {

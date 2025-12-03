@@ -644,50 +644,63 @@ export class WhatsAppService {
     }
 
     // Count received messages from AgentMessage table
-    // First get conversations for this session's agent
+    // Get conversations for this session (by sessionId or agentId)
+    let receivedToday = 0;
+    let receivedThisMonth = 0;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const startOfMonth = new Date();
+    startOfMonth.setDate(1);
+    startOfMonth.setHours(0, 0, 0, 0);
+
+    // Find conversations by sessionId (primary) or by agentId if session has an agent
     const sessionWithAgent = await this.sessionRepository.findOne({
       where: { id },
       relations: ['agent'],
     });
 
-    let receivedToday = 0;
-    let receivedThisMonth = 0;
+    // Build query to find all conversations for this session
+    const conversationQuery = this.conversationRepository
+      .createQueryBuilder('conv')
+      .select(['conv.id']);
 
+    // Look for conversations by sessionId OR by agentId
     if (sessionWithAgent?.agent?.id) {
-      const agentId = sessionWithAgent.agent.id;
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
+      conversationQuery.where(
+        '(conv.sessionId = :sessionId OR conv.agentId = :agentId)',
+        { sessionId: id, agentId: sessionWithAgent.agent.id }
+      );
+    } else {
+      conversationQuery.where('conv.sessionId = :sessionId', { sessionId: id });
+    }
 
-      const startOfMonth = new Date();
-      startOfMonth.setDate(1);
-      startOfMonth.setHours(0, 0, 0, 0);
+    const conversations = await conversationQuery.getMany();
+    const conversationIds = conversations.map(c => c.id);
 
-      // Get conversation IDs for this agent
-      const conversations = await this.conversationRepository.find({
-        where: { agentId },
-        select: ['id'],
-      });
-      const conversationIds = conversations.map(c => c.id);
+    this.logger.debug(`Found ${conversationIds.length} conversations for session ${id}`);
 
-      if (conversationIds.length > 0) {
-        // Count messages received today (from users, not AI)
-        const todayResult = await this.messageRepository
-          .createQueryBuilder('message')
-          .where('message.conversationId IN (:...conversationIds)', { conversationIds })
-          .andWhere('message.role = :role', { role: MessageRole.USER })
-          .andWhere('message.createdAt >= :today', { today })
-          .getCount();
-        receivedToday = todayResult;
+    if (conversationIds.length > 0) {
+      // Count messages received today (from users, not AI)
+      const todayResult = await this.messageRepository
+        .createQueryBuilder('message')
+        .where('message.conversationId IN (:...conversationIds)', { conversationIds })
+        .andWhere('message.role = :role', { role: MessageRole.USER })
+        .andWhere('message.createdAt >= :today', { today })
+        .getCount();
+      receivedToday = todayResult;
 
-        // Count messages received this month
-        const monthResult = await this.messageRepository
-          .createQueryBuilder('message')
-          .where('message.conversationId IN (:...conversationIds)', { conversationIds })
-          .andWhere('message.role = :role', { role: MessageRole.USER })
-          .andWhere('message.createdAt >= :startOfMonth', { startOfMonth })
-          .getCount();
-        receivedThisMonth = monthResult;
-      }
+      // Count messages received this month
+      const monthResult = await this.messageRepository
+        .createQueryBuilder('message')
+        .where('message.conversationId IN (:...conversationIds)', { conversationIds })
+        .andWhere('message.role = :role', { role: MessageRole.USER })
+        .andWhere('message.createdAt >= :startOfMonth', { startOfMonth })
+        .getCount();
+      receivedThisMonth = monthResult;
+
+      this.logger.debug(`Message counts - Today: ${receivedToday}, This Month: ${receivedThisMonth}`);
     }
 
     return {

@@ -10,7 +10,10 @@ import {
   KnowledgeDocument,
   WhatsAppSession,
   User,
+  AgentConversation,
+  AgentMessage,
 } from "../../common/entities";
+import { MessageRole } from "../../common/enums";
 import { SubscriptionPlan, UsageMetricType } from "../../common/enums";
 import {
   SUBSCRIPTION_LIMITS,
@@ -60,6 +63,12 @@ export class QuotaEnforcementService {
 
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+
+    @InjectRepository(AgentConversation)
+    private readonly conversationRepository: Repository<AgentConversation>,
+
+    @InjectRepository(AgentMessage)
+    private readonly messageRepository: Repository<AgentMessage>,
   ) {}
 
   async checkAgentQuota(organizationId: string): Promise<QuotaCheck> {
@@ -209,6 +218,139 @@ export class QuotaEnforcementService {
     return this.buildQuotaCheck(fileSize, limit, "file upload size", "bytes");
   }
 
+  /**
+   * Check WhatsApp message quota for an organization
+   * Counts actual messages from AgentMessage table
+   */
+  async checkWhatsAppMessageQuota(organizationId: string): Promise<QuotaCheck> {
+    const subscription = await this.getActiveSubscription(organizationId);
+    const limit = subscription.limits.maxRequestsPerMonth; // Using requests limit for messages
+
+    const current = await this.getActualWhatsAppMessageCount(organizationId);
+
+    return this.buildQuotaCheck(current, limit, "monthly WhatsApp messages");
+  }
+
+  /**
+   * Check WhatsApp message quota for a user (without organization)
+   */
+  async checkUserWhatsAppMessageQuota(userId: string): Promise<QuotaCheck> {
+    const subscription = await this.getActiveUserSubscription(userId);
+    const limit = subscription.limits.maxRequestsPerMonth;
+
+    const current = await this.getUserActualWhatsAppMessageCount(userId);
+
+    return this.buildQuotaCheck(current, limit, "monthly WhatsApp messages");
+  }
+
+  /**
+   * Get actual WhatsApp message count for organization from AgentMessage table
+   */
+  private async getActualWhatsAppMessageCount(organizationId: string): Promise<number> {
+    const startOfMonth = new Date();
+    startOfMonth.setDate(1);
+    startOfMonth.setHours(0, 0, 0, 0);
+
+    // Get all sessions for this organization
+    const sessions = await this.sessionRepository.find({
+      where: { organizationId },
+      select: ['id'],
+    });
+    const sessionIds = sessions.map(s => s.id);
+
+    if (sessionIds.length === 0) {
+      return 0;
+    }
+
+    // Get all conversations for these sessions
+    const conversations = await this.conversationRepository
+      .createQueryBuilder('conv')
+      .select(['conv.id'])
+      .where('conv.sessionId IN (:...sessionIds)', { sessionIds })
+      .getMany();
+    const conversationIds = conversations.map(c => c.id);
+
+    if (conversationIds.length === 0) {
+      return 0;
+    }
+
+    // Count user messages this month
+    const count = await this.messageRepository
+      .createQueryBuilder('msg')
+      .where('msg.conversationId IN (:...conversationIds)', { conversationIds })
+      .andWhere('msg.role = :role', { role: MessageRole.USER })
+      .andWhere('msg.createdAt >= :startOfMonth', { startOfMonth })
+      .getCount();
+
+    return count;
+  }
+
+  /**
+   * Get actual WhatsApp message count for user from AgentMessage table
+   */
+  private async getUserActualWhatsAppMessageCount(userId: string): Promise<number> {
+    const startOfMonth = new Date();
+    startOfMonth.setDate(1);
+    startOfMonth.setHours(0, 0, 0, 0);
+
+    // Get all sessions for this user (without organization)
+    const sessions = await this.sessionRepository.find({
+      where: { userId, organizationId: IsNull() },
+      select: ['id'],
+    });
+    const sessionIds = sessions.map(s => s.id);
+
+    if (sessionIds.length === 0) {
+      return 0;
+    }
+
+    // Get all conversations for these sessions
+    const conversations = await this.conversationRepository
+      .createQueryBuilder('conv')
+      .select(['conv.id'])
+      .where('conv.sessionId IN (:...sessionIds)', { sessionIds })
+      .getMany();
+    const conversationIds = conversations.map(c => c.id);
+
+    if (conversationIds.length === 0) {
+      return 0;
+    }
+
+    // Count user messages this month
+    const count = await this.messageRepository
+      .createQueryBuilder('msg')
+      .where('msg.conversationId IN (:...conversationIds)', { conversationIds })
+      .andWhere('msg.role = :role', { role: MessageRole.USER })
+      .andWhere('msg.createdAt >= :startOfMonth', { startOfMonth })
+      .getCount();
+
+    return count;
+  }
+
+  /**
+   * Enforce WhatsApp message quota
+   */
+  async enforceWhatsAppMessageQuota(organizationId: string): Promise<void> {
+    const check = await this.checkWhatsAppMessageQuota(organizationId);
+    if (!check.allowed) {
+      throw new ForbiddenException(
+        `Message limit exceeded. You have used ${check.current} of ${check.limit} monthly messages. Please upgrade your plan.`
+      );
+    }
+  }
+
+  /**
+   * Enforce user WhatsApp message quota
+   */
+  async enforceUserWhatsAppMessageQuota(userId: string): Promise<void> {
+    const check = await this.checkUserWhatsAppMessageQuota(userId);
+    if (!check.allowed) {
+      throw new ForbiddenException(
+        `Message limit exceeded. You have used ${check.current} of ${check.limit} monthly messages. Please upgrade your plan.`
+      );
+    }
+  }
+
   // Feature access checks
   async checkFeatureAccess(
     organizationId: string,
@@ -339,6 +481,7 @@ export class QuotaEnforcementService {
       tokenCheck,
       vectorSearchCheck,
       conversationCheck,
+      whatsappMessageCheck,
     ] = await Promise.all([
       this.checkAgentQuota(organizationId),
       this.checkKnowledgeBaseQuota(organizationId),
@@ -348,6 +491,7 @@ export class QuotaEnforcementService {
       this.checkLLMTokenQuota(organizationId),
       this.checkVectorSearchQuota(organizationId),
       this.checkConversationQuota(organizationId),
+      this.checkWhatsAppMessageQuota(organizationId),
     ]);
 
     return {
@@ -364,6 +508,7 @@ export class QuotaEnforcementService {
         monthlyTokens: tokenCheck,
         monthlyVectorSearches: vectorSearchCheck,
         monthlyConversations: conversationCheck,
+        whatsappMessages: whatsappMessageCheck,
       },
       features: subscription.features,
     };
@@ -374,10 +519,17 @@ export class QuotaEnforcementService {
     const subscription = await this.getActiveUserSubscription(userId);
     console.log(`[USAGE] Got subscription plan: ${subscription.plan}`);
 
-    // For individual users, we check WhatsApp agents instead of AI agents
-    const agentCheck = await this.checkUserAgentQuota(userId);
+    // For individual users, we check WhatsApp agents and messages
+    const [agentCheck, whatsappMessageCheck] = await Promise.all([
+      this.checkUserAgentQuota(userId),
+      this.checkUserWhatsAppMessageQuota(userId),
+    ]);
+
     console.log(
       `[USAGE] Agent quota check: limit=${agentCheck.limit}, current=${agentCheck.current}`,
+    );
+    console.log(
+      `[USAGE] WhatsApp message quota check: limit=${whatsappMessageCheck.limit}, current=${whatsappMessageCheck.current}`,
     );
 
     // Individual users don't have knowledge bases, storage, etc. for now
@@ -398,10 +550,11 @@ export class QuotaEnforcementService {
         knowledgeBases: basicQuota,
         storage: basicQuota,
         knowledgeCharacters: basicQuota,
-        monthlyRequests: basicQuota,
+        monthlyRequests: whatsappMessageCheck, // Use actual message count for requests
         monthlyTokens: basicQuota,
         monthlyVectorSearches: basicQuota,
         monthlyConversations: basicQuota,
+        whatsappMessages: whatsappMessageCheck,
       },
       features: subscription.features,
     };

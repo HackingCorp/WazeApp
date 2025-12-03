@@ -9,6 +9,8 @@ import {
   KnowledgeDocument,
   WhatsAppSession,
   User,
+  AgentConversation,
+  AgentMessage,
 } from "../../common/entities";
 import { QuotaEnforcementService } from "./quota-enforcement.service";
 import { SubscriptionController } from "./subscription.controller";
@@ -24,6 +26,8 @@ import { SubscriptionController } from "./subscription.controller";
       KnowledgeDocument,
       WhatsAppSession,
       User,
+      AgentConversation,
+      AgentMessage,
     ]),
   ],
   controllers: [SubscriptionController],

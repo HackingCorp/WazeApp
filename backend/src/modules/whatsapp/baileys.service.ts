@@ -352,53 +352,24 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
         version,
         printQRInTerminal: false,
 
-        // 📚 OFFICIAL BAILEYS DOCUMENTATION CONFIGURATION
-        // Reference: https://github.com/WhiskeySockets/Baileys README.md
-        // Using Chrome on Ubuntu for better Android compatibility
-        browser: Browsers.ubuntu("Chrome"),
-        syncFullHistory: false, // Disabled for better Android compatibility
+        // Use Windows Chrome browser - more common and less likely to be flagged
+        browser: ["WazeApp", "Chrome", "120.0.0"],
+        syncFullHistory: false,
 
         auth: {
           creds: authState.state.creds,
           keys: makeCacheableSignalKeyStore(authState.state.keys, undefined),
         },
 
-        // Standard Baileys configuration options
-        generateHighQualityLinkPreview: true,
-        markOnlineOnConnect: true,
-        defaultQueryTimeoutMs: 60000, // Use default timeout from Baileys
-        fireInitQueries: true, // Automatically fire initial queries
-        retryRequestDelayMs: 250,
-        maxMsgRetryCount: 5,
-        keepAliveIntervalMs: 10000, // Send keep-alive every 10 seconds (more frequent)
-        connectTimeoutMs: 120000, // Wait up to 2 minutes for connection
-        qrTimeout: 300000, // QR timeout extended to 5 minutes
-        
-        // Enhanced connection stability options
-        emitOwnEvents: false, // Don't emit own message events
-        linkPreviewImageThumbnailWidth: 192,
-        transactionOpts: {
-          maxCommitRetries: 10,
-          delayBetweenTriesMs: 3000,
-        },
-        shouldIgnoreJid: jid => isJidBroadcast(jid), // Ignore broadcast messages
+        // Simplified configuration for better stability
+        generateHighQualityLinkPreview: false,
+        markOnlineOnConnect: false, // Don't appear online immediately
+        defaultQueryTimeoutMs: 60000,
+        connectTimeoutMs: 60000,
+        qrTimeout: 60000,
 
-        // History sync message filter - IMPORTANT!
-        shouldSyncHistoryMessage: (msg) => {
-          // Log the history sync notification for debugging
-          this.logger.log(
-            `📋 History sync notification: type=${msg.syncType}, progress=${msg.progress}`,
-          );
-
-          // According to Baileys source, return true to sync all historical messages
-          // This is called for each history sync notification from WhatsApp
-          return true;
-        },
-
-        // Message retrieval for context - let Baileys handle message retrieval
+        // Message retrieval for context
         getMessage: async (key) => {
-          // For initial implementation, let Baileys handle message retrieval
-          // This can be enhanced later to return messages from our database
           return undefined;
         },
       });
@@ -820,17 +791,16 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
       const sock = makeWASocket({
         version,
         printQRInTerminal: false,
-        browser: Browsers.ubuntu("Chrome"),
+        browser: ["WazeApp", "Chrome", "120.0.0"],
         auth: {
           creds: authState.state.creds,
           keys: makeCacheableSignalKeyStore(authState.state.keys, undefined),
         },
         generateHighQualityLinkPreview: false,
-        markOnlineOnConnect: true,
+        markOnlineOnConnect: false,
         syncFullHistory: false,
         defaultQueryTimeoutMs: 60000,
-        keepAliveIntervalMs: 10000,
-        connectTimeoutMs: 120000,
+        connectTimeoutMs: 60000,
       });
 
       this.sessions.set(sessionId, sock);

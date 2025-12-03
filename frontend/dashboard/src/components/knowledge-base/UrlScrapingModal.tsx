@@ -253,7 +253,6 @@ export default function UrlScrapingModal({
 
   const handleClose = () => {
     console.log('[UrlScrapingModal] handleClose called - Modal is closing');
-    console.trace('[UrlScrapingModal] Stack trace for modal close');
     setUrl('');
     setTitle('');
     setIsProcessing(false);
@@ -263,6 +262,46 @@ export default function UrlScrapingModal({
     setAiSynthesis('');
     setSteps(steps.map(step => ({ ...step, status: 'pending', progress: 0 })));
     onClose();
+  };
+
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleSaveAndClose = async () => {
+    if (!scrapedContent) {
+      handleClose();
+      return;
+    }
+
+    console.log('[UrlScrapingModal] Saving document to knowledge base...');
+    setIsSaving(true);
+
+    try {
+      // Save the scraped content to the knowledge base
+      const response = await api.uploadFromUrl({
+        url: url.trim(),
+        title: title.trim() || scrapedContent.metadata.title || 'Document extrait',
+        knowledgeBaseId,
+        tags: scrapedContent.metadata.keywords || [],
+      });
+
+      console.log('[UrlScrapingModal] Save response:', response);
+
+      if (response.success) {
+        console.log('[UrlScrapingModal] Document saved successfully!');
+        // Call the callback to refresh the documents list
+        if (onUploadComplete) {
+          onUploadComplete();
+        }
+        handleClose();
+      } else {
+        throw new Error(response.error || 'Erreur lors de la sauvegarde');
+      }
+    } catch (error) {
+      console.error('[UrlScrapingModal] Error saving document:', error);
+      alert('Erreur lors de la sauvegarde du document. Veuillez réessayer.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const formatFileSize = (bytes: number) => {
@@ -506,13 +545,26 @@ export default function UrlScrapingModal({
                   </div>
                 )}
 
-                <div className="flex justify-end pt-4 border-t border-gray-200 dark:border-gray-600">
+                <div className="flex justify-end pt-4 border-t border-gray-200 dark:border-gray-600 space-x-3">
                   <button
                     onClick={handleClose}
-                    className="flex items-center space-x-2 bg-green-600 text-white px-8 py-3 rounded-lg hover:bg-green-700 transition-colors font-medium"
+                    disabled={isSaving}
+                    className="flex items-center space-x-2 bg-gray-500 text-white px-6 py-3 rounded-lg hover:bg-gray-600 transition-colors font-medium disabled:opacity-50"
                   >
-                    <Check className="w-5 h-5" />
-                    <span>Terminer</span>
+                    <X className="w-5 h-5" />
+                    <span>Annuler</span>
+                  </button>
+                  <button
+                    onClick={handleSaveAndClose}
+                    disabled={isSaving}
+                    className="flex items-center space-x-2 bg-green-600 text-white px-8 py-3 rounded-lg hover:bg-green-700 transition-colors font-medium disabled:opacity-50"
+                  >
+                    {isSaving ? (
+                      <Loader className="w-5 h-5 animate-spin" />
+                    ) : (
+                      <Check className="w-5 h-5" />
+                    )}
+                    <span>{isSaving ? 'Enregistrement...' : 'Enregistrer'}</span>
                   </button>
                 </div>
               </div>

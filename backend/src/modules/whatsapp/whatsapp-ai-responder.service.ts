@@ -723,7 +723,8 @@ Réponds toujours directement et dans la langue du client.`,
           .slice(0, 3)
           .map(doc => {
             const content = doc.content || "";
-            return `**${doc.title}**:\n${content.substring(0, 1500)}${content.length > 1500 ? '...' : ''}`;
+            // Envoyer jusqu'à 5000 chars pour inclure tous les prix
+            return `**${doc.title}**:\n${content.substring(0, 5000)}${content.length > 5000 ? '...' : ''}`;
           });
 
         if (allContent.length > 0) {
@@ -732,12 +733,15 @@ Réponds toujours directement et dans la langue du client.`,
         return "";
       }
 
-      // Construire le contexte à partir des documents trouvés avec des extraits plus longs
+      // Construire le contexte à partir des documents trouvés - ENVOYER LE CONTENU COMPLET
+      // La KB est petite (généralement < 10k chars) donc on envoie tout pour avoir les prix
       const contextParts = scoredDocuments.map(({ doc, score }) => {
         const content = doc.content || "";
-        // Extraits plus longs (800 caractères) pour plus de contexte
-        const excerpt = this.extractRelevantExcerpt(content, allSearchTerms, 800);
-        return `**${doc.title}** (pertinence: ${score}):\n${excerpt}`;
+        // Envoyer le contenu complet (jusqu'à 5000 chars) pour inclure tous les prix
+        const fullContent = content.length > 5000
+          ? content.substring(0, 5000) + "..."
+          : content;
+        return `**${doc.title}** (pertinence: ${score}):\n${fullContent}`;
       });
 
       const context = `📚 INFORMATIONS TROUVÉES DANS LA BASE DE CONNAISSANCES (TRÈS IMPORTANT - UTILISE CES DONNÉES!):\n\n${contextParts.join("\n\n---\n\n")}`;

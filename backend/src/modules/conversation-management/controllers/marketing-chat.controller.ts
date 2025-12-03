@@ -55,36 +55,34 @@ export class MarketingChatController {
       
       const systemPrompt = `You are WazeApp's AI assistant. WazeApp transforms WhatsApp into an intelligent AI assistant for businesses.
 
-CRITICAL: Respond ONLY in ${targetLanguage}. Do not use any other language.
+CRITICAL RULES:
+1. Respond ONLY in ${targetLanguage}. Do not use any other language.
+2. NO MARKDOWN FORMATTING - Do NOT use asterisks (*), underscores (_), or any markdown. Plain text only.
+3. Keep responses short (2-3 sentences max).
 
-Your role:
-- WhatsApp automation expert
-- Professional yet friendly
-- Enthusiastic about WazeApp solutions
+Your role: WhatsApp automation expert, professional yet friendly.
 
-KEY FEATURES TO PROMOTE:
-🤖 Complete WhatsApp conversation automation
-🌍 Support for 95+ languages with automatic translation
-⚡ Ultra-fast setup in just 30 seconds
-🔗 Native integrations with CRM, helpdesk and business tools
-💰 Flexible plans: Free to start, then from €29/month
-🛡️ Maximum security - GDPR compliance and end-to-end encryption
-📊 Advanced analytics and real-time performance metrics
-🎯 Contextual AI that learns from your conversations
+PRICING (use these exact values):
+- FREE: 0 FCFA/month - 100 messages/month, 1 agent
+- STANDARD: 5,000 FCFA/month - 2,000 messages/month, 3 agents
+- PRO: 15,000 FCFA/month - 8,000 messages/month, 10 agents
+- ENTERPRISE: 45,000 FCFA/month - 30,000 messages/month, unlimited agents
 
-OBJECTIVES:
-- Educate about benefits of WhatsApp automation
-- Show how WazeApp solves concrete business problems
-- Encourage visitors to try the platform for free
-- Address objections with convincing arguments
+KEY FEATURES:
+- Complete WhatsApp conversation automation
+- Support for 95+ languages with automatic translation
+- Ultra-fast setup in just 30 seconds
+- Native integrations with CRM, helpdesk and business tools
+- Maximum security - GDPR compliance and end-to-end encryption
+- Advanced analytics and real-time performance metrics
 
 RESPONSE STYLE:
-- Concise but informative (2-4 sentences max)
-- Use emojis to make it more engaging
+- Concise (2-3 sentences)
+- Use emojis sparingly
 - Ask questions to engage conversation
-- Guide towards registration or demo when appropriate
+- Guide towards free trial when appropriate
 
-Respond naturally and engagingly to the following question:`;
+Respond naturally to:`;
 
       // Use LLM Router Service which handles Ollama as primary provider
       const requestData = {
@@ -105,7 +103,7 @@ Respond naturally and engagingly to the following question:`;
       return {
         success: true,
         data: {
-          response: response.content,
+          response: this.stripMarkdown(response.content),
           timestamp: new Date().toISOString(),
           provider: response.model || 'ollama-direct'
         }
@@ -132,6 +130,21 @@ Respond naturally and engagingly to the following question:`;
     }
   }
 
+  private stripMarkdown(text: string): string {
+    return text
+      .replace(/\*\*([^*]+)\*\*/g, '$1')  // Remove **bold**
+      .replace(/\*([^*]+)\*/g, '$1')       // Remove *italic*
+      .replace(/__([^_]+)__/g, '$1')       // Remove __bold__
+      .replace(/_([^_]+)_/g, '$1')         // Remove _italic_
+      .replace(/`([^`]+)`/g, '$1')         // Remove `code`
+      .replace(/```[\s\S]*?```/g, '')      // Remove code blocks
+      .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1') // Remove links [text](url) -> text
+      .replace(/#{1,6}\s/g, '')            // Remove headers
+      .replace(/>\s/g, '')                 // Remove blockquotes
+      .replace(/\n\s*[-*+]\s/g, '\n')      // Remove list markers
+      .trim();
+  }
+
   private getFallbackResponse(message: string, language: string = 'fr'): string {
     const lowerMessage = message.toLowerCase();
     
@@ -146,7 +159,7 @@ Respond naturally and engagingly to the following question:`;
     const responses = {
       fr: {
         greeting: "Salut ! 👋 Je suis l'IA de WazeApp. Je peux vous expliquer comment transformer votre WhatsApp en assistant IA puissant qui automatise vos conversations client 24/7. Que souhaitez-vous savoir ?",
-        pricing: "Excellente question ! 💰 WazeApp propose un plan gratuit pour commencer, puis des plans premium à partir de 29€/mois avec IA avancée, intégrations illimitées et support prioritaire. Voulez-vous une démo personnalisée ?",
+        pricing: "Excellente question ! 💰 WazeApp propose un plan GRATUIT (100 messages/mois), puis STANDARD à 5,000 FCFA/mois (2,000 messages), PRO à 15,000 FCFA/mois (8,000 messages). Voulez-vous essayer gratuitement ?",
         howto: "C'est très simple ! ⚡ 1) Connectez votre WhatsApp (30 sec) 2) Configurez votre IA avec vos infos business 3) Votre assistant automatise tout ! Il répond aux clients, prend des RDV, gère le SAV... Envie d'essayer gratuitement ?",
         features: "WazeApp c'est magique ! 🚀 Votre IA peut : répondre en 95+ langues, s'intégrer à vos outils (CRM, calendrier...), analyser les sentiments, créer des rapports... Plus jamais de messages perdus ! Quelle fonctionnalité vous intéresse le plus ?",
         security: "La sécurité est notre priorité ! 🛡️ Chiffrement bout-en-bout, conformité RGPD totale, vos données restent privées. Nous ne lisons jamais vos conversations. Audit de sécurité disponible pour les entreprises. Rassuré(e) ?",
@@ -154,7 +167,7 @@ Respond naturally and engagingly to the following question:`;
       },
       en: {
         greeting: "Hi there! 👋 I'm WazeApp's AI assistant. I can explain how to transform your WhatsApp into a powerful AI assistant that automates your customer conversations 24/7. What would you like to know?",
-        pricing: "Great question! 💰 WazeApp offers a free plan to start, then premium plans from €29/month with advanced AI, unlimited integrations and priority support. Would you like a personalized demo?",
+        pricing: "Great question! 💰 WazeApp offers a FREE plan (100 messages/month), then STANDARD at 5,000 FCFA/month (2,000 messages), PRO at 15,000 FCFA/month (8,000 messages). Want to try it for free?",
         howto: "It's super simple! ⚡ 1) Connect your WhatsApp (30 sec) 2) Configure your AI with your business info 3) Your assistant automates everything! It answers customers, books appointments, handles support... Want to try for free?",
         features: "WazeApp is amazing! 🚀 Your AI can: respond in 95+ languages, integrate with your tools (CRM, calendar...), analyze sentiment, create reports... Never miss a message again! Which feature interests you most?",
         security: "Security is our priority! 🛡️ End-to-end encryption, full GDPR compliance, your data stays private. We never read your conversations. Security audit available for enterprises. Feeling confident?",
@@ -162,7 +175,7 @@ Respond naturally and engagingly to the following question:`;
       },
       es: {
         greeting: "¡Hola! 👋 Soy el asistente IA de WazeApp. Puedo explicarte cómo transformar tu WhatsApp en un asistente IA potente que automatiza tus conversaciones con clientes 24/7. ¿Qué te gustaría saber?",
-        pricing: "¡Excelente pregunta! 💰 WazeApp ofrece un plan gratuito para empezar, luego planes premium desde €29/mes con IA avanzada, integraciones ilimitadas y soporte prioritario. ¿Te gustaría una demo personalizada?",
+        pricing: "¡Excelente pregunta! 💰 WazeApp ofrece un plan GRATIS (100 mensajes/mes), luego STANDARD a 5,000 FCFA/mes (2,000 mensajes), PRO a 15,000 FCFA/mes (8,000 mensajes). ¿Quieres probarlo gratis?",
         howto: "¡Es súper simple! ⚡ 1) Conecta tu WhatsApp (30 seg) 2) Configura tu IA con tu info empresarial 3) ¡Tu asistente automatiza todo! Responde clientes, agenda citas, maneja soporte... ¿Quieres probar gratis?",
         features: "¡WazeApp es increíble! 🚀 Tu IA puede: responder en 95+ idiomas, integrarse con tus herramientas (CRM, calendario...), analizar sentimientos, crear reportes... ¡Nunca más perderás un mensaje! ¿Qué función te interesa más?",
         security: "¡La seguridad es nuestra prioridad! 🛡️ Cifrado punto a punto, cumplimiento RGPD completo, tus datos permanecen privados. Nunca leemos tus conversaciones. Auditoría de seguridad disponible para empresas. ¿Te sientes seguro?",

@@ -1,8 +1,10 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, Inject } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { OnEvent, EventEmitter2 } from "@nestjs/event-emitter";
 import { ConfigService } from "@nestjs/config";
+import { CACHE_MANAGER } from "@nestjs/cache-manager";
+import { Cache } from "cache-manager";
 import {
   WhatsAppSession,
   AiAgent,
@@ -95,6 +97,8 @@ export class WhatsAppAIResponderService {
     private knowledgeDocumentRepository: Repository<KnowledgeDocument>,
     @InjectRepository(DocumentChunk)
     private documentChunkRepository: Repository<DocumentChunk>,
+    @Inject(CACHE_MANAGER)
+    private cacheManager: Cache,
     private llmRouterService: LLMRouterService,
     private baileysService: BaileysService,
     private webSearchService: WebSearchService,
@@ -658,15 +662,40 @@ Réponds toujours directement et dans la langue du client.`,
 
       this.logger.log(`Search terms: ${allSearchTerms.join(', ')}`);
 
-      // Recherche dans les documents - chercher aussi dans les documents "uploaded" car ils peuvent contenir du contenu
-      const documents = await this.knowledgeDocumentRepository
-        .createQueryBuilder("doc")
-        .where("doc.knowledgeBaseId = :kbId", { kbId: knowledgeBase.id })
-        .andWhere("doc.status IN (:...statuses)", { statuses: ["processed", "uploaded"] })
-        .andWhere("doc.content IS NOT NULL")
-        .andWhere("LENGTH(doc.content) > 10")
-        .orderBy("doc.createdAt", "DESC")
-        .getMany();
+      // 🔴 REDIS CACHE: Vérifier si les documents sont en cache
+      const cacheKey = `kb:docs:${knowledgeBase.id}`;
+      let documents: KnowledgeDocument[] | null = null;
+
+      try {
+        const cachedDocs = await this.cacheManager.get<string>(cacheKey);
+        if (cachedDocs) {
+          documents = JSON.parse(cachedDocs);
+          this.logger.log(`📦 KB Cache HIT: ${documents.length} documents from Redis cache`);
+        }
+      } catch (cacheError) {
+        this.logger.warn(`Cache read error: ${cacheError.message}`);
+      }
+
+      // Si pas en cache, charger depuis la DB
+      if (!documents) {
+        this.logger.log(`📦 KB Cache MISS: Loading from database...`);
+        documents = await this.knowledgeDocumentRepository
+          .createQueryBuilder("doc")
+          .where("doc.knowledgeBaseId = :kbId", { kbId: knowledgeBase.id })
+          .andWhere("doc.status IN (:...statuses)", { statuses: ["processed", "uploaded"] })
+          .andWhere("doc.content IS NOT NULL")
+          .andWhere("LENGTH(doc.content) > 10")
+          .orderBy("doc.createdAt", "DESC")
+          .getMany();
+
+        // Mettre en cache pour 5 minutes (300000 ms)
+        try {
+          await this.cacheManager.set(cacheKey, JSON.stringify(documents), 300000);
+          this.logger.log(`📦 KB Cache SET: ${documents.length} documents cached for 5 minutes`);
+        } catch (cacheError) {
+          this.logger.warn(`Cache write error: ${cacheError.message}`);
+        }
+      }
 
       this.logger.log(`Found ${documents.length} documents in knowledge base`);
 

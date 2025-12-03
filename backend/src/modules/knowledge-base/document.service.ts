@@ -2,11 +2,14 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  Inject,
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository, Like, In } from "typeorm";
 import { InjectQueue } from "@nestjs/bull";
 import { Queue } from "bull";
+import { CACHE_MANAGER } from "@nestjs/cache-manager";
+import { Cache } from "cache-manager";
 import {
   KnowledgeDocument,
   DocumentChunk,
@@ -54,10 +57,27 @@ export class DocumentService {
     @InjectQueue("document-processing")
     private readonly processingQueue: Queue,
 
+    @Inject(CACHE_MANAGER)
+    private readonly cacheManager: Cache,
+
     private readonly auditService: AuditService,
     private readonly knowledgeBaseService: KnowledgeBaseService,
     private readonly webScrapingService: WebScrapingService,
   ) {}
+
+  /**
+   * Invalide le cache Redis pour une base de connaissances
+   * Appelé automatiquement quand un document est ajouté/modifié/supprimé
+   */
+  async invalidateKBCache(knowledgeBaseId: string): Promise<void> {
+    try {
+      const cacheKey = `kb:docs:${knowledgeBaseId}`;
+      await this.cacheManager.del(cacheKey);
+      console.log(`🗑️ KB Cache INVALIDATED: ${cacheKey}`);
+    } catch (error) {
+      console.warn(`Cache invalidation error: ${error.message}`);
+    }
+  }
 
   async uploadFile(
     organizationId: string | null,
@@ -131,6 +151,9 @@ export class DocumentService {
       metadata: { filename: file.originalname, type: uploadDto.type },
     });
 
+    // Invalider le cache Redis pour cette KB
+    await this.invalidateKBCache(uploadDto.knowledgeBaseId);
+
     return saved;
   }
 
@@ -184,6 +207,9 @@ export class DocumentService {
       description: `Created document from URL: ${uploadDto.url}`,
       metadata: { url: uploadDto.url },
     });
+
+    // Invalider le cache Redis pour cette KB
+    await this.invalidateKBCache(uploadDto.knowledgeBaseId);
 
     return saved;
   }
@@ -274,12 +300,15 @@ export class DocumentService {
       resourceType: "document",
       resourceId: documents.map(d => d.id).join(','),
       description: `Created ${documents.length} documents from multiple URLs`,
-      metadata: { 
+      metadata: {
         urls: uploadDto.urls,
         successCount: documents.length,
-        totalCount: uploadDto.urls.length 
+        totalCount: uploadDto.urls.length
       },
     });
+
+    // Invalider le cache Redis pour cette KB
+    await this.invalidateKBCache(uploadDto.knowledgeBaseId);
 
     return { documents, results };
   }
@@ -348,12 +377,15 @@ export class DocumentService {
       resourceType: 'document',
       resourceId: saved.id,
       description: `Created rich text document: ${createDto.title}`,
-      metadata: { 
+      metadata: {
         type: 'rich_text',
         characterCount,
-        knowledgeBaseId: createDto.knowledgeBaseId 
+        knowledgeBaseId: createDto.knowledgeBaseId
       },
     });
+
+    // Invalider le cache Redis pour cette KB
+    await this.invalidateKBCache(createDto.knowledgeBaseId);
 
     return saved;
   }
@@ -501,6 +533,11 @@ export class DocumentService {
       metadata: { changes: updateDto },
     });
 
+    // Invalider le cache Redis pour cette KB
+    if (document.knowledgeBaseId) {
+      await this.invalidateKBCache(document.knowledgeBaseId);
+    }
+
     return updated;
   }
 
@@ -537,6 +574,11 @@ export class DocumentService {
       description: `Deleted document: ${document.filename}`,
       metadata: { filename: document.filename },
     });
+
+    // Invalider le cache Redis pour cette KB
+    if (document.knowledgeBaseId) {
+      await this.invalidateKBCache(document.knowledgeBaseId);
+    }
   }
 
   async search(

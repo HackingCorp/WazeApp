@@ -158,7 +158,7 @@ export class DocumentService {
       uploadedBy: userId,
       knowledgeBaseId: uploadDto.knowledgeBaseId,
       tags: uploadDto.tags,
-      status: DocumentStatus.PENDING,
+      status: DocumentStatus.UPLOADED,
       metadata: {
         extractionMethod: "url_scraping",
       },

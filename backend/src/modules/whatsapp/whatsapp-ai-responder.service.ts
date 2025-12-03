@@ -730,6 +730,58 @@ Réponds toujours directement et dans la langue du client.`,
     }
   }
 
+  /**
+   * Convertit le formatage Markdown en format WhatsApp
+   * Markdown: **bold** -> WhatsApp: *bold*
+   * Markdown: *italic* -> WhatsApp: _italic_
+   * Markdown: ### Headers -> WhatsApp: *HEADER*
+   */
+  private convertToWhatsAppFormat(text: string): string {
+    if (!text) return "";
+
+    let result = text;
+
+    // Convert headers (### Header) to bold uppercase
+    result = result.replace(/^###\s*(.+)$/gm, '*$1*');
+    result = result.replace(/^##\s*(.+)$/gm, '*$1*');
+    result = result.replace(/^#\s*(.+)$/gm, '*$1*');
+
+    // Convert **bold** to *bold* (WhatsApp format)
+    result = result.replace(/\*\*([^*]+)\*\*/g, '*$1*');
+
+    // Convert __bold__ to *bold* (alternative markdown)
+    result = result.replace(/__([^_]+)__/g, '*$1*');
+
+    // Keep single * for italic as _italic_ in WhatsApp
+    // But be careful not to affect already converted bold
+    // Markdown single *italic* should become WhatsApp _italic_
+    // This is tricky because we just converted ** to *
+    // So we need to handle this carefully
+
+    // Convert [text](url) links to just text (url)
+    result = result.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1 ($2)');
+
+    // Convert bullet points - to •
+    result = result.replace(/^-\s+/gm, '• ');
+    result = result.replace(/^\*\s+(?!\*)/gm, '• '); // * at start of line (not bold)
+
+    // Convert numbered lists with proper formatting
+    result = result.replace(/^(\d+)\.\s+/gm, '$1. ');
+
+    // Remove triple backticks code blocks
+    result = result.replace(/```[\s\S]*?```/g, (match) => {
+      return match.replace(/```\w*\n?/g, '').trim();
+    });
+
+    // Remove single backticks
+    result = result.replace(/`([^`]+)`/g, '$1');
+
+    // Clean up multiple consecutive newlines
+    result = result.replace(/\n{3,}/g, '\n\n');
+
+    return result.trim();
+  }
+
   private extractRelevantExcerpt(
     content: string,
     searchTerms: string[],
@@ -1010,9 +1062,12 @@ IA: "Pour votre envoi de 10KG de Guangzhou vers Yaoundé par avion, voici nos ta
 
       // Send response via WhatsApp
       try {
+        // Convert markdown to WhatsApp format
+        const whatsappMessage = this.convertToWhatsAppFormat(response.content);
+
         await this.baileysService.sendMessage(session.id, {
           to: fromNumber,
-          message: response.content,
+          message: whatsappMessage,
           type: "text",
         });
 

@@ -408,4 +408,86 @@ export class KnowledgeBaseService {
       );
     }
   }
+
+  /**
+   * Test KB search like AI does - for debugging
+   */
+  async testSearchForAI(knowledgeBaseId: string, query: string): Promise<any> {
+    console.log(`🧪 TEST SEARCH: KB=${knowledgeBaseId}, Query="${query}"`);
+
+    // Get knowledge base
+    const kb = await this.knowledgeBaseRepository.findOne({
+      where: { id: knowledgeBaseId },
+    });
+
+    if (!kb) {
+      return { error: `Knowledge base ${knowledgeBaseId} not found` };
+    }
+
+    console.log(`🧪 KB Found: ${kb.name}`);
+
+    // Get documents like AI does
+    const documents = await this.documentRepository
+      .createQueryBuilder("doc")
+      .where("doc.knowledgeBaseId = :kbId", { kbId: knowledgeBaseId })
+      .andWhere("doc.status IN (:...statuses)", { statuses: ["processed", "uploaded"] })
+      .andWhere("doc.content IS NOT NULL")
+      .andWhere("LENGTH(doc.content) > 10")
+      .orderBy("doc.createdAt", "DESC")
+      .getMany();
+
+    console.log(`🧪 Documents found: ${documents.length}`);
+
+    // Log each document
+    const docDetails = documents.map((doc, idx) => {
+      console.log(`🧪 Doc ${idx + 1}: "${doc.title}" - ${doc.content?.length || 0} chars - Status: ${doc.status}`);
+      if (doc.content) {
+        console.log(`🧪 Preview: ${doc.content.substring(0, 300).replace(/\n/g, ' ')}`);
+      }
+      return {
+        id: doc.id,
+        title: doc.title,
+        status: doc.status,
+        contentLength: doc.content?.length || 0,
+        preview: doc.content?.substring(0, 500) || '[No content]',
+      };
+    });
+
+    // Search with query terms
+    const searchTerms = query.toLowerCase().split(/[\s,.'?!]+/).filter(t => t.length > 2);
+    console.log(`🧪 Search terms: ${searchTerms.join(', ')}`);
+
+    // Score documents
+    const scoredDocs = documents.map(doc => {
+      let score = 0;
+      const content = (doc.content || "").toLowerCase();
+      const title = (doc.title || "").toLowerCase();
+
+      for (const term of searchTerms) {
+        if (title.includes(term)) score += 10;
+        const contentMatches = (content.match(new RegExp(term, 'gi')) || []).length;
+        score += contentMatches * 2;
+      }
+
+      return { title: doc.title, score, hasContent: !!doc.content };
+    }).filter(d => d.score > 0).sort((a, b) => b.score - a.score);
+
+    console.log(`🧪 Scored documents: ${scoredDocs.length}`);
+
+    return {
+      knowledgeBase: {
+        id: kb.id,
+        name: kb.name,
+        status: kb.status,
+        totalCharacters: kb.totalCharacters,
+        documentCount: kb.documentCount,
+      },
+      query,
+      searchTerms,
+      documentsFound: documents.length,
+      documentsWithContent: documents.filter(d => d.content && d.content.length > 10).length,
+      scoredResults: scoredDocs.slice(0, 5),
+      allDocuments: docDetails,
+    };
+  }
 }

@@ -242,5 +242,17 @@ export class KnowledgeBaseController {
       return { error: error.message };
     }
   }
-  
+
+  @Post("test-search")
+  @Public()
+  @ApiOperation({ summary: "Test KB search like AI does" })
+  async testKBSearch(@Body() body: { knowledgeBaseId: string; query: string }) {
+    try {
+      const result = await this.knowledgeBaseService.testSearchForAI(body.knowledgeBaseId, body.query);
+      return result;
+    } catch (error) {
+      return { error: error.message, stack: error.stack };
+    }
+  }
+
 }

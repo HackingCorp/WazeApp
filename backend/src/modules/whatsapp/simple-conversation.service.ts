@@ -38,8 +38,11 @@ export interface MessageData {
   content: string;
   timestamp: Date;
   sender: "user" | "agent" | "client";
-  type: "text" | "image" | "audio" | "file";
+  type: "text" | "image" | "audio" | "file" | "video";
   status: "sending" | "sent" | "delivered" | "read";
+  mediaUrl?: string;
+  mediaType?: string;
+  mediaCaption?: string;
   metadata?: {
     whatsappMessageId?: string;
     fromWhatsApp?: boolean;

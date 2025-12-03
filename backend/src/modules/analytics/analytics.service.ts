@@ -78,22 +78,36 @@ export class AnalyticsService {
         order: { updatedAt: 'DESC' }
       });
       
-      // Get agent IDs for querying
+      // Get agent IDs and session IDs for querying
       const agentIds = agents.map(agent => agent.id);
+      const sessionIds = sessions.map(session => session.id);
 
       console.log('📊 Analytics: Agent IDs found:', agentIds);
+      console.log('📊 Analytics: Session IDs found:', sessionIds);
       console.log('📊 Analytics: User ID:', userId);
 
-      // Get real conversations count - filter by agent IDs only
-      // Note: userId is nullable in AgentConversation (WhatsApp chats don't have userId)
-      // The agents already belong to the user, so filtering by agentId is sufficient
+      // Get real conversations count - by agentId OR sessionId
+      // Conversations can be linked via agentId (AI agent) or sessionId (WhatsApp session)
       let conversations = 0;
       let conversationIds: string[] = [];
 
-      if (agentIds.length > 0) {
-        const conversationsQuery = this.conversationRepository.createQueryBuilder('conversation')
-          .where('conversation.agentId IN (:...agentIds)', { agentIds });
+      const conversationsQuery = this.conversationRepository.createQueryBuilder('conversation');
 
+      // Build OR conditions for both agentId and sessionId
+      const conditions: string[] = [];
+      const params: any = {};
+
+      if (agentIds.length > 0) {
+        conditions.push('conversation.agentId IN (:...agentIds)');
+        params.agentIds = agentIds;
+      }
+      if (sessionIds.length > 0) {
+        conditions.push('conversation.sessionId IN (:...sessionIds)');
+        params.sessionIds = sessionIds;
+      }
+
+      if (conditions.length > 0) {
+        conversationsQuery.where(`(${conditions.join(' OR ')})`, params);
         conversations = await conversationsQuery.getCount();
         conversationIds = await conversationsQuery.select('conversation.id').getRawMany()
           .then(results => results.map(r => r.conversation_id));
@@ -123,9 +137,11 @@ export class AnalyticsService {
       // Calculate real active conversations (conversations with recent activity)
       const recentThreshold = new Date(Date.now() - 30 * 60 * 1000); // 30 minutes ago
       let activeConversationsQuery = this.conversationRepository.createQueryBuilder('conversation');
-      if (agentIds.length > 0) {
+
+      // Use same conditions as total conversations but add recent activity filter
+      if (conditions.length > 0) {
         activeConversationsQuery = activeConversationsQuery
-          .where('conversation.agentId IN (:...agentIds)', { agentIds })
+          .where(`(${conditions.join(' OR ')})`, params)
           .andWhere('conversation.updatedAt > :recentThreshold', { recentThreshold });
       } else {
         activeConversationsQuery = activeConversationsQuery

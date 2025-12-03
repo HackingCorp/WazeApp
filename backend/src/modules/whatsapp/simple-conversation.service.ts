@@ -802,17 +802,34 @@ export class SimpleConversationService implements OnModuleDestroy {
           sender = "user"; // Web interface messages
         }
 
+        // Determine message type from mediaType or default to text
+        let messageType: "text" | "image" | "audio" | "video" | "file" = "text";
+        if (msg.mediaType) {
+          if (msg.mediaType.startsWith("image")) {
+            messageType = "image";
+          } else if (msg.mediaType.startsWith("audio")) {
+            messageType = "audio";
+          } else if (msg.mediaType.startsWith("video")) {
+            messageType = "video";
+          } else {
+            messageType = "file";
+          }
+        }
+
         return {
           id: msg.id,
-          content: msg.content,
+          content: msg.mediaUrl || msg.content, // Use mediaUrl for media messages
           timestamp: msg.createdAt,
           sender,
-          type: "text",
+          type: messageType,
           status: (msg.status === "failed" ? "sent" : msg.status) as
             | "sent"
             | "delivered"
             | "read"
             | "sending",
+          mediaUrl: msg.mediaUrl,
+          mediaType: msg.mediaType,
+          mediaCaption: msg.mediaCaption,
         };
       });
 

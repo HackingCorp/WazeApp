@@ -12,6 +12,9 @@ interface Message {
   sender: 'user' | 'agent' | 'client' | 'system';
   type: 'text' | 'image' | 'audio' | 'file' | 'video';
   status?: 'sending' | 'sent' | 'delivered' | 'read';
+  mediaUrl?: string;
+  mediaType?: string;
+  mediaCaption?: string;
   metadata?: {
     fileName?: string;
     fileSize?: number;
@@ -161,31 +164,76 @@ export function ConversationInterface({
     }
 
     const renderMessageContent = () => {
+      // Get the media URL - check mediaUrl field first, then content
+      const mediaSource = message.mediaUrl || message.content;
+      const isMediaUrl = mediaSource && (
+        mediaSource.startsWith('http') ||
+        mediaSource.startsWith('data:') ||
+        mediaSource.startsWith('/uploads')
+      );
+
       switch (message.type) {
         case 'image':
-          if (message.content.startsWith('data:image')) {
+          if (isMediaUrl) {
             return (
-              <img
-                src={message.content}
-                alt="Image"
-                className="rounded-lg max-w-[280px] max-h-[300px] object-cover"
-              />
+              <div className="space-y-1">
+                <img
+                  src={mediaSource}
+                  alt={message.mediaCaption || "Image"}
+                  className="rounded-lg max-w-[280px] max-h-[300px] object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                  onClick={() => window.open(mediaSource, '_blank')}
+                  onError={(e) => {
+                    // Fallback if image fails to load
+                    (e.target as HTMLImageElement).style.display = 'none';
+                    (e.target as HTMLImageElement).parentElement!.innerHTML = `
+                      <div class="flex items-center gap-2 bg-black/10 rounded-lg p-3">
+                        <span class="text-2xl">🖼️</span>
+                        <span class="text-sm opacity-80">Image not available</span>
+                      </div>
+                    `;
+                  }}
+                />
+                {message.mediaCaption && (
+                  <p className="text-sm opacity-90">{message.mediaCaption}</p>
+                )}
+              </div>
             );
           }
           return (
             <div className="flex items-center gap-2 bg-black/10 dark:bg-white/10 rounded-lg p-3">
               <span className="text-2xl">🖼️</span>
-              <span className="text-sm opacity-80">{message.content}</span>
+              <span className="text-sm opacity-80">{message.content || 'Image'}</span>
             </div>
           );
         case 'video':
+          if (isMediaUrl) {
+            return (
+              <div className="space-y-1">
+                <video
+                  src={mediaSource}
+                  controls
+                  className="rounded-lg max-w-[280px] max-h-[300px]"
+                />
+                {message.mediaCaption && (
+                  <p className="text-sm opacity-90">{message.mediaCaption}</p>
+                )}
+              </div>
+            );
+          }
           return (
             <div className="flex items-center gap-2 bg-black/10 dark:bg-white/10 rounded-lg p-3">
               <span className="text-2xl">🎥</span>
-              <span className="text-sm opacity-80">{message.content}</span>
+              <span className="text-sm opacity-80">{message.content || 'Video'}</span>
             </div>
           );
         case 'audio':
+          if (isMediaUrl) {
+            return (
+              <div className="flex items-center gap-3 min-w-[200px]">
+                <audio src={mediaSource} controls className="w-full max-w-[250px]" />
+              </div>
+            );
+          }
           return (
             <div className="flex items-center gap-3 min-w-[200px]">
               <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
@@ -195,16 +243,21 @@ export function ConversationInterface({
                 <div className="h-1 bg-white/30 rounded-full">
                   <div className="h-1 bg-white/70 rounded-full w-1/3" />
                 </div>
-                <span className="text-xs opacity-70 mt-1">0:12</span>
+                <span className="text-xs opacity-70 mt-1">Audio</span>
               </div>
             </div>
           );
         case 'file':
           return (
-            <div className="flex items-center gap-2 bg-black/10 dark:bg-white/10 rounded-lg p-3">
+            <a
+              href={isMediaUrl ? mediaSource : '#'}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 bg-black/10 dark:bg-white/10 rounded-lg p-3 hover:bg-black/20 dark:hover:bg-white/20 transition-colors"
+            >
               <span className="text-2xl">📄</span>
-              <span className="text-sm opacity-80">{message.content}</span>
-            </div>
+              <span className="text-sm opacity-80">{message.mediaCaption || message.content || 'File'}</span>
+            </a>
           );
         default:
           return <p className="whitespace-pre-wrap break-words">{message.content}</p>;

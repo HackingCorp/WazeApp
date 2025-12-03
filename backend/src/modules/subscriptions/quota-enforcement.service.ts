@@ -325,6 +325,11 @@ export class QuotaEnforcementService {
   async getUsageSummary(organizationId: string): Promise<any> {
     const subscription = await this.getActiveSubscription(organizationId);
 
+    // Get organization details including name
+    const organization = await this.organizationRepository.findOne({
+      where: { id: organizationId },
+    });
+
     const [
       agentCheck,
       kbCheck,
@@ -348,6 +353,8 @@ export class QuotaEnforcementService {
     return {
       plan: subscription.plan,
       status: subscription.status,
+      organizationId,
+      organizationName: organization?.name || null,
       usage: {
         agents: agentCheck,
         knowledgeBases: kbCheck,

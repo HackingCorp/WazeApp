@@ -65,16 +65,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const getUserPlanInfo = async (userData: any) => {
     try {
+      console.log('AuthProvider: getUserPlanInfo called with userData:', userData);
       const response = await api.get('/subscriptions/usage-summary');
+      console.log('AuthProvider: Subscription response:', response);
+
       if (response.success && response.data) {
         const planData = response.data;
 
-        // Check if user has a real organization
-        const hasOrganization = userData?.currentOrganizationId || userData?.organizationId;
-        const orgName = userData?.currentOrganization?.name ||
+        // Check if user has a real organization - prefer data from subscription endpoint
+        const hasOrganization = planData?.organizationId ||
+                                userData?.currentOrganizationId ||
+                                userData?.currentOrganization?.id ||
+                                userData?.organizationId;
+
+        // Get organization name - prefer subscription data which includes real org name
+        const orgName = planData?.organizationName ||
+                        userData?.currentOrganization?.name ||
                         userData?.organization?.name ||
-                        planData?.organizationName ||
                         (hasOrganization ? 'Mon Organisation' : 'Personal Workspace');
+
+        console.log('AuthProvider: Organization info - hasOrg:', hasOrganization, 'name:', orgName);
 
         return {
           organization: {
@@ -94,11 +104,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     // Fallback to free plan
-    const hasOrganization = userData?.currentOrganizationId || userData?.organizationId;
+    const hasOrganization = userData?.currentOrganizationId ||
+                            userData?.currentOrganization?.id ||
+                            userData?.organizationId;
+    const fallbackName = userData?.currentOrganization?.name ||
+                         userData?.organization?.name ||
+                         (hasOrganization ? 'Mon Organisation' : 'Personal Workspace');
+
+    console.log('AuthProvider: Using fallback - hasOrg:', hasOrganization, 'name:', fallbackName);
+
     return {
       organization: {
         id: hasOrganization || 'personal',
-        name: hasOrganization ? 'Mon Organisation' : 'Personal Workspace',
+        name: fallbackName,
         plan: 'free',
         limits: {
           maxAgents: 1,

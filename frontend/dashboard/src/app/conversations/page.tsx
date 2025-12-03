@@ -182,15 +182,25 @@ export default function ConversationsPage() {
               : `📱 Group ${groupId}`;
           }
 
+          // Format phone number for display
+          let displayPhone = cleanPhoneNumber(conv.phoneNumber);
+          if (isGroup) {
+            displayPhone = `Group: ${displayPhone}`;
+          } else if (displayPhone && !displayPhone.startsWith('+')) {
+            // Format as international number if not already
+            displayPhone = `+${displayPhone}`;
+          }
+
           return {
             id: conv.id,
             name: displayName,
-            phone: conv.phoneNumber,
+            phone: displayPhone,
             lastMessage: conv.lastMessage || '',
             lastMessageTime: new Date(conv.lastMessageTime),
             unreadCount: conv.unreadCount || 0,
             isOnline: conv.isOnline || false,
             isTyping: false,
+            isGroup: isGroup,
           };
         });
         
@@ -275,16 +285,33 @@ export default function ConversationsPage() {
       setContacts(prev => {
         const existingContact = prev.find(c => c.id === data.contactId);
         if (!existingContact) {
+          // Helper to clean phone number
+          const cleanPhone = (phone: string) => {
+            if (!phone) return '';
+            return phone
+              .replace(/@s\.whatsapp\.net$/i, '')
+              .replace(/@lid$/i, '')
+              .replace(/@c\.us$/i, '')
+              .replace(/@g\.us$/i, '');
+          };
+
+          // Detect if it's a group
+          const rawPhone = data.contact?.phone || '';
+          const isGroup = rawPhone.includes('@g.us');
+          const cleanedPhone = cleanPhone(rawPhone);
+          const displayPhone = isGroup ? `Group: ${cleanedPhone}` : (cleanedPhone.startsWith('+') ? cleanedPhone : `+${cleanedPhone}`);
+
           // Create new contact if it doesn't exist
           const newContact = {
             id: data.contact?.id || data.contactId,
-            name: data.contact?.name || data.contact?.phone || 'Unknown',
-            phone: data.contact?.phone || 'Unknown',
+            name: data.contact?.name || displayPhone || 'Unknown',
+            phone: displayPhone || 'Unknown',
             lastMessage: data.message.content,
             lastMessageTime: new Date(data.message.timestamp),
             unreadCount: data.contactId === selectedContactId ? 0 : 1,
-            isOnline: data.contact?.isOnline || false,
+            isOnline: isGroup ? false : (data.contact?.isOnline || false),
             isTyping: false,
+            isGroup: isGroup,
           };
           console.log('Creating new contact:', newContact);
           return [newContact, ...prev];

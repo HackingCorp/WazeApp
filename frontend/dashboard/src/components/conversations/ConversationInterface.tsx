@@ -32,6 +32,7 @@ interface Contact {
   unreadCount: number;
   isOnline: boolean;
   isTyping?: boolean;
+  isGroup?: boolean;
 }
 
 interface ConversationInterfaceProps {
@@ -322,10 +323,15 @@ export function ConversationInterface({
     >
       {/* Avatar */}
       <div className="relative flex-shrink-0">
-        <div className="w-12 h-12 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-full flex items-center justify-center text-white font-semibold text-sm">
-          {contact.name.substring(0, 2).toUpperCase()}
+        <div className={clsx(
+          "w-12 h-12 rounded-full flex items-center justify-center text-white font-semibold text-sm",
+          contact.isGroup
+            ? "bg-gradient-to-br from-blue-400 to-purple-500"
+            : "bg-gradient-to-br from-emerald-400 to-teal-500"
+        )}>
+          {contact.isGroup ? '👥' : contact.name.substring(0, 2).toUpperCase()}
         </div>
-        {contact.isOnline && (
+        {!contact.isGroup && contact.isOnline && (
           <div className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-emerald-400 border-2 border-white dark:border-gray-900 rounded-full" />
         )}
       </div>
@@ -426,10 +432,15 @@ export function ConversationInterface({
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="relative">
-                    <div className="w-10 h-10 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-full flex items-center justify-center text-white font-semibold text-sm">
-                      {selectedContact.name.substring(0, 2).toUpperCase()}
+                    <div className={clsx(
+                      "w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold text-sm",
+                      selectedContact.isGroup
+                        ? "bg-gradient-to-br from-blue-400 to-purple-500"
+                        : "bg-gradient-to-br from-emerald-400 to-teal-500"
+                    )}>
+                      {selectedContact.isGroup ? '👥' : selectedContact.name.substring(0, 2).toUpperCase()}
                     </div>
-                    {selectedContact.isOnline && (
+                    {!selectedContact.isGroup && selectedContact.isOnline && (
                       <div className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-400 border-2 border-white dark:border-gray-800 rounded-full" />
                     )}
                   </div>
@@ -438,7 +449,9 @@ export function ConversationInterface({
                       {selectedContact.name}
                     </h3>
                     <p className="text-xs text-gray-500 dark:text-gray-400">
-                      {selectedContact.isTyping ? (
+                      {selectedContact.isGroup ? (
+                        selectedContact.phone
+                      ) : selectedContact.isTyping ? (
                         <span className="text-emerald-600 dark:text-emerald-400">typing...</span>
                       ) : selectedContact.isOnline ? (
                         <span className="text-emerald-600 dark:text-emerald-400">online</span>

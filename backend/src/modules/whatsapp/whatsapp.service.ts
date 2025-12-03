@@ -1523,13 +1523,19 @@ export class WhatsAppService {
 
   // Get contacts for a session
   async getContacts(sessionId: string, userId: string, organizationId: string | null): Promise<WhatsAppContact[]> {
-    // Verify session access
-    const session = await this.findOne(sessionId, userId, organizationId);
+    try {
+      // Verify session access
+      const session = await this.findOne(sessionId, userId, organizationId);
 
-    return this.contactRepository.find({
-      where: { sessionId },
-      order: { name: 'ASC', phoneNumber: 'ASC' },
-    });
+      return this.contactRepository.find({
+        where: { sessionId },
+        order: { name: 'ASC', phoneNumber: 'ASC' },
+      });
+    } catch (error) {
+      this.logger.warn(`Failed to get contacts for session ${sessionId}: ${error.message}`);
+      // Return empty array instead of throwing to prevent 500 errors
+      return [];
+    }
   }
 
   // Get contact by phone number

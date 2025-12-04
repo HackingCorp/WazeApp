@@ -133,7 +133,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const urlParams = new URLSearchParams(window.location.search);
       const urlToken = urlParams.get('token');
       const urlRefresh = urlParams.get('refresh');
-      
+
       if (urlToken) {
         console.log('AuthProvider: Found token in URL, setting in localStorage');
         localStorage.setItem('auth-token', urlToken);
@@ -143,7 +143,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Clean up URL
         window.history.replaceState(null, '', window.location.pathname);
       }
-      
+
       const savedToken = localStorage.getItem('auth-token');
       if (!savedToken) {
         console.log('AuthProvider: No token found');
@@ -154,58 +154,96 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Try to validate token with real API first
       console.log('AuthProvider: Validating token:', savedToken.substring(0, 20) + '...');
       api.setToken(savedToken);
-      
-      try {
-        const response = await api.getProfile();
-        console.log('AuthProvider: API response:', response);
-        
-        if (response.success && response.data.user) {
-          console.log('AuthProvider: Token valid, setting user');
-          console.log('AuthProvider: Full response.data:', response.data);
-          const userData = response.data.user;
-          setToken(savedToken);
 
-          // Get subscription plan info with user data
-          const planInfo = await getUserPlanInfo(userData);
+      const response = await api.getProfile();
+      console.log('AuthProvider: API response:', response);
 
-          setUser({
-            ...userData,
-            role: 'owner', // Default role for users without organizations
-            organizationId: userData.currentOrganizationId || null,
-            organization: planInfo.organization,
-            preferences: {
-              theme: 'system',
-              language: 'en',
-              timezone: 'UTC',
-              notifications: {
-                email: true,
-                push: true,
-                sms: false,
-              },
+      if (response.success && response.data?.user) {
+        console.log('AuthProvider: Token valid, setting user');
+        const userData = response.data.user;
+        setToken(savedToken);
+
+        // Get subscription plan info with user data
+        const planInfo = await getUserPlanInfo(userData);
+
+        setUser({
+          ...userData,
+          role: 'owner', // Default role for users without organizations
+          organizationId: userData.currentOrganizationId || null,
+          organization: planInfo.organization,
+          preferences: {
+            theme: 'system',
+            language: 'en',
+            timezone: 'UTC',
+            notifications: {
+              email: true,
+              push: true,
+              sms: false,
             },
-          });
-          return;
-        }
-      } catch (error) {
-        console.log('AuthProvider: API call failed:', error);
+          },
+        });
+        return;
       }
-      
-      // If API failed, the token is likely invalid - remove it
-      console.log('AuthProvider: Token validation failed, removing invalid token');
-      localStorage.removeItem('auth-token');
-      localStorage.removeItem('refresh-token');
-      api.setToken(null);
+
+      // Check if it's an auth error (401) vs network error
+      const isAuthError = response.error?.includes('401') ||
+                          response.error?.includes('Unauthorized') ||
+                          response.error?.includes('Invalid') ||
+                          response.error?.includes('expired');
+
+      if (isAuthError) {
+        // Token is invalid, try to refresh
+        console.log('AuthProvider: Token invalid, attempting refresh...');
+        const refreshToken = localStorage.getItem('refresh-token');
+
+        if (refreshToken) {
+          try {
+            const refreshResponse = await api.refreshToken();
+            if (refreshResponse.success && refreshResponse.data?.accessToken) {
+              console.log('AuthProvider: Token refreshed, retrying profile...');
+              // Retry profile with new token
+              const retryResponse = await api.getProfile();
+              if (retryResponse.success && retryResponse.data?.user) {
+                const userData = retryResponse.data.user;
+                setToken(refreshResponse.data.accessToken);
+                const planInfo = await getUserPlanInfo(userData);
+                setUser({
+                  ...userData,
+                  role: 'owner',
+                  organizationId: userData.currentOrganizationId || null,
+                  organization: planInfo.organization,
+                  preferences: {
+                    theme: 'system',
+                    language: 'en',
+                    timezone: 'UTC',
+                    notifications: { email: true, push: true, sms: false },
+                  },
+                });
+                return;
+              }
+            }
+          } catch (refreshError) {
+            console.log('AuthProvider: Refresh failed:', refreshError);
+          }
+        }
+
+        // Refresh failed, remove tokens
+        console.log('AuthProvider: Token validation failed, removing invalid token');
+        localStorage.removeItem('auth-token');
+        localStorage.removeItem('refresh-token');
+        api.setToken(null);
+      } else {
+        // Network or other error - keep the token for retry
+        console.log('AuthProvider: Network error, keeping token for retry');
+      }
     } catch (error) {
-      // Token is invalid
-      console.log('AuthProvider: Exception during auth init:', error);
-      localStorage.removeItem('auth-token');
-      api.setToken(null);
-      console.error('Auth initialization failed:', error);
+      // Unexpected error - don't remove token automatically
+      console.error('AuthProvider: Exception during auth init:', error);
     } finally {
       console.log('AuthProvider: Initialization complete');
       setIsLoading(false);
     }
-    };
+  };
 
   useEffect(() => {
     initAuth();

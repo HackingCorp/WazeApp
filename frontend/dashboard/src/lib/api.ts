@@ -108,6 +108,8 @@ class ApiClient {
         return false;
       }
 
+      console.log('API: Attempting token refresh with refresh token:', refreshToken.substring(0, 20) + '...');
+
       const response = await fetch(`${this.baseURL}/auth/refresh`, {
         method: 'POST',
         headers: {
@@ -116,25 +118,32 @@ class ApiClient {
         body: JSON.stringify({ refreshToken }),
       });
 
+      console.log('API: Refresh response status:', response.status);
+
       if (response.ok) {
         const data = await response.json();
+        console.log('API: Refresh response data:', data);
+
         const newAccessToken = data.data?.accessToken || data.accessToken;
         const newRefreshToken = data.data?.refreshToken || data.refreshToken;
-        
+
         if (newAccessToken) {
           this.setToken(newAccessToken);
-          
+
           // Update refresh token if provided
           if (newRefreshToken) {
             localStorage.setItem('refresh-token', newRefreshToken);
+            console.log('API: Updated refresh token');
           }
-          
-          console.log('API: Token refresh successful');
+
+          console.log('API: Token refresh successful, new token:', newAccessToken.substring(0, 20) + '...');
           return true;
         }
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        console.log('API: Token refresh failed with status', response.status, errorData);
       }
-      
-      console.log('API: Token refresh failed');
+
       return false;
     } catch (error) {
       console.error('API: Token refresh error:', error);

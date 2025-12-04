@@ -1,14 +1,15 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { 
-  Plus, 
-  Search, 
-  FileText, 
-  Settings, 
-  Trash2, 
-  Edit, 
-  Eye, 
+import { useRouter } from 'next/navigation';
+import {
+  Plus,
+  Search,
+  FileText,
+  Settings,
+  Trash2,
+  Edit,
+  Eye,
   RefreshCw,
   Database,
   Upload,
@@ -75,6 +76,7 @@ interface KnowledgeBaseStats {
 }
 
 export default function KnowledgeBasePage() {
+  const router = useRouter();
   const [agents, setAgents] = useState<Agent[]>([]);
   const [stats, setStats] = useState<KnowledgeBaseStats | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -472,7 +474,7 @@ export default function KnowledgeBasePage() {
                           
                           <div className="flex items-center space-x-2">
                             <button
-                              onClick={() => window.location.href = `/knowledge-base/${agent.knowledgeBase?.id}/documents`}
+                              onClick={() => router.push(`/knowledge-base/${agent.knowledgeBase?.id}/documents`)}
                               className="text-xs px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
                             >
                               Gérer les documents

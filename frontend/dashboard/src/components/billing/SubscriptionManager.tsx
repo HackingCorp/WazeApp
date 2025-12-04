@@ -1,11 +1,12 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Check, Zap, Shield, Crown, Star, CreditCard, ArrowRight, AlertTriangle, Sparkles, Smartphone } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Check, Zap, Shield, Crown, Star, CreditCard, ArrowRight, AlertTriangle, Sparkles, Smartphone, Globe, ChevronDown } from 'lucide-react';
 import { format } from 'date-fns';
 import clsx from 'clsx';
 import { PaymentModal } from './PaymentModal';
 import { useAuth } from '@/providers/AuthProvider';
+import { api } from '@/lib/api';
 
 interface Plan {
   id: string;
@@ -135,6 +136,21 @@ const plans: Plan[] = [
   },
 ];
 
+interface Currency {
+  code: string;
+  name: string;
+  symbol: string;
+}
+
+interface DynamicPricing {
+  [planId: string]: {
+    price: number;
+    symbol: string;
+    currency: string;
+    priceFormatted: string;
+  };
+}
+
 export function SubscriptionManager({
   currentPlan = 'free',
   billingCycle = 'monthly',
@@ -149,8 +165,63 @@ export function SubscriptionManager({
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [planToPurchase, setPlanToPurchase] = useState<Plan | null>(null);
 
+  // Currency state
+  const [selectedCurrency, setSelectedCurrency] = useState('USD');
+  const [currencies, setCurrencies] = useState<Currency[]>([
+    { code: 'USD', name: 'US Dollar', symbol: '$' },
+    { code: 'EUR', name: 'Euro', symbol: '€' },
+    { code: 'XAF', name: 'CFA Franc', symbol: 'FCFA ' },
+  ]);
+  const [dynamicPricing, setDynamicPricing] = useState<DynamicPricing>({});
+  const [pricingLoading, setPricingLoading] = useState(false);
+  const [showCurrencyDropdown, setShowCurrencyDropdown] = useState(false);
+
   const currentPlanData = plans.find(p => p.id === currentPlan);
   const selectedPlanData = plans.find(p => p.id === selectedPlan);
+
+  // Fetch available currencies on mount
+  useEffect(() => {
+    const fetchCurrencies = async () => {
+      try {
+        const response = await api.getCurrencies() as any;
+        if (response.success && response.currencies) {
+          setCurrencies(response.currencies);
+        }
+      } catch (error) {
+        console.error('Error fetching currencies:', error);
+      }
+    };
+    fetchCurrencies();
+  }, []);
+
+  // Fetch pricing when currency or billing cycle changes
+  useEffect(() => {
+    const fetchPricing = async () => {
+      setPricingLoading(true);
+      try {
+        const billing = selectedCycle === 'annual' ? 'annually' : 'monthly';
+        const response = await api.getPricing(selectedCurrency, billing) as any;
+        if (response.success && response.plans) {
+          const pricing: DynamicPricing = {};
+          for (const [key, value] of Object.entries(response.plans)) {
+            const plan = value as any;
+            pricing[key.toLowerCase()] = {
+              price: plan.price,
+              symbol: plan.symbol,
+              currency: plan.currency,
+              priceFormatted: plan.priceFormatted,
+            };
+          }
+          setDynamicPricing(pricing);
+        }
+      } catch (error) {
+        console.error('Error fetching pricing:', error);
+      } finally {
+        setPricingLoading(false);
+      }
+    };
+    fetchPricing();
+  }, [selectedCurrency, selectedCycle]);
 
   const getDiscountedPrice = (price: number, cycle: 'monthly' | 'annual') => {
     return cycle === 'annual' ? Math.round(price * 0.83) : price;
@@ -192,12 +263,39 @@ export function SubscriptionManager({
     window.location.reload();
   };
 
+  // Get the current currency symbol
+  const getCurrentCurrencySymbol = () => {
+    const currency = currencies.find(c => c.code === selectedCurrency);
+    return currency?.symbol || '$';
+  };
+
+  // Get price for a plan in the selected currency
+  const getPlanPrice = (planId: string): { price: number; symbol: string; formatted: string } => {
+    const pricing = dynamicPricing[planId];
+    if (pricing) {
+      return {
+        price: pricing.price,
+        symbol: pricing.symbol,
+        formatted: pricing.priceFormatted,
+      };
+    }
+    // Fallback to USD
+    const plan = plans.find(p => p.id === planId);
+    return {
+      price: plan?.price || 0,
+      symbol: '$',
+      formatted: `$${plan?.price || 0}`,
+    };
+  };
+
   const PlanCard = ({ plan }: { plan: Plan }) => {
     const isCurrentPlan = plan.id === currentPlan;
     const Icon = plan.icon;
-    const price = getDiscountedPrice(plan.price, selectedCycle);
-    const yearlyPrice = getYearlyTotal(plan.price);
-    const monthlyOriginal = plan.price;
+    const planPricing = getPlanPrice(plan.id);
+    const price = planPricing.price;
+    const symbol = planPricing.symbol;
+    const yearlyPrice = price * 12;
+    const monthlyOriginal = selectedCycle === 'annual' ? Math.round(price / 0.83) : price;
 
     return (
       <div
@@ -260,30 +358,34 @@ export function SubscriptionManager({
 
           {/* Pricing */}
           <div className="mb-6">
-            {plan.price === 0 ? (
+            {price === 0 ? (
               <div className="flex items-baseline">
                 <span className="text-5xl font-bold text-gray-900 dark:text-white">Free</span>
               </div>
             ) : (
               <>
                 <div className="flex items-baseline gap-1">
-                  <span className="text-5xl font-bold text-gray-900 dark:text-white">
-                    ${price}
-                  </span>
+                  {pricingLoading ? (
+                    <span className="text-5xl font-bold text-gray-400 dark:text-gray-500 animate-pulse">...</span>
+                  ) : (
+                    <span className="text-5xl font-bold text-gray-900 dark:text-white">
+                      {symbol}{price.toLocaleString()}
+                    </span>
+                  )}
                   <span className="text-gray-500 dark:text-gray-400 text-lg">
                     /month
                   </span>
                 </div>
-                {selectedCycle === 'annual' && (
+                {selectedCycle === 'annual' && !pricingLoading && (
                   <div className="mt-2 space-y-1">
                     <p className="text-sm text-gray-500 dark:text-gray-400">
-                      <span className="line-through">${monthlyOriginal}</span>
+                      <span className="line-through">{symbol}{monthlyOriginal.toLocaleString()}</span>
                       <span className="ml-2 text-emerald-600 dark:text-emerald-400 font-semibold">
-                        Save {Math.round((1 - price/monthlyOriginal) * 100)}%
+                        Save 17%
                       </span>
                     </p>
                     <p className="text-xs text-gray-400 dark:text-gray-500">
-                      ${yearlyPrice} billed annually
+                      {symbol}{yearlyPrice.toLocaleString()} billed annually
                     </p>
                   </div>
                 )}
@@ -388,8 +490,9 @@ export function SubscriptionManager({
         </p>
       </div>
 
-      {/* Billing Toggle */}
-      <div className="flex justify-center mb-12">
+      {/* Billing Toggle & Currency Selector */}
+      <div className="flex flex-col sm:flex-row justify-center items-center gap-4 mb-12">
+        {/* Billing Toggle */}
         <div className="bg-gray-100 dark:bg-gray-800 p-1.5 rounded-xl inline-flex items-center">
           <button
             onClick={() => setSelectedCycle('monthly')}
@@ -416,6 +519,54 @@ export function SubscriptionManager({
               -17%
             </span>
           </button>
+        </div>
+
+        {/* Currency Selector */}
+        <div className="relative">
+          <button
+            onClick={() => setShowCurrencyDropdown(!showCurrencyDropdown)}
+            className="flex items-center gap-2 px-4 py-2.5 bg-gray-100 dark:bg-gray-800 rounded-xl text-sm font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+          >
+            <Globe className="w-4 h-4" />
+            <span>{selectedCurrency}</span>
+            <ChevronDown className={clsx(
+              'w-4 h-4 transition-transform',
+              showCurrencyDropdown && 'rotate-180'
+            )} />
+          </button>
+
+          {showCurrencyDropdown && (
+            <>
+              <div
+                className="fixed inset-0 z-40"
+                onClick={() => setShowCurrencyDropdown(false)}
+              />
+              <div className="absolute top-full mt-2 right-0 w-56 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 z-50 overflow-hidden">
+                <div className="max-h-64 overflow-y-auto">
+                  {currencies.map((currency) => (
+                    <button
+                      key={currency.code}
+                      onClick={() => {
+                        setSelectedCurrency(currency.code);
+                        setShowCurrencyDropdown(false);
+                      }}
+                      className={clsx(
+                        'w-full px-4 py-3 text-left text-sm transition-colors flex items-center justify-between',
+                        selectedCurrency === currency.code
+                          ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400'
+                          : 'hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300'
+                      )}
+                    >
+                      <span className="font-medium">{currency.name}</span>
+                      <span className="text-gray-500 dark:text-gray-400">
+                        {currency.symbol} ({currency.code})
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
@@ -525,11 +676,11 @@ export function SubscriptionManager({
                   {currentPlanData.name} Plan
                 </h3>
                 <p className="text-gray-600 dark:text-gray-300">
-                  {currentPlanData.price === 0 ? 'Free forever' : `$${currentPlanData.price}/month`}
+                  {getPlanPrice(currentPlanData.id).price === 0 ? 'Free forever' : `${getPlanPrice(currentPlanData.id).symbol}${getPlanPrice(currentPlanData.id).price.toLocaleString()}/month`}
                 </p>
               </div>
             </div>
-            {currentPlanData.price > 0 && (
+            {getPlanPrice(currentPlanData.id).price > 0 && (
               <div className="text-left md:text-right">
                 <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Next billing date</p>
                 <p className="text-lg font-semibold text-gray-900 dark:text-white">
@@ -570,7 +721,7 @@ export function SubscriptionManager({
 
             <div className="mb-6">
               <p className="text-gray-600 dark:text-gray-300 mb-4">
-                You're about to {selectedPlanData.price > (currentPlanData?.price || 0) ? 'upgrade' : 'downgrade'} to the <strong className="text-gray-900 dark:text-white">{selectedPlanData.name}</strong> plan.
+                You're about to {getPlanPrice(selectedPlanData.id).price > getPlanPrice(currentPlanData?.id || 'free').price ? 'upgrade' : 'downgrade'} to the <strong className="text-gray-900 dark:text-white">{selectedPlanData.name}</strong> plan.
               </p>
 
               <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 space-y-3">
@@ -583,7 +734,13 @@ export function SubscriptionManager({
                 <div className="flex justify-between items-center">
                   <span className="text-gray-600 dark:text-gray-400">Price</span>
                   <span className="font-semibold text-gray-900 dark:text-white">
-                    {selectedPlanData.price === 0 ? 'Free' : `$${getDiscountedPrice(selectedPlanData.price, selectedCycle)}/month`}
+                    {getPlanPrice(selectedPlanData.id).price === 0 ? 'Free' : `${getPlanPrice(selectedPlanData.id).symbol}${getPlanPrice(selectedPlanData.id).price.toLocaleString()}/month`}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600 dark:text-gray-400">Currency</span>
+                  <span className="font-semibold text-gray-900 dark:text-white">
+                    {selectedCurrency}
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
@@ -594,7 +751,7 @@ export function SubscriptionManager({
                 </div>
               </div>
 
-              {selectedPlanData.price > (currentPlanData?.price || 0) && (
+              {getPlanPrice(selectedPlanData.id).price > getPlanPrice(currentPlanData?.id || 'free').price && (
                 <div className="mt-4 p-3 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-xl">
                   <p className="text-sm font-medium text-emerald-700 dark:text-emerald-300 mb-2">
                     Moyens de paiement disponibles:
@@ -610,7 +767,7 @@ export function SubscriptionManager({
                     </div>
                   </div>
                   <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-300 mt-2">
-                    {selectedPlanData.priceFCFA.toLocaleString()} FCFA
+                    {getPlanPrice(selectedPlanData.id).formatted}
                   </p>
                 </div>
               )}
@@ -628,7 +785,7 @@ export function SubscriptionManager({
                 disabled={isLoading}
                 className="flex-1 py-3 px-4 bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-600 hover:to-green-600 text-white font-semibold rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-emerald-500/25"
               >
-                {isLoading ? 'Processing...' : selectedPlanData?.price > 0 ? 'Choisir le mode de paiement' : 'Confirm'}
+                {isLoading ? 'Processing...' : getPlanPrice(selectedPlanData?.id || 'free').price > 0 ? 'Choisir le mode de paiement' : 'Confirm'}
               </button>
             </div>
           </div>

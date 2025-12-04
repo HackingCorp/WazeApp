@@ -7,8 +7,8 @@ interface KnowledgeBase {
   id: string;
   name: string;
   description?: string;
-  documentsCount: number;
-  charactersCount: number;
+  documentCount: number;
+  totalCharacters: number;
 }
 
 interface DeleteKnowledgeBaseModalProps {
@@ -83,11 +83,11 @@ export function DeleteKnowledgeBaseModal({
                   <ul className="space-y-1 text-red-700 dark:text-red-300">
                     <li className="flex items-center space-x-2">
                       <FileText className="w-4 h-4" />
-                      <span>{knowledgeBase.documentsCount} documents</span>
+                      <span>{knowledgeBase.documentCount} documents</span>
                     </li>
                     <li className="flex items-center space-x-2">
                       <Database className="w-4 h-4" />
-                      <span>{(knowledgeBase.charactersCount / 1000).toFixed(0)}k caractères de contenu</span>
+                      <span>{(knowledgeBase.totalCharacters / 1000).toFixed(0)}k caractères de contenu</span>
                     </li>
                     <li className="flex items-center space-x-2">
                       <Database className="w-4 h-4" />

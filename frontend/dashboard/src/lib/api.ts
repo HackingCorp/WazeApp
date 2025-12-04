@@ -600,6 +600,29 @@ class ApiClient {
     return this.request('/payments/pricing');
   }
 
+  // Get pricing with currency conversion
+  async getPricing(currency?: string, billing: 'monthly' | 'annually' = 'monthly') {
+    const params = new URLSearchParams();
+    if (currency) params.append('currency', currency);
+    params.append('billing', billing);
+    return this.request(`/pricing?${params.toString()}`);
+  }
+
+  // Get supported currencies
+  async getCurrencies() {
+    return this.request('/pricing/currencies');
+  }
+
+  // Get exchange rates
+  async getExchangeRates() {
+    return this.request('/pricing/rates');
+  }
+
+  // Convert amount from USD
+  async convertCurrency(amount: number, toCurrency: string) {
+    return this.request(`/pricing/convert?amount=${amount}&to=${toCurrency}`);
+  }
+
   // Test S3P connectivity
   async pingS3P() {
     return this.request('/payments/s3p/ping');

@@ -7,6 +7,7 @@ import {
   UseGuards,
   HttpStatus,
   Query,
+  Logger,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -14,12 +15,15 @@ import {
   ApiResponse,
   ApiBearerAuth,
   ApiBody,
+  ApiQuery,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Public } from '../../common/decorators/public.decorator';
 import { S3PService, S3PPaymentRequest, S3PPaymentResponse } from './s3p.service';
 import { EnkapService } from './enkap.service';
+import { CurrencyService } from './currency.service';
+import { SubscriptionUpgradeService, PaymentDetails } from './subscription-upgrade.service';
 import { User } from '../../common/entities';
 import {
   S3PPaymentDto,
@@ -35,19 +39,27 @@ export class MobileMoneyPaymentDto {
   customerName: string;
   customerAddress?: string;
   serviceNumber: string;
+  currency?: string;
+  billingPeriod?: 'monthly' | 'annually';
 }
 
 export class PaymentVerificationDto {
   ptn?: string;
   transactionId?: string;
+  userId?: string;
+  organizationId?: string;
 }
 
 @ApiTags('Payments')
 @Controller('payments')
 export class MobileMoneyController {
+  private readonly logger = new Logger(MobileMoneyController.name);
+
   constructor(
     private readonly s3pService: S3PService,
     private readonly enkapService: EnkapService,
+    private readonly currencyService: CurrencyService,
+    private readonly subscriptionUpgradeService: SubscriptionUpgradeService,
   ) {}
 
   @Post('initiate')
@@ -65,17 +77,19 @@ export class MobileMoneyController {
     @CurrentUser() user: User,
     @Body() paymentDto: MobileMoneyPaymentDto,
   ): Promise<S3PPaymentResponse> {
-    // Tarifs en FCFA (1 EUR ≈ 655 FCFA)
-    const pricing = {
-      STANDARD: 6550, // ~10 EUR
-      PRO: 19650,     // ~30 EUR  
-      ENTERPRISE: 65500, // ~100 EUR
-    };
+    // Get dynamic pricing from CurrencyService
+    const currency = paymentDto.currency || 'XAF';
+    const billingPeriod = paymentDto.billingPeriod || 'monthly';
 
-    const amount = pricing[paymentDto.plan];
-    if (!amount) {
-      throw new Error(`Plan ${paymentDto.plan} not supported`);
-    }
+    const priceInfo = await this.currencyService.getPlanPrice(
+      paymentDto.plan,
+      currency,
+      billingPeriod,
+    );
+
+    const amount = priceInfo.amount;
+
+    this.logger.log(`Initiating payment for plan ${paymentDto.plan}: ${priceInfo.symbol}${amount}`);
 
     const transactionId = `WZ-${Date.now()}-${user.id.substring(0, 8)}`;
 
@@ -90,23 +104,69 @@ export class MobileMoneyController {
       plan: paymentDto.plan,
     };
 
-    return await this.s3pService.executePayment(paymentRequest);
+    // Store payment metadata for later upgrade
+    const paymentResult = await this.s3pService.executePayment(paymentRequest);
+
+    // Add metadata to track the payment for subscription upgrade
+    return {
+      ...paymentResult,
+      metadata: {
+        userId: user.id,
+        plan: paymentDto.plan,
+        amount,
+        currency,
+        billingPeriod,
+      },
+    } as any;
   }
 
   @Post('verify')
-  @ApiOperation({ summary: 'Verify Mobile Money payment status' })
+  @ApiOperation({ summary: 'Verify Mobile Money payment status and upgrade subscription' })
   @ApiBody({ type: PaymentVerificationDto })
   @ApiResponse({
     status: HttpStatus.OK,
-    description: 'Payment status retrieved successfully',
+    description: 'Payment status retrieved and subscription upgraded if successful',
   })
   async verifyPayment(
+    @CurrentUser() user: User,
     @Body() verificationDto: PaymentVerificationDto,
   ): Promise<any> {
-    return await this.s3pService.verifyPayment(
+    const paymentStatus = await this.s3pService.verifyPayment(
       verificationDto.ptn,
       verificationDto.transactionId,
     );
+
+    // If payment is successful, upgrade subscription
+    if (paymentStatus.status === 'SUCCESS') {
+      this.logger.log(`Payment verified successfully, upgrading subscription for user ${user?.id || verificationDto.userId}`);
+
+      // Extract plan from transaction ID (format: WZ-timestamp-userId)
+      // In production, this should be stored in a payment tracking table
+      const userId = verificationDto.userId || user?.id;
+
+      if (userId && paymentStatus.plan) {
+        const upgradeResult = await this.subscriptionUpgradeService.upgradeUserSubscription(
+          userId,
+          {
+            transactionId: verificationDto.transactionId || paymentStatus.ptn,
+            ptn: verificationDto.ptn,
+            plan: paymentStatus.plan,
+            amount: paymentStatus.amount || 0,
+            currency: paymentStatus.currency || 'XAF',
+            billingPeriod: 'monthly',
+            paymentMethod: 'mobile_money',
+            paymentProvider: 's3p',
+          },
+        );
+
+        return {
+          ...paymentStatus,
+          subscriptionUpgrade: upgradeResult,
+        };
+      }
+    }
+
+    return paymentStatus;
   }
 
   @Get('ping')
@@ -121,37 +181,79 @@ export class MobileMoneyController {
   }
 
   @Get('pricing')
-  @ApiOperation({ summary: 'Get subscription pricing in FCFA' })
+  @Public()
+  @ApiOperation({ summary: 'Get subscription pricing with currency conversion' })
+  @ApiQuery({ name: 'currency', required: false, description: 'Currency code (default: XAF)' })
+  @ApiQuery({ name: 'billing', required: false, enum: ['monthly', 'annually'] })
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'Pricing information retrieved',
   })
-  async getPricing(): Promise<any> {
+  async getPricing(
+    @Query('currency') currency: string = 'XAF',
+    @Query('billing') billing: 'monthly' | 'annually' = 'monthly',
+  ): Promise<any> {
+    const plans = {};
+
+    for (const planId of ['STANDARD', 'PRO', 'ENTERPRISE']) {
+      const plan = this.currencyService.PRICING[planId];
+      const price = await this.currencyService.getPlanPrice(planId, currency, billing);
+
+      plans[planId] = {
+        price: price.amount,
+        priceFormatted: `${price.symbol}${price.amount.toLocaleString()}`,
+        priceUSD: billing === 'monthly' ? plan.priceUSD : plan.priceAnnualUSD,
+        description: `Plan ${plan.name} - ${plan.agents} agent(s), ${plan.messages.toLocaleString()} messages/mois`,
+        features: this.getPlanFeatures(planId),
+      };
+    }
+
     return {
-      currency: 'FCFA',
-      plans: {
-        STANDARD: {
-          price: 6550,
-          description: 'Plan Standard - 1 agent, 2000 requêtes/mois',
-          features: ['1 Agent WhatsApp', '2000 requêtes/mois', '500MB stockage', '3 bases de connaissances']
-        },
-        PRO: {
-          price: 19650,
-          description: 'Plan Pro - 3 agents, 8000 requêtes/mois',
-          features: ['3 Agents WhatsApp', '8000 requêtes/mois', '5GB stockage', '10 bases de connaissances', 'Analytics avancés']
-        },
-        ENTERPRISE: {
-          price: 65500,
-          description: 'Plan Enterprise - 10 agents, 30000 requêtes/mois',
-          features: ['10 Agents WhatsApp', '30000 requêtes/mois', '20GB stockage', '50 bases de connaissances', 'Support prioritaire', 'API complète']
-        }
-      },
+      currency: currency.toUpperCase(),
+      symbol: this.currencyService.getCurrencySymbol(currency),
+      billingPeriod: billing,
+      plans,
       supportedOperators: [
         { name: 'MTN Mobile Money', code: 'MTNMOMO' },
         { name: 'Orange Money', code: 'ORANGE' },
-        { name: 'Express Union', code: 'EU' }
-      ]
+        { name: 'Express Union', code: 'EU' },
+      ],
+      supportedCurrencies: this.currencyService.getSupportedCurrencies(),
     };
+  }
+
+  private getPlanFeatures(planId: string): string[] {
+    const features = {
+      STANDARD: [
+        '1 Agent WhatsApp',
+        '2,000 messages/mois',
+        '500MB stockage',
+        '3 bases de connaissances',
+        'Analytics avancés',
+        'Support e-mail prioritaire',
+      ],
+      PRO: [
+        '3 Agents WhatsApp',
+        '8,000 messages/mois',
+        '5GB stockage',
+        '10 bases de connaissances',
+        'Analytics avancés',
+        'Support chat 24h/24',
+        'Intégrations personnalisées',
+      ],
+      ENTERPRISE: [
+        '10 Agents WhatsApp',
+        '30,000 messages/mois',
+        '20GB stockage',
+        '50 bases de connaissances',
+        'Analyses personnalisées',
+        'Support dédié',
+        'API complète',
+        'White Label',
+      ],
+    };
+
+    return features[planId] || [];
   }
 
   // ============================================
@@ -256,16 +358,59 @@ export class MobileMoneyController {
 
   @Post('enkap/webhook')
   @Public()
-  @ApiOperation({ summary: 'E-nkap webhook endpoint' })
+  @ApiOperation({ summary: 'E-nkap webhook endpoint - processes payment and upgrades subscription' })
   @ApiResponse({
     status: HttpStatus.OK,
-    description: 'Webhook processed successfully',
+    description: 'Webhook processed and subscription upgraded if payment successful',
   })
   async enkapWebhook(@Body() webhookData: any): Promise<any> {
+    this.logger.log(`E-nkap webhook received: ${JSON.stringify(webhookData)}`);
+
     const result = this.enkapService.processWebhook(webhookData);
 
-    // TODO: Implémenter la logique de traitement du paiement
-    // Par exemple: mettre à jour le statut de la commande dans la base de données
+    // Process subscription upgrade if payment is successful
+    if (result.status === 'SUCCESS' || webhookData.status === 'COMPLETED') {
+      this.logger.log(`E-nkap payment successful, processing subscription upgrade`);
+
+      // Extract metadata from webhook (merchantReference contains user info)
+      // Format expected: WAZEAPP-{userId}-{plan}-{timestamp}
+      const merchantRef = webhookData.merchantReference || result.merchantReference;
+
+      if (merchantRef) {
+        const parts = merchantRef.split('-');
+        if (parts.length >= 3 && parts[0] === 'WAZEAPP') {
+          const userId = parts[1];
+          const plan = parts[2].toUpperCase();
+
+          if (['STANDARD', 'PRO', 'ENTERPRISE'].includes(plan)) {
+            const upgradeResult = await this.subscriptionUpgradeService.upgradeUserSubscription(
+              userId,
+              {
+                transactionId: webhookData.transactionId || merchantRef,
+                ptn: webhookData.txid || result.txid,
+                plan: plan as 'STANDARD' | 'PRO' | 'ENTERPRISE',
+                amount: webhookData.amount || webhookData.totalAmount || 0,
+                currency: webhookData.currency || 'XAF',
+                billingPeriod: 'monthly',
+                paymentMethod: 'mobile_money',
+                paymentProvider: 'enkap',
+              },
+            );
+
+            this.logger.log(`Subscription upgrade result: ${JSON.stringify(upgradeResult)}`);
+
+            return {
+              status: 'success',
+              message: 'Payment processed and subscription upgraded',
+              webhookResult: result,
+              subscriptionUpgrade: upgradeResult,
+            };
+          }
+        }
+      }
+
+      this.logger.warn(`Could not extract user info from merchantReference: ${merchantRef}`);
+    }
 
     return {
       status: 'success',

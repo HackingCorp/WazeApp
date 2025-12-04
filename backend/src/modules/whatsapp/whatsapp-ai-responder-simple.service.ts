@@ -352,6 +352,11 @@ Respond naturally and helpfully in the user's language.`;
     messages: Array<{ role: string; content: string; timestamp: Date }>,
   ): Promise<void> {
     try {
+      // Get session to retrieve agentId
+      const session = await this.sessionRepository.findOne({
+        where: { id: sessionId },
+      });
+
       // Find or create conversation
       let conversation = await this.conversationRepository.findOne({
         where: {
@@ -365,9 +370,18 @@ Respond naturally and helpfully in the user's language.`;
           sessionId,
           userId,
           clientPhoneNumber: phoneNumber,
+          agentId: session?.agentId, // Link conversation to agent
+          channel: 'whatsapp' as any,
           startedAt: new Date(),
         });
         await this.conversationRepository.save(conversation);
+
+        this.logger.log(`Created conversation linked to agent: ${session?.agentId || 'none'}`);
+      } else if (!conversation.agentId && session?.agentId) {
+        // Update existing conversation with agentId if missing
+        conversation.agentId = session.agentId;
+        await this.conversationRepository.save(conversation);
+        this.logger.log(`Updated conversation with agent link: ${session.agentId}`);
       }
 
       // Save messages to database

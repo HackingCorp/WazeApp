@@ -62,11 +62,16 @@ CRITICAL RULES:
 
 Your role: WhatsApp automation expert, professional yet friendly.
 
-PRICING (use these exact values):
-- FREE: 0 FCFA/month - 100 messages/month, 1 agent
-- STANDARD: 5,000 FCFA/month - 2,000 messages/month, 3 agents
-- PRO: 15,000 FCFA/month - 8,000 messages/month, 10 agents
-- ENTERPRISE: 45,000 FCFA/month - 30,000 messages/month, unlimited agents
+PRICING (base prices in USD, convert based on user context):
+- FREE: $0/month - 100 messages/month, 1 agent
+- STANDARD: $29/month - 2,000 messages/month, 1 agent
+- PRO: $69/month - 8,000 messages/month, 3 agents
+- ENTERPRISE: $199/month - 30,000 messages/month, 10 agents
+
+Note: When asked about pricing in FCFA or African currencies, use approximately:
+- STANDARD: ~19,000 FCFA/month
+- PRO: ~45,000 FCFA/month
+- ENTERPRISE: ~130,000 FCFA/month
 
 KEY FEATURES:
 - Complete WhatsApp conversation automation
@@ -159,7 +164,7 @@ Respond naturally to:`;
     const responses = {
       fr: {
         greeting: "Salut ! 👋 Je suis l'IA de WazeApp. Je peux vous expliquer comment transformer votre WhatsApp en assistant IA puissant qui automatise vos conversations client 24/7. Que souhaitez-vous savoir ?",
-        pricing: "Excellente question ! 💰 WazeApp propose un plan GRATUIT (100 messages/mois), puis STANDARD à 5,000 FCFA/mois (2,000 messages), PRO à 15,000 FCFA/mois (8,000 messages). Voulez-vous essayer gratuitement ?",
+        pricing: "Excellente question ! 💰 WazeApp propose un plan GRATUIT (100 messages/mois), puis STANDARD à $29/mois (~19,000 FCFA), PRO à $69/mois (~45,000 FCFA), et ENTERPRISE à $199/mois (~130,000 FCFA). Voulez-vous essayer gratuitement ?",
         howto: "C'est très simple ! ⚡ 1) Connectez votre WhatsApp (30 sec) 2) Configurez votre IA avec vos infos business 3) Votre assistant automatise tout ! Il répond aux clients, prend des RDV, gère le SAV... Envie d'essayer gratuitement ?",
         features: "WazeApp c'est magique ! 🚀 Votre IA peut : répondre en 95+ langues, s'intégrer à vos outils (CRM, calendrier...), analyser les sentiments, créer des rapports... Plus jamais de messages perdus ! Quelle fonctionnalité vous intéresse le plus ?",
         security: "La sécurité est notre priorité ! 🛡️ Chiffrement bout-en-bout, conformité RGPD totale, vos données restent privées. Nous ne lisons jamais vos conversations. Audit de sécurité disponible pour les entreprises. Rassuré(e) ?",
@@ -167,7 +172,7 @@ Respond naturally to:`;
       },
       en: {
         greeting: "Hi there! 👋 I'm WazeApp's AI assistant. I can explain how to transform your WhatsApp into a powerful AI assistant that automates your customer conversations 24/7. What would you like to know?",
-        pricing: "Great question! 💰 WazeApp offers a FREE plan (100 messages/month), then STANDARD at 5,000 FCFA/month (2,000 messages), PRO at 15,000 FCFA/month (8,000 messages). Want to try it for free?",
+        pricing: "Great question! 💰 WazeApp offers a FREE plan (100 messages/month), then STANDARD at $29/month, PRO at $69/month, and ENTERPRISE at $199/month. Want to try it for free?",
         howto: "It's super simple! ⚡ 1) Connect your WhatsApp (30 sec) 2) Configure your AI with your business info 3) Your assistant automates everything! It answers customers, books appointments, handles support... Want to try for free?",
         features: "WazeApp is amazing! 🚀 Your AI can: respond in 95+ languages, integrate with your tools (CRM, calendar...), analyze sentiment, create reports... Never miss a message again! Which feature interests you most?",
         security: "Security is our priority! 🛡️ End-to-end encryption, full GDPR compliance, your data stays private. We never read your conversations. Security audit available for enterprises. Feeling confident?",
@@ -175,7 +180,7 @@ Respond naturally to:`;
       },
       es: {
         greeting: "¡Hola! 👋 Soy el asistente IA de WazeApp. Puedo explicarte cómo transformar tu WhatsApp en un asistente IA potente que automatiza tus conversaciones con clientes 24/7. ¿Qué te gustaría saber?",
-        pricing: "¡Excelente pregunta! 💰 WazeApp ofrece un plan GRATIS (100 mensajes/mes), luego STANDARD a 5,000 FCFA/mes (2,000 mensajes), PRO a 15,000 FCFA/mes (8,000 mensajes). ¿Quieres probarlo gratis?",
+        pricing: "¡Excelente pregunta! 💰 WazeApp ofrece un plan GRATIS (100 mensajes/mes), luego STANDARD a $29/mes, PRO a $69/mes, y ENTERPRISE a $199/mes. ¿Quieres probarlo gratis?",
         howto: "¡Es súper simple! ⚡ 1) Conecta tu WhatsApp (30 seg) 2) Configura tu IA con tu info empresarial 3) ¡Tu asistente automatiza todo! Responde clientes, agenda citas, maneja soporte... ¿Quieres probar gratis?",
         features: "¡WazeApp es increíble! 🚀 Tu IA puede: responder en 95+ idiomas, integrarse con tus herramientas (CRM, calendario...), analizar sentimientos, crear reportes... ¡Nunca más perderás un mensaje! ¿Qué función te interesa más?",
         security: "¡La seguridad es nuestra prioridad! 🛡️ Cifrado punto a punto, cumplimiento RGPD completo, tus datos permanecen privados. Nunca leemos tus conversaciones. Auditoría de seguridad disponible para empresas. ¿Te sientes seguro?",

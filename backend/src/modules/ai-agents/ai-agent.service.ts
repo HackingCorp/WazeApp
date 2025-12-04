@@ -187,7 +187,74 @@ export class AiAgentService {
       .take(query.limit)
       .getMany();
 
-    return { data, total };
+    // Enrich agents with real-time statistics
+    const enrichedData = await Promise.all(
+      data.map(async (agent) => {
+        const stats = await this.calculateAgentStats(agent.id);
+        agent.metrics = {
+          ...agent.metrics,
+          totalConversations: stats.totalConversations,
+          totalMessages: stats.totalMessages,
+          averageResponseTime: stats.averageResponseTime,
+          satisfactionScore: stats.satisfactionScore,
+          lastActive: stats.lastActive,
+        };
+        return agent;
+      }),
+    );
+
+    return { data: enrichedData, total };
+  }
+
+  /**
+   * Calculate real-time statistics for an agent
+   */
+  async calculateAgentStats(agentId: string): Promise<{
+    totalConversations: number;
+    totalMessages: number;
+    averageResponseTime: number;
+    satisfactionScore: number;
+    lastActive: Date | null;
+  }> {
+    // Count conversations for this agent
+    const conversationCount = await this.conversationRepository.count({
+      where: { agentId },
+    });
+
+    // Count messages for this agent's conversations
+    const messageStats = await this.messageRepository
+      .createQueryBuilder("msg")
+      .leftJoin("msg.conversation", "conv")
+      .select([
+        "COUNT(msg.id) as totalMessages",
+        "MAX(msg.createdAt) as lastActive",
+      ])
+      .where("conv.agentId = :agentId", { agentId })
+      .getRawOne();
+
+    // Calculate average response time from conversations with metrics
+    const responseTimeStats = await this.conversationRepository
+      .createQueryBuilder("conv")
+      .select("AVG((conv.metrics->>'responseTime')::numeric)", "avgResponseTime")
+      .where("conv.agentId = :agentId", { agentId })
+      .andWhere("conv.metrics->>'responseTime' IS NOT NULL")
+      .getRawOne();
+
+    // Calculate satisfaction score from conversations
+    const satisfactionStats = await this.conversationRepository
+      .createQueryBuilder("conv")
+      .select("AVG((conv.metrics->>'satisfactionScore')::numeric)", "avgSatisfaction")
+      .where("conv.agentId = :agentId", { agentId })
+      .andWhere("conv.metrics->>'satisfactionScore' IS NOT NULL")
+      .getRawOne();
+
+    return {
+      totalConversations: conversationCount,
+      totalMessages: parseInt(messageStats?.totalMessages) || 0,
+      averageResponseTime: parseFloat(responseTimeStats?.avgResponseTime) || 0,
+      satisfactionScore: parseFloat(satisfactionStats?.avgSatisfaction) || 0,
+      lastActive: messageStats?.lastActive ? new Date(messageStats.lastActive) : null,
+    };
   }
 
   async findOne(organizationId: string, id: string): Promise<AiAgent> {

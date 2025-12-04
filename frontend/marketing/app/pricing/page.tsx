@@ -1,38 +1,121 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { motion } from "framer-motion"
 import { Button } from "@/components/ui/button"
-import { Check, X, Sparkles } from "lucide-react"
+import { Check, X, Sparkles, Loader2 } from "lucide-react"
 import { useTranslations } from "@/lib/hooks/use-translations"
-// import { formatCurrency } from "@/lib/utils"
 
+// API URL - uses environment variable or defaults to production
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.wazeapp.xyz/api/v1'
 
-const currencies = [
-  { code: "USD", symbol: "$", rate: 1 },
-  { code: "EUR", symbol: "€", rate: 0.92 },
-  { code: "GBP", symbol: "£", rate: 0.79 },
-  { code: "XAF", symbol: "FCFA ", rate: 655 },
-]
+interface CurrencyInfo {
+  code: string
+  symbol: string
+  name: string
+}
 
+interface PriceCache {
+  [key: string]: number
+}
 
 export default function PricingPage() {
   const [billingPeriod, setBillingPeriod] = useState<"monthly" | "annually">("monthly")
-  const [currency, setCurrency] = useState(currencies[0])
+  const [currencies, setCurrencies] = useState<CurrencyInfo[]>([
+    { code: "USD", symbol: "$", name: "US Dollar" },
+    { code: "EUR", symbol: "€", name: "Euro" },
+    { code: "GBP", symbol: "£", name: "British Pound" },
+    { code: "XAF", symbol: "FCFA", name: "CFA Franc" },
+  ])
+  const [currency, setCurrency] = useState<CurrencyInfo>(currencies[0])
+  const [priceCache, setPriceCache] = useState<PriceCache>({})
+  const [loading, setLoading] = useState(false)
   const { t } = useTranslations()
 
-  const calculatePrice = (price: number) => {
-    if (currency.code === 'XAF') {
-      // Prix spécifiques pour Mobile Money en FCFA
-      const fcfaPrices = { 29: 6550, 69: 19650, 199: 65500, 278: 52400, 662: 157080, 1910: 523800 };
-      return fcfaPrices[price] || Math.round(price * currency.rate);
+  // Fetch supported currencies on mount
+  useEffect(() => {
+    fetchCurrencies()
+  }, [])
+
+  // Fetch prices when currency or billing period changes
+  useEffect(() => {
+    fetchPrices()
+  }, [currency.code, billingPeriod])
+
+  const fetchCurrencies = async () => {
+    try {
+      const response = await fetch(`${API_URL}/pricing/currencies`)
+      const data = await response.json()
+      if (data.success && data.currencies) {
+        setCurrencies(data.currencies)
+      }
+    } catch (error) {
+      console.error('Failed to fetch currencies:', error)
     }
-    return Math.round(price * currency.rate)
+  }
+
+  const fetchPrices = async () => {
+    setLoading(true)
+    try {
+      const response = await fetch(
+        `${API_URL}/pricing?currency=${currency.code}&billing=${billingPeriod}`
+      )
+      const data = await response.json()
+      if (data.success && data.plans) {
+        const newCache: PriceCache = {}
+        Object.entries(data.plans).forEach(([planId, planData]: [string, any]) => {
+          newCache[planId] = planData.price
+        })
+        setPriceCache(newCache)
+      }
+    } catch (error) {
+      console.error('Failed to fetch prices:', error)
+      // Fallback to local calculation
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Base prices in USD
+  const basePrices = {
+    FREE: { monthly: 0, annually: 0 },
+    STANDARD: { monthly: 29, annually: 278 },
+    PRO: { monthly: 69, annually: 662 },
+    ENTERPRISE: { monthly: 199, annually: 1910 },
+  }
+
+  const calculatePrice = (price: number, planId?: string) => {
+    // If we have cached API price, use it
+    if (planId && priceCache[planId] !== undefined) {
+      return priceCache[planId]
+    }
+
+    // Fallback to local calculation with 10% margin
+    const rates: { [key: string]: number } = {
+      USD: 1,
+      EUR: 0.92,
+      GBP: 0.79,
+      XAF: 605,
+      XOF: 605,
+      NGN: 1550,
+    }
+
+    const rate = rates[currency.code] || 1
+    const rateWithMargin = rate * 1.1 // 10% margin
+    const converted = price * rateWithMargin
+
+    // Round for African currencies
+    if (['XAF', 'XOF', 'NGN'].includes(currency.code)) {
+      return Math.ceil(converted / 100) * 100
+    }
+
+    return Math.round(converted * 100) / 100
   }
 
   const plans = [
     {
+      id: "FREE",
       name: t("planFree"),
       description: t("planFreeDesc"),
       price: { monthly: 0, annually: 0 },
@@ -51,6 +134,7 @@ export default function PricingPage() {
       popular: false,
     },
     {
+      id: "STANDARD",
       name: t("planStandard"),
       description: t("planStandardDesc"),
       price: { monthly: 29, annually: 278 },
@@ -69,6 +153,7 @@ export default function PricingPage() {
       popular: false,
     },
     {
+      id: "PRO",
       name: t("planPro"),
       description: t("planProDesc"),
       price: { monthly: 69, annually: 662 },
@@ -87,6 +172,7 @@ export default function PricingPage() {
       popular: true,
     },
     {
+      id: "ENTERPRISE",
       name: t("planEnterprise"),
       description: t("planEnterpriseDesc"),
       price: { monthly: 199, annually: 1910 },
@@ -183,12 +269,15 @@ export default function PricingPage() {
 
           <select
             value={currency.code}
-            onChange={(e) => setCurrency(currencies.find((c) => c.code === e.target.value)!)}
+            onChange={(e) => {
+              const selected = currencies.find((c) => c.code === e.target.value)
+              if (selected) setCurrency(selected)
+            }}
             className="px-4 py-2 rounded-lg border dark:border-gray-700 bg-white dark:bg-gray-800"
           >
             {currencies.map((c) => (
               <option key={c.code} value={c.code}>
-                {c.code}
+                {c.code} ({c.symbol})
               </option>
             ))}
           </select>
@@ -222,8 +311,14 @@ export default function PricingPage() {
 
                 <div className="mb-6">
                   <span className="text-4xl font-bold text-gray-900 dark:text-white">
-                    {currency.symbol}
-                    {calculatePrice(plan.price[billingPeriod])}
+                    {loading ? (
+                      <Loader2 className="h-8 w-8 animate-spin inline" />
+                    ) : (
+                      <>
+                        {currency.symbol}
+                        {calculatePrice(plan.price[billingPeriod], plan.id).toLocaleString()}
+                      </>
+                    )}
                   </span>
                   <span className="text-muted-foreground">
                     /{billingPeriod === "monthly" ? t("perMonth") : t("perYear")}

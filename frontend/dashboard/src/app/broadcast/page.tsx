@@ -1,5 +1,8 @@
 'use client';
 
+// Prevent static generation - this page requires I18nProvider context
+export const dynamic = 'force-dynamic';
+
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Radio,

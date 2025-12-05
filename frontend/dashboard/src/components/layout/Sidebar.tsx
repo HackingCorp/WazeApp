@@ -3,15 +3,15 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { 
-  LayoutDashboard, 
-  MessageSquare, 
-  Bot, 
-  BookOpen, 
+import {
+  LayoutDashboard,
+  MessageSquare,
+  Bot,
+  BookOpen,
   Database,
-  BarChart3, 
-  Settings, 
-  Users, 
+  BarChart3,
+  Settings,
+  Users,
   CreditCard,
   PanelLeftClose,
   PanelLeftOpen,
@@ -19,6 +19,7 @@ import {
   Image,
   Headphones,
   Smartphone,
+  Radio,
 } from 'lucide-react';
 import { useI18n } from '@/providers/I18nProvider';
 import { useAuth } from '@/providers/AuthProvider';
@@ -64,6 +65,12 @@ export function Sidebar({ collapsed, onToggleCollapse }: SidebarProps) {
       name: t('sidebar.knowledgeBase'),
       href: '/knowledge-base',
       icon: Database,
+      permission: null,
+    },
+    {
+      name: t('sidebar.broadcast'),
+      href: '/broadcast',
+      icon: Radio,
       permission: null,
     },
   ];

@@ -592,6 +592,338 @@ class ApiClient {
   }
 
   // ============================================
+  // BROADCAST ENDPOINTS
+  // ============================================
+
+  // Contacts
+  async getBroadcastContacts(params?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    tags?: string[];
+    isValidWhatsApp?: boolean;
+    isSubscribed?: boolean;
+  }) {
+    const queryParams = new URLSearchParams();
+    if (params?.page) queryParams.append('page', params.page.toString());
+    if (params?.limit) queryParams.append('limit', params.limit.toString());
+    if (params?.search) queryParams.append('search', params.search);
+    if (params?.tags?.length) queryParams.append('tags', params.tags.join(','));
+    if (params?.isValidWhatsApp !== undefined) queryParams.append('isValidWhatsApp', String(params.isValidWhatsApp));
+    if (params?.isSubscribed !== undefined) queryParams.append('isSubscribed', String(params.isSubscribed));
+    const query = queryParams.toString();
+    return this.request(`/broadcast/contacts${query ? `?${query}` : ''}`);
+  }
+
+  async getBroadcastContactStats() {
+    return this.request('/broadcast/contacts/stats');
+  }
+
+  async createBroadcastContact(data: {
+    phoneNumber: string;
+    name: string;
+    email?: string;
+    company?: string;
+    tags?: string[];
+    customFields?: Record<string, any>;
+  }) {
+    return this.request('/broadcast/contacts', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateBroadcastContact(id: string, data: {
+    name?: string;
+    email?: string;
+    company?: string;
+    tags?: string[];
+    customFields?: Record<string, any>;
+    isSubscribed?: boolean;
+  }) {
+    return this.request(`/broadcast/contacts/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteBroadcastContact(id: string) {
+    return this.request(`/broadcast/contacts/${id}`, { method: 'DELETE' });
+  }
+
+  async deleteBroadcastContactsBulk(ids: string[]) {
+    return this.request('/broadcast/contacts/bulk-delete', {
+      method: 'POST',
+      body: JSON.stringify({ ids }),
+    });
+  }
+
+  async importBroadcastContacts(file: File, options?: {
+    tags?: string[];
+    skipDuplicates?: boolean;
+    validateWhatsApp?: boolean;
+    sessionId?: string;
+  }) {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (options?.tags?.length) formData.append('tags', JSON.stringify(options.tags));
+    if (options?.skipDuplicates !== undefined) formData.append('skipDuplicates', String(options.skipDuplicates));
+    if (options?.validateWhatsApp !== undefined) formData.append('validateWhatsApp', String(options.validateWhatsApp));
+    if (options?.sessionId) formData.append('sessionId', options.sessionId);
+
+    return this.request('/broadcast/contacts/import', {
+      method: 'POST',
+      body: formData,
+    });
+  }
+
+  async validateBroadcastContacts(sessionId: string, contactIds?: string[]) {
+    return this.request(`/broadcast/contacts/validate/${sessionId}`, {
+      method: 'POST',
+      body: JSON.stringify({ contactIds }),
+    });
+  }
+
+  async exportBroadcastContacts(params?: {
+    format?: 'csv' | 'json' | 'xlsx';
+    tags?: string[];
+  }) {
+    const queryParams = new URLSearchParams();
+    if (params?.format) queryParams.append('format', params.format);
+    if (params?.tags?.length) queryParams.append('tags', params.tags.join(','));
+    const query = queryParams.toString();
+    return this.request(`/broadcast/contacts/export${query ? `?${query}` : ''}`);
+  }
+
+  async getBroadcastContactTags() {
+    return this.request('/broadcast/contacts/tags');
+  }
+
+  async addTagsToBroadcastContacts(contactIds: string[], tags: string[]) {
+    return this.request('/broadcast/contacts/add-tags', {
+      method: 'POST',
+      body: JSON.stringify({ contactIds, tags }),
+    });
+  }
+
+  // Templates
+  async getBroadcastTemplates(params?: {
+    category?: string;
+    type?: string;
+    isSystem?: boolean;
+  }) {
+    const queryParams = new URLSearchParams();
+    if (params?.category) queryParams.append('category', params.category);
+    if (params?.type) queryParams.append('type', params.type);
+    if (params?.isSystem !== undefined) queryParams.append('isSystem', String(params.isSystem));
+    const query = queryParams.toString();
+    return this.request(`/broadcast/templates${query ? `?${query}` : ''}`);
+  }
+
+  async getBroadcastTemplate(id: string) {
+    return this.request(`/broadcast/templates/${id}`);
+  }
+
+  async createBroadcastTemplate(data: {
+    name: string;
+    description?: string;
+    type: 'text' | 'image' | 'video' | 'audio' | 'document' | 'location' | 'contact' | 'sticker';
+    category: string;
+    content: string;
+    caption?: string;
+    mediaUrl?: string;
+    buttons?: any[];
+  }) {
+    return this.request('/broadcast/templates', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateBroadcastTemplate(id: string, data: {
+    name?: string;
+    description?: string;
+    type?: string;
+    category?: string;
+    content?: string;
+    caption?: string;
+    mediaUrl?: string;
+    buttons?: any[];
+  }) {
+    return this.request(`/broadcast/templates/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteBroadcastTemplate(id: string) {
+    return this.request(`/broadcast/templates/${id}`, { method: 'DELETE' });
+  }
+
+  async previewBroadcastTemplate(id: string, variables: Record<string, string>) {
+    return this.request(`/broadcast/templates/${id}/preview`, {
+      method: 'POST',
+      body: JSON.stringify({ variables }),
+    });
+  }
+
+  // Campaigns
+  async getBroadcastCampaigns(params?: {
+    status?: string;
+    page?: number;
+    limit?: number;
+  }) {
+    const queryParams = new URLSearchParams();
+    if (params?.status) queryParams.append('status', params.status);
+    if (params?.page) queryParams.append('page', params.page.toString());
+    if (params?.limit) queryParams.append('limit', params.limit.toString());
+    const query = queryParams.toString();
+    return this.request(`/broadcast/campaigns${query ? `?${query}` : ''}`);
+  }
+
+  async getBroadcastCampaign(id: string) {
+    return this.request(`/broadcast/campaigns/${id}`);
+  }
+
+  async createBroadcastCampaign(data: {
+    name: string;
+    description?: string;
+    sessionId: string;
+    templateId?: string;
+    customMessage?: {
+      type: string;
+      content: string;
+      caption?: string;
+      mediaUrl?: string;
+    };
+    contactIds?: string[];
+    contactFilter?: {
+      tags?: string[];
+      isValidWhatsApp?: boolean;
+      isSubscribed?: boolean;
+    };
+    scheduledAt?: string;
+    recurrenceType?: 'none' | 'daily' | 'weekly' | 'monthly';
+    delayBetweenMessages?: number;
+    variables?: Record<string, string>;
+  }) {
+    return this.request('/broadcast/campaigns', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateBroadcastCampaign(id: string, data: any) {
+    return this.request(`/broadcast/campaigns/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteBroadcastCampaign(id: string) {
+    return this.request(`/broadcast/campaigns/${id}`, { method: 'DELETE' });
+  }
+
+  async startBroadcastCampaign(id: string) {
+    return this.request(`/broadcast/campaigns/${id}/start`, { method: 'POST' });
+  }
+
+  async pauseBroadcastCampaign(id: string) {
+    return this.request(`/broadcast/campaigns/${id}/pause`, { method: 'POST' });
+  }
+
+  async resumeBroadcastCampaign(id: string) {
+    return this.request(`/broadcast/campaigns/${id}/resume`, { method: 'POST' });
+  }
+
+  async cancelBroadcastCampaign(id: string) {
+    return this.request(`/broadcast/campaigns/${id}/cancel`, { method: 'POST' });
+  }
+
+  async getBroadcastCampaignStats(id: string) {
+    return this.request(`/broadcast/campaigns/${id}/stats`);
+  }
+
+  async getBroadcastCampaignMessages(id: string, params?: {
+    status?: string;
+    page?: number;
+    limit?: number;
+  }) {
+    const queryParams = new URLSearchParams();
+    if (params?.status) queryParams.append('status', params.status);
+    if (params?.page) queryParams.append('page', params.page.toString());
+    if (params?.limit) queryParams.append('limit', params.limit.toString());
+    const query = queryParams.toString();
+    return this.request(`/broadcast/campaigns/${id}/messages${query ? `?${query}` : ''}`);
+  }
+
+  // Webhooks
+  async getBroadcastWebhooks() {
+    return this.request('/broadcast/webhooks');
+  }
+
+  async createBroadcastWebhook(data: {
+    name: string;
+    url: string;
+    events: string[];
+    secret?: string;
+    isActive?: boolean;
+  }) {
+    return this.request('/broadcast/webhooks', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateBroadcastWebhook(id: string, data: any) {
+    return this.request(`/broadcast/webhooks/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteBroadcastWebhook(id: string) {
+    return this.request(`/broadcast/webhooks/${id}`, { method: 'DELETE' });
+  }
+
+  async testBroadcastWebhook(id: string) {
+    return this.request(`/broadcast/webhooks/${id}/test`, { method: 'POST' });
+  }
+
+  // API Keys
+  async getBroadcastApiKeys() {
+    return this.request('/broadcast/api-keys');
+  }
+
+  async createBroadcastApiKey(data: {
+    name: string;
+    permissions: string[];
+    expiresAt?: string;
+    ipWhitelist?: string[];
+    rateLimitPerMinute?: number;
+  }) {
+    return this.request('/broadcast/api-keys', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateBroadcastApiKey(id: string, data: any) {
+    return this.request(`/broadcast/api-keys/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteBroadcastApiKey(id: string) {
+    return this.request(`/broadcast/api-keys/${id}`, { method: 'DELETE' });
+  }
+
+  async toggleBroadcastApiKey(id: string) {
+    return this.request(`/broadcast/api-keys/${id}/toggle`, { method: 'POST' });
+  }
+
+  // ============================================
   // PAYMENT ENDPOINTS
   // ============================================
 

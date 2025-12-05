@@ -75,6 +75,6 @@ import { LlmProvidersModule } from "../llm-providers/llm-providers.module";
     OpenSourceVisionService,
     AudioTranscriptionService,
   ],
-  exports: [WhatsAppService, SimpleConversationService, WhatsAppGateway],
+  exports: [WhatsAppService, BaileysService, SimpleConversationService, WhatsAppGateway],
 })
 export class WhatsAppModule {}

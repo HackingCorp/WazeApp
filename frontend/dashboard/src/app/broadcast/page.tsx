@@ -1,8 +1,5 @@
 'use client';
 
-// Prevent static generation - this page requires I18nProvider context
-export const dynamic = 'force-dynamic';
-
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Radio,
@@ -39,7 +36,6 @@ import {
   UserCircle,
   Eye,
 } from 'lucide-react';
-import { useI18n } from '@/providers/I18nProvider';
 import { api } from '@/lib/api';
 
 type TabType = 'contacts' | 'templates' | 'campaigns';
@@ -112,7 +108,6 @@ const templateTypes = [
 ];
 
 export default function BroadcastPage() {
-  const { t } = useI18n();
   const [activeTab, setActiveTab] = useState<TabType>('contacts');
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [templates, setTemplates] = useState<Template[]>([]);

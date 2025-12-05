@@ -18,6 +18,14 @@ export interface PricingPlan {
   messages: number;
   agents: number;
   storage: string;
+  // Broadcast limits
+  broadcastContacts: number;
+  broadcastTemplates: number;
+  broadcastCampaignsPerMonth: number;
+  broadcastMessagesPerDay: number;
+  hasExternalApi: boolean;
+  hasWebhooks: boolean;
+  hasScheduling: boolean;
 }
 
 @Injectable()
@@ -57,6 +65,14 @@ export class CurrencyService {
       messages: 100,
       agents: 1,
       storage: '100MB',
+      // Broadcast limits
+      broadcastContacts: 50,
+      broadcastTemplates: 3,
+      broadcastCampaignsPerMonth: 2,
+      broadcastMessagesPerDay: 50,
+      hasExternalApi: false,
+      hasWebhooks: false,
+      hasScheduling: false,
     },
     STANDARD: {
       id: 'STANDARD',
@@ -66,6 +82,14 @@ export class CurrencyService {
       messages: 2000,
       agents: 1,
       storage: '500MB',
+      // Broadcast limits
+      broadcastContacts: 1000,
+      broadcastTemplates: 10,
+      broadcastCampaignsPerMonth: 20,
+      broadcastMessagesPerDay: 500,
+      hasExternalApi: false,
+      hasWebhooks: false,
+      hasScheduling: true,
     },
     PRO: {
       id: 'PRO',
@@ -75,6 +99,14 @@ export class CurrencyService {
       messages: 8000,
       agents: 3,
       storage: '5GB',
+      // Broadcast limits
+      broadcastContacts: 5000,
+      broadcastTemplates: 50,
+      broadcastCampaignsPerMonth: 100,
+      broadcastMessagesPerDay: 2000,
+      hasExternalApi: false,
+      hasWebhooks: true,
+      hasScheduling: true,
     },
     ENTERPRISE: {
       id: 'ENTERPRISE',
@@ -84,6 +116,14 @@ export class CurrencyService {
       messages: 30000,
       agents: 10,
       storage: '20GB',
+      // Broadcast limits
+      broadcastContacts: 10000,
+      broadcastTemplates: 999999, // Unlimited
+      broadcastCampaignsPerMonth: 999999, // Unlimited
+      broadcastMessagesPerDay: 5000,
+      hasExternalApi: true,
+      hasWebhooks: true,
+      hasScheduling: true,
     },
   };
 

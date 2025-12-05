@@ -16,6 +16,7 @@ import { AuthModule } from "./modules/auth/auth.module";
 import { UsersModule } from "./modules/users/users.module";
 import { OrganizationsModule } from "./modules/organizations/organizations.module";
 import { WhatsAppModule } from "./modules/whatsapp/whatsapp.module";
+import { BroadcastModule } from "./modules/broadcast/broadcast.module";
 import { HealthModule } from "./modules/health/health.module";
 
 // AI & Knowledge Base modules
@@ -118,6 +119,7 @@ import { AppController } from "./app.controller";
     UsersModule,
     OrganizationsModule,
     WhatsAppModule,
+    BroadcastModule,
     HealthModule,
 
     // AI & Knowledge Base modules

@@ -26,3 +26,11 @@ export { ConversationContext } from "./conversation-context.entity";
 export { MessageQueue } from "./message-queue.entity";
 export { MediaAsset } from "./media-asset.entity";
 export { WebhookEvent } from "./webhook-event.entity";
+
+// Broadcast Entities
+export { BroadcastContact } from "./broadcast-contact.entity";
+export { MessageTemplate, TemplateType, TemplateCategory } from "./message-template.entity";
+export { BroadcastCampaign, CampaignStatus, RecurrenceType } from "./broadcast-campaign.entity";
+export { BroadcastMessage, BroadcastMessageStatus } from "./broadcast-message.entity";
+export { ApiKey, ApiKeyPermission } from "./api-key.entity";
+export { WebhookConfig, WebhookEvent as WebhookEventType } from "./webhook-config.entity";

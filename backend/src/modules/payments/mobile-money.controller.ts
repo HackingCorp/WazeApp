@@ -17,6 +17,7 @@ import {
   ApiBody,
   ApiQuery,
 } from '@nestjs/swagger';
+import { IsString, IsOptional, IsNumber, IsIn } from 'class-validator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Public } from '../../common/decorators/public.decorator';
@@ -33,23 +34,61 @@ import {
 } from './dto/payment.dto';
 
 export class MobileMoneyPaymentDto {
+  @IsIn(['STANDARD', 'PRO', 'ENTERPRISE'])
   plan: 'STANDARD' | 'PRO' | 'ENTERPRISE';
+
+  @IsString()
   customerPhone: string;
+
+  @IsString()
   customerEmail: string;
+
+  @IsString()
   customerName: string;
+
+  @IsOptional()
+  @IsString()
   customerAddress?: string;
+
+  @IsString()
   serviceNumber: string;
+
+  @IsOptional()
+  @IsString()
   currency?: string;
+
+  @IsOptional()
+  @IsIn(['monthly', 'annually'])
   billingPeriod?: 'monthly' | 'annually';
 }
 
 export class PaymentVerificationDto {
+  @IsOptional()
+  @IsString()
   ptn?: string;
+
+  @IsOptional()
+  @IsString()
   transactionId?: string;
+
+  @IsOptional()
+  @IsString()
   userId?: string;
+
+  @IsOptional()
+  @IsString()
   organizationId?: string;
+
+  @IsOptional()
+  @IsIn(['STANDARD', 'PRO', 'ENTERPRISE'])
   plan?: 'STANDARD' | 'PRO' | 'ENTERPRISE';
+
+  @IsOptional()
+  @IsNumber()
   amount?: number;
+
+  @IsOptional()
+  @IsIn(['monthly', 'annually'])
   billingPeriod?: 'monthly' | 'annually';
 }
 

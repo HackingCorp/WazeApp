@@ -612,39 +612,9 @@ export class WhatsAppService {
   ): Promise<any> {
     const session = await this.findOne(id, userId, organizationId);
 
-    // Get message counts from usage metrics (only if organizationId exists)
-    let messagesToday = { total: "0" };
-    let messagesThisMonth = { total: "0" };
-
-    if (organizationId) {
-      const today = new Date().toISOString().slice(0, 10);
-      const thisMonth = new Date().toISOString().slice(0, 7);
-
-      messagesToday = await this.usageMetricRepository
-        .createQueryBuilder("usage")
-        .where("usage.organizationId = :organizationId", { organizationId })
-        .andWhere("usage.type = :type", {
-          type: UsageMetricType.WHATSAPP_MESSAGES,
-        })
-        .andWhere("usage.date = :date", { date: today })
-        .select("SUM(usage.value)", "total")
-        .getRawOne();
-
-      messagesThisMonth = await this.usageMetricRepository
-        .createQueryBuilder("usage")
-        .where("usage.organizationId = :organizationId", { organizationId })
-        .andWhere("usage.type = :type", {
-          type: UsageMetricType.WHATSAPP_MESSAGES,
-        })
-        .andWhere("DATE_TRUNC('month', usage.date::date) = :month", {
-          month: `${thisMonth}-01`,
-        })
-        .select("SUM(usage.value)", "total")
-        .getRawOne();
-    }
-
-    // Count received messages from AgentMessage table
-    // Get conversations for this session (by sessionId or agentId)
+    // Initialize counters
+    let sentToday = 0;
+    let sentThisMonth = 0;
     let receivedToday = 0;
     let receivedThisMonth = 0;
 
@@ -682,30 +652,44 @@ export class WhatsAppService {
     this.logger.debug(`Found ${conversationIds.length} conversations for session ${id}`);
 
     if (conversationIds.length > 0) {
-      // Count messages received today (from users, not AI)
-      const todayResult = await this.messageRepository
+      // Count messages SENT today (AI/AGENT role)
+      sentToday = await this.messageRepository
+        .createQueryBuilder('message')
+        .where('message.conversationId IN (:...conversationIds)', { conversationIds })
+        .andWhere('message.role = :role', { role: MessageRole.AGENT })
+        .andWhere('message.createdAt >= :today', { today })
+        .getCount();
+
+      // Count messages SENT this month (AI/AGENT role)
+      sentThisMonth = await this.messageRepository
+        .createQueryBuilder('message')
+        .where('message.conversationId IN (:...conversationIds)', { conversationIds })
+        .andWhere('message.role = :role', { role: MessageRole.AGENT })
+        .andWhere('message.createdAt >= :startOfMonth', { startOfMonth })
+        .getCount();
+
+      // Count messages RECEIVED today (USER role)
+      receivedToday = await this.messageRepository
         .createQueryBuilder('message')
         .where('message.conversationId IN (:...conversationIds)', { conversationIds })
         .andWhere('message.role = :role', { role: MessageRole.USER })
         .andWhere('message.createdAt >= :today', { today })
         .getCount();
-      receivedToday = todayResult;
 
-      // Count messages received this month
-      const monthResult = await this.messageRepository
+      // Count messages RECEIVED this month (USER role)
+      receivedThisMonth = await this.messageRepository
         .createQueryBuilder('message')
         .where('message.conversationId IN (:...conversationIds)', { conversationIds })
         .andWhere('message.role = :role', { role: MessageRole.USER })
         .andWhere('message.createdAt >= :startOfMonth', { startOfMonth })
         .getCount();
-      receivedThisMonth = monthResult;
 
-      this.logger.debug(`Message counts - Today: ${receivedToday}, This Month: ${receivedThisMonth}`);
+      this.logger.debug(`Message counts - Sent Today: ${sentToday}, Received Today: ${receivedToday}, Sent Month: ${sentThisMonth}, Received Month: ${receivedThisMonth}`);
     }
 
     return {
-      messagesSentToday: parseInt(messagesToday?.total || "0"),
-      messagesSentThisMonth: parseInt(messagesThisMonth?.total || "0"),
+      messagesSentToday: sentToday,
+      messagesSentThisMonth: sentThisMonth,
       messagesReceivedToday: receivedToday,
       messagesReceivedThisMonth: receivedThisMonth,
       uptimePercentage: session.isActive ? 100 : 0,

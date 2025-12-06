@@ -21,6 +21,7 @@ import { Roles } from "../../common/decorators/roles.decorator";
 import { AllowIndividualUsers } from "../../common/decorators/allow-individual-users.decorator";
 import { UserRole } from "../../common/enums";
 import { QuotaEnforcementService } from "./quota-enforcement.service";
+import { QuotaAlertService } from "./quota-alert.service";
 import {
   QuotaCheckDto,
   FeatureCheckDto,
@@ -34,6 +35,7 @@ import {
 export class SubscriptionController {
   constructor(
     private readonly quotaEnforcementService: QuotaEnforcementService,
+    private readonly quotaAlertService: QuotaAlertService,
   ) {}
 
   @Get("usage-summary")
@@ -340,5 +342,16 @@ export class SubscriptionController {
       user.organizationId,
       feature as any,
     );
+  }
+
+  @Post("quota-alerts/trigger")
+  @Roles(UserRole.OWNER, UserRole.ADMIN)
+  @ApiOperation({ summary: "Manually trigger quota alert check (admin only)" })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: "Quota alerts checked and sent if needed",
+  })
+  async triggerQuotaAlerts(): Promise<{ checked: number; alertsSent: number }> {
+    return this.quotaAlertService.triggerQuotaCheck();
   }
 }

@@ -13,7 +13,9 @@ import {
   AgentMessage,
 } from "../../common/entities";
 import { QuotaEnforcementService } from "./quota-enforcement.service";
+import { QuotaAlertService } from "./quota-alert.service";
 import { SubscriptionController } from "./subscription.controller";
+import { EmailModule } from "../email/email.module";
 
 @Module({
   imports: [
@@ -29,9 +31,10 @@ import { SubscriptionController } from "./subscription.controller";
       AgentConversation,
       AgentMessage,
     ]),
+    EmailModule,
   ],
   controllers: [SubscriptionController],
-  providers: [QuotaEnforcementService],
-  exports: [QuotaEnforcementService],
+  providers: [QuotaEnforcementService, QuotaAlertService],
+  exports: [QuotaEnforcementService, QuotaAlertService],
 })
 export class SubscriptionModule {}

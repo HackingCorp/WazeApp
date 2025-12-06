@@ -140,6 +140,48 @@ export class EmailService {
   }
 
   /**
+   * Send quota alert email
+   */
+  async sendQuotaAlertEmail(
+    email: string,
+    firstName: string,
+    percentUsed: number,
+    currentUsage: number,
+    limit: number,
+    planName: string,
+  ): Promise<void> {
+    const dashboardUrl = this.getDashboardUrl();
+    const billingUrl = `${dashboardUrl}/billing`;
+
+    const html = this.getQuotaAlertEmailTemplate(
+      firstName,
+      percentUsed,
+      currentUsage,
+      limit,
+      planName,
+      billingUrl,
+    );
+
+    const subject = percentUsed >= 100
+      ? `🚨 Quota de messages atteint - WazeApp`
+      : `⚠️ ${percentUsed}% de votre quota utilisé - WazeApp`;
+
+    try {
+      await this.transporter.sendMail({
+        from: `"${this.getFromName()}" <${this.getFromAddress()}>`,
+        to: email,
+        subject,
+        html,
+        text: `Bonjour ${firstName},\n\nVous avez utilisé ${percentUsed}% de votre quota de messages mensuel (${currentUsage}/${limit} messages).\n\nPlan actuel: ${planName}\n\nPour éviter toute interruption de service, pensez à mettre à niveau votre plan: ${billingUrl}\n\nL'équipe WazeApp`,
+      });
+
+      this.logger.log(`✅ Quota alert email (${percentUsed}%) sent to ${email}`);
+    } catch (error) {
+      this.logger.error(`❌ Failed to send quota alert email to ${email}:`, error);
+    }
+  }
+
+  /**
    * Send welcome email
    */
   async sendWelcomeEmail(email: string, firstName: string): Promise<void> {
@@ -405,6 +447,125 @@ export class EmailService {
               <p style="color: #999999; margin: 0 0 10px 0; font-size: 12px;">
                 Merci de nous faire confiance! 💚
               </p>
+              <p style="color: #999999; margin: 0; font-size: 12px;">
+                © 2025 WazeApp. Tous droits réservés.<br>
+                <a href="https://wazeapp.xyz" style="color: #25D366; text-decoration: none;">wazeapp.xyz</a>
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+    `;
+  }
+
+  private getQuotaAlertEmailTemplate(
+    firstName: string,
+    percentUsed: number,
+    currentUsage: number,
+    limit: number,
+    planName: string,
+    billingUrl: string,
+  ): string {
+    const isExceeded = percentUsed >= 100;
+    const alertColor = isExceeded ? '#dc3545' : percentUsed >= 90 ? '#fd7e14' : '#ffc107';
+    const alertBgColor = isExceeded ? '#f8d7da' : percentUsed >= 90 ? '#fff3cd' : '#fff3cd';
+    const alertIcon = isExceeded ? '🚨' : '⚠️';
+    const headerBg = isExceeded
+      ? 'linear-gradient(135deg, #dc3545 0%, #c82333 100%)'
+      : 'linear-gradient(135deg, #fd7e14 0%, #e06700 100%)';
+
+    return `
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Alerte Quota - WazeApp</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f4f4f4; padding: 20px;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+          <!-- Header -->
+          <tr>
+            <td style="background: ${headerBg}; padding: 40px 20px; text-align: center;">
+              <h1 style="color: #ffffff; margin: 0; font-size: 28px;">WazeApp</h1>
+              <p style="color: #ffffff; margin: 10px 0 0 0; font-size: 16px;">${alertIcon} Alerte Quota</p>
+            </td>
+          </tr>
+          <!-- Content -->
+          <tr>
+            <td style="padding: 40px 30px;">
+              <p style="color: #666666; line-height: 1.6; margin: 0 0 20px 0; font-size: 18px;">
+                Bonjour <strong style="color: #333;">${firstName}</strong>,
+              </p>
+
+              <!-- Alert Box -->
+              <div style="background-color: ${alertBgColor}; border-left: 4px solid ${alertColor}; padding: 20px; margin: 20px 0; border-radius: 4px;">
+                <p style="color: #333; margin: 0; font-size: 16px; font-weight: bold;">
+                  ${isExceeded
+                    ? '🚨 Votre quota de messages est atteint!'
+                    : `⚠️ Vous avez utilisé ${percentUsed}% de votre quota`}
+                </p>
+              </div>
+
+              <!-- Usage Stats -->
+              <div style="background-color: #f8f9fa; padding: 25px; border-radius: 8px; margin: 20px 0;">
+                <h3 style="color: #333; margin: 0 0 15px 0; font-size: 16px;">📊 Utilisation actuelle</h3>
+
+                <div style="margin-bottom: 15px;">
+                  <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                    <span style="color: #666;">Messages utilisés</span>
+                    <span style="color: #333; font-weight: bold;">${currentUsage.toLocaleString()} / ${limit.toLocaleString()}</span>
+                  </div>
+                  <!-- Progress Bar -->
+                  <div style="background-color: #e9ecef; border-radius: 10px; height: 20px; overflow: hidden;">
+                    <div style="background-color: ${alertColor}; height: 100%; width: ${Math.min(percentUsed, 100)}%; border-radius: 10px;"></div>
+                  </div>
+                  <p style="color: #666; font-size: 12px; margin: 5px 0 0 0; text-align: right;">
+                    ${percentUsed}% utilisé
+                  </p>
+                </div>
+
+                <div style="border-top: 1px solid #dee2e6; padding-top: 15px; margin-top: 15px;">
+                  <p style="color: #666; margin: 0; font-size: 14px;">
+                    <strong>Plan actuel:</strong> ${planName}
+                  </p>
+                </div>
+              </div>
+
+              ${isExceeded ? `
+              <div style="background-color: #f8d7da; border: 1px solid #f5c6cb; padding: 15px; border-radius: 4px; margin: 20px 0;">
+                <p style="color: #721c24; margin: 0; font-size: 14px;">
+                  <strong>Important:</strong> Vos agents WhatsApp ne pourront plus répondre aux messages tant que votre quota n'aura pas été renouvelé ou que vous n'aurez pas mis à niveau votre plan.
+                </p>
+              </div>
+              ` : `
+              <p style="color: #666666; line-height: 1.6; margin: 20px 0;">
+                Pour éviter toute interruption de service, nous vous recommandons de mettre à niveau votre plan avant d'atteindre la limite.
+              </p>
+              `}
+
+              <div style="text-align: center; margin: 30px 0;">
+                <a href="${billingUrl}" style="display: inline-block; background-color: #25D366; color: #ffffff; text-decoration: none; padding: 15px 40px; border-radius: 5px; font-weight: bold; font-size: 16px;">
+                  Mettre à niveau mon plan
+                </a>
+              </div>
+
+              <p style="color: #999999; line-height: 1.6; margin: 20px 0 0 0; font-size: 12px; text-align: center;">
+                Vous recevez cet email car vous avez atteint un seuil d'utilisation important.<br>
+                Questions? Contactez-nous à <a href="mailto:support@wazeapp.xyz" style="color: #25D366;">support@wazeapp.xyz</a>
+              </p>
+            </td>
+          </tr>
+          <!-- Footer -->
+          <tr>
+            <td style="background-color: #f8f8f8; padding: 20px 30px; text-align: center; border-top: 1px solid #eeeeee;">
               <p style="color: #999999; margin: 0; font-size: 12px;">
                 © 2025 WazeApp. Tous droits réservés.<br>
                 <a href="https://wazeapp.xyz" style="color: #25D366; text-decoration: none;">wazeapp.xyz</a>

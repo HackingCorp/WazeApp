@@ -2,26 +2,35 @@ import { Module } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { AnalyticsController } from "./analytics.controller";
 import { AnalyticsService } from "./analytics.service";
-import { 
-  User, 
+import {
+  User,
   Organization,
   AiAgent,
   AgentConversation,
   AgentMessage,
-  WhatsAppSession 
+  WhatsAppSession,
+  Subscription,
+  UsageMetric,
+  KnowledgeBase,
+  KnowledgeDocument,
 } from "@/common/entities";
+import { QuotaEnforcementService } from "@/modules/subscriptions/quota-enforcement.service";
 
 @Module({
   imports: [TypeOrmModule.forFeature([
-    User, 
+    User,
     Organization,
     AiAgent,
     AgentConversation,
     AgentMessage,
-    WhatsAppSession
+    WhatsAppSession,
+    Subscription,
+    UsageMetric,
+    KnowledgeBase,
+    KnowledgeDocument,
   ])],
   controllers: [AnalyticsController],
-  providers: [AnalyticsService],
+  providers: [AnalyticsService, QuotaEnforcementService],
   exports: [AnalyticsService],
 })
 export class AnalyticsModule {}

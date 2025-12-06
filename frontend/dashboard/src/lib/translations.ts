@@ -32,6 +32,11 @@ export const dashboardTranslations: Record<string, Translations> = {
       noAgents: 'No agents yet',
       createFirstAgent: 'Create your first AI agent to get started',
       createAgent: 'Create Agent',
+      messageQuota: 'Message Quota',
+      monthlyUsage: 'Monthly usage',
+      remaining: 'remaining',
+      used: 'used',
+      quotaWarning: 'Quota almost reached!',
     },
     agents: {
       title: 'AI Agents',
@@ -441,6 +446,11 @@ export const dashboardTranslations: Record<string, Translations> = {
       noAgents: 'Aucun agent',
       createFirstAgent: 'Créez votre premier agent IA pour commencer',
       createAgent: 'Créer un Agent',
+      messageQuota: 'Quota de Messages',
+      monthlyUsage: 'Utilisation mensuelle',
+      remaining: 'restants',
+      used: 'utilisé',
+      quotaWarning: 'Quota presque atteint!',
     },
     agents: {
       title: 'Agents IA',

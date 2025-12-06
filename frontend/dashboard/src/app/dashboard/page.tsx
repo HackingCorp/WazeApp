@@ -33,6 +33,20 @@ interface DashboardStats {
   conversionRate: number;
 }
 
+interface QuotaInfo {
+  allowed: boolean;
+  limit: number;
+  current: number;
+  remaining: number;
+  percentUsed: number;
+  message?: string;
+}
+
+interface QuotaData {
+  messages: QuotaInfo | null;
+  agents: QuotaInfo | null;
+}
+
 interface ChartData {
   name: string;
   conversations: number;
@@ -52,6 +66,7 @@ export default function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [chartData, setChartData] = useState<ChartData[]>([]);
   const [agentStatuses, setAgentStatuses] = useState<AgentStatus[]>([]);
+  const [quota, setQuota] = useState<QuotaData | null>(null);
   const [loading, setLoading] = useState(true);
 
   const { t } = useI18n();
@@ -124,6 +139,11 @@ export default function DashboardPage() {
         console.log('✅ Dashboard: Setting analytics data from API');
         setStats(analyticsRes.data.stats);
         setChartData(analyticsRes.data.chartData || []);
+        // Set quota data
+        if (analyticsRes.data.quota) {
+          console.log('✅ Dashboard: Setting quota data:', analyticsRes.data.quota);
+          setQuota(analyticsRes.data.quota);
+        }
       }
 
       // Process real agents data
@@ -368,6 +388,62 @@ export default function DashboardPage() {
           color="yellow"
         />
       </div>
+
+      {/* Message Quota Section */}
+      {quota?.messages && (
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center space-x-3">
+              <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
+                <MessageSquare className="h-5 w-5 text-green-600 dark:text-green-400" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  {t('dashboard.messageQuota') || 'Quota de Messages'}
+                </h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  {t('dashboard.monthlyUsage') || 'Utilisation mensuelle'}
+                </p>
+              </div>
+            </div>
+            <div className="text-right">
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                {quota.messages.current.toLocaleString()} / {quota.messages.limit.toLocaleString()}
+              </p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                {quota.messages.remaining.toLocaleString()} {t('dashboard.remaining') || 'restants'}
+              </p>
+            </div>
+          </div>
+
+          {/* Progress Bar */}
+          <div className="relative">
+            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-4 overflow-hidden">
+              <div
+                className={`h-4 rounded-full transition-all duration-500 ${
+                  quota.messages.percentUsed >= 90
+                    ? 'bg-red-500'
+                    : quota.messages.percentUsed >= 70
+                    ? 'bg-yellow-500'
+                    : 'bg-green-500'
+                }`}
+                style={{ width: `${Math.min(quota.messages.percentUsed, 100)}%` }}
+              />
+            </div>
+            <div className="flex justify-between mt-2 text-xs text-gray-500 dark:text-gray-400">
+              <span>{quota.messages.percentUsed.toFixed(1)}% {t('dashboard.used') || 'utilisé'}</span>
+              <span>
+                {quota.messages.percentUsed >= 90 && (
+                  <span className="text-red-500 font-medium flex items-center">
+                    <AlertTriangle className="h-3 w-3 mr-1" />
+                    {t('dashboard.quotaWarning') || 'Quota presque atteint!'}
+                  </span>
+                )}
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Charts Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

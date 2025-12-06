@@ -1,17 +1,20 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository, MoreThan, IsNull } from "typeorm";
-import { 
-  User, 
-  Organization, 
+import {
+  User,
+  Organization,
   AiAgent,
   AgentConversation,
   AgentMessage,
-  WhatsAppSession 
+  WhatsAppSession,
 } from "@/common/entities";
+import { QuotaEnforcementService, QuotaCheck } from "@/modules/subscriptions/quota-enforcement.service";
 
 @Injectable()
 export class AnalyticsService {
+  private readonly logger = new Logger(AnalyticsService.name);
+
   constructor(
     @InjectRepository(User)
     private userRepository: Repository<User>,
@@ -25,6 +28,7 @@ export class AnalyticsService {
     private messageRepository: Repository<AgentMessage>,
     @InjectRepository(WhatsAppSession)
     private sessionRepository: Repository<WhatsAppSession>,
+    private quotaEnforcementService: QuotaEnforcementService,
   ) {}
 
   async getAnalytics(organizationId: string, userId: string, params: any) {
@@ -193,10 +197,32 @@ export class AnalyticsService {
       console.log('✅ Analytics Service: Returning REAL data with stats:', JSON.stringify(stats));
       console.log('✅ Analytics Service: AI Agent statuses:', JSON.stringify(agentStatuses));
       console.log('✅ Analytics Service: Chart data points:', chartData.length);
+
+      // Get quota information
+      let messageQuota: QuotaCheck | null = null;
+      let agentQuota: QuotaCheck | null = null;
+
+      try {
+        if (organizationId) {
+          messageQuota = await this.quotaEnforcementService.checkWhatsAppMessageQuota(organizationId);
+          agentQuota = await this.quotaEnforcementService.checkAgentQuota(organizationId);
+        } else if (userId) {
+          messageQuota = await this.quotaEnforcementService.checkUserWhatsAppMessageQuota(userId);
+          agentQuota = await this.quotaEnforcementService.checkUserAgentQuota(userId);
+        }
+        this.logger.log(`📊 Quota info - Messages: ${messageQuota?.current}/${messageQuota?.limit}, Agents: ${agentQuota?.current}/${agentQuota?.limit}`);
+      } catch (quotaError) {
+        this.logger.warn(`Failed to get quota info: ${quotaError.message}`);
+      }
+
       return {
         stats,
         chartData,
         agentStatuses, // Now only contains AI Agents
+        quota: {
+          messages: messageQuota,
+          agents: agentQuota,
+        },
         organizationId,
         userId,
         isRealData: true, // Flag to verify this is real data
@@ -219,6 +245,10 @@ export class AnalyticsService {
         },
         chartData: [],
         agentStatuses: [],
+        quota: {
+          messages: null,
+          agents: null,
+        },
         organizationId,
         userId,
         isRealData: false,

@@ -15,6 +15,7 @@ import {
   KnowledgeBase,
   KnowledgeDocument,
   DocumentChunk,
+  UsageMetric,
 } from "@/common/entities";
 import {
   WhatsAppSessionStatus,
@@ -25,6 +26,7 @@ import {
   AgentStatus,
   AgentLanguage,
   AgentTone,
+  UsageMetricType,
 } from "@/common/enums";
 import { LLMRouterService } from "../llm-providers/llm-router.service";
 import { BaileysService } from "./baileys.service";
@@ -172,6 +174,8 @@ export class WhatsAppAIResponderService {
     private knowledgeDocumentRepository: Repository<KnowledgeDocument>,
     @InjectRepository(DocumentChunk)
     private documentChunkRepository: Repository<DocumentChunk>,
+    @InjectRepository(UsageMetric)
+    private usageMetricRepository: Repository<UsageMetric>,
     @Inject(CACHE_MANAGER)
     private cacheManager: Cache,
     private llmRouterService: LLMRouterService,
@@ -266,6 +270,8 @@ export class WhatsAppAIResponderService {
             message: "Sorry, the monthly message limit has been reached. Please contact the administrator to upgrade the plan.",
             type: "text",
           });
+          // Track sent message for usage statistics
+          await this.trackSentMessage(session.organizationId);
         } catch (sendError) {
           this.logger.error(`Failed to send quota exceeded message: ${sendError.message}`);
         }
@@ -1228,6 +1234,9 @@ EXEMPLE DE RÉPONSE CORRECTE:
           type: "text",
         });
 
+        // Track sent message for usage statistics
+        await this.trackSentMessage(session.organizationId);
+
         this.logger.log(
           `AI response sent successfully to ${fromNumber}: "${response.content.substring(0, 50)}..."`,
         );
@@ -1464,6 +1473,9 @@ EXEMPLE DE BONNE RÉPONSE AUTOMATIQUE:
         caption: `📱 Voici un exemple de nos Box TV Android.\n\nPour plus d'informations, visitez notre site web ou contactez notre équipe de vente.`,
       });
 
+      // Track sent message for usage statistics
+      await this.trackSentMessage(session.organizationId);
+
       this.logger.log(`Image sent to ${fromNumber}: ${searchTerm}`);
 
     } catch (error) {
@@ -1565,12 +1577,55 @@ EXEMPLE DE BONNE RÉPONSE AUTOMATIQUE:
         mediaUrl: mediaDocument.filePath,
         caption: `📁 ${mediaDocument.title}\n\n${mediaDocument.content ? mediaDocument.content.substring(0, 200) + '...' : 'Image de votre base de connaissances'}`
       });
-      
+
+      // Track sent message for usage statistics
+      await this.trackSentMessage(session.organizationId);
+
       this.logger.log(`Knowledge base media sent to ${fromNumber}: ${mediaDocument.title}`);
 
     } catch (error) {
       this.logger.error(`Failed to send knowledge base media: ${error.message}`);
       throw error;
+    }
+  }
+
+  /**
+   * Track sent message for usage statistics
+   */
+  private async trackSentMessage(organizationId: string | null): Promise<void> {
+    if (!organizationId) {
+      return;
+    }
+
+    try {
+      const date = new Date().toISOString().slice(0, 10); // YYYY-MM-DD format
+
+      // Find or create usage metric for today
+      let usageMetric = await this.usageMetricRepository.findOne({
+        where: {
+          organizationId,
+          type: UsageMetricType.WHATSAPP_MESSAGES,
+          date
+        },
+      });
+
+      if (usageMetric) {
+        usageMetric.value += 1;
+        await this.usageMetricRepository.save(usageMetric);
+      } else {
+        usageMetric = this.usageMetricRepository.create({
+          organizationId,
+          type: UsageMetricType.WHATSAPP_MESSAGES,
+          value: 1,
+          date,
+          metadata: { source: 'ai_responder' },
+        });
+        await this.usageMetricRepository.save(usageMetric);
+      }
+
+      this.logger.debug(`📊 Tracked sent message for org ${organizationId}`);
+    } catch (error) {
+      this.logger.warn(`Failed to track sent message: ${error.message}`);
     }
   }
 }

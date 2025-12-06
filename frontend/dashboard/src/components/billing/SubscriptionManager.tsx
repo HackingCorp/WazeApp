@@ -373,9 +373,13 @@ export function SubscriptionManager({
     const isCurrentPlan = plan.id === currentPlan;
     const Icon = plan.icon;
     const planPricing = getPlanPrice(plan.id);
-    const price = planPricing.price;
     const symbol = planPricing.symbol;
-    const yearlyPrice = price * 12;
+
+    // When annual is selected, API returns the annual total - we need to calculate monthly equivalent
+    const apiPrice = planPricing.price;
+    const price = selectedCycle === 'annual' && apiPrice > 0 ? Math.round(apiPrice / 12) : apiPrice;
+    const yearlyPrice = selectedCycle === 'annual' ? apiPrice : price * 12;
+    // Calculate what the monthly price would be without discount (for "Save 17%" display)
     const monthlyOriginal = selectedCycle === 'annual' ? Math.round(price / 0.83) : price;
 
     return (

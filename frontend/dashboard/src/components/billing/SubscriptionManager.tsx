@@ -464,13 +464,16 @@ export function SubscriptionManager({
               <>
                 <div className="flex items-baseline gap-1">
                   {!mounted || pricingLoading ? (
-                    <span className="text-5xl font-bold text-gray-400 dark:text-gray-500 animate-pulse">...</span>
+                    <span className="text-3xl font-bold text-gray-400 dark:text-gray-500 animate-pulse">...</span>
                   ) : (
-                    <span className="text-5xl font-bold text-gray-900 dark:text-white" suppressHydrationWarning>
+                    <span className={clsx(
+                      "font-bold text-gray-900 dark:text-white",
+                      price >= 100000 ? "text-2xl" : price >= 10000 ? "text-3xl" : "text-4xl"
+                    )} suppressHydrationWarning>
                       {symbol}{price.toLocaleString()}
                     </span>
                   )}
-                  <span className="text-gray-500 dark:text-gray-400 text-lg">
+                  <span className="text-gray-500 dark:text-gray-400 text-base">
                     /month
                   </span>
                 </div>

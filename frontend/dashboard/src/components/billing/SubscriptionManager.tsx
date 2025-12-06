@@ -906,6 +906,8 @@ export function SubscriptionManager({
         customerEmail={user?.email || ''}
         dynamicPrice={planToPurchase ? getPlanPrice(planToPurchase.id).price : undefined}
         currency={selectedCurrency}
+        userId={user?.id}
+        billingPeriod={selectedCycle === 'monthly' ? 'monthly' : 'annually'}
       />
     </div>
   );

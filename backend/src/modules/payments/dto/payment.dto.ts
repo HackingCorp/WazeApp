@@ -31,6 +31,21 @@ export class S3PPaymentDto {
   @IsOptional()
   @IsString()
   description?: string;
+
+  @ApiPropertyOptional({ description: 'Plan d\'abonnement', enum: ['STANDARD', 'PRO', 'ENTERPRISE'], example: 'PRO' })
+  @IsOptional()
+  @IsString()
+  plan?: 'STANDARD' | 'PRO' | 'ENTERPRISE';
+
+  @ApiPropertyOptional({ description: 'ID de l\'utilisateur', example: 'uuid-user-id' })
+  @IsOptional()
+  @IsString()
+  userId?: string;
+
+  @ApiPropertyOptional({ description: 'Période de facturation', enum: ['monthly', 'annually'], example: 'monthly' })
+  @IsOptional()
+  @IsString()
+  billingPeriod?: 'monthly' | 'annually';
 }
 
 export class EnkapOrderItemDto {

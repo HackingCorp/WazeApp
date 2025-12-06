@@ -506,7 +506,7 @@ export default function BroadcastPage() {
   // Extract variables from content
   const extractVariables = (content: string): string[] => {
     const matches = content.match(/\{([^}]+)\}/g);
-    return matches ? [...new Set(matches.map((m) => m.slice(1, -1)))] : [];
+    return matches ? Array.from(new Set(matches.map((m) => m.slice(1, -1)))) : [];
   };
 
   return (

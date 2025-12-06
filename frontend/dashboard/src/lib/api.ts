@@ -972,6 +972,9 @@ class ApiClient {
     paymentType: 'orange' | 'mtn';
     customerName?: string;
     description?: string;
+    plan?: 'STANDARD' | 'PRO' | 'ENTERPRISE';
+    userId?: string;
+    billingPeriod?: 'monthly' | 'annually';
   }) {
     return this.request('/payments/s3p/initiate', {
       method: 'POST',
@@ -1037,7 +1040,14 @@ class ApiClient {
   }
 
   // Verify payment status
-  async verifyPayment(data: { ptn?: string; transactionId?: string }) {
+  async verifyPayment(data: {
+    ptn?: string;
+    transactionId?: string;
+    plan?: 'STANDARD' | 'PRO' | 'ENTERPRISE';
+    userId?: string;
+    amount?: number;
+    billingPeriod?: 'monthly' | 'annually';
+  }) {
     return this.request('/payments/verify', {
       method: 'POST',
       body: JSON.stringify(data),

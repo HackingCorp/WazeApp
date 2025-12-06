@@ -19,6 +19,8 @@ interface MobileMoneyModalProps {
   onSuccess: () => void;
   customerName: string;
   customerEmail: string;
+  userId?: string;
+  billingPeriod?: 'monthly' | 'annually';
 }
 
 type PaymentProvider = 'mtn' | 'orange';
@@ -38,6 +40,8 @@ export function MobileMoneyModal({
   onSuccess,
   customerName,
   customerEmail,
+  userId,
+  billingPeriod = 'monthly',
 }: MobileMoneyModalProps) {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [provider, setProvider] = useState<PaymentProvider | null>(null);
@@ -113,6 +117,9 @@ export function MobileMoneyModal({
         paymentType: provider,
         customerName: customerName || 'Client WazeApp',
         description: `Abonnement WazeApp - Plan ${plan.name}`,
+        plan: plan.id.toUpperCase() as 'STANDARD' | 'PRO' | 'ENTERPRISE',
+        userId,
+        billingPeriod,
       });
 
       if (response.success && response.data) {
@@ -129,7 +136,7 @@ export function MobileMoneyModal({
         } else if (data.status === 'PENDING') {
           setStatus('pending');
           // Start polling for status
-          pollPaymentStatus(data.ptn, data.transactionId);
+          pollPaymentStatus(data.ptn, data.transactionId, amount);
         } else {
           setStatus('failed');
           setError(data.message || 'Le paiement a echoue');
@@ -145,7 +152,7 @@ export function MobileMoneyModal({
     }
   };
 
-  const pollPaymentStatus = async (paymentPtn: string, transId: string) => {
+  const pollPaymentStatus = async (paymentPtn: string, transId: string, paymentAmount: number) => {
     let attempts = 0;
     const maxAttempts = 12; // 2 minutes max (10s intervals)
 
@@ -153,7 +160,14 @@ export function MobileMoneyModal({
       attempts++;
 
       try {
-        const response = await api.verifyPayment({ ptn: paymentPtn, transactionId: transId });
+        const response = await api.verifyPayment({
+          ptn: paymentPtn,
+          transactionId: transId,
+          plan: plan?.id.toUpperCase() as 'STANDARD' | 'PRO' | 'ENTERPRISE',
+          userId,
+          amount: paymentAmount,
+          billingPeriod,
+        });
 
         if (response.success && response.data) {
           const s3pStatus = response.data.status;

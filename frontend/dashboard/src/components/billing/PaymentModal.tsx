@@ -21,6 +21,8 @@ interface PaymentModalProps {
   customerEmail: string;
   dynamicPrice?: number; // Prix dynamique de l'API
   currency?: string; // Devise sélectionnée
+  userId?: string;
+  billingPeriod?: 'monthly' | 'annually';
 }
 
 type PaymentMethod = 'mobile' | 'card' | null;
@@ -36,6 +38,8 @@ export function PaymentModal({
   customerEmail,
   dynamicPrice,
   currency = 'XAF',
+  userId,
+  billingPeriod = 'monthly',
 }: PaymentModalProps) {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(null);
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -149,6 +153,9 @@ export function PaymentModal({
         paymentType: mobileProvider,
         customerName: customerName || 'Client WazeApp',
         description: `Abonnement WazeApp - Plan ${plan.name}`,
+        plan: plan.id.toUpperCase() as 'STANDARD' | 'PRO' | 'ENTERPRISE',
+        userId,
+        billingPeriod,
       });
 
       console.log('S3P API Response:', response);
@@ -166,7 +173,7 @@ export function PaymentModal({
           }, 2000);
         } else if (data.status === 'PENDING') {
           setStatus('pending');
-          pollMobilePaymentStatus(data.ptn, data.transactionId);
+          pollMobilePaymentStatus(data.ptn, data.transactionId, amount);
         } else {
           setStatus('failed');
           setError(data.message || 'Le paiement a echoue');
@@ -182,7 +189,7 @@ export function PaymentModal({
     }
   };
 
-  const pollMobilePaymentStatus = async (paymentPtn: string, transId: string) => {
+  const pollMobilePaymentStatus = async (paymentPtn: string, transId: string, paymentAmount: number) => {
     let attempts = 0;
     const maxAttempts = 12;
 
@@ -190,7 +197,14 @@ export function PaymentModal({
       attempts++;
 
       try {
-        const response = await api.verifyPayment({ ptn: paymentPtn, transactionId: transId });
+        const response = await api.verifyPayment({
+          ptn: paymentPtn,
+          transactionId: transId,
+          plan: plan?.id.toUpperCase() as 'STANDARD' | 'PRO' | 'ENTERPRISE',
+          userId,
+          amount: paymentAmount,
+          billingPeriod,
+        });
 
         if (response.success && response.data) {
           const s3pStatus = response.data.status;
@@ -238,7 +252,8 @@ export function PaymentModal({
       // Send the amount in the selected currency - backend will convert to XAF
       const amount = dynamicPrice || plan.price;
       const selectedCurrency = currency || 'XAF';
-      const merchantRef = `WAZEAPP-${plan.id.toUpperCase()}-${Date.now()}`;
+      // Format: WAZEAPP-{userId}-{plan}-{timestamp} (userId is required for webhook to upgrade subscription)
+      const merchantRef = `WAZEAPP-${userId || 'unknown'}-${plan.id.toUpperCase()}-${Date.now()}`;
 
       const response = await api.initiateEnkapPayment({
         merchantReference: merchantRef,

@@ -235,7 +235,7 @@ export function PaymentModal({
     setError(null);
 
     try {
-      // Use the dynamic price in the selected currency
+      // Send the amount in the selected currency - backend will convert to XAF
       const amount = dynamicPrice || plan.price;
       const selectedCurrency = currency || 'XAF';
       const merchantRef = `WAZEAPP-${plan.id.toUpperCase()}-${Date.now()}`;
@@ -246,7 +246,7 @@ export function PaymentModal({
         customerEmail: customerEmail || 'client@wazeapp.xyz',
         customerPhone: getCleanPhoneNumber() || '237600000000',
         totalAmount: amount,
-        currency: selectedCurrency,
+        currency: selectedCurrency, // Backend will convert to XAF if needed
         description: `Abonnement WazeApp - Plan ${plan.name}`,
         items: [{
           id: plan.id,

@@ -328,15 +328,47 @@ export class MobileMoneyController {
   async initiateEnkapPayment(
     @Body() paymentDto: EnkapPaymentDto,
   ): Promise<any> {
+    // E-nkap only accepts XAF - convert if necessary
+    let amountXAF = paymentDto.totalAmount;
+    const clientCurrency = (paymentDto.currency || 'XAF').toUpperCase();
+
+    if (clientCurrency !== 'XAF' && clientCurrency !== 'XOF') {
+      // Convert from client currency to XAF
+      // First get the exchange rate for the client currency (vs USD)
+      const clientRate = await this.currencyService.getExchangeRate(clientCurrency);
+      // Get XAF rate
+      const xafRate = await this.currencyService.getExchangeRate('XAF');
+
+      // Convert: clientAmount → USD → XAF
+      // clientAmount / clientRate = USD amount
+      // USD amount * xafRate * 1.1 (margin) = XAF amount
+      const amountInUSD = paymentDto.totalAmount / clientRate;
+      amountXAF = Math.round(amountInUSD * xafRate * 1.1);
+
+      // Round to nearest 100 for XAF
+      amountXAF = Math.ceil(amountXAF / 100) * 100;
+
+      this.logger.log(`Converting ${paymentDto.totalAmount} ${clientCurrency} to ${amountXAF} XAF for E-nkap`);
+    }
+
+    // Update items with XAF prices
+    const conversionRatio = amountXAF / paymentDto.totalAmount;
+    const itemsXAF = paymentDto.items.map(item => ({
+      ...item,
+      price: clientCurrency !== 'XAF' && clientCurrency !== 'XOF'
+        ? Math.round(item.price * conversionRatio)
+        : item.price,
+    }));
+
     return await this.enkapService.createPaymentOrder({
       merchantReference: paymentDto.merchantReference,
       customerName: paymentDto.customerName,
       customerEmail: paymentDto.customerEmail,
       customerPhone: paymentDto.customerPhone,
-      totalAmount: paymentDto.totalAmount,
-      currency: paymentDto.currency,
+      totalAmount: amountXAF,
+      currency: 'XAF', // Always XAF for E-nkap
       description: paymentDto.description,
-      items: paymentDto.items,
+      items: itemsXAF,
       returnUrl: paymentDto.returnUrl,
       notificationUrl: paymentDto.notificationUrl,
     });

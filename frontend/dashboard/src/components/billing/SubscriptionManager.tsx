@@ -35,6 +35,16 @@ interface SubscriptionManagerProps {
   isLoading?: boolean;
 }
 
+// Exchange rates for local fallback (with 10% margin)
+const exchangeRates: { [key: string]: number } = {
+  USD: 1,
+  EUR: 0.92,
+  GBP: 0.79,
+  XAF: 605,
+  XOF: 605,
+  NGN: 1550,
+};
+
 const plans: Plan[] = [
   {
     id: 'free',
@@ -51,6 +61,8 @@ const plans: Plan[] = [
       'Basic analytics',
       'Email support',
       'Standard templates',
+      '50 broadcast contacts',
+      '3 message templates',
     ],
     limits: {
       maxAgents: 1,
@@ -75,6 +87,9 @@ const plans: Plan[] = [
       'Custom templates',
       'Basic automation',
       'File sharing',
+      '500 broadcast contacts',
+      '10 message templates',
+      'Scheduled campaigns',
     ],
     limits: {
       maxAgents: 1,
@@ -101,6 +116,10 @@ const plans: Plan[] = [
       'Advanced automation',
       'Team collaboration',
       'API access',
+      '5,000 broadcast contacts',
+      '50 message templates',
+      'Recurring campaigns',
+      'Webhooks integration',
     ],
     limits: {
       maxAgents: 3,
@@ -127,6 +146,10 @@ const plans: Plan[] = [
       'Custom integrations',
       'SLA guarantee',
       'On-premise deployment',
+      'Unlimited broadcast contacts',
+      'Unlimited templates',
+      'External API access',
+      'Priority webhooks',
     ],
     limits: {
       maxAgents: 10,
@@ -279,12 +302,31 @@ export function SubscriptionManager({
         formatted: pricing.priceFormatted,
       };
     }
-    // Fallback to USD
+
+    // Fallback to local calculation with exchange rates (like marketing site)
     const plan = plans.find(p => p.id === planId);
+    const basePrice = plan?.price || 0;
+    const symbol = getCurrentCurrencySymbol();
+
+    if (basePrice === 0) {
+      return { price: 0, symbol, formatted: 'Free' };
+    }
+
+    const rate = exchangeRates[selectedCurrency] || 1;
+    const rateWithMargin = rate * 1.1; // 10% margin
+    let converted = basePrice * rateWithMargin;
+
+    // Round for African currencies
+    if (['XAF', 'XOF', 'NGN'].includes(selectedCurrency)) {
+      converted = Math.ceil(converted / 100) * 100;
+    } else {
+      converted = Math.round(converted * 100) / 100;
+    }
+
     return {
-      price: plan?.price || 0,
-      symbol: '$',
-      formatted: `$${plan?.price || 0}`,
+      price: converted,
+      symbol,
+      formatted: `${symbol}${converted.toLocaleString()}`,
     };
   };
 

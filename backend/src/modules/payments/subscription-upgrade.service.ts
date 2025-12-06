@@ -8,6 +8,7 @@ import {
   SUBSCRIPTION_FEATURES,
 } from '../../common/entities/subscription.entity';
 import { CurrencyService } from './currency.service';
+import { EmailService } from '../email/email.service';
 
 export interface PaymentDetails {
   transactionId: string;
@@ -44,6 +45,7 @@ export class SubscriptionUpgradeService {
     private readonly organizationRepository: Repository<Organization>,
 
     private readonly currencyService: CurrencyService,
+    private readonly emailService: EmailService,
   ) {}
 
   /**
@@ -159,6 +161,11 @@ export class SubscriptionUpgradeService {
 
       this.logger.log(`Subscription upgraded successfully: ${previousPlan} -> ${newPlan} for user ${userId}`);
 
+      // Send confirmation emails (don't block the response)
+      this.sendUpgradeEmails(user, paymentDetails, previousPlan, newPlan, subscription).catch(err => {
+        this.logger.error(`Failed to send upgrade emails: ${err.message}`);
+      });
+
       return {
         success: true,
         subscription,
@@ -174,6 +181,55 @@ export class SubscriptionUpgradeService {
         error: error.message,
       };
     }
+  }
+
+  /**
+   * Send payment and upgrade confirmation emails
+   */
+  private async sendUpgradeEmails(
+    user: User,
+    paymentDetails: PaymentDetails,
+    previousPlan: SubscriptionPlan,
+    newPlan: SubscriptionPlan,
+    subscription: Subscription,
+  ): Promise<void> {
+    const firstName = user.firstName || user.email.split('@')[0];
+    const planInfo = this.currencyService.PRICING[paymentDetails.plan];
+
+    // Send payment confirmation email
+    await this.emailService.sendPaymentConfirmationEmail(
+      user.email,
+      firstName,
+      {
+        amount: paymentDetails.amount,
+        currency: paymentDetails.currency,
+        transactionId: paymentDetails.transactionId,
+        paymentMethod: paymentDetails.paymentMethod === 'mobile_money' ? 'Mobile Money' :
+                       paymentDetails.paymentMethod === 'card' ? 'Carte bancaire' : 'Virement',
+        planName: planInfo.name,
+        date: new Date(),
+      },
+    );
+
+    // Send subscription upgrade email
+    await this.emailService.sendSubscriptionUpgradeEmail(
+      user.email,
+      firstName,
+      {
+        previousPlan: previousPlan,
+        newPlan: newPlan,
+        newLimits: {
+          messages: planInfo.messages,
+          agents: planInfo.agents,
+          storage: planInfo.storage,
+        },
+        nextBillingDate: subscription.nextBillingDate || subscription.endsAt,
+        amount: paymentDetails.amount,
+        currency: paymentDetails.currency,
+      },
+    );
+
+    this.logger.log(`✅ Confirmation emails sent to ${user.email}`);
   }
 
   /**

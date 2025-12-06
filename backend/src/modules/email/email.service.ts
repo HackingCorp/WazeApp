@@ -205,6 +205,80 @@ export class EmailService {
     }
   }
 
+  /**
+   * Send payment confirmation email
+   */
+  async sendPaymentConfirmationEmail(
+    email: string,
+    firstName: string,
+    paymentDetails: {
+      amount: number;
+      currency: string;
+      transactionId: string;
+      paymentMethod: string;
+      planName: string;
+      date: Date;
+    },
+  ): Promise<void> {
+    const dashboardUrl = this.getDashboardUrl();
+
+    const html = this.getPaymentConfirmationEmailTemplate(firstName, paymentDetails, dashboardUrl);
+
+    try {
+      await this.transporter.sendMail({
+        from: `"${this.getFromName()}" <${this.getFromAddress()}>`,
+        to: email,
+        subject: `✅ Confirmation de paiement - ${paymentDetails.amount.toLocaleString()} ${paymentDetails.currency}`,
+        html,
+        text: `Bonjour ${firstName},\n\nVotre paiement de ${paymentDetails.amount.toLocaleString()} ${paymentDetails.currency} a été reçu avec succès.\n\nDétails:\n- Plan: ${paymentDetails.planName}\n- Transaction: ${paymentDetails.transactionId}\n- Méthode: ${paymentDetails.paymentMethod}\n- Date: ${paymentDetails.date.toLocaleDateString('fr-FR')}\n\nMerci pour votre confiance!\n\nL'équipe WazeApp`,
+      });
+
+      this.logger.log(`✅ Payment confirmation email sent to ${email}`);
+    } catch (error) {
+      this.logger.error(`❌ Failed to send payment confirmation email to ${email}:`, error);
+      // Don't throw for confirmation emails
+    }
+  }
+
+  /**
+   * Send subscription upgrade confirmation email
+   */
+  async sendSubscriptionUpgradeEmail(
+    email: string,
+    firstName: string,
+    upgradeDetails: {
+      previousPlan: string;
+      newPlan: string;
+      newLimits: {
+        messages: number;
+        agents: number;
+        storage: string;
+      };
+      nextBillingDate: Date;
+      amount: number;
+      currency: string;
+    },
+  ): Promise<void> {
+    const dashboardUrl = this.getDashboardUrl();
+
+    const html = this.getSubscriptionUpgradeEmailTemplate(firstName, upgradeDetails, dashboardUrl);
+
+    try {
+      await this.transporter.sendMail({
+        from: `"${this.getFromName()}" <${this.getFromAddress()}>`,
+        to: email,
+        subject: `🚀 Abonnement mis à niveau vers ${upgradeDetails.newPlan}!`,
+        html,
+        text: `Bonjour ${firstName},\n\nFélicitations! Votre abonnement a été mis à niveau de ${upgradeDetails.previousPlan} vers ${upgradeDetails.newPlan}.\n\nVos nouvelles limites:\n- ${upgradeDetails.newLimits.messages.toLocaleString()} messages/mois\n- ${upgradeDetails.newLimits.agents} agents\n- ${upgradeDetails.newLimits.storage} stockage\n\nProchaine facturation: ${upgradeDetails.nextBillingDate.toLocaleDateString('fr-FR')}\n\nAccédez à votre dashboard: ${dashboardUrl}\n\nMerci pour votre confiance!\n\nL'équipe WazeApp`,
+      });
+
+      this.logger.log(`✅ Subscription upgrade email sent to ${email}`);
+    } catch (error) {
+      this.logger.error(`❌ Failed to send subscription upgrade email to ${email}:`, error);
+      // Don't throw for upgrade emails
+    }
+  }
+
   // ============= EMAIL TEMPLATES =============
 
   private getVerificationEmailTemplate(verificationUrl: string): string {
@@ -559,6 +633,246 @@ export class EmailService {
 
               <p style="color: #999999; line-height: 1.6; margin: 20px 0 0 0; font-size: 12px; text-align: center;">
                 Vous recevez cet email car vous avez atteint un seuil d'utilisation important.<br>
+                Questions? Contactez-nous à <a href="mailto:support@wazeapp.xyz" style="color: #25D366;">support@wazeapp.xyz</a>
+              </p>
+            </td>
+          </tr>
+          <!-- Footer -->
+          <tr>
+            <td style="background-color: #f8f8f8; padding: 20px 30px; text-align: center; border-top: 1px solid #eeeeee;">
+              <p style="color: #999999; margin: 0; font-size: 12px;">
+                © 2025 WazeApp. Tous droits réservés.<br>
+                <a href="https://wazeapp.xyz" style="color: #25D366; text-decoration: none;">wazeapp.xyz</a>
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+    `;
+  }
+
+  private getPaymentConfirmationEmailTemplate(
+    firstName: string,
+    paymentDetails: {
+      amount: number;
+      currency: string;
+      transactionId: string;
+      paymentMethod: string;
+      planName: string;
+      date: Date;
+    },
+    dashboardUrl: string,
+  ): string {
+    const formattedDate = paymentDetails.date.toLocaleDateString('fr-FR', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+
+    return `
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Confirmation de paiement</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f4f4f4; padding: 20px;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+          <!-- Header -->
+          <tr>
+            <td style="background: linear-gradient(135deg, #25D366 0%, #128C7E 100%); padding: 40px 20px; text-align: center;">
+              <h1 style="color: #ffffff; margin: 0; font-size: 28px;">✅ Paiement Confirmé</h1>
+              <p style="color: #ffffff; margin: 10px 0 0 0; font-size: 16px;">Merci pour votre confiance!</p>
+            </td>
+          </tr>
+          <!-- Content -->
+          <tr>
+            <td style="padding: 40px 30px;">
+              <p style="color: #666666; line-height: 1.6; margin: 0 0 20px 0; font-size: 18px;">
+                Bonjour <strong style="color: #333;">${firstName}</strong>,
+              </p>
+              <p style="color: #666666; line-height: 1.6; margin: 0 0 20px 0;">
+                Votre paiement a été traité avec succès. Voici les détails de votre transaction :
+              </p>
+
+              <!-- Payment Details Box -->
+              <div style="background-color: #f8f9fa; border-radius: 8px; padding: 25px; margin: 25px 0;">
+                <table width="100%" cellpadding="5" cellspacing="0">
+                  <tr>
+                    <td style="color: #666; padding: 8px 0; border-bottom: 1px solid #e9ecef;">Montant</td>
+                    <td style="color: #25D366; font-weight: bold; font-size: 20px; text-align: right; padding: 8px 0; border-bottom: 1px solid #e9ecef;">
+                      ${paymentDetails.amount.toLocaleString()} ${paymentDetails.currency}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="color: #666; padding: 8px 0; border-bottom: 1px solid #e9ecef;">Plan</td>
+                    <td style="color: #333; font-weight: bold; text-align: right; padding: 8px 0; border-bottom: 1px solid #e9ecef;">
+                      ${paymentDetails.planName}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="color: #666; padding: 8px 0; border-bottom: 1px solid #e9ecef;">Méthode</td>
+                    <td style="color: #333; text-align: right; padding: 8px 0; border-bottom: 1px solid #e9ecef;">
+                      ${paymentDetails.paymentMethod}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="color: #666; padding: 8px 0; border-bottom: 1px solid #e9ecef;">Date</td>
+                    <td style="color: #333; text-align: right; padding: 8px 0; border-bottom: 1px solid #e9ecef;">
+                      ${formattedDate}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="color: #666; padding: 8px 0;">Référence</td>
+                    <td style="color: #999; text-align: right; padding: 8px 0; font-size: 12px;">
+                      ${paymentDetails.transactionId}
+                    </td>
+                  </tr>
+                </table>
+              </div>
+
+              <div style="text-align: center; margin: 30px 0;">
+                <a href="${dashboardUrl}" style="display: inline-block; background-color: #25D366; color: #ffffff; text-decoration: none; padding: 15px 40px; border-radius: 5px; font-weight: bold; font-size: 16px;">
+                  Accéder au Dashboard
+                </a>
+              </div>
+
+              <p style="color: #999999; line-height: 1.6; margin: 20px 0 0 0; font-size: 12px; text-align: center;">
+                Conservez cet email comme preuve de paiement.<br>
+                Questions? Contactez-nous à <a href="mailto:support@wazeapp.xyz" style="color: #25D366;">support@wazeapp.xyz</a>
+              </p>
+            </td>
+          </tr>
+          <!-- Footer -->
+          <tr>
+            <td style="background-color: #f8f8f8; padding: 20px 30px; text-align: center; border-top: 1px solid #eeeeee;">
+              <p style="color: #999999; margin: 0; font-size: 12px;">
+                © 2025 WazeApp. Tous droits réservés.<br>
+                <a href="https://wazeapp.xyz" style="color: #25D366; text-decoration: none;">wazeapp.xyz</a>
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+    `;
+  }
+
+  private getSubscriptionUpgradeEmailTemplate(
+    firstName: string,
+    upgradeDetails: {
+      previousPlan: string;
+      newPlan: string;
+      newLimits: {
+        messages: number;
+        agents: number;
+        storage: string;
+      };
+      nextBillingDate: Date;
+      amount: number;
+      currency: string;
+    },
+    dashboardUrl: string,
+  ): string {
+    const formattedBillingDate = upgradeDetails.nextBillingDate.toLocaleDateString('fr-FR', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    });
+
+    return `
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Abonnement mis à niveau</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f4f4f4; padding: 20px;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+          <!-- Header -->
+          <tr>
+            <td style="background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); padding: 40px 20px; text-align: center;">
+              <h1 style="color: #ffffff; margin: 0; font-size: 28px;">🚀 Félicitations!</h1>
+              <p style="color: #ffffff; margin: 10px 0 0 0; font-size: 16px;">Votre abonnement a été mis à niveau</p>
+            </td>
+          </tr>
+          <!-- Content -->
+          <tr>
+            <td style="padding: 40px 30px;">
+              <p style="color: #666666; line-height: 1.6; margin: 0 0 20px 0; font-size: 18px;">
+                Bonjour <strong style="color: #333;">${firstName}</strong>,
+              </p>
+              <p style="color: #666666; line-height: 1.6; margin: 0 0 20px 0;">
+                Votre abonnement WazeApp a été mis à niveau avec succès !
+              </p>
+
+              <!-- Upgrade Summary -->
+              <div style="background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border-radius: 8px; padding: 25px; margin: 25px 0; text-align: center;">
+                <div style="display: inline-block; margin-bottom: 10px;">
+                  <span style="color: #666; font-size: 14px; text-decoration: line-through;">${upgradeDetails.previousPlan}</span>
+                  <span style="color: #25D366; font-size: 24px; margin: 0 15px;">→</span>
+                  <span style="color: #25D366; font-size: 24px; font-weight: bold;">${upgradeDetails.newPlan}</span>
+                </div>
+              </div>
+
+              <!-- New Limits -->
+              <h3 style="color: #333; margin: 30px 0 15px 0; font-size: 16px;">🎁 Vos nouvelles limites :</h3>
+              <div style="background-color: #f8f9fa; border-radius: 8px; padding: 20px; margin: 15px 0;">
+                <table width="100%" cellpadding="8" cellspacing="0">
+                  <tr>
+                    <td style="color: #666;">💬 Messages / mois</td>
+                    <td style="color: #25D366; font-weight: bold; text-align: right;">
+                      ${upgradeDetails.newLimits.messages.toLocaleString()}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="color: #666;">🤖 Agents WhatsApp</td>
+                    <td style="color: #25D366; font-weight: bold; text-align: right;">
+                      ${upgradeDetails.newLimits.agents}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="color: #666;">💾 Stockage</td>
+                    <td style="color: #25D366; font-weight: bold; text-align: right;">
+                      ${upgradeDetails.newLimits.storage}
+                    </td>
+                  </tr>
+                </table>
+              </div>
+
+              <!-- Billing Info -->
+              <div style="background-color: #f8f9fa; border-radius: 8px; padding: 15px; margin: 20px 0;">
+                <p style="color: #666; margin: 0; font-size: 14px;">
+                  <strong>Prochaine facturation :</strong> ${formattedBillingDate}<br>
+                  <strong>Montant :</strong> ${upgradeDetails.amount.toLocaleString()} ${upgradeDetails.currency}
+                </p>
+              </div>
+
+              <div style="text-align: center; margin: 30px 0;">
+                <a href="${dashboardUrl}" style="display: inline-block; background-color: #25D366; color: #ffffff; text-decoration: none; padding: 15px 40px; border-radius: 5px; font-weight: bold; font-size: 16px;">
+                  Profiter de mon nouveau plan
+                </a>
+              </div>
+
+              <p style="color: #999999; line-height: 1.6; margin: 20px 0 0 0; font-size: 12px; text-align: center;">
+                Merci de nous faire confiance! 💚<br>
                 Questions? Contactez-nous à <a href="mailto:support@wazeapp.xyz" style="color: #25D366;">support@wazeapp.xyz</a>
               </p>
             </td>

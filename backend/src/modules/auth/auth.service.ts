@@ -98,6 +98,8 @@ export class AuthService {
     }
 
     // Create free subscription for all users (with or without organization)
+    // Store selected plan in metadata - will be upgraded after payment if paid plan selected
+    const selectedPlan = dto.plan?.toUpperCase() || 'FREE';
     const subscription = this.subscriptionRepository.create({
       userId: user.id.toString(),
       organizationId: organization?.id,
@@ -129,6 +131,12 @@ export class AuthService {
         webhooks: false,
         sso: false,
       },
+      metadata: selectedPlan !== 'FREE' ? {
+        pendingUpgrade: {
+          plan: selectedPlan,
+          requestedAt: new Date().toISOString(),
+        },
+      } : {},
     });
     await this.subscriptionRepository.save(subscription);
 

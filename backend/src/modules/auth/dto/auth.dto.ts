@@ -58,6 +58,11 @@ export class RegisterDto {
   @IsOptional()
   @IsString()
   invitationToken?: string;
+
+  @ApiPropertyOptional({ description: "Selected subscription plan", enum: ['FREE', 'STANDARD', 'PRO', 'ENTERPRISE'] })
+  @IsOptional()
+  @IsString()
+  plan?: 'FREE' | 'STANDARD' | 'PRO' | 'ENTERPRISE';
 }
 
 export class LoginDto {

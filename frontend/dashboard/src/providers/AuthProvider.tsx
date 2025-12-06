@@ -129,6 +129,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const initAuth = async () => {
     try {
+      console.log('AuthProvider: initAuth started');
+
       // Check for token in URL first (from marketing site login)
       const urlParams = new URLSearchParams(window.location.search);
       const urlToken = urlParams.get('token');
@@ -145,6 +147,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       const savedToken = localStorage.getItem('auth-token');
+      const savedRefreshToken = localStorage.getItem('refresh-token');
+      console.log('AuthProvider: Tokens from localStorage:', {
+        hasAccessToken: !!savedToken,
+        hasRefreshToken: !!savedRefreshToken,
+        accessTokenPreview: savedToken ? savedToken.substring(0, 30) + '...' : 'none',
+      });
+
       if (!savedToken) {
         console.log('AuthProvider: No token found');
         setIsLoading(false);
@@ -185,20 +194,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
+      // Log the error for debugging
+      console.log('AuthProvider: Profile request failed:', {
+        error: response.error,
+        success: response.success,
+      });
+
       // Check if it's an auth error (401) vs network error
+      // Be more specific with "Invalid" to avoid false positives
       const isAuthError = response.error?.includes('401') ||
                           response.error?.includes('Unauthorized') ||
-                          response.error?.includes('Invalid') ||
+                          response.error?.includes('Invalid token') ||
+                          response.error?.includes('jwt') ||
                           response.error?.includes('expired');
+
+      console.log('AuthProvider: Is auth error?', isAuthError, 'Error:', response.error);
 
       if (isAuthError) {
         // Token is invalid, try to refresh
         console.log('AuthProvider: Token invalid, attempting refresh...');
         const refreshToken = localStorage.getItem('refresh-token');
+        console.log('AuthProvider: Refresh token available?', !!refreshToken);
 
         if (refreshToken) {
           try {
+            console.log('AuthProvider: Calling api.refreshToken()...');
             const refreshResponse = await api.refreshToken();
+            console.log('AuthProvider: Refresh response:', {
+              success: refreshResponse.success,
+              hasAccessToken: !!refreshResponse.data?.accessToken,
+              error: refreshResponse.error,
+            });
+
             if (refreshResponse.success && refreshResponse.data?.accessToken) {
               console.log('AuthProvider: Token refreshed, retrying profile...');
               // Retry profile with new token
@@ -219,11 +246,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     notifications: { email: true, push: true, sms: false },
                   },
                 });
+                console.log('AuthProvider: Profile restored after token refresh');
                 return;
+              } else {
+                console.log('AuthProvider: Profile retry failed:', retryResponse.error);
               }
             }
           } catch (refreshError) {
-            console.log('AuthProvider: Refresh failed:', refreshError);
+            console.log('AuthProvider: Refresh exception:', refreshError);
           }
         }
 

@@ -181,28 +181,54 @@ export class MobileMoneyController {
     // If payment is successful, upgrade subscription
     if (paymentStatus.status === 'SUCCESS' || paymentStatus.status === 'SUCCESSFUL') {
       const userId = verificationDto.userId || user?.id;
+      const organizationId = verificationDto.organizationId || user?.currentOrganizationId;
       // Use plan from frontend request (not from S3P response which doesn't have it)
       const plan = verificationDto.plan;
       const amount = verificationDto.amount || paymentStatus.amount || 0;
       const billingPeriod = verificationDto.billingPeriod || 'monthly';
 
-      this.logger.log(`Payment verified successfully for user ${userId}, plan: ${plan}, amount: ${amount}`);
+      this.logger.log(`Payment verified successfully for user ${userId}, org: ${organizationId}, plan: ${plan}, amount: ${amount}`);
 
-      if (userId && plan) {
+      if (plan) {
         try {
-          const upgradeResult = await this.subscriptionUpgradeService.upgradeUserSubscription(
-            userId,
-            {
-              transactionId: verificationDto.transactionId || paymentStatus.ptn,
-              ptn: verificationDto.ptn,
-              plan: plan,
-              amount: amount,
-              currency: 'XAF',
-              billingPeriod: billingPeriod,
-              paymentMethod: 'mobile_money',
-              paymentProvider: 's3p',
-            },
-          );
+          let upgradeResult;
+
+          // If user has an organization, upgrade the organization subscription
+          // Otherwise, upgrade the user subscription
+          if (organizationId) {
+            this.logger.log(`Upgrading ORGANIZATION subscription for org ${organizationId}`);
+            upgradeResult = await this.subscriptionUpgradeService.upgradeOrganizationSubscription(
+              organizationId,
+              {
+                transactionId: verificationDto.transactionId || paymentStatus.ptn,
+                ptn: verificationDto.ptn,
+                plan: plan,
+                amount: amount,
+                currency: 'XAF',
+                billingPeriod: billingPeriod,
+                paymentMethod: 'mobile_money',
+                paymentProvider: 's3p',
+              },
+            );
+          } else if (userId) {
+            this.logger.log(`Upgrading USER subscription for user ${userId}`);
+            upgradeResult = await this.subscriptionUpgradeService.upgradeUserSubscription(
+              userId,
+              {
+                transactionId: verificationDto.transactionId || paymentStatus.ptn,
+                ptn: verificationDto.ptn,
+                plan: plan,
+                amount: amount,
+                currency: 'XAF',
+                billingPeriod: billingPeriod,
+                paymentMethod: 'mobile_money',
+                paymentProvider: 's3p',
+              },
+            );
+          } else {
+            this.logger.warn(`Cannot upgrade subscription: no userId or organizationId`);
+            return paymentStatus;
+          }
 
           this.logger.log(`Subscription upgraded successfully: ${JSON.stringify(upgradeResult)}`);
 
@@ -218,7 +244,7 @@ export class MobileMoneyController {
           };
         }
       } else {
-        this.logger.warn(`Cannot upgrade subscription: userId=${userId}, plan=${plan}`);
+        this.logger.warn(`Cannot upgrade subscription: no plan specified`);
       }
     }
 

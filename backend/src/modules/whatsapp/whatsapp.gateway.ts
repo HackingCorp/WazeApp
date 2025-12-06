@@ -125,7 +125,21 @@ export class WhatsAppGateway
 
   /**
    * Handle WhatsApp message events from backend (for UI updates)
-   * Listens to both old event name for compatibility and new UI-specific event
+   * Called manually from constructor for whatsapp.message.received events
+   */
+  async handleMessageReceived(data: {
+    userId: string;
+    conversationId: string;
+    message: any;
+    contact: any;
+  }) {
+    // Delegate to the common handler
+    await this.broadcastMessageToUser(data);
+  }
+
+  /**
+   * Handle UI-specific message update events
+   * Used by simple-conversation service to avoid triggering AI responder
    */
   @OnEvent("whatsapp.ui.message.update")
   async handleUIMessageUpdate(data: {
@@ -134,11 +148,21 @@ export class WhatsAppGateway
     message: any;
     contact: any;
   }) {
+    // Delegate to the common handler
+    await this.broadcastMessageToUser(data);
+  }
+
+  /**
+   * Common handler for broadcasting messages to WebSocket clients
+   */
+  private async broadcastMessageToUser(data: {
+    userId: string;
+    conversationId: string;
+    message: any;
+    contact: any;
+  }) {
     this.logger.log(
-      `📨 GATEWAY RECEIVED whatsapp.ui.message.update for user ${data.userId}`,
-    );
-    this.logger.log(
-      `📨 Broadcasting message to user room: user:${data.userId}`,
+      `📨 GATEWAY broadcasting message for user ${data.userId}`,
     );
     this.logger.log(
       `📨 Connected users: ${this.getConnectedUsers().length}, User online: ${this.isUserOnline(data.userId)}`,
@@ -150,7 +174,7 @@ export class WhatsAppGateway
     }
 
     // Emit to specific user
-    const emitted = this.server
+    this.server
       .to(`user:${data.userId}`)
       .emit("whatsapp:message", {
         contactId: data.conversationId,

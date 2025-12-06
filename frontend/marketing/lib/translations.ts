@@ -124,6 +124,7 @@ export const translations = {
     // CTAs
     ctaStartFree: "Start Free",
     ctaStartTrial: "Start Trial",
+    ctaChoosePlan: "Choose Plan",
     ctaContactSales: "Contact Sales",
     
     // FAQ Questions & Answers
@@ -338,6 +339,7 @@ export const translations = {
     // CTAs
     ctaStartFree: "Commencer Gratuitement",
     ctaStartTrial: "Commencer l'Essai",
+    ctaChoosePlan: "Choisir ce Forfait",
     ctaContactSales: "Contacter les Ventes",
     
     // FAQ Questions & Answers
@@ -532,6 +534,7 @@ export const translations = {
     // CTAs
     ctaStartFree: "Empezar Gratis",
     ctaStartTrial: "Empezar Prueba",
+    ctaChoosePlan: "Elegir este Plan",
     ctaContactSales: "Contactar Ventas",
     
     // FAQ Questions & Answers
@@ -746,8 +749,9 @@ export const translations = {
     // CTAs
     ctaStartFree: "Kostenlos starten",
     ctaStartTrial: "Testversion starten",
+    ctaChoosePlan: "Plan wählen",
     ctaContactSales: "Vertrieb kontaktieren",
-    
+
     // FAQ Questions & Answers
     faqQuestion1: "Kann ich jederzeit den Plan wechseln?",
     faqAnswer1: "Ja, du kannst deinen Plan jederzeit upgraden oder downgraden. Änderungen werden sofort wirksam.",
@@ -960,6 +964,7 @@ export const translations = {
     // CTAs
     ctaStartFree: "Inizia Gratis",
     ctaStartTrial: "Inizia Prova",
+    ctaChoosePlan: "Scegli Piano",
     ctaContactSales: "Contatta Vendite",
     
     // FAQ Questions & Answers
@@ -1174,6 +1179,7 @@ export const translations = {
     // CTAs
     ctaStartFree: "Começar Gratuitamente",
     ctaStartTrial: "Começar Teste",
+    ctaChoosePlan: "Escolher Plano",
     ctaContactSales: "Contatar Vendas",
     
     // FAQ Questions & Answers
@@ -1387,7 +1393,8 @@ export const translations = {
     ctaStartFree: "免费开始",
     ctaStartTrial: "开始试用",
     ctaContactSales: "联系销售",
-    
+    ctaChoosePlan: "选择此方案",
+
     // FAQ Questions & Answers
     faqQuestion1: "我可以随时更改计划吗？",
     faqAnswer1: "是的，您可以随时升级或降级您的计划。更改立即生效。",
@@ -1599,7 +1606,8 @@ export const translations = {
     ctaStartFree: "無料で始める",
     ctaStartTrial: "トライアル開始",
     ctaContactSales: "営業にお問い合わせ",
-    
+    ctaChoosePlan: "プランを選択",
+
     // FAQ Questions & Answers
     faqQuestion1: "いつでもプランを変更できますか？",
     faqAnswer1: "はい、いつでもプランのアップグレードまたはダウングレードが可能です。変更は即座に有効になります。",
@@ -1811,7 +1819,8 @@ export const translations = {
     ctaStartFree: "ابدأ مجاناً",
     ctaStartTrial: "ابدأ تجربة",
     ctaContactSales: "اتصل بالمبيعات",
-    
+    ctaChoosePlan: "اختر الخطة",
+
     // FAQ Questions & Answers
     faqQuestion1: "هل يمكنني تغيير الخطط في أي وقت؟",
     faqAnswer1: "نعم، يمكنك ترقية أو تخفيض خطتك في أي وقت. تدخل التغييرات حيز التنفيذ فوراً.",

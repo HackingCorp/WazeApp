@@ -207,7 +207,7 @@ export default function PricingPage() {
         { name: t("featureCustomIntegrations"), included: false },
         { name: t("featureWhiteLabel"), included: false },
       ],
-      cta: t("ctaStartTrial"),
+      cta: t("ctaChoosePlan"),
       popular: false,
     },
     {
@@ -226,7 +226,7 @@ export default function PricingPage() {
         { name: t("featureAPIAccess"), included: false },
         { name: t("featureWhiteLabel"), included: false },
       ],
-      cta: t("ctaStartTrial"),
+      cta: t("ctaChoosePlan"),
       popular: true,
     },
     {

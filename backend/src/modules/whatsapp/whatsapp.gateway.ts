@@ -124,17 +124,18 @@ export class WhatsAppGateway
   }
 
   /**
-   * Handle WhatsApp message events from backend
+   * Handle WhatsApp message events from backend (for UI updates)
+   * Listens to both old event name for compatibility and new UI-specific event
    */
-  @OnEvent("whatsapp.message.received")
-  async handleMessageReceived(data: {
+  @OnEvent("whatsapp.ui.message.update")
+  async handleUIMessageUpdate(data: {
     userId: string;
     conversationId: string;
     message: any;
     contact: any;
   }) {
     this.logger.log(
-      `📨 GATEWAY RECEIVED whatsapp.message.received for user ${data.userId}`,
+      `📨 GATEWAY RECEIVED whatsapp.ui.message.update for user ${data.userId}`,
     );
     this.logger.log(
       `📨 Broadcasting message to user room: user:${data.userId}`,

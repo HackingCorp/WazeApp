@@ -326,18 +326,19 @@ export class SimpleConversationService implements OnModuleDestroy {
         unreadCount: conversation.unreadCount,
       });
 
-      // Emit WebSocket event for real-time updates
+      // Emit WebSocket event for real-time updates (UI only, not triggering AI)
       this.logger.log(
-        `🚀 EMITTING whatsapp.message.received event for user ${userId}, conversation ${conversation.id}`,
+        `🚀 EMITTING whatsapp.ui.message.update event for user ${userId}, conversation ${conversation.id}`,
       );
       this.logger.log(
         `🚀 EventEmitter instance: ${this.eventEmitter.constructor.name}`,
       );
       this.logger.log(
-        `🚀 Event listeners count: ${this.eventEmitter.listenerCount("whatsapp.message.received")}`,
+        `🚀 Event listeners count: ${this.eventEmitter.listenerCount("whatsapp.ui.message.update")}`,
       );
 
-      this.eventEmitter.emit("whatsapp.message.received", {
+      // Emit UI update event (different from whatsapp.message.received to avoid triggering AI responder twice)
+      this.eventEmitter.emit("whatsapp.ui.message.update", {
         userId,
         conversationId: conversation.id,
         message: message,
@@ -395,8 +396,8 @@ export class SimpleConversationService implements OnModuleDestroy {
           lastMessageTime: new Date(),
         });
 
-        // Emit WebSocket event for AI response
-        this.eventEmitter.emit("whatsapp.message.received", {
+        // Emit WebSocket event for AI response (UI update only)
+        this.eventEmitter.emit("whatsapp.ui.message.update", {
           userId,
           conversationId: conversation.id,
           message: agentMessage,

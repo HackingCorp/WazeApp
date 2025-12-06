@@ -245,6 +245,7 @@ export class QuotaEnforcementService {
 
   /**
    * Get actual WhatsApp message count for organization from AgentMessage table
+   * Counts messages from conversations linked to sessions OR agents of this organization
    */
   private async getActualWhatsAppMessageCount(organizationId: string): Promise<number> {
     const startOfMonth = new Date();
@@ -255,19 +256,50 @@ export class QuotaEnforcementService {
     const sessions = await this.sessionRepository.find({
       where: { organizationId },
       select: ['id'],
+      relations: ['agent'],
     });
     const sessionIds = sessions.map(s => s.id);
+    const agentIds = sessions
+      .filter(s => s.agent?.id)
+      .map(s => s.agent.id);
 
-    if (sessionIds.length === 0) {
+    // Also get agents directly assigned to this organization
+    const orgAgents = await this.aiAgentRepository.find({
+      where: { organizationId },
+      select: ['id'],
+    });
+    const orgAgentIds = orgAgents.map(a => a.id);
+
+    // Combine all agent IDs
+    const allAgentIds = [...new Set([...agentIds, ...orgAgentIds])];
+
+    if (sessionIds.length === 0 && allAgentIds.length === 0) {
       return 0;
     }
 
-    // Get all conversations for these sessions
-    const conversations = await this.conversationRepository
+    // Build query to find conversations by sessionId OR agentId
+    const conversationQuery = this.conversationRepository
       .createQueryBuilder('conv')
-      .select(['conv.id'])
-      .where('conv.sessionId IN (:...sessionIds)', { sessionIds })
-      .getMany();
+      .select(['conv.id']);
+
+    const conditions: string[] = [];
+    const params: any = {};
+
+    if (sessionIds.length > 0) {
+      conditions.push('conv.sessionId IN (:...sessionIds)');
+      params.sessionIds = sessionIds;
+    }
+    if (allAgentIds.length > 0) {
+      conditions.push('conv.agentId IN (:...agentIds)');
+      params.agentIds = allAgentIds;
+    }
+
+    if (conditions.length === 0) {
+      return 0;
+    }
+
+    conversationQuery.where(`(${conditions.join(' OR ')})`, params);
+    const conversations = await conversationQuery.getMany();
     const conversationIds = conversations.map(c => c.id);
 
     if (conversationIds.length === 0) {
@@ -287,6 +319,7 @@ export class QuotaEnforcementService {
 
   /**
    * Get actual WhatsApp message count for user from AgentMessage table
+   * Counts messages from conversations linked to user's sessions OR agents
    */
   private async getUserActualWhatsAppMessageCount(userId: string): Promise<number> {
     const startOfMonth = new Date();
@@ -297,19 +330,50 @@ export class QuotaEnforcementService {
     const sessions = await this.sessionRepository.find({
       where: { userId, organizationId: IsNull() },
       select: ['id'],
+      relations: ['agent'],
     });
     const sessionIds = sessions.map(s => s.id);
+    const agentIds = sessions
+      .filter(s => s.agent?.id)
+      .map(s => s.agent.id);
 
-    if (sessionIds.length === 0) {
+    // Also get agents created by this user
+    const userAgents = await this.aiAgentRepository.find({
+      where: { createdBy: userId },
+      select: ['id'],
+    });
+    const userAgentIds = userAgents.map(a => a.id);
+
+    // Combine all agent IDs
+    const allAgentIds = [...new Set([...agentIds, ...userAgentIds])];
+
+    if (sessionIds.length === 0 && allAgentIds.length === 0) {
       return 0;
     }
 
-    // Get all conversations for these sessions
-    const conversations = await this.conversationRepository
+    // Build query to find conversations by sessionId OR agentId
+    const conversationQuery = this.conversationRepository
       .createQueryBuilder('conv')
-      .select(['conv.id'])
-      .where('conv.sessionId IN (:...sessionIds)', { sessionIds })
-      .getMany();
+      .select(['conv.id']);
+
+    const conditions: string[] = [];
+    const params: any = {};
+
+    if (sessionIds.length > 0) {
+      conditions.push('conv.sessionId IN (:...sessionIds)');
+      params.sessionIds = sessionIds;
+    }
+    if (allAgentIds.length > 0) {
+      conditions.push('conv.agentId IN (:...agentIds)');
+      params.agentIds = allAgentIds;
+    }
+
+    if (conditions.length === 0) {
+      return 0;
+    }
+
+    conversationQuery.where(`(${conditions.join(' OR ')})`, params);
+    const conversations = await conversationQuery.getMany();
     const conversationIds = conversations.map(c => c.id);
 
     if (conversationIds.length === 0) {

@@ -9,6 +9,7 @@ import {
   UsageMetric,
   AuditLog,
   WhatsAppSession,
+  WhatsAppContact,
   KnowledgeBase,
   KnowledgeDocument,
   DocumentChunk,
@@ -16,6 +17,17 @@ import {
   AgentConversation,
   AgentMessage,
   LlmProvider,
+  ConversationContext,
+  MessageQueue,
+  MediaAsset,
+  WebhookEvent,
+  // Broadcast entities
+  BroadcastContact,
+  MessageTemplate,
+  BroadcastCampaign,
+  BroadcastMessage,
+  ApiKey,
+  WebhookConfig,
 } from "../common/entities";
 
 @Module({
@@ -37,6 +49,7 @@ import {
           UsageMetric,
           AuditLog,
           WhatsAppSession,
+          WhatsAppContact,
           KnowledgeBase,
           KnowledgeDocument,
           DocumentChunk,
@@ -44,6 +57,17 @@ import {
           AgentConversation,
           AgentMessage,
           LlmProvider,
+          ConversationContext,
+          MessageQueue,
+          MediaAsset,
+          WebhookEvent,
+          // Broadcast entities
+          BroadcastContact,
+          MessageTemplate,
+          BroadcastCampaign,
+          BroadcastMessage,
+          ApiKey,
+          WebhookConfig,
         ],
         synchronize:
           configService.get("DATABASE_SYNCHRONIZE", "true") === "true",

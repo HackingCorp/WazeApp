@@ -255,6 +255,7 @@ export class EnkapService {
       const orderUrl = `${this.apiUrl}/api/order`;
 
       this.logger.log(`Creating E-nkap order: ${orderData.merchantReference}`);
+      this.logger.debug(`Enkap payload: ${JSON.stringify(payload)}`);
 
       const response = await firstValueFrom(
         this.httpService.post(orderUrl, payload, { headers }),
@@ -281,7 +282,9 @@ export class EnkapService {
         rawResponse: responseData,
       };
     } catch (error) {
-      this.logger.error('E-nkap order creation failed', error.response?.data || error.message);
+      this.logger.error('E-nkap order creation failed');
+      this.logger.error('Error details: ' + JSON.stringify(error.response?.data || error.message));
+      this.logger.error('HTTP Status: ' + error.response?.status);
 
       if (error.response?.data) {
         const errorData = error.response.data;

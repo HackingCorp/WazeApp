@@ -223,11 +223,24 @@ export class S3PService {
 
   /**
    * Vérifie le statut d'un paiement
+   * Selon la doc S3P, le PTN commence par 99999 et le statut peut être dans différents champs
    */
   async verifyPayment(ptn?: string, trid?: string): Promise<any> {
     const url = `${this.baseUrl}/verifytx`;
-    const params = ptn ? { ptn } : { trid };
+
+    // S3P accepte soit ptn soit trid - PTN commence par 99999
+    let params: any = {};
+    if (ptn) {
+      // Nettoyer le PTN (enlever les underscores ou suffixes)
+      const cleanPtn = ptn.split('_')[0];
+      params = { ptn: cleanPtn };
+    } else if (trid) {
+      params = { trid };
+    }
+
     const authHeader = this.generateAuthHeader('GET', url, params);
+
+    this.logger.log(`S3P verifyPayment request: ${JSON.stringify(params)}`);
 
     try {
       const response = await firstValueFrom(
@@ -239,10 +252,63 @@ export class S3PService {
         }),
       );
 
-      return response.data;
+      const rawData = response.data;
+      this.logger.log(`S3P verifyPayment RAW response: ${JSON.stringify(rawData)}`);
+
+      // Normalize the status - S3P peut retourner le statut dans différents champs
+      let status = rawData.status;
+
+      // Vérifier tous les champs possibles selon la documentation S3P
+      if (!status) status = rawData.transactionStatus;
+      if (!status) status = rawData.txStatus;
+      if (!status) status = rawData.paymentStatus;
+      if (!status) status = rawData.data?.status;
+      if (!status) status = rawData.result?.status;
+
+      // Si c'est un tableau, prendre le premier élément
+      if (Array.isArray(rawData) && rawData.length > 0) {
+        status = rawData[0].status || rawData[0].transactionStatus;
+      }
+
+      // Normalize status values selon la documentation
+      if (status) {
+        const upperStatus = String(status).toUpperCase();
+        // Mapper vers SUCCESS
+        if (['SUCCESS', 'SUCCESSFUL', 'COMPLETED', 'APPROVED', 'CONFIRMED', 'PAID'].includes(upperStatus)) {
+          status = 'SUCCESS';
+        }
+        // Mapper vers PENDING
+        else if (['PENDING', 'PROCESSING', 'INITIATED', 'WAITING'].includes(upperStatus)) {
+          status = 'PENDING';
+        }
+        // Mapper vers FAILED
+        else if (['FAILED', 'CANCELLED', 'REJECTED', 'EXPIRED', 'ERROR'].includes(upperStatus)) {
+          status = 'FAILED';
+        }
+        else {
+          status = upperStatus;
+        }
+      } else {
+        // Si pas de status trouvé, considérer comme PENDING
+        status = 'PENDING';
+      }
+
+      this.logger.log(`S3P verifyPayment NORMALIZED status: ${status}`);
+
+      return {
+        ...rawData,
+        status,
+        ptn: rawData.ptn || ptn,
+        originalStatus: rawData.status || rawData.transactionStatus || 'unknown',
+      };
     } catch (error) {
-      this.logger.error('Payment verification failed', error.response?.data);
-      throw new HttpException('Verification failed', HttpStatus.BAD_REQUEST);
+      this.logger.error(`S3P Payment verification failed: ${error.message}`, error.response?.data);
+      // En cas d'erreur, retourner PENDING plutôt que de throw
+      return {
+        status: 'PENDING',
+        error: error.message,
+        ptn: ptn,
+      };
     }
   }
 

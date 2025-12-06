@@ -413,6 +413,13 @@ export default function DashboardPage() {
               <p className="text-sm text-gray-500 dark:text-gray-400">
                 {quota.messages.remaining.toLocaleString()} {t('dashboard.remaining') || 'restants'}
               </p>
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                {t('dashboard.quotaResetDate') || 'Réinitialisation'}: {(() => {
+                  const now = new Date();
+                  const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+                  return nextMonth.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+                })()}
+              </p>
             </div>
           </div>
 

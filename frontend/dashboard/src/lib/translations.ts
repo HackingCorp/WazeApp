@@ -37,6 +37,7 @@ export const dashboardTranslations: Record<string, Translations> = {
       remaining: 'remaining',
       used: 'used',
       quotaWarning: 'Quota almost reached!',
+      quotaResetDate: 'Resets on',
     },
     agents: {
       title: 'AI Agents',
@@ -451,6 +452,7 @@ export const dashboardTranslations: Record<string, Translations> = {
       remaining: 'restants',
       used: 'utilisé',
       quotaWarning: 'Quota presque atteint!',
+      quotaResetDate: 'Réinitialisation le',
     },
     agents: {
       title: 'Agents IA',

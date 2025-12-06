@@ -43,40 +43,114 @@ export class WhatsAppAIResponderService {
   private readonly logger = new Logger(WhatsAppAIResponderService.name);
   private readonly processingMessages = new Set<string>();
 
-  // Fonction simple de détection de langue basée sur des mots-clés
+  // Détection de langue améliorée avec mots-clés uniques et pondération
   private detectLanguage(text: string): string {
-    const lowerText = text.toLowerCase();
-    
-    // Mots-clés par langue
+    const lowerText = text.toLowerCase().trim();
+
+    // Si texte très court (< 3 mots), utiliser le français par défaut (contexte camerounais)
+    const wordCount = lowerText.split(/\s+/).length;
+    if (wordCount <= 2 && lowerText.length < 15) {
+      // Vérifier rapidement pour des mots anglais évidents
+      const englishIndicators = ['hello', 'hi', 'hey', 'yes', 'no', 'ok', 'okay', 'thanks', 'please', 'help', 'what', 'how', 'why', 'when', 'where', 'who', 'can', 'could', 'would', 'should', 'need', 'want', 'buy', 'price', 'cost'];
+      for (const word of englishIndicators) {
+        if (lowerText === word || lowerText.startsWith(word + ' ') || lowerText.endsWith(' ' + word)) {
+          return 'en';
+        }
+      }
+      return 'fr'; // Défaut français pour le contexte camerounais
+    }
+
+    // Mots-clés UNIQUES par langue (éviter les mots ambigus)
+    // Priorité aux mots qui n'existent que dans une seule langue
     const languageKeywords = {
-      'fr': ['bonjour', 'bonsoir', 'salut', 'merci', 'oui', 'non', 'comment', 'quoi', 'où', 'quand', 'pourquoi', 'je', 'tu', 'nous', 'vous', 'ça', 'avec', 'pour', 'sur', 'dans', 'de', 'le', 'la', 'les', 'un', 'une', 'des', 'qui', 'est', 'être', 'avoir', 'faire', 'dire', 'aller'],
-      'en': ['hello', 'hi', 'thank', 'yes', 'no', 'how', 'what', 'where', 'when', 'why', 'the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by'],
-      'es': ['hola', 'gracias', 'sí', 'si', 'no', 'cómo', 'como', 'qué', 'que', 'dónde', 'donde', 'cuándo', 'cuando', 'por', 'para', 'con', 'en', 'de', 'el', 'la', 'los', 'las', 'un', 'una'],
-      'de': ['hallo', 'danke', 'ja', 'nein', 'wie', 'was', 'wo', 'wann', 'warum', 'ich', 'du', 'wir', 'sie', 'der', 'die', 'das', 'ein', 'eine', 'und', 'oder', 'aber', 'mit', 'für'],
-      'it': ['ciao', 'grazie', 'sì', 'si', 'no', 'come', 'cosa', 'dove', 'quando', 'perché', 'perche', 'io', 'tu', 'noi', 'voi', 'il', 'la', 'gli', 'le', 'un', 'una', 'con', 'per'],
-      'pt': ['olá', 'ola', 'obrigado', 'sim', 'não', 'nao', 'como', 'que', 'onde', 'quando', 'por', 'para', 'com', 'em', 'de', 'o', 'a', 'os', 'as', 'um', 'uma'],
-      'ar': ['السلام', 'مرحبا', 'شكرا', 'نعم', 'لا', 'كيف', 'ماذا', 'أين', 'متى', 'لماذا', 'في', 'على', 'من', 'إلى', 'هذا', 'هذه', 'التي', 'الذي'],
-      'zh': ['你好', '谢谢', '是', '不是', '什么', '怎么', '哪里', '什么时候', '为什么', '的', '在', '和', '或者', '但是', '这', '那', '一个', '我', '你', '他', '她'],
-      'ja': ['こんにちは', 'ありがとう', 'はい', 'いいえ', 'どう', '何', 'なに', 'どこ', 'いつ', 'なぜ', 'です', 'である', 'この', 'その', 'あの', 'が', 'を', 'に', 'で', 'と']
+      'fr': {
+        // Mots français uniques (haute priorité)
+        unique: ['bonjour', 'bonsoir', 'salut', 'merci', 'bienvenue', 's\'il vous plaît', 'svp', 'oui', 'pourquoi', 'parce que', 'comment', 'combien', 'quoi', 'quel', 'quelle', 'quand', 'aujourd\'hui', 'demain', 'hier', 'maintenant', 'toujours', 'jamais', 'peut-être', 'beaucoup', 'peu', 'très', 'aussi', 'encore', 'déjà', 'seulement', 'vraiment', 'exactement', 'environ', 'pendant', 'depuis', 'jusqu\'à', 'avant', 'après', 'entre', 'chez', 'vers', 'sans', 'sous', 'contre', 'malgré', 'voici', 'voilà', 'alors', 'donc', 'mais', 'cependant', 'pourtant', 'sinon', 'sauf', 'd\'accord', 'entendu', 'compris', 'j\'ai', 'j\'aime', 'j\'aimerais', 'je veux', 'je voudrais', 'je cherche', 'je suis', 'nous sommes', 'vous êtes', 'ils sont', 'c\'est', 'ce sont', 'qu\'est-ce', 'est-ce que', 'n\'est-ce pas', 'bien sûr', 'pas de problème', 'aucun souci'],
+        // Mots français communs (priorité moyenne)
+        common: ['le', 'la', 'les', 'un', 'une', 'des', 'du', 'au', 'aux', 'ce', 'cette', 'ces', 'mon', 'ma', 'mes', 'ton', 'ta', 'tes', 'son', 'sa', 'ses', 'notre', 'nos', 'votre', 'vos', 'leur', 'leurs', 'je', 'tu', 'il', 'elle', 'nous', 'vous', 'ils', 'elles', 'moi', 'toi', 'lui', 'eux', 'qui', 'que', 'dont', 'où', 'et', 'ou', 'ni', 'car', 'pour', 'dans', 'sur', 'avec', 'chez', 'par', 'de', 'à', 'en']
+      },
+      'en': {
+        unique: ['hello', 'hey', 'thanks', 'thank you', 'please', 'welcome', 'sorry', 'excuse me', 'goodbye', 'bye', 'okay', 'alright', 'yes', 'yeah', 'yep', 'nope', 'maybe', 'perhaps', 'however', 'therefore', 'although', 'because', 'since', 'while', 'until', 'unless', 'whether', 'though', 'anyway', 'actually', 'really', 'absolutely', 'definitely', 'certainly', 'probably', 'usually', 'always', 'never', 'sometimes', 'often', 'already', 'still', 'just', 'only', 'even', 'also', 'too', 'either', 'neither', 'both', 'each', 'every', 'any', 'some', 'many', 'much', 'more', 'most', 'few', 'little', 'enough', 'several', 'own', 'other', 'another', 'such', 'same', 'different', 'next', 'last', 'first', 'second', 'third', 'i am', 'i\'m', 'you are', 'you\'re', 'we are', 'we\'re', 'they are', 'they\'re', 'i have', 'i\'ve', 'i would', 'i\'d', 'i will', 'i\'ll', 'can you', 'could you', 'would you', 'should i', 'do you', 'are you', 'is it', 'what is', 'what\'s', 'how much', 'how many', 'how long'],
+        common: ['the', 'a', 'an', 'this', 'that', 'these', 'those', 'my', 'your', 'his', 'her', 'its', 'our', 'their', 'i', 'you', 'he', 'she', 'it', 'we', 'they', 'me', 'him', 'us', 'them', 'who', 'what', 'which', 'when', 'where', 'why', 'how', 'and', 'or', 'but', 'if', 'so', 'as', 'for', 'to', 'of', 'in', 'on', 'at', 'by', 'with', 'from', 'about', 'into', 'through', 'during', 'before', 'after', 'above', 'below', 'between', 'under', 'over']
+      },
+      'es': {
+        unique: ['hola', 'gracias', 'buenos días', 'buenas tardes', 'buenas noches', 'por favor', 'perdón', 'disculpe', 'adiós', 'hasta luego', 'cómo estás', 'qué tal', 'muy bien', 'está bien', 'de nada', 'lo siento', 'claro', 'vale', 'bueno', 'pues', 'entonces', 'además', 'también', 'todavía', 'ya', 'siempre', 'nunca', 'ahora', 'hoy', 'mañana', 'ayer'],
+        common: ['el', 'la', 'los', 'las', 'un', 'una', 'unos', 'unas', 'yo', 'tú', 'él', 'ella', 'nosotros', 'vosotros', 'ellos', 'ellas', 'mi', 'tu', 'su', 'nuestro', 'vuestro', 'que', 'qué', 'cómo', 'cuándo', 'dónde', 'por qué', 'quién', 'cuál', 'cuánto', 'y', 'o', 'pero', 'porque', 'para', 'por', 'con', 'sin', 'en', 'de', 'a']
+      },
+      'de': {
+        unique: ['guten tag', 'guten morgen', 'guten abend', 'danke', 'bitte', 'entschuldigung', 'auf wiedersehen', 'tschüss', 'ja', 'nein', 'vielleicht', 'natürlich', 'genau', 'richtig', 'falsch', 'gut', 'schlecht', 'schön', 'groß', 'klein'],
+        common: ['der', 'die', 'das', 'ein', 'eine', 'ich', 'du', 'er', 'sie', 'es', 'wir', 'ihr', 'sie', 'mein', 'dein', 'sein', 'ihr', 'unser', 'euer', 'was', 'wie', 'wann', 'wo', 'warum', 'wer', 'und', 'oder', 'aber', 'weil', 'wenn', 'dass', 'für', 'mit', 'von', 'zu', 'in', 'an', 'auf']
+      },
+      'ar': {
+        unique: ['مرحبا', 'السلام عليكم', 'شكرا', 'من فضلك', 'عفوا', 'نعم', 'لا', 'ربما', 'طبعا', 'بالتأكيد', 'إن شاء الله', 'ماشاء الله', 'الحمد لله', 'كيف حالك', 'أهلا وسهلا'],
+        common: ['و', 'في', 'من', 'إلى', 'على', 'عن', 'مع', 'هذا', 'هذه', 'ذلك', 'تلك', 'أنا', 'أنت', 'هو', 'هي', 'نحن', 'أنتم', 'هم', 'ما', 'ماذا', 'كيف', 'متى', 'أين', 'لماذا', 'من', 'أي']
+      },
+      'zh': {
+        unique: ['你好', '谢谢', '请', '对不起', '没关系', '再见', '是的', '不是', '好的', '可以', '不可以', '为什么', '怎么样', '多少钱', '在哪里', '什么时候'],
+        common: ['的', '是', '在', '有', '和', '了', '不', '这', '那', '我', '你', '他', '她', '我们', '你们', '他们', '什么', '怎么', '哪里', '谁', '几', '多', '很', '太']
+      },
+      'ja': {
+        unique: ['こんにちは', 'おはよう', 'こんばんは', 'ありがとう', 'すみません', 'ごめんなさい', 'さようなら', 'はい', 'いいえ', 'わかりました', 'お願いします', 'どうぞ', 'いただきます', 'ごちそうさま'],
+        common: ['の', 'は', 'が', 'を', 'に', 'で', 'と', 'も', 'や', 'か', 'から', 'まで', 'より', 'へ', 'です', 'ます', 'だ', 'である', 'この', 'その', 'あの', 'どの', '何', 'どこ', 'いつ', 'なぜ', '誰']
+      }
     };
 
-    const scores = {};
-    
+    const scores: Record<string, number> = {};
+
     // Calculer le score pour chaque langue
     Object.keys(languageKeywords).forEach(lang => {
       scores[lang] = 0;
-      languageKeywords[lang].forEach(keyword => {
-        if (lowerText.includes(keyword)) {
-          scores[lang] += keyword.length; // Les mots plus longs ont plus de poids
-        }
-      });
+      const langData = languageKeywords[lang];
+
+      // Mots uniques ont un poids plus élevé (x3)
+      if (langData.unique) {
+        langData.unique.forEach((keyword: string) => {
+          if (lowerText.includes(keyword)) {
+            scores[lang] += keyword.length * 3;
+          }
+        });
+      }
+
+      // Mots communs ont un poids normal
+      if (langData.common) {
+        langData.common.forEach((keyword: string) => {
+          // Utiliser une correspondance de mot entier pour les mots courts
+          if (keyword.length <= 2) {
+            const regex = new RegExp(`\\b${keyword}\\b`, 'i');
+            if (regex.test(lowerText)) {
+              scores[lang] += 1;
+            }
+          } else if (lowerText.includes(keyword)) {
+            scores[lang] += keyword.length;
+          }
+        });
+      }
     });
 
-    // Retourner la langue avec le meilleur score
-    const bestLang = Object.keys(scores).reduce((a, b) => scores[a] > scores[b] ? a : b);
-    
-    // Si aucune langue n'a de score, utiliser l'anglais par défaut
-    return scores[bestLang] > 0 ? bestLang : 'en';
+    // Trouver la langue avec le meilleur score
+    const sortedLangs = Object.entries(scores)
+      .sort(([, a], [, b]) => b - a);
+
+    const bestLang = sortedLangs[0]?.[0] || 'fr';
+    const bestScore = sortedLangs[0]?.[1] || 0;
+    const secondScore = sortedLangs[1]?.[1] || 0;
+
+    // Log pour debug
+    this.logger.debug(`Language detection: "${lowerText.substring(0, 50)}..." -> ${bestLang} (score: ${bestScore}, 2nd: ${secondScore})`);
+
+    // Si aucune langue n'a de score significatif, utiliser le français (contexte camerounais)
+    if (bestScore < 3) {
+      return 'fr';
+    }
+
+    // Si les deux premiers scores sont très proches, préférer le français
+    if (bestScore > 0 && secondScore > 0 && bestScore - secondScore < 5) {
+      if (scores['fr'] >= secondScore) {
+        return 'fr';
+      }
+    }
+
+    return bestLang;
   }
 
   constructor(
@@ -110,14 +184,8 @@ export class WhatsAppAIResponderService {
   ) {
     console.log('🔧 WhatsAppAIResponderService: Service initialized and ready to receive events');
     this.logger.log('WhatsAppAIResponderService initialized');
-    
-    // Écoute manuelle des événements WhatsApp
-    this.eventEmitter.on('whatsapp.message.received', (data) => {
-      console.log('🎯 MANUAL LISTENER: Event received!', data);
-      this.handleIncomingMessage(data).catch(error => {
-        console.error('Error in manual event handler:', error);
-      });
-    });
+    // NOTE: Using ONLY the @OnEvent decorator for event handling - no manual listener
+    // to prevent duplicate message processing
   }
 
   @OnEvent("whatsapp.message.received")

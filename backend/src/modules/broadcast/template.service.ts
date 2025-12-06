@@ -21,6 +21,7 @@ export class TemplateService implements OnModuleInit {
   ) {}
 
   async onModuleInit() {
+    this.logger.log('Initializing TemplateService - creating system templates...');
     await this.createSystemTemplates();
   }
 
@@ -28,6 +29,8 @@ export class TemplateService implements OnModuleInit {
    * Create system templates on startup
    */
   private async createSystemTemplates(): Promise<void> {
+    this.logger.log('Starting system templates creation...');
+
     const systemTemplates: Partial<MessageTemplate>[] = [
       // Welcome templates
       {
@@ -38,6 +41,7 @@ export class TemplateService implements OnModuleInit {
         content: 'Bonjour {nom} ! Bienvenue chez {entreprise}. Comment puis-je vous aider ?',
         variables: ['nom', 'entreprise'],
         isSystem: true,
+        isActive: true,
       },
       {
         name: 'Bienvenue avec image',
@@ -48,6 +52,7 @@ export class TemplateService implements OnModuleInit {
         caption: 'Bienvenue {nom} ! Nous sommes ravis de vous compter parmi nous.',
         variables: ['nom'],
         isSystem: true,
+        isActive: true,
       },
 
       // Promotion templates
@@ -59,6 +64,7 @@ export class TemplateService implements OnModuleInit {
         content: '🔥 PROMO FLASH ! {nom}, profitez de {reduction}% de réduction sur {produit}. Valable jusqu\'au {date_fin}. Ne manquez pas cette offre !',
         variables: ['nom', 'reduction', 'produit', 'date_fin'],
         isSystem: true,
+        isActive: true,
       },
       {
         name: 'Nouvelle collection',
@@ -69,6 +75,7 @@ export class TemplateService implements OnModuleInit {
         caption: '{nom}, découvrez notre nouvelle collection {collection}. Disponible dès maintenant !',
         variables: ['nom', 'collection'],
         isSystem: true,
+        isActive: true,
       },
       {
         name: 'Code promo',
@@ -78,6 +85,7 @@ export class TemplateService implements OnModuleInit {
         content: '🎁 Cadeau exclusif pour vous {nom} ! Utilisez le code {code_promo} pour obtenir {avantage}. Valable jusqu\'au {date_fin}.',
         variables: ['nom', 'code_promo', 'avantage', 'date_fin'],
         isSystem: true,
+        isActive: true,
       },
 
       // Reminder templates
@@ -89,6 +97,7 @@ export class TemplateService implements OnModuleInit {
         content: '📅 Rappel : {nom}, vous avez un rendez-vous le {date} à {heure}. Lieu : {lieu}. À bientôt !',
         variables: ['nom', 'date', 'heure', 'lieu'],
         isSystem: true,
+        isActive: true,
       },
       {
         name: 'Rappel de paiement',
@@ -98,6 +107,7 @@ export class TemplateService implements OnModuleInit {
         content: '💳 Rappel : {nom}, votre facture n°{numero_facture} d\'un montant de {montant} est en attente de paiement. Merci de régulariser avant le {date_limite}.',
         variables: ['nom', 'numero_facture', 'montant', 'date_limite'],
         isSystem: true,
+        isActive: true,
       },
       {
         name: 'Rappel d\'événement',
@@ -107,6 +117,7 @@ export class TemplateService implements OnModuleInit {
         content: '🎉 N\'oubliez pas ! {nom}, l\'événement "{evenement}" commence {quand}. On vous attend !',
         variables: ['nom', 'evenement', 'quand'],
         isSystem: true,
+        isActive: true,
       },
 
       // Notification templates
@@ -118,6 +129,7 @@ export class TemplateService implements OnModuleInit {
         content: '✅ Commande confirmée ! {nom}, votre commande n°{numero_commande} a bien été reçue. Montant : {montant}. Nous vous tiendrons informé de la livraison.',
         variables: ['nom', 'numero_commande', 'montant'],
         isSystem: true,
+        isActive: true,
       },
       {
         name: 'Expédition',
@@ -127,6 +139,7 @@ export class TemplateService implements OnModuleInit {
         content: '📦 En route ! {nom}, votre commande n°{numero_commande} a été expédiée. Suivez-la ici : {lien_suivi}',
         variables: ['nom', 'numero_commande', 'lien_suivi'],
         isSystem: true,
+        isActive: true,
       },
       {
         name: 'Livraison effectuée',
@@ -136,6 +149,7 @@ export class TemplateService implements OnModuleInit {
         content: '🎁 Livré ! {nom}, votre commande n°{numero_commande} a été livrée. Bonne réception !',
         variables: ['nom', 'numero_commande'],
         isSystem: true,
+        isActive: true,
       },
 
       // Follow-up templates
@@ -147,6 +161,7 @@ export class TemplateService implements OnModuleInit {
         content: 'Bonjour {nom} ! Comment trouvez-vous votre {produit} ? N\'hésitez pas à nous faire part de vos retours. 😊',
         variables: ['nom', 'produit'],
         isSystem: true,
+        isActive: true,
       },
       {
         name: 'Demande d\'avis',
@@ -156,6 +171,7 @@ export class TemplateService implements OnModuleInit {
         content: '⭐ {nom}, votre avis compte ! Prenez 2 minutes pour noter votre expérience : {lien_avis}. Merci !',
         variables: ['nom', 'lien_avis'],
         isSystem: true,
+        isActive: true,
       },
       {
         name: 'Panier abandonné',
@@ -165,6 +181,7 @@ export class TemplateService implements OnModuleInit {
         content: '🛒 {nom}, vous avez oublié quelque chose ! Votre panier vous attend avec {nb_articles} article(s). Finalisez votre commande : {lien_panier}',
         variables: ['nom', 'nb_articles', 'lien_panier'],
         isSystem: true,
+        isActive: true,
       },
 
       // Thank you templates
@@ -176,6 +193,7 @@ export class TemplateService implements OnModuleInit {
         content: '🙏 Merci {nom} pour votre confiance ! Votre achat chez {entreprise} nous honore. À très bientôt !',
         variables: ['nom', 'entreprise'],
         isSystem: true,
+        isActive: true,
       },
       {
         name: 'Remerciement fidélité',
@@ -185,6 +203,7 @@ export class TemplateService implements OnModuleInit {
         content: '💎 {nom}, vous êtes un client en or ! Merci pour votre fidélité depuis {duree}. En reconnaissance, voici un cadeau spécial : {cadeau}',
         variables: ['nom', 'duree', 'cadeau'],
         isSystem: true,
+        isActive: true,
       },
 
       // Location template
@@ -197,6 +216,7 @@ export class TemplateService implements OnModuleInit {
         locationName: 'Notre boutique',
         variables: [],
         isSystem: true,
+        isActive: true,
       },
 
       // Document template
@@ -210,21 +230,34 @@ export class TemplateService implements OnModuleInit {
         filename: 'catalogue.pdf',
         variables: ['nom', 'annee'],
         isSystem: true,
+        isActive: true,
       },
     ];
 
-    for (const template of systemTemplates) {
-      const exists = await this.templateRepository.findOne({
-        where: { name: template.name, isSystem: true },
-      });
+    let created = 0;
+    let skipped = 0;
 
-      if (!exists) {
-        await this.templateRepository.save(
-          this.templateRepository.create(template),
-        );
-        this.logger.log(`Created system template: ${template.name}`);
+    for (const template of systemTemplates) {
+      try {
+        const exists = await this.templateRepository.findOne({
+          where: { name: template.name, isSystem: true },
+        });
+
+        if (!exists) {
+          await this.templateRepository.save(
+            this.templateRepository.create(template),
+          );
+          this.logger.log(`Created system template: ${template.name}`);
+          created++;
+        } else {
+          skipped++;
+        }
+      } catch (error) {
+        this.logger.error(`Failed to create system template "${template.name}":`, error);
       }
     }
+
+    this.logger.log(`System templates initialization complete: ${created} created, ${skipped} already existed`);
   }
 
   /**

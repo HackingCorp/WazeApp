@@ -35,8 +35,8 @@ interface SubscriptionManagerProps {
   isLoading?: boolean;
 }
 
-// Exchange rates for local fallback (with 10% margin)
-const exchangeRates: { [key: string]: number } = {
+// Fallback exchange rates (used only if API fails completely)
+const FALLBACK_RATES: { [key: string]: number } = {
   USD: 1,
   EUR: 0.92,
   GBP: 0.79,
@@ -44,6 +44,12 @@ const exchangeRates: { [key: string]: number } = {
   XOF: 605,
   NGN: 1550,
 };
+
+interface ExchangeRateData {
+  rate: number;
+  rateWithMargin: number;
+  symbol: string;
+}
 
 const plans: Plan[] = [
   {
@@ -199,10 +205,14 @@ export function SubscriptionManager({
   const [pricingLoading, setPricingLoading] = useState(false);
   const [showCurrencyDropdown, setShowCurrencyDropdown] = useState(false);
 
+  // Official exchange rates from backend
+  const [officialRates, setOfficialRates] = useState<{ [key: string]: ExchangeRateData }>({});
+  const [ratesLastUpdated, setRatesLastUpdated] = useState<Date | null>(null);
+
   const currentPlanData = plans.find(p => p.id === currentPlan);
   const selectedPlanData = plans.find(p => p.id === selectedPlan);
 
-  // Fetch available currencies on mount
+  // Fetch available currencies and exchange rates on mount
   useEffect(() => {
     const fetchCurrencies = async () => {
       try {
@@ -214,7 +224,24 @@ export function SubscriptionManager({
         console.error('Error fetching currencies:', error);
       }
     };
+
+    const fetchExchangeRates = async () => {
+      try {
+        const response = await api.getExchangeRates() as any;
+        if (response.success && response.rates) {
+          setOfficialRates(response.rates);
+          if (response.lastUpdated) {
+            setRatesLastUpdated(new Date(response.lastUpdated));
+          }
+          console.log('Official exchange rates loaded:', Object.keys(response.rates).length, 'currencies');
+        }
+      } catch (error) {
+        console.error('Error fetching exchange rates:', error);
+      }
+    };
+
     fetchCurrencies();
+    fetchExchangeRates();
   }, []);
 
   // Fetch pricing when currency or billing cycle changes
@@ -294,6 +321,7 @@ export function SubscriptionManager({
 
   // Get price for a plan in the selected currency
   const getPlanPrice = (planId: string): { price: number; symbol: string; formatted: string } => {
+    // Primary: Use dynamically fetched pricing from backend (already converted)
     const pricing = dynamicPricing[planId];
     if (pricing) {
       return {
@@ -303,7 +331,7 @@ export function SubscriptionManager({
       };
     }
 
-    // Fallback to local calculation with exchange rates (like marketing site)
+    // Fallback: Use official exchange rates from backend for local calculation
     const plan = plans.find(p => p.id === planId);
     const basePrice = plan?.price || 0;
     const symbol = getCurrentCurrencySymbol();
@@ -312,12 +340,23 @@ export function SubscriptionManager({
       return { price: 0, symbol, formatted: 'Free' };
     }
 
-    const rate = exchangeRates[selectedCurrency] || 1;
-    const rateWithMargin = rate * 1.1; // 10% margin
+    // Use official rates if available, otherwise fall back to hardcoded rates
+    let rateWithMargin: number;
+    const officialRate = officialRates[selectedCurrency];
+
+    if (officialRate) {
+      // Use official rate with margin (already calculated by backend)
+      rateWithMargin = officialRate.rateWithMargin;
+    } else {
+      // Ultimate fallback: hardcoded rates with 10% margin
+      const fallbackRate = FALLBACK_RATES[selectedCurrency] || 1;
+      rateWithMargin = fallbackRate * 1.1;
+    }
+
     let converted = basePrice * rateWithMargin;
 
     // Round for African currencies
-    if (['XAF', 'XOF', 'NGN'].includes(selectedCurrency)) {
+    if (['XAF', 'XOF', 'NGN', 'KES', 'GHS', 'EGP'].includes(selectedCurrency)) {
       converted = Math.ceil(converted / 100) * 100;
     } else {
       converted = Math.round(converted * 100) / 100;

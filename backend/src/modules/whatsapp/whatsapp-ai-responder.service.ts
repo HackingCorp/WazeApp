@@ -262,19 +262,8 @@ export class WhatsAppAIResponderService {
           await this.quotaEnforcementService.enforceUserWhatsAppMessageQuota(session.userId);
         }
       } catch (quotaError) {
-        this.logger.warn(`Message quota exceeded for session ${session.id}: ${quotaError.message}`);
-        // Send a message to the user explaining the limit
-        try {
-          await this.baileysService.sendMessage(session.id, {
-            to: fromNumber,
-            message: "Sorry, the monthly message limit has been reached. Please contact the administrator to upgrade the plan.",
-            type: "text",
-          });
-          // Track sent message for usage statistics
-          await this.trackSentMessage(session.organizationId);
-        } catch (sendError) {
-          this.logger.error(`Failed to send quota exceeded message: ${sendError.message}`);
-        }
+        // Quota exceeded - simply stop processing, don't send any message
+        this.logger.warn(`Message quota exceeded for session ${session.id}: ${quotaError.message} - AI will not respond`);
         return;
       }
 

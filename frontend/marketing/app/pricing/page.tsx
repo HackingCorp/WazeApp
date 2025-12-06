@@ -20,6 +20,29 @@ interface PriceCache {
   [key: string]: number
 }
 
+interface ExchangeRateData {
+  rate: number
+  rateWithMargin: number
+  symbol: string
+}
+
+interface ExchangeRates {
+  [key: string]: ExchangeRateData
+}
+
+// Fallback exchange rates (used only if API fails completely)
+const FALLBACK_RATES: { [key: string]: number } = {
+  USD: 1,
+  EUR: 0.92,
+  GBP: 0.79,
+  XAF: 605,
+  XOF: 605,
+  NGN: 1550,
+  KES: 153,
+  GHS: 15.5,
+  EGP: 49,
+}
+
 export default function PricingPage() {
   const [billingPeriod, setBillingPeriod] = useState<"monthly" | "annually">("monthly")
   const [currencies, setCurrencies] = useState<CurrencyInfo[]>([
@@ -31,11 +54,14 @@ export default function PricingPage() {
   const [currency, setCurrency] = useState<CurrencyInfo>(currencies[0])
   const [priceCache, setPriceCache] = useState<PriceCache>({})
   const [loading, setLoading] = useState(false)
+  const [officialRates, setOfficialRates] = useState<ExchangeRates>({})
+  const [ratesLastUpdated, setRatesLastUpdated] = useState<Date | null>(null)
   const { t } = useTranslations()
 
-  // Fetch supported currencies on mount
+  // Fetch supported currencies and exchange rates on mount
   useEffect(() => {
     fetchCurrencies()
+    fetchExchangeRates()
   }, [])
 
   // Fetch prices when currency or billing period changes
@@ -52,6 +78,22 @@ export default function PricingPage() {
       }
     } catch (error) {
       console.error('Failed to fetch currencies:', error)
+    }
+  }
+
+  const fetchExchangeRates = async () => {
+    try {
+      const response = await fetch(`${API_URL}/pricing/rates`)
+      const data = await response.json()
+      if (data.success && data.rates) {
+        setOfficialRates(data.rates)
+        if (data.lastUpdated) {
+          setRatesLastUpdated(new Date(data.lastUpdated))
+        }
+        console.log('Official exchange rates loaded:', Object.keys(data.rates).length, 'currencies')
+      }
+    } catch (error) {
+      console.error('Failed to fetch exchange rates:', error)
     }
   }
 
@@ -86,27 +128,28 @@ export default function PricingPage() {
   }
 
   const calculatePrice = (price: number, planId?: string) => {
-    // If we have cached API price, use it
+    // Primary: If we have cached API price, use it (already converted by backend)
     if (planId && priceCache[planId] !== undefined) {
       return priceCache[planId]
     }
 
-    // Fallback to local calculation with 10% margin
-    const rates: { [key: string]: number } = {
-      USD: 1,
-      EUR: 0.92,
-      GBP: 0.79,
-      XAF: 605,
-      XOF: 605,
-      NGN: 1550,
+    // Fallback: Use official exchange rates from backend for local calculation
+    let rateWithMargin: number
+    const officialRate = officialRates[currency.code]
+
+    if (officialRate) {
+      // Use official rate with margin (already calculated by backend)
+      rateWithMargin = officialRate.rateWithMargin
+    } else {
+      // Ultimate fallback: hardcoded rates with 10% margin
+      const fallbackRate = FALLBACK_RATES[currency.code] || 1
+      rateWithMargin = fallbackRate * 1.1
     }
 
-    const rate = rates[currency.code] || 1
-    const rateWithMargin = rate * 1.1 // 10% margin
     const converted = price * rateWithMargin
 
     // Round for African currencies
-    if (['XAF', 'XOF', 'NGN'].includes(currency.code)) {
+    if (['XAF', 'XOF', 'NGN', 'KES', 'GHS', 'EGP'].includes(currency.code)) {
       return Math.ceil(converted / 100) * 100
     }
 

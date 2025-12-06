@@ -119,7 +119,21 @@ export function PaymentModal({
     setError(null);
 
     try {
-      const amount = dynamicPrice || Math.round(plan.price * 655);
+      // S3P only accepts XAF - convert if needed
+      let amount: number;
+      if (currency === 'XAF' || currency === 'XOF') {
+        amount = dynamicPrice || Math.round(plan.price * 655);
+      } else {
+        // For other currencies, we need to convert to XAF
+        // Use approximate rates (should match backend rates)
+        const rates: Record<string, number> = {
+          USD: 605 * 1.1, // ~665 XAF per USD
+          EUR: 655 * 1.1, // ~720 XAF per EUR
+          GBP: 765 * 1.1, // ~840 XAF per GBP
+        };
+        const rate = rates[currency] || 665;
+        amount = Math.round((dynamicPrice || plan.price) * rate);
+      }
       const cleanPhone = getCleanPhoneNumber();
 
       console.log('=== S3P PAYMENT DEBUG (Frontend) ===');
@@ -221,7 +235,9 @@ export function PaymentModal({
     setError(null);
 
     try {
-      const amount = dynamicPrice || Math.round(plan.price * 655);
+      // Use the dynamic price in the selected currency
+      const amount = dynamicPrice || plan.price;
+      const selectedCurrency = currency || 'XAF';
       const merchantRef = `WAZEAPP-${plan.id.toUpperCase()}-${Date.now()}`;
 
       const response = await api.initiateEnkapPayment({
@@ -230,7 +246,7 @@ export function PaymentModal({
         customerEmail: customerEmail || 'client@wazeapp.xyz',
         customerPhone: getCleanPhoneNumber() || '237600000000',
         totalAmount: amount,
-        currency: 'XAF',
+        currency: selectedCurrency,
         description: `Abonnement WazeApp - Plan ${plan.name}`,
         items: [{
           id: plan.id,

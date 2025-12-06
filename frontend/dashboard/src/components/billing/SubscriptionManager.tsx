@@ -79,7 +79,7 @@ const plans: Plan[] = [
   {
     id: 'standard',
     name: 'Standard',
-    price: 29,
+    price: 29.99,
     priceFCFA: 19000,
     interval: 'month',
     description: 'Great for small businesses',
@@ -106,8 +106,8 @@ const plans: Plan[] = [
   {
     id: 'pro',
     name: 'Pro',
-    price: 69,
-    priceFCFA: 45000,
+    price: 49.99,
+    priceFCFA: 32000,
     interval: 'month',
     description: 'Perfect for growing teams',
     icon: Crown,

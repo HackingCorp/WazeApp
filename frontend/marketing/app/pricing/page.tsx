@@ -129,8 +129,8 @@ export default function PricingPage() {
   // Base prices in USD
   const basePrices = {
     FREE: { monthly: 0, annually: 0 },
-    STANDARD: { monthly: 29, annually: 278 },
-    PRO: { monthly: 69, annually: 662 },
+    STANDARD: { monthly: 29.99, annually: 287.90 },
+    PRO: { monthly: 49.99, annually: 479.90 },
     ENTERPRISE: { monthly: 199, annually: 1910 },
   }
 
@@ -195,7 +195,7 @@ export default function PricingPage() {
       id: "STANDARD",
       name: t("planStandard"),
       description: t("planStandardDesc"),
-      price: { monthly: 29, annually: 278 },
+      price: { monthly: 29.99, annually: 287.90 },
       features: [
         { name: t("feature1Agent"), included: true },
         { name: t("feature2kMessages"), included: true },
@@ -214,7 +214,7 @@ export default function PricingPage() {
       id: "PRO",
       name: t("planPro"),
       description: t("planProDesc"),
-      price: { monthly: 69, annually: 662 },
+      price: { monthly: 49.99, annually: 479.90 },
       features: [
         { name: t("feature3Agents"), included: true },
         { name: t("feature8kMessages"), included: true },

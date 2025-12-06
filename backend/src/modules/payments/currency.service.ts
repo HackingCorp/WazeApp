@@ -77,8 +77,8 @@ export class CurrencyService {
     STANDARD: {
       id: 'STANDARD',
       name: 'Standard',
-      priceUSD: 29,
-      priceAnnualUSD: 278, // ~20% discount
+      priceUSD: 29.99,
+      priceAnnualUSD: 287.90, // ~20% discount
       messages: 2000,
       agents: 1,
       storage: '500MB',
@@ -94,8 +94,8 @@ export class CurrencyService {
     PRO: {
       id: 'PRO',
       name: 'Pro',
-      priceUSD: 69,
-      priceAnnualUSD: 662, // ~20% discount
+      priceUSD: 49.99,
+      priceAnnualUSD: 479.90, // ~20% discount
       messages: 8000,
       agents: 3,
       storage: '5GB',

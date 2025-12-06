@@ -252,9 +252,10 @@ export function SubscriptionManager({
       try {
         const billing = selectedCycle === 'annual' ? 'annually' : 'monthly';
         const response = await api.getPricing(selectedCurrency, billing) as any;
-        if (response.success && response.plans) {
+        const plans = response.data?.plans || response.plans;
+        if (response.success && plans) {
           const pricing: DynamicPricing = {};
-          for (const [key, value] of Object.entries(response.plans)) {
+          for (const [key, value] of Object.entries(plans)) {
             const plan = value as any;
             pricing[key.toLowerCase()] = {
               price: plan.price,

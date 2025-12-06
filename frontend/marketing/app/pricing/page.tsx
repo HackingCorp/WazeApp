@@ -107,9 +107,10 @@ export default function PricingPage() {
         `${API_URL}/pricing?currency=${currency.code}&billing=${billingPeriod}`
       )
       const data = await response.json()
-      if (data.success && data.plans) {
+      const plans = data.data?.plans || data.plans
+      if (data.success && plans) {
         const newCache: PriceCache = {}
-        Object.entries(data.plans).forEach(([planId, planData]: [string, any]) => {
+        Object.entries(plans).forEach(([planId, planData]: [string, any]) => {
           newCache[planId] = {
             price: planData.price,
             yearlyTotal: planData.yearlyTotal,

@@ -904,6 +904,8 @@ export function SubscriptionManager({
         onSuccess={handlePaymentSuccess}
         customerName={user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : ''}
         customerEmail={user?.email || ''}
+        dynamicPrice={planToPurchase ? getPlanPrice(planToPurchase.id).price : undefined}
+        currency={selectedCurrency}
       />
     </div>
   );

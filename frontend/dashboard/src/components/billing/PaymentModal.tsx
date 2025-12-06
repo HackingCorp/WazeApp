@@ -19,18 +19,13 @@ interface PaymentModalProps {
   onSuccess: () => void;
   customerName: string;
   customerEmail: string;
+  dynamicPrice?: number; // Prix dynamique de l'API
+  currency?: string; // Devise sélectionnée
 }
 
 type PaymentMethod = 'mobile' | 'card' | null;
 type MobileProvider = 'mtn' | 'orange';
 type PaymentStatus = 'idle' | 'processing' | 'pending' | 'success' | 'failed' | 'redirecting';
-
-// Plan pricing in FCFA
-const PLAN_PRICES_FCFA: Record<string, number> = {
-  standard: 19000,
-  pro: 45000,
-  enterprise: 130000,
-};
 
 export function PaymentModal({
   isOpen,
@@ -39,6 +34,8 @@ export function PaymentModal({
   onSuccess,
   customerName,
   customerEmail,
+  dynamicPrice,
+  currency = 'XAF',
 }: PaymentModalProps) {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(null);
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -122,7 +119,7 @@ export function PaymentModal({
     setError(null);
 
     try {
-      const amount = PLAN_PRICES_FCFA[plan.id] || plan.priceFCFA || plan.price * 655;
+      const amount = dynamicPrice || Math.round(plan.price * 655);
       const cleanPhone = getCleanPhoneNumber();
 
       console.log('=== S3P PAYMENT DEBUG (Frontend) ===');
@@ -224,7 +221,7 @@ export function PaymentModal({
     setError(null);
 
     try {
-      const amount = PLAN_PRICES_FCFA[plan.id] || plan.priceFCFA || plan.price * 655;
+      const amount = dynamicPrice || Math.round(plan.price * 655);
       const merchantRef = `WAZEAPP-${plan.id.toUpperCase()}-${Date.now()}`;
 
       const response = await api.initiateEnkapPayment({
@@ -279,7 +276,8 @@ export function PaymentModal({
 
   if (!isOpen || !plan) return null;
 
-  const priceFCFA = PLAN_PRICES_FCFA[plan.id] || plan.priceFCFA || Math.round(plan.price * 655);
+  const displayPrice = dynamicPrice || Math.round(plan.price * 655);
+  const displayCurrency = currency || 'XAF';
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
@@ -399,7 +397,7 @@ export function PaymentModal({
                 <div className="flex justify-between items-center">
                   <span className="text-gray-600 dark:text-gray-400">Montant</span>
                   <span className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
-                    {priceFCFA.toLocaleString()} FCFA
+                    {displayPrice.toLocaleString()} {displayCurrency}
                   </span>
                 </div>
               </div>
@@ -472,7 +470,7 @@ export function PaymentModal({
                 <div className="flex justify-between items-center">
                   <span className="text-gray-600 dark:text-gray-400">Montant</span>
                   <span className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
-                    {priceFCFA.toLocaleString()} FCFA
+                    {displayPrice.toLocaleString()} {displayCurrency}
                   </span>
                 </div>
               </div>
@@ -574,7 +572,7 @@ export function PaymentModal({
                 )}
               >
                 <Smartphone className="w-5 h-5" />
-                Payer {priceFCFA.toLocaleString()} FCFA
+                Payer {displayPrice.toLocaleString()} {displayCurrency}
               </button>
             </>
           )}
@@ -591,7 +589,7 @@ export function PaymentModal({
                 <div className="flex justify-between items-center">
                   <span className="text-gray-600 dark:text-gray-400">Montant</span>
                   <span className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
-                    {priceFCFA.toLocaleString()} FCFA
+                    {displayPrice.toLocaleString()} {displayCurrency}
                   </span>
                 </div>
               </div>
@@ -637,7 +635,7 @@ export function PaymentModal({
                 className="w-full py-3.5 rounded-xl font-semibold transition-all flex items-center justify-center gap-2 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white shadow-lg shadow-blue-500/25"
               >
                 <CreditCard className="w-5 h-5" />
-                Payer {priceFCFA.toLocaleString()} FCFA
+                Payer {displayPrice.toLocaleString()} {displayCurrency}
               </button>
             </>
           )}

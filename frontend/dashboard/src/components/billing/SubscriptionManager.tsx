@@ -203,8 +203,9 @@ export function SubscriptionManager({
     { code: 'XAF', name: 'CFA Franc', symbol: 'FCFA ' },
   ]);
   const [dynamicPricing, setDynamicPricing] = useState<DynamicPricing>({});
-  const [pricingLoading, setPricingLoading] = useState(false);
+  const [pricingLoading, setPricingLoading] = useState(true); // Start with loading
   const [showCurrencyDropdown, setShowCurrencyDropdown] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
   // Official exchange rates from backend
   const [officialRates, setOfficialRates] = useState<{ [key: string]: ExchangeRateData }>({});
@@ -212,6 +213,11 @@ export function SubscriptionManager({
 
   const currentPlanData = plans.find(p => p.id === currentPlan);
   const selectedPlanData = plans.find(p => p.id === selectedPlan);
+
+  // Set mounted to true after hydration to avoid hydration mismatch
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Fetch available currencies and exchange rates on mount
   useEffect(() => {
@@ -457,7 +463,7 @@ export function SubscriptionManager({
             ) : (
               <>
                 <div className="flex items-baseline gap-1">
-                  {pricingLoading ? (
+                  {!mounted || pricingLoading ? (
                     <span className="text-5xl font-bold text-gray-400 dark:text-gray-500 animate-pulse">...</span>
                   ) : (
                     <span className="text-5xl font-bold text-gray-900 dark:text-white" suppressHydrationWarning>
@@ -468,7 +474,7 @@ export function SubscriptionManager({
                     /month
                   </span>
                 </div>
-                {selectedCycle === 'annual' && !pricingLoading && (
+                {selectedCycle === 'annual' && mounted && !pricingLoading && (
                   <div className="mt-2 space-y-1" suppressHydrationWarning>
                     <p className="text-sm text-gray-500 dark:text-gray-400">
                       <span className="line-through">{symbol}{monthlyOriginal.toLocaleString()}</span>

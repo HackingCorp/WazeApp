@@ -50,6 +50,7 @@ export class PricingController {
           agents: plan.agents,
           storage: plan.storage,
           priceFormatted: `${price.symbol}${price.amount.toLocaleString()}`,
+          yearlyTotal: price.yearlyTotal, // Total annual price for annual billing
         };
       }
 

@@ -17,7 +17,10 @@ interface CurrencyInfo {
 }
 
 interface PriceCache {
-  [key: string]: number
+  [key: string]: {
+    price: number;
+    yearlyTotal?: number;
+  }
 }
 
 interface ExchangeRateData {
@@ -107,7 +110,10 @@ export default function PricingPage() {
       if (data.success && data.plans) {
         const newCache: PriceCache = {}
         Object.entries(data.plans).forEach(([planId, planData]: [string, any]) => {
-          newCache[planId] = planData.price
+          newCache[planId] = {
+            price: planData.price,
+            yearlyTotal: planData.yearlyTotal,
+          }
         })
         setPriceCache(newCache)
       }
@@ -129,8 +135,8 @@ export default function PricingPage() {
 
   const calculatePrice = (price: number, planId?: string) => {
     // Primary: If we have cached API price, use it (already converted by backend)
-    if (planId && priceCache[planId] !== undefined) {
-      return priceCache[planId]
+    if (planId && priceCache[planId]?.price !== undefined) {
+      return priceCache[planId].price
     }
 
     // Fallback: Use official exchange rates from backend for local calculation
@@ -154,6 +160,14 @@ export default function PricingPage() {
     }
 
     return Math.round(converted * 100) / 100
+  }
+
+  // Get yearly total for a plan (for annual billing display)
+  const getYearlyTotal = (planId?: string): number | undefined => {
+    if (planId && priceCache[planId]?.yearlyTotal) {
+      return priceCache[planId].yearlyTotal
+    }
+    return undefined
   }
 
   const plans = [
@@ -364,8 +378,14 @@ export default function PricingPage() {
                     )}
                   </span>
                   <span className="text-muted-foreground">
-                    /{billingPeriod === "monthly" ? t("perMonth") : t("perYear")}
+                    /{t("perMonth")}
                   </span>
+                  {billingPeriod === "annually" && plan.price[billingPeriod] > 0 && !loading && (
+                    <p className="text-sm text-muted-foreground mt-1">
+                      {t("billingSave")} • {currency.symbol}
+                      {(getYearlyTotal(plan.id) || calculatePrice(plan.price[billingPeriod], plan.id) * 12).toLocaleString()} {t("perYear")}
+                    </p>
+                  )}
                 </div>
 
                 <Link href="/register">

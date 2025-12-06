@@ -177,6 +177,7 @@ interface DynamicPricing {
     symbol: string;
     currency: string;
     priceFormatted: string;
+    yearlyTotal?: number; // Total annual price when billing is annual
   };
 }
 
@@ -260,6 +261,7 @@ export function SubscriptionManager({
               symbol: plan.symbol,
               currency: plan.currency,
               priceFormatted: plan.priceFormatted,
+              yearlyTotal: plan.yearlyTotal, // Total annual price when billing is annual
             };
           }
           setDynamicPricing(pricing);
@@ -320,7 +322,7 @@ export function SubscriptionManager({
   };
 
   // Get price for a plan in the selected currency
-  const getPlanPrice = (planId: string): { price: number; symbol: string; formatted: string } => {
+  const getPlanPrice = (planId: string): { price: number; symbol: string; formatted: string; yearlyTotal?: number } => {
     // Primary: Use dynamically fetched pricing from backend (already converted)
     const pricing = dynamicPricing[planId];
     if (pricing) {
@@ -328,6 +330,7 @@ export function SubscriptionManager({
         price: pricing.price,
         symbol: pricing.symbol,
         formatted: pricing.priceFormatted,
+        yearlyTotal: pricing.yearlyTotal,
       };
     }
 
@@ -375,10 +378,13 @@ export function SubscriptionManager({
     const planPricing = getPlanPrice(plan.id);
     const symbol = planPricing.symbol;
 
-    // When annual is selected, API returns the annual total - we need to calculate monthly equivalent
-    const apiPrice = planPricing.price;
-    const price = selectedCycle === 'annual' && apiPrice > 0 ? Math.round(apiPrice / 12) : apiPrice;
-    const yearlyPrice = selectedCycle === 'annual' ? apiPrice : price * 12;
+    // Backend now returns monthly equivalent for annual billing (already divided by 12)
+    // So we use the price directly without additional division
+    const price = planPricing.price;
+    // For yearly total: use yearlyTotal from API if available, otherwise calculate
+    const yearlyPrice = selectedCycle === 'annual'
+      ? (planPricing.yearlyTotal || price * 12)
+      : price * 12;
     // Calculate what the monthly price would be without discount (for "Save 17%" display)
     const monthlyOriginal = selectedCycle === 'annual' ? Math.round(price / 0.83) : price;
 

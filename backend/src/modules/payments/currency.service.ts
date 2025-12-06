@@ -249,25 +249,39 @@ export class CurrencyService {
 
   /**
    * Obtient le prix d'un plan dans une devise donnée
+   * Pour le billing annuel, retourne le prix MENSUEL équivalent (avec réduction ~17%)
    */
   async getPlanPrice(
     planId: string,
     currency: string,
     billingPeriod: 'monthly' | 'annually' = 'monthly'
-  ): Promise<{ amount: number; currency: string; symbol: string }> {
+  ): Promise<{ amount: number; currency: string; symbol: string; yearlyTotal?: number }> {
     const plan = this.PRICING[planId.toUpperCase()];
 
     if (!plan) {
       throw new Error(`Plan ${planId} not found`);
     }
 
-    const priceUSD = billingPeriod === 'monthly' ? plan.priceUSD : plan.priceAnnualUSD;
-    const convertedAmount = await this.convertFromUSD(priceUSD, currency);
+    let monthlyPrice: number;
+    let yearlyTotal: number | undefined;
+
+    if (billingPeriod === 'annually') {
+      // Pour l'annuel: retourner le prix mensuel équivalent (avec réduction)
+      // priceAnnualUSD est le total annuel, on divise par 12 pour le mensuel
+      monthlyPrice = plan.priceAnnualUSD / 12;
+      yearlyTotal = await this.convertFromUSD(plan.priceAnnualUSD, currency);
+    } else {
+      // Pour le mensuel: retourner le prix mensuel normal
+      monthlyPrice = plan.priceUSD;
+    }
+
+    const convertedAmount = await this.convertFromUSD(monthlyPrice, currency);
 
     return {
       amount: convertedAmount,
       currency: currency.toUpperCase(),
       symbol: this.getCurrencySymbol(currency),
+      yearlyTotal,
     };
   }
 

@@ -79,8 +79,8 @@ const plans: Plan[] = [
   {
     id: 'standard',
     name: 'Standard',
-    price: 29.99,
-    priceFCFA: 19000,
+    price: 2, // TEMP TEST (was 29.99)
+    priceFCFA: 1300, // TEMP TEST (was 19000)
     interval: 'month',
     description: 'Great for small businesses',
     icon: Shield,
@@ -106,8 +106,8 @@ const plans: Plan[] = [
   {
     id: 'pro',
     name: 'Pro',
-    price: 49.99,
-    priceFCFA: 32000,
+    price: 3, // TEMP TEST (was 49.99)
+    priceFCFA: 1950, // TEMP TEST (was 32000)
     interval: 'month',
     description: 'Perfect for growing teams',
     icon: Crown,
@@ -136,8 +136,8 @@ const plans: Plan[] = [
   {
     id: 'enterprise',
     name: 'Enterprise',
-    price: 199,
-    priceFCFA: 130000,
+    price: 4, // TEMP TEST (was 199)
+    priceFCFA: 2600, // TEMP TEST (was 130000)
     interval: 'month',
     description: 'For large organizations',
     icon: Star,

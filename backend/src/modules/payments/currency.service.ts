@@ -77,8 +77,8 @@ export class CurrencyService {
     STANDARD: {
       id: 'STANDARD',
       name: 'Standard',
-      priceUSD: 29.99,
-      priceAnnualUSD: 287.90, // ~20% discount
+      priceUSD: 2, // TEMP TEST PRICE (was 29.99)
+      priceAnnualUSD: 19.20, // TEMP TEST PRICE (was 287.90)
       messages: 2000,
       agents: 1,
       storage: '500MB',
@@ -94,8 +94,8 @@ export class CurrencyService {
     PRO: {
       id: 'PRO',
       name: 'Pro',
-      priceUSD: 49.99,
-      priceAnnualUSD: 479.90, // ~20% discount
+      priceUSD: 3, // TEMP TEST PRICE (was 49.99)
+      priceAnnualUSD: 28.80, // TEMP TEST PRICE (was 479.90)
       messages: 8000,
       agents: 3,
       storage: '5GB',
@@ -111,8 +111,8 @@ export class CurrencyService {
     ENTERPRISE: {
       id: 'ENTERPRISE',
       name: 'Enterprise',
-      priceUSD: 199,
-      priceAnnualUSD: 1910, // ~20% discount
+      priceUSD: 4, // TEMP TEST PRICE (was 199)
+      priceAnnualUSD: 38.40, // TEMP TEST PRICE (was 1910)
       messages: 30000,
       agents: 10,
       storage: '20GB',

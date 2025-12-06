@@ -521,6 +521,8 @@ export class AuthService {
   }
 
   async getProfile(userId: string) {
+    // Note: currentOrganizationId is a virtual property, not a DB column
+    // We'll set it based on organization memberships below
     const user = await this.userRepository.findOne({
       where: { id: userId },
       select: [
@@ -530,7 +532,6 @@ export class AuthService {
         "lastName",
         "emailVerified",
         "twoFactorEnabled",
-        "currentOrganizationId",
         "createdAt",
         "updatedAt",
       ],
@@ -546,31 +547,26 @@ export class AuthService {
       relations: ["organization"],
     });
 
-    // Get current organization details if exists
+    // Get current organization details - use the first membership
+    // Note: currentOrganizationId is a virtual property, not stored in DB
     let currentOrganization = null;
-    if (user.currentOrganizationId) {
-      const currentMembership = memberships.find(
-        (m) => m.organization.id === user.currentOrganizationId
-      );
-      if (currentMembership) {
-        currentOrganization = {
-          id: currentMembership.organization.id,
-          name: currentMembership.organization.name,
-          role: currentMembership.role,
-        };
-      }
-    } else if (memberships.length > 0) {
-      // If no current org set, use the first one
+    let currentOrganizationId = null;
+
+    if (memberships.length > 0) {
+      // Use the first organization as the current one
+      const primaryMembership = memberships[0];
       currentOrganization = {
-        id: memberships[0].organization.id,
-        name: memberships[0].organization.name,
-        role: memberships[0].role,
+        id: primaryMembership.organization.id,
+        name: primaryMembership.organization.name,
+        role: primaryMembership.role,
       };
+      currentOrganizationId = primaryMembership.organization.id;
     }
 
     return {
       user: {
         ...user,
+        currentOrganizationId,
         currentOrganization,
       },
       organizations: memberships.map((m) => ({

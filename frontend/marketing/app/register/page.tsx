@@ -1,27 +1,87 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { motion, AnimatePresence } from "framer-motion"
 import { Button } from "@/components/ui/button"
-import { 
-  Mail, 
-  Lock, 
-  Eye, 
-  EyeOff, 
-  ArrowLeft, 
+import {
+  Mail,
+  Lock,
+  Eye,
+  EyeOff,
+  ArrowLeft,
   ArrowRight,
-  User, 
-  AlertCircle, 
+  User,
+  AlertCircle,
   Building,
-  CheckCircle
+  CheckCircle,
+  Check,
+  X,
+  Sparkles
 } from "lucide-react"
 import { api } from "@/lib/api"
 import { PhoneInput } from "@/components/ui/phone-input"
 
+// Plan data
+const plans = [
+  {
+    id: "FREE",
+    name: "Gratuit",
+    description: "Parfait pour essayer WazeApp",
+    price: 0,
+    features: [
+      { name: "1 Agent WhatsApp", included: true },
+      { name: "100 messages/mois", included: true },
+      { name: "100MB de stockage", included: true },
+      { name: "Support par e-mail", included: true },
+    ],
+    popular: false,
+  },
+  {
+    id: "STANDARD",
+    name: "Standard",
+    description: "Idéal pour les petites entreprises",
+    price: 2,
+    features: [
+      { name: "1 Agent WhatsApp", included: true },
+      { name: "2 000 messages/mois", included: true },
+      { name: "500MB de stockage", included: true },
+      { name: "Support prioritaire", included: true },
+    ],
+    popular: false,
+  },
+  {
+    id: "PRO",
+    name: "Pro",
+    description: "Pour les équipes en croissance",
+    price: 3,
+    features: [
+      { name: "3 Agents WhatsApp", included: true },
+      { name: "8 000 messages/mois", included: true },
+      { name: "5GB de stockage", included: true },
+      { name: "Support chat 24h/24", included: true },
+    ],
+    popular: true,
+  },
+  {
+    id: "ENTERPRISE",
+    name: "Entreprise",
+    description: "Pour les grandes organisations",
+    price: 4,
+    features: [
+      { name: "10 Agents WhatsApp", included: true },
+      { name: "30 000 messages/mois", included: true },
+      { name: "20GB de stockage", included: true },
+      { name: "Support dédié", included: true },
+    ],
+    popular: false,
+  },
+]
+
 export default function RegisterPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [currentStep, setCurrentStep] = useState(1)
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
@@ -35,60 +95,74 @@ export default function RegisterPage() {
     confirmPassword: "",
     organizationName: "",
     acceptTerms: false,
+    selectedPlan: "FREE",
   })
 
+  // Check for plan parameter in URL
+  useEffect(() => {
+    const planParam = searchParams?.get('plan')
+    if (planParam && plans.find(p => p.id === planParam.toUpperCase())) {
+      setFormData(prev => ({ ...prev, selectedPlan: planParam.toUpperCase() }))
+    }
+  }, [searchParams])
+
   const steps = [
-    { id: 1, title: "Personal Info", description: "Tell us about yourself" },
-    { id: 2, title: "Account Setup", description: "Create your account" },
-    { id: 3, title: "Organization", description: "Set up your workspace" },
+    { id: 1, title: "Forfait", description: "Choisissez votre forfait" },
+    { id: 2, title: "Informations", description: "Parlez-nous de vous" },
+    { id: 3, title: "Compte", description: "Créez votre compte" },
+    { id: 4, title: "Organisation", description: "Configurez votre espace" },
   ]
 
   const validateStep = (step: number): boolean => {
     setError("")
-    
+
     switch (step) {
       case 1:
+        // Plan selection - always valid (has default)
+        return true
+
+      case 2:
         if (!formData.firstName.trim()) {
-          setError("First name is required")
+          setError("Le prénom est requis")
           return false
         }
         if (!formData.lastName.trim()) {
-          setError("Last name is required")
+          setError("Le nom est requis")
           return false
         }
         return true
-      
-      case 2:
+
+      case 3:
         if (!formData.email.trim()) {
-          setError("Email is required")
+          setError("L'email est requis")
           return false
         }
         if (!formData.password) {
-          setError("Password is required")
+          setError("Le mot de passe est requis")
           return false
         }
         if (formData.password.length < 8) {
-          setError("Password must be at least 8 characters long")
+          setError("Le mot de passe doit contenir au moins 8 caractères")
           return false
         }
         const passwordRegex = /((?=.*\d)|(?=.*\W+))(?![.\n])(?=.*[A-Z])(?=.*[a-z]).*$/;
         if (!passwordRegex.test(formData.password)) {
-          setError("Password must contain uppercase, lowercase, and number/special character")
+          setError("Le mot de passe doit contenir majuscule, minuscule et chiffre/caractère spécial")
           return false
         }
         if (formData.password !== formData.confirmPassword) {
-          setError("Passwords do not match")
+          setError("Les mots de passe ne correspondent pas")
           return false
         }
         return true
-      
-      case 3:
+
+      case 4:
         if (!formData.acceptTerms) {
-          setError("You must accept the terms and conditions")
+          setError("Vous devez accepter les conditions d'utilisation")
           return false
         }
         return true
-      
+
       default:
         return true
     }
@@ -96,7 +170,7 @@ export default function RegisterPage() {
 
   const handleNext = () => {
     if (validateStep(currentStep)) {
-      setCurrentStep(prev => Math.min(prev + 1, 3))
+      setCurrentStep(prev => Math.min(prev + 1, 4))
     }
   }
 
@@ -107,8 +181,8 @@ export default function RegisterPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
-    if (!validateStep(3)) return
+
+    if (!validateStep(4)) return
 
     setIsLoading(true)
 
@@ -120,15 +194,21 @@ export default function RegisterPage() {
         password: formData.password,
         phone: formData.phone.trim() || undefined,
         organizationName: formData.organizationName.trim() || undefined,
+        plan: formData.selectedPlan,
       })
 
       if (response.success) {
-        router.push("/verify-email")
+        // If paid plan selected, redirect to billing page after verification
+        if (formData.selectedPlan !== "FREE") {
+          router.push(`/verify-email?plan=${formData.selectedPlan.toLowerCase()}`)
+        } else {
+          router.push("/verify-email")
+        }
       } else {
-        setError(response.error || "Registration failed. Please try again.")
+        setError(response.error || "Échec de l'inscription. Veuillez réessayer.")
       }
     } catch (err) {
-      setError("Network error. Please try again.")
+      setError("Erreur réseau. Veuillez réessayer.")
       console.error("Registration error:", err)
     } finally {
       setIsLoading(false)
@@ -162,56 +242,57 @@ export default function RegisterPage() {
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -20 }}
-            className="space-y-6"
+            className="space-y-4"
           >
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label htmlFor="firstName" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  First name *
-                </label>
-                <div className="relative">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-                  <input
-                    id="firstName"
-                    type="text"
-                    value={formData.firstName}
-                    onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-                    className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:border-gray-600"
-                    placeholder="John"
-                    required
-                  />
-                </div>
-              </div>
-              
-              <div>
-                <label htmlFor="lastName" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Last name *
-                </label>
-                <div className="relative">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-                  <input
-                    id="lastName"
-                    type="text"
-                    value={formData.lastName}
-                    onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-                    className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:border-gray-600"
-                    placeholder="Doe"
-                    required
-                  />
-                </div>
-              </div>
+            <p className="text-sm text-center text-muted-foreground mb-4">
+              Sélectionnez le forfait qui correspond à vos besoins
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              {plans.map((plan) => (
+                <button
+                  key={plan.id}
+                  type="button"
+                  onClick={() => setFormData({ ...formData, selectedPlan: plan.id })}
+                  className={`relative p-4 rounded-xl border-2 text-left transition-all ${
+                    formData.selectedPlan === plan.id
+                      ? "border-primary bg-primary/5 dark:bg-primary/10"
+                      : "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600"
+                  }`}
+                >
+                  {plan.popular && (
+                    <div className="absolute -top-2 right-2">
+                      <span className="bg-primary text-white text-xs px-2 py-0.5 rounded-full flex items-center">
+                        <Sparkles className="h-3 w-3 mr-1" />
+                        Populaire
+                      </span>
+                    </div>
+                  )}
+                  {formData.selectedPlan === plan.id && (
+                    <div className="absolute top-2 left-2">
+                      <CheckCircle className="h-5 w-5 text-primary" />
+                    </div>
+                  )}
+                  <div className={formData.selectedPlan === plan.id ? "pl-6" : ""}>
+                    <h4 className="font-semibold text-gray-900 dark:text-white">{plan.name}</h4>
+                    <p className="text-xs text-muted-foreground mt-1">{plan.description}</p>
+                    <p className="text-lg font-bold text-gray-900 dark:text-white mt-2">
+                      ${plan.price}<span className="text-sm font-normal text-muted-foreground">/mois</span>
+                    </p>
+                    <ul className="mt-3 space-y-1">
+                      {plan.features.slice(0, 2).map((feature, idx) => (
+                        <li key={idx} className="flex items-center text-xs text-gray-600 dark:text-gray-400">
+                          <Check className="h-3 w-3 text-green-500 mr-1 flex-shrink-0" />
+                          {feature.name}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </button>
+              ))}
             </div>
-
-            <div>
-              <label htmlFor="phone" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Phone number (optional)
-              </label>
-              <PhoneInput
-                value={formData.phone}
-                onChange={(value) => setFormData({ ...formData, phone: value })}
-                placeholder="6 12 34 56 78"
-              />
-            </div>
+            <p className="text-xs text-center text-muted-foreground">
+              Vous pourrez modifier votre forfait à tout moment
+            </p>
           </motion.div>
         )
 
@@ -223,9 +304,68 @@ export default function RegisterPage() {
             exit={{ opacity: 0, x: -20 }}
             className="space-y-6"
           >
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label htmlFor="firstName" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Prénom *
+                </label>
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                  <input
+                    id="firstName"
+                    type="text"
+                    value={formData.firstName}
+                    onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                    className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:border-gray-600"
+                    placeholder="Jean"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor="lastName" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Nom *
+                </label>
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                  <input
+                    id="lastName"
+                    type="text"
+                    value={formData.lastName}
+                    onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                    className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:border-gray-600"
+                    placeholder="Dupont"
+                    required
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <label htmlFor="phone" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Numéro de téléphone (optionnel)
+              </label>
+              <PhoneInput
+                value={formData.phone}
+                onChange={(value) => setFormData({ ...formData, phone: value })}
+                placeholder="6 12 34 56 78"
+              />
+            </div>
+          </motion.div>
+        )
+
+      case 3:
+        return (
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            className="space-y-6"
+          >
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Email address *
+                Adresse email *
               </label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
@@ -235,7 +375,7 @@ export default function RegisterPage() {
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:border-gray-600"
-                  placeholder="you@example.com"
+                  placeholder="vous@exemple.com"
                   required
                 />
               </div>
@@ -243,7 +383,7 @@ export default function RegisterPage() {
 
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Password *
+                Mot de passe *
               </label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
@@ -264,12 +404,12 @@ export default function RegisterPage() {
                   {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                 </button>
               </div>
-              <p className="mt-1 text-xs text-gray-500">Must be at least 8 characters with uppercase, lowercase, and number/special character</p>
+              <p className="mt-1 text-xs text-gray-500">Min. 8 caractères avec majuscule, minuscule et chiffre/caractère spécial</p>
             </div>
 
             <div>
               <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Confirm password *
+                Confirmer le mot de passe *
               </label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
@@ -287,7 +427,7 @@ export default function RegisterPage() {
           </motion.div>
         )
 
-      case 3:
+      case 4:
         return (
           <motion.div
             initial={{ opacity: 0, x: 20 }}
@@ -297,7 +437,7 @@ export default function RegisterPage() {
           >
             <div>
               <label htmlFor="organizationName" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Organization name (optional)
+                Nom de l'organisation (optionnel)
               </label>
               <div className="relative">
                 <Building className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
@@ -307,10 +447,10 @@ export default function RegisterPage() {
                   value={formData.organizationName}
                   onChange={(e) => setFormData({ ...formData, organizationName: e.target.value })}
                   className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:border-gray-600"
-                  placeholder="Your company name"
+                  placeholder="Nom de votre entreprise"
                 />
               </div>
-              <p className="mt-1 text-xs text-gray-500">Leave empty to create a personal account</p>
+              <p className="mt-1 text-xs text-gray-500">Laissez vide pour créer un compte personnel</p>
             </div>
 
             <div>
@@ -323,25 +463,43 @@ export default function RegisterPage() {
                   required
                 />
                 <span className="ml-3 text-sm text-gray-600 dark:text-gray-400">
-                  I agree to the{" "}
+                  J'accepte les{" "}
                   <Link href="/terms" className="text-primary hover:underline" target="_blank">
-                    Terms of Service
+                    Conditions d'utilisation
                   </Link>{" "}
-                  and{" "}
+                  et la{" "}
                   <Link href="/privacy" className="text-primary hover:underline" target="_blank">
-                    Privacy Policy
+                    Politique de confidentialité
                   </Link>
                 </span>
               </label>
+            </div>
+
+            {/* Summary of selected plan */}
+            <div className="bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-lg p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Forfait sélectionné</p>
+                  <p className="text-lg font-bold text-gray-900 dark:text-white">
+                    {plans.find(p => p.id === formData.selectedPlan)?.name}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-lg font-bold text-primary">
+                    ${plans.find(p => p.id === formData.selectedPlan)?.price}/mois
+                  </p>
+                </div>
+              </div>
             </div>
 
             <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
               <div className="flex items-center">
                 <CheckCircle className="h-5 w-5 text-green-500 mr-3" />
                 <div>
-                  <p className="text-sm font-medium text-green-700 dark:text-green-300">Ready to get started!</p>
+                  <p className="text-sm font-medium text-green-700 dark:text-green-300">Prêt à commencer !</p>
                   <p className="text-xs text-green-600 dark:text-green-400 mt-1">
-                    You'll receive an email verification link after registration.
+                    Vous recevrez un email de vérification après l'inscription.
+                    {formData.selectedPlan !== "FREE" && " Vous pourrez ensuite procéder au paiement."}
                   </p>
                 </div>
               </div>
@@ -368,14 +526,14 @@ export default function RegisterPage() {
             className="inline-flex items-center text-sm text-muted-foreground hover:text-primary mb-6"
           >
             <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to home
+            Retour à l'accueil
           </Link>
 
           <div className="text-center mb-8">
             <div className="inline-flex items-center justify-center h-12 w-12 rounded-lg bg-whatsapp mb-4">
               <span className="text-white font-bold text-xl">W</span>
             </div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Create your account</h1>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Créer votre compte</h1>
             <p className="text-muted-foreground mt-2">
               {steps[currentStep - 1].description}
             </p>
@@ -386,11 +544,11 @@ export default function RegisterPage() {
             {steps.map((step, index) => (
               <div key={step.id} className="flex items-center">
                 <div className={`
-                  flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium
-                  ${currentStep > step.id 
-                    ? 'bg-green-500 text-white' 
-                    : currentStep === step.id 
-                    ? 'bg-primary text-white' 
+                  flex items-center justify-center w-7 h-7 rounded-full text-xs font-medium
+                  ${currentStep > step.id
+                    ? 'bg-green-500 text-white'
+                    : currentStep === step.id
+                    ? 'bg-primary text-white'
                     : 'bg-gray-200 dark:bg-gray-600 text-gray-500 dark:text-gray-400'
                   }
                 `}>
@@ -401,7 +559,7 @@ export default function RegisterPage() {
                   )}
                 </div>
                 {index < steps.length - 1 && (
-                  <div className={`w-12 h-1 mx-2 ${
+                  <div className={`w-8 h-1 mx-1 ${
                     currentStep > step.id ? 'bg-green-500' : 'bg-gray-200 dark:bg-gray-600'
                   }`} />
                 )}
@@ -432,19 +590,19 @@ export default function RegisterPage() {
                   className="flex items-center"
                 >
                   <ArrowLeft className="w-4 h-4 mr-2" />
-                  Previous
+                  Précédent
                 </Button>
               ) : (
                 <div /> // Spacer
               )}
 
-              {currentStep < 3 ? (
+              {currentStep < 4 ? (
                 <Button
                   type="button"
                   onClick={handleNext}
                   className="flex items-center"
                 >
-                  Next
+                  Suivant
                   <ArrowRight className="w-4 h-4 ml-2" />
                 </Button>
               ) : (
@@ -452,11 +610,11 @@ export default function RegisterPage() {
                   {isLoading ? (
                     <>
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                      Creating account...
+                      Création en cours...
                     </>
                   ) : (
                     <>
-                      Create account
+                      Créer mon compte
                       <CheckCircle className="w-4 h-4 ml-2" />
                     </>
                   )}
@@ -465,7 +623,7 @@ export default function RegisterPage() {
             </div>
           </form>
 
-          {currentStep === 1 && (
+          {currentStep === 2 && (
             <>
               <div className="mt-6">
                 <div className="relative">
@@ -473,7 +631,7 @@ export default function RegisterPage() {
                     <div className="w-full border-t dark:border-gray-700"></div>
                   </div>
                   <div className="relative flex justify-center text-sm">
-                    <span className="px-2 bg-white dark:bg-gray-800 text-gray-500">Or continue with</span>
+                    <span className="px-2 bg-white dark:bg-gray-800 text-gray-500">Ou continuer avec</span>
                   </div>
                 </div>
 
@@ -514,9 +672,9 @@ export default function RegisterPage() {
 
           <div className="mt-6 text-center">
             <p className="text-sm text-gray-600 dark:text-gray-400">
-              Already have an account?{" "}
+              Vous avez déjà un compte ?{" "}
               <Link href="/login" className="text-primary hover:underline">
-                Sign in
+                Se connecter
               </Link>
             </p>
           </div>

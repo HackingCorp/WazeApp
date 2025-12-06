@@ -389,7 +389,7 @@ export default function PricingPage() {
                   )}
                 </div>
 
-                <Link href="/register">
+                <Link href={`/register?plan=${plan.id.toLowerCase()}`}>
                   <Button className="w-full" variant={plan.popular ? "default" : "outline"}>
                     {plan.cta}
                   </Button>

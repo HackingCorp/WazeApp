@@ -30,12 +30,19 @@ export class ApiKeyService {
    */
   async canUseExternalApi(organizationId: string): Promise<boolean> {
     const subscription = await this.subscriptionRepository.findOne({
-      where: { organizationId, isActive: true },
+      where: { organizationId },
       order: { createdAt: 'DESC' },
     });
 
-    // Only Enterprise plan can use external API
-    return subscription?.plan === SubscriptionPlan.ENTERPRISE;
+    // Check if subscription is active and has apiAccess feature
+    if (!subscription) return false;
+
+    const isActive = subscription.status === 'active' || subscription.status === 'trialing';
+    if (!isActive) return false;
+
+    // Only Enterprise plan can use external API (matches pricing page)
+    return subscription.plan === SubscriptionPlan.ENTERPRISE &&
+           subscription.features?.apiAccess === true;
   }
 
   /**
@@ -207,6 +214,14 @@ export class ApiKeyService {
     if (requiredPermission && !apiKey.permissions.includes(requiredPermission)) {
       throw new ForbiddenException(
         `API key does not have permission: ${requiredPermission}`,
+      );
+    }
+
+    // IMPORTANT: Verify subscription still allows API access
+    const canUse = await this.canUseExternalApi(apiKey.organizationId);
+    if (!canUse) {
+      throw new ForbiddenException(
+        'External API access requires Enterprise plan. Please upgrade your subscription.',
       );
     }
 

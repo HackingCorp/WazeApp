@@ -76,9 +76,9 @@ export class EnkapPaymentDto {
   @IsString()
   customerPhone: string;
 
-  @ApiProperty({ description: 'Montant total en XAF', example: 5000 })
+  @ApiProperty({ description: 'Montant total', example: 5000 })
   @IsNumber()
-  @Min(100)
+  @Min(1)
   totalAmount: number;
 
   @ApiPropertyOptional({ description: 'Devise', example: 'XAF', default: 'XAF' })

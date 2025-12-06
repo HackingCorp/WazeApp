@@ -453,7 +453,7 @@ export function SubscriptionManager({
                   {pricingLoading ? (
                     <span className="text-5xl font-bold text-gray-400 dark:text-gray-500 animate-pulse">...</span>
                   ) : (
-                    <span className="text-5xl font-bold text-gray-900 dark:text-white">
+                    <span className="text-5xl font-bold text-gray-900 dark:text-white" suppressHydrationWarning>
                       {symbol}{price.toLocaleString()}
                     </span>
                   )}
@@ -462,7 +462,7 @@ export function SubscriptionManager({
                   </span>
                 </div>
                 {selectedCycle === 'annual' && !pricingLoading && (
-                  <div className="mt-2 space-y-1">
+                  <div className="mt-2 space-y-1" suppressHydrationWarning>
                     <p className="text-sm text-gray-500 dark:text-gray-400">
                       <span className="line-through">{symbol}{monthlyOriginal.toLocaleString()}</span>
                       <span className="ml-2 text-emerald-600 dark:text-emerald-400 font-semibold">
@@ -760,7 +760,7 @@ export function SubscriptionManager({
                 <h3 className="text-xl font-bold text-gray-900 dark:text-white">
                   {currentPlanData.name} Plan
                 </h3>
-                <p className="text-gray-600 dark:text-gray-300">
+                <p className="text-gray-600 dark:text-gray-300" suppressHydrationWarning>
                   {getPlanPrice(currentPlanData.id).price === 0 ? 'Free forever' : `${getPlanPrice(currentPlanData.id).symbol}${getPlanPrice(currentPlanData.id).price.toLocaleString()}/month`}
                 </p>
               </div>
@@ -768,7 +768,7 @@ export function SubscriptionManager({
             {getPlanPrice(currentPlanData.id).price > 0 && (
               <div className="text-left md:text-right">
                 <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Next billing date</p>
-                <p className="text-lg font-semibold text-gray-900 dark:text-white">
+                <p className="text-lg font-semibold text-gray-900 dark:text-white" suppressHydrationWarning>
                   {format(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), 'MMMM dd, yyyy')}
                 </p>
               </div>
@@ -818,7 +818,7 @@ export function SubscriptionManager({
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-gray-600 dark:text-gray-400">Price</span>
-                  <span className="font-semibold text-gray-900 dark:text-white">
+                  <span className="font-semibold text-gray-900 dark:text-white" suppressHydrationWarning>
                     {getPlanPrice(selectedPlanData.id).price === 0 ? 'Free' : `${getPlanPrice(selectedPlanData.id).symbol}${getPlanPrice(selectedPlanData.id).price.toLocaleString()}/month`}
                   </span>
                 </div>

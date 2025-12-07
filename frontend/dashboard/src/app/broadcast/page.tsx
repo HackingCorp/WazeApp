@@ -37,6 +37,7 @@ import {
   Eye,
 } from 'lucide-react';
 import { api } from '@/lib/api';
+import { useSocket } from '@/providers/SocketProvider';
 
 type TabType = 'contacts' | 'templates' | 'campaigns';
 
@@ -108,6 +109,7 @@ const templateTypes = [
 ];
 
 export default function BroadcastPage() {
+  const { subscribe } = useSocket();
   const [activeTab, setActiveTab] = useState<TabType>('contacts');
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [templates, setTemplates] = useState<Template[]>([]);
@@ -127,7 +129,14 @@ export default function BroadcastPage() {
   const [bulkValidating, setBulkValidating] = useState(false);
   const [bulkValidationSessionId, setBulkValidationSessionId] = useState('');
   const [showValidationModal, setShowValidationModal] = useState(false);
-  const [validationProgress, setValidationProgress] = useState({ total: 0, message: '' });
+  const [validationProgress, setValidationProgress] = useState({
+    total: 0,
+    validated: 0,
+    valid: 0,
+    invalid: 0,
+    status: 'pending' as 'pending' | 'in_progress' | 'completed',
+    message: ''
+  });
 
   // Modals
   const [showImportModal, setShowImportModal] = useState(false);
@@ -255,13 +264,24 @@ export default function BroadcastPage() {
     }
     setBulkValidating(true);
     setShowValidationModal(true);
-    setValidationProgress({ total: 0, message: 'Démarrage de la validation...' });
+    setValidationProgress({
+      total: 0,
+      validated: 0,
+      valid: 0,
+      invalid: 0,
+      status: 'pending',
+      message: 'Démarrage de la validation...'
+    });
     try {
       const response = await api.bulkValidateBroadcastContacts(bulkValidationSessionId);
       const resultData = response.data?.data || response.data;
       if (response.success) {
         setValidationProgress({
           total: resultData?.total || 0,
+          validated: 0,
+          valid: 0,
+          invalid: 0,
+          status: 'in_progress',
           message: resultData?.message || 'Validation en cours...'
         });
       }
@@ -342,6 +362,38 @@ export default function BroadcastPage() {
       fetchSessions(),
     ]).finally(() => setLoading(false));
   }, [fetchContacts, fetchTemplates, fetchCampaigns, fetchContactStats, fetchSessions]);
+
+  // Subscribe to validation progress events
+  useEffect(() => {
+    const unsubscribe = subscribe('broadcast:validation-progress', (data: {
+      total: number;
+      validated: number;
+      valid: number;
+      invalid: number;
+      status: 'in_progress' | 'completed';
+    }) => {
+      setValidationProgress({
+        total: data.total,
+        validated: data.validated,
+        valid: data.valid,
+        invalid: data.invalid,
+        status: data.status,
+        message: data.status === 'completed'
+          ? 'Validation terminée!'
+          : `Validation en cours... ${data.validated}/${data.total}`
+      });
+
+      // Refresh contacts when completed
+      if (data.status === 'completed') {
+        fetchContacts();
+        fetchContactStats();
+      }
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [subscribe, fetchContacts, fetchContactStats]);
 
   // Handle import contacts
   const handleImport = async () => {
@@ -1190,36 +1242,70 @@ export default function BroadcastPage() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-gray-800 rounded-xl p-6 w-full max-w-md">
             <div className="text-center">
-              <div className="w-16 h-16 mx-auto mb-4 relative">
-                <div className="absolute inset-0 rounded-full border-4 border-green-200 dark:border-green-900"></div>
-                <div className="absolute inset-0 rounded-full border-4 border-green-600 border-t-transparent animate-spin"></div>
-              </div>
-              <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-2">
-                Validation WhatsApp en cours
-              </h2>
-              <p className="text-gray-600 dark:text-gray-300 mb-4">
-                {validationProgress.message}
-              </p>
-              {validationProgress.total > 0 && (
-                <div className="bg-gray-100 dark:bg-gray-700 rounded-lg p-4 mb-4">
-                  <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-                    {validationProgress.total}
-                  </div>
-                  <div className="text-sm text-gray-500 dark:text-gray-400">
-                    contacts à vérifier
-                  </div>
-                  <div className="text-xs text-gray-400 dark:text-gray-500 mt-2">
-                    Temps estimé: ~{Math.ceil(validationProgress.total * 0.5 / 60)} minutes
-                  </div>
+              {validationProgress.status !== 'completed' ? (
+                <div className="w-16 h-16 mx-auto mb-4 relative">
+                  <div className="absolute inset-0 rounded-full border-4 border-green-200 dark:border-green-900"></div>
+                  <div className="absolute inset-0 rounded-full border-4 border-green-600 border-t-transparent animate-spin"></div>
+                </div>
+              ) : (
+                <div className="w-16 h-16 mx-auto mb-4 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
+                  <CheckCircle className="w-10 h-10 text-green-600" />
                 </div>
               )}
+              <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-2">
+                {validationProgress.status === 'completed' ? 'Validation terminée!' : 'Validation WhatsApp en cours'}
+              </h2>
+
+              {validationProgress.total > 0 && (
+                <div className="bg-gray-100 dark:bg-gray-700 rounded-lg p-4 mb-4">
+                  {/* Progress bar */}
+                  <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-3 mb-3">
+                    <div
+                      className="bg-green-600 h-3 rounded-full transition-all duration-300"
+                      style={{ width: `${(validationProgress.validated / validationProgress.total) * 100}%` }}
+                    ></div>
+                  </div>
+
+                  {/* Progress numbers */}
+                  <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+                    {validationProgress.validated} / {validationProgress.total}
+                  </div>
+                  <div className="text-sm text-gray-500 dark:text-gray-400 mb-3">
+                    contacts vérifiés
+                  </div>
+
+                  {/* Stats */}
+                  <div className="flex justify-center gap-6 text-sm">
+                    <div className="text-center">
+                      <div className="font-bold text-green-600">{validationProgress.valid}</div>
+                      <div className="text-gray-500 dark:text-gray-400">Valides</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="font-bold text-red-600">{validationProgress.invalid}</div>
+                      <div className="text-gray-500 dark:text-gray-400">Invalides</div>
+                    </div>
+                  </div>
+
+                  {validationProgress.status !== 'completed' && (
+                    <div className="text-xs text-gray-400 dark:text-gray-500 mt-3">
+                      Temps restant: ~{Math.ceil((validationProgress.total - validationProgress.validated) * 0.5 / 60)} minutes
+                    </div>
+                  )}
+                </div>
+              )}
+
               <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-                La validation se poursuit en arrière-plan. Vous pouvez fermer cette fenêtre.
+                {validationProgress.status === 'completed'
+                  ? 'Tous les contacts ont été vérifiés.'
+                  : 'La validation se poursuit en arrière-plan. Vous pouvez fermer cette fenêtre.'}
               </p>
               <button
                 onClick={() => {
                   setShowValidationModal(false);
-                  fetchContacts();
+                  if (validationProgress.status === 'completed') {
+                    fetchContacts();
+                    fetchContactStats();
+                  }
                 }}
                 className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
               >

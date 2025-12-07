@@ -1,6 +1,7 @@
 import { Injectable, Logger, BadRequestException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In, Like, ILike } from 'typeorm';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import * as XLSX from 'xlsx';
 import * as Papa from 'papaparse';
 import { BroadcastContact, Subscription, SUBSCRIPTION_LIMITS } from '../../common/entities';
@@ -23,6 +24,7 @@ export class ContactService {
     @InjectRepository(Subscription)
     private subscriptionRepository: Repository<Subscription>,
     private baileysService: BaileysService,
+    private eventEmitter: EventEmitter2,
   ) {}
 
   /**
@@ -324,6 +326,7 @@ export class ContactService {
     organizationId: string,
     sessionId: string,
     phoneNumbers: string[],
+    userId?: string,
   ): Promise<void> {
     this.logger.log(`Validating ${phoneNumbers.length} WhatsApp numbers...`);
 
@@ -333,23 +336,49 @@ export class ContactService {
       return;
     }
 
+    const total = phoneNumbers.length;
+    let validated = 0;
+    let valid = 0;
+    let invalid = 0;
+
     for (const phone of phoneNumbers) {
       try {
         const jid = phone.includes('@') ? phone : `${phone}@s.whatsapp.net`;
         const [result] = await sock.onWhatsApp(jid.replace('@s.whatsapp.net', ''));
+        const isValid = result?.exists || false;
 
         await this.contactRepository.update(
           { organizationId, phoneNumber: phone },
           {
-            isValidWhatsApp: result?.exists || false,
+            isValidWhatsApp: isValid,
             whatsappVerifiedAt: new Date(),
           },
         );
+
+        validated++;
+        if (isValid) valid++;
+        else invalid++;
+
+        // Emit progress event
+        if (userId) {
+          this.eventEmitter.emit('broadcast.validation.progress', {
+            userId,
+            organizationId,
+            total,
+            validated,
+            valid,
+            invalid,
+            currentPhone: phone,
+            status: validated === total ? 'completed' : 'in_progress',
+          });
+        }
 
         // Small delay to avoid rate limiting
         await new Promise((resolve) => setTimeout(resolve, 500));
       } catch (error) {
         this.logger.error(`Failed to validate ${phone}:`, error);
+        validated++;
+        invalid++;
       }
     }
 
@@ -362,6 +391,7 @@ export class ContactService {
   async bulkValidateContacts(
     organizationId: string,
     sessionId: string,
+    userId?: string,
   ): Promise<{ total: number; message: string }> {
     const unverifiedContacts = await this.contactRepository.find({
       where: { organizationId, isValidWhatsApp: null },
@@ -375,8 +405,8 @@ export class ContactService {
     const phoneNumbers = unverifiedContacts.map(c => c.phoneNumber);
     this.logger.log(`Bulk validation started for ${phoneNumbers.length} contacts`);
 
-    // Run validation in background
-    this.validateWhatsAppNumbers(organizationId, sessionId, phoneNumbers).catch((err) => {
+    // Run validation in background with progress tracking
+    this.validateWhatsAppNumbers(organizationId, sessionId, phoneNumbers, userId).catch((err) => {
       this.logger.error('Bulk WhatsApp validation failed:', err);
     });
 

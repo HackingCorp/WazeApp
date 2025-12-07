@@ -352,6 +352,32 @@ export class WhatsAppGateway
     });
   }
 
+  @OnEvent("broadcast.validation.progress")
+  async handleValidationProgress(data: {
+    userId: string;
+    organizationId: string;
+    total: number;
+    validated: number;
+    valid: number;
+    invalid: number;
+    currentPhone: string;
+    status: "in_progress" | "completed";
+  }) {
+    this.logger.log(
+      `📡 Validation progress: ${data.validated}/${data.total} for user ${data.userId}`,
+    );
+
+    // Emit to specific user
+    this.server.to(`user:${data.userId}`).emit("broadcast:validation-progress", {
+      total: data.total,
+      validated: data.validated,
+      valid: data.valid,
+      invalid: data.invalid,
+      status: data.status,
+      timestamp: new Date(),
+    });
+  }
+
   /**
    * Utility methods
    */

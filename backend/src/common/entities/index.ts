@@ -7,6 +7,7 @@ export {
   SUBSCRIPTION_LIMITS,
   SUBSCRIPTION_FEATURES,
 } from "./subscription.entity";
+export { Invoice, InvoiceStatus } from "./invoice.entity";
 export { UsageMetric } from "./usage-metric.entity";
 export { AuditLog } from "./audit-log.entity";
 export { WhatsAppSession } from "./whatsapp-session.entity";

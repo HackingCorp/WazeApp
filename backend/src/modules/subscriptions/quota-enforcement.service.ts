@@ -246,11 +246,12 @@ export class QuotaEnforcementService {
   /**
    * Get actual WhatsApp message count for organization from AgentMessage table
    * Counts messages from conversations linked to sessions OR agents of this organization
+   * Uses billing cycle based on subscription start date (30-day periods)
    */
   private async getActualWhatsAppMessageCount(organizationId: string): Promise<number> {
-    const startOfMonth = new Date();
-    startOfMonth.setDate(1);
-    startOfMonth.setHours(0, 0, 0, 0);
+    // Get subscription to determine billing period
+    const subscription = await this.getActiveSubscription(organizationId);
+    const { start: periodStart } = this.getBillingPeriod(subscription);
 
     // Get all sessions for this organization
     const sessions = await this.sessionRepository.find({
@@ -306,12 +307,12 @@ export class QuotaEnforcementService {
       return 0;
     }
 
-    // Count user messages this month
+    // Count user messages in current billing period
     const count = await this.messageRepository
       .createQueryBuilder('msg')
       .where('msg.conversationId IN (:...conversationIds)', { conversationIds })
       .andWhere('msg.role = :role', { role: MessageRole.USER })
-      .andWhere('msg.createdAt >= :startOfMonth', { startOfMonth })
+      .andWhere('msg.createdAt >= :periodStart', { periodStart })
       .getCount();
 
     return count;
@@ -320,11 +321,12 @@ export class QuotaEnforcementService {
   /**
    * Get actual WhatsApp message count for user from AgentMessage table
    * Counts messages from conversations linked to user's sessions OR agents
+   * Uses billing cycle based on subscription start date (30-day periods)
    */
   private async getUserActualWhatsAppMessageCount(userId: string): Promise<number> {
-    const startOfMonth = new Date();
-    startOfMonth.setDate(1);
-    startOfMonth.setHours(0, 0, 0, 0);
+    // Get subscription to determine billing period
+    const subscription = await this.getActiveUserSubscription(userId);
+    const { start: periodStart } = this.getBillingPeriod(subscription);
 
     // Get all sessions for this user (without organization)
     const sessions = await this.sessionRepository.find({
@@ -380,12 +382,12 @@ export class QuotaEnforcementService {
       return 0;
     }
 
-    // Count user messages this month
+    // Count user messages in current billing period
     const count = await this.messageRepository
       .createQueryBuilder('msg')
       .where('msg.conversationId IN (:...conversationIds)', { conversationIds })
       .andWhere('msg.role = :role', { role: MessageRole.USER })
-      .andWhere('msg.createdAt >= :startOfMonth', { startOfMonth })
+      .andWhere('msg.createdAt >= :periodStart', { periodStart })
       .getCount();
 
     return count;
@@ -811,6 +813,53 @@ export class QuotaEnforcementService {
         ? undefined
         : `${resource} limit exceeded (${current}/${limit} ${unit})`,
     };
+  }
+
+  /**
+   * Get the current billing period based on subscription start date
+   * Returns { start, end } dates for the current 30-day cycle
+   */
+  private getBillingPeriod(subscription: Subscription): { start: Date; end: Date } {
+    const now = new Date();
+    const subscriptionStart = new Date(subscription.startsAt);
+
+    // Calculate how many complete 30-day cycles have passed
+    const daysSinceStart = Math.floor(
+      (now.getTime() - subscriptionStart.getTime()) / (1000 * 60 * 60 * 24)
+    );
+    const completeCycles = Math.floor(daysSinceStart / 30);
+
+    // Current period start is subscriptionStart + (completeCycles * 30 days)
+    const periodStart = new Date(subscriptionStart);
+    periodStart.setDate(periodStart.getDate() + (completeCycles * 30));
+    periodStart.setHours(0, 0, 0, 0);
+
+    // Period end is 30 days after period start
+    const periodEnd = new Date(periodStart);
+    periodEnd.setDate(periodEnd.getDate() + 30);
+    periodEnd.setHours(23, 59, 59, 999);
+
+    return { start: periodStart, end: periodEnd };
+  }
+
+  /**
+   * Check if subscription payment is due (within 7 days of next billing date)
+   */
+  isPaymentDue(subscription: Subscription): boolean {
+    if (!subscription.nextBillingDate) return false;
+    const now = new Date();
+    const daysUntilDue = Math.ceil(
+      (subscription.nextBillingDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
+    );
+    return daysUntilDue <= 7 && daysUntilDue >= 0;
+  }
+
+  /**
+   * Check if subscription is expired (past billing date without payment)
+   */
+  isSubscriptionExpired(subscription: Subscription): boolean {
+    if (!subscription.nextBillingDate) return false;
+    return new Date() > subscription.nextBillingDate;
   }
 
   private async getCurrentStorageUsage(

@@ -30,6 +30,7 @@ import {
   WebhookConfig,
   // Billing entities
   Invoice,
+  Plan,
 } from "../common/entities";
 
 @Module({
@@ -72,6 +73,7 @@ import {
           WebhookConfig,
           // Billing entities
           Invoice,
+          Plan,
         ],
         synchronize:
           configService.get("DATABASE_SYNCHRONIZE", "true") === "true",

@@ -1,18 +1,10 @@
-import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, BadRequestException, Inject, forwardRef } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, LessThanOrEqual, In } from 'typeorm';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { Invoice, InvoiceStatus, Subscription, Organization } from '../../common/entities';
 import { SubscriptionStatus } from '../../common/enums';
-
-// Pricing in XAF (CFA Francs) - TEMP TEST PRICES
-// Real prices: standard=19000, pro=32000, enterprise=130000
-const PLAN_PRICES = {
-  free: 0,
-  standard: 1300,    // TEMP TEST (real: 19,000 XAF/month)
-  pro: 1950,         // TEMP TEST (real: 32,000 XAF/month)
-  enterprise: 2600,  // TEMP TEST (real: 130,000 XAF/month)
-};
+import { PlanService } from './plan.service';
 
 @Injectable()
 export class InvoiceService {
@@ -25,6 +17,8 @@ export class InvoiceService {
     private readonly subscriptionRepository: Repository<Subscription>,
     @InjectRepository(Organization)
     private readonly organizationRepository: Repository<Organization>,
+    @Inject(forwardRef(() => PlanService))
+    private readonly planService: PlanService,
   ) {}
 
   /**
@@ -55,10 +49,11 @@ export class InvoiceService {
       throw new NotFoundException('Subscription not found');
     }
 
-    const plan = subscription.plan.toLowerCase();
-    const priceInCents = (PLAN_PRICES[plan] || 0) * 100; // Convert to cents
+    const planCode = subscription.plan.toLowerCase();
+    const priceXAF = this.planService.getPlanPriceXAF(planCode);
+    const priceInCents = priceXAF * 100; // Convert to cents
 
-    if (priceInCents === 0) {
+    if (priceXAF === 0) {
       // Don't create invoices for free plans
       return null;
     }
@@ -226,8 +221,9 @@ export class InvoiceService {
       })
       .getRawOne();
 
-    const plan = subscription?.plan?.toLowerCase() || 'free';
-    const nextAmount = (PLAN_PRICES[plan] || 0) * 100; // Convert to cents
+    const planCode = subscription?.plan?.toLowerCase() || 'free';
+    const priceXAF = this.planService.getPlanPriceXAF(planCode);
+    const nextAmount = priceXAF * 100; // Convert to cents
 
     // Calculate current billing period
     let billingPeriod = null;
@@ -304,8 +300,9 @@ export class InvoiceService {
     });
 
     for (const subscription of subscriptions) {
-      const plan = subscription.plan.toLowerCase();
-      if (plan === 'free' || !PLAN_PRICES[plan]) continue;
+      const planCode = subscription.plan.toLowerCase();
+      const planPrice = this.planService.getPlanPriceXAF(planCode);
+      if (planCode === 'free' || planPrice === 0) continue;
 
       // Calculate next billing period
       const now = new Date();

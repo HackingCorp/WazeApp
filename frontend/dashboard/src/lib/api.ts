@@ -747,7 +747,7 @@ class ApiClient {
     });
   }
 
-  async createBroadcastTemplateWithMedia(formData: FormData) {
+  async createBroadcastTemplateWithMedia(formData: FormData): Promise<ApiResponse> {
     const response = await fetch(`${this.baseURL}/broadcast/templates/with-media`, {
       method: 'POST',
       headers: {
@@ -845,7 +845,7 @@ class ApiClient {
     });
   }
 
-  async createBroadcastCampaignWithMedia(formData: FormData) {
+  async createBroadcastCampaignWithMedia(formData: FormData): Promise<ApiResponse> {
     const response = await fetch(`${this.baseURL}/broadcast/campaigns/with-media`, {
       method: 'POST',
       headers: {

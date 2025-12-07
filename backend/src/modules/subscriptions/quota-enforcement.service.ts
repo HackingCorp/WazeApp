@@ -675,7 +675,8 @@ export class QuotaEnforcementService {
 
     // Always sync limits and features with the latest code values
     // This ensures upgrades and code updates are always reflected
-    const planKey = activeSubscription.plan.toUpperCase() as keyof typeof SUBSCRIPTION_LIMITS;
+    // Note: SUBSCRIPTION_LIMITS keys are lowercase enum values (e.g., 'standard', 'pro')
+    const planKey = activeSubscription.plan.toLowerCase() as SubscriptionPlan;
     const currentLimits = SUBSCRIPTION_LIMITS[planKey] || SUBSCRIPTION_LIMITS[SubscriptionPlan.FREE];
     const currentFeatures = SUBSCRIPTION_FEATURES[planKey] || SUBSCRIPTION_FEATURES[SubscriptionPlan.FREE];
 
@@ -770,7 +771,8 @@ export class QuotaEnforcementService {
       } else {
         // Always sync limits and features with the latest code values
         // This ensures upgrades and code updates are always reflected
-        const planKey = activeSubscription.plan.toUpperCase() as keyof typeof SUBSCRIPTION_LIMITS;
+        // Note: SUBSCRIPTION_LIMITS keys are lowercase enum values (e.g., 'standard', 'pro')
+        const planKey = activeSubscription.plan.toLowerCase() as SubscriptionPlan;
         const currentLimits = SUBSCRIPTION_LIMITS[planKey] || SUBSCRIPTION_LIMITS[SubscriptionPlan.FREE];
         const currentFeatures = SUBSCRIPTION_FEATURES[planKey] || SUBSCRIPTION_FEATURES[SubscriptionPlan.FREE];
 

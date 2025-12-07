@@ -1130,8 +1130,16 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
       return "disconnected";
     }
 
-    // Check if socket is open and authenticated
-    if (sock.ws && sock.ws.readyState === 1 && sock.user) {
+    // Check if socket is authenticated (has user info)
+    // Baileys socket structure may vary - check multiple indicators
+    const hasUser = !!sock.user;
+    const wsReadyState = sock.ws?.readyState;
+    const isWsOpen = wsReadyState === 1 || wsReadyState === undefined; // undefined means internal handling
+
+    this.logger.debug(`Session ${sessionId} status check: hasUser=${hasUser}, wsReadyState=${wsReadyState}`);
+
+    // If we have user info, consider it connected (Baileys manages the socket internally)
+    if (hasUser) {
       return "connected";
     }
 

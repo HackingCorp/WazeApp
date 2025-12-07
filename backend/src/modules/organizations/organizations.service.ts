@@ -15,6 +15,8 @@ import {
   Subscription,
   WhatsAppSession,
   UsageMetric,
+  SUBSCRIPTION_LIMITS,
+  SUBSCRIPTION_FEATURES,
 } from "@/common/entities";
 import {
   UserRole,
@@ -81,23 +83,13 @@ export class OrganizationsService {
     await this.organizationMemberRepository.save(membership);
 
     // Create default free subscription
+    // IMPORTANT: Use SUBSCRIPTION_LIMITS/FEATURES constants to ensure consistency
     const subscription = this.subscriptionRepository.create({
       organizationId: savedOrganization.id,
       plan: SubscriptionPlan.FREE,
       startsAt: new Date(),
-      limits: {
-        maxAgents: 1,
-        maxRequestsPerMonth: 100,
-        maxStorageBytes: 100 * 1024 * 1024, // 100MB
-        maxKnowledgeChars: 50000,
-      },
-      features: {
-        customBranding: false,
-        prioritySupport: false,
-        analytics: false,
-        apiAccess: false,
-        whiteLabel: false,
-      },
+      limits: SUBSCRIPTION_LIMITS[SubscriptionPlan.FREE],
+      features: SUBSCRIPTION_FEATURES[SubscriptionPlan.FREE],
     });
     await this.subscriptionRepository.save(subscription);
 

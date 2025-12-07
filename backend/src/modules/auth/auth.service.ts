@@ -16,6 +16,8 @@ import {
   Organization,
   OrganizationMember,
   Subscription,
+  SUBSCRIPTION_LIMITS,
+  SUBSCRIPTION_FEATURES,
 } from "@/common/entities";
 import { UserRole, SubscriptionPlan, AuditAction } from "@/common/enums";
 import {
@@ -99,38 +101,15 @@ export class AuthService {
 
     // Create free subscription for all users (with or without organization)
     // Store selected plan in metadata - will be upgraded after payment if paid plan selected
+    // IMPORTANT: Use SUBSCRIPTION_LIMITS/FEATURES constants to ensure consistency
     const selectedPlan = dto.plan?.toUpperCase() || 'FREE';
     const subscription = this.subscriptionRepository.create({
       userId: user.id.toString(),
       organizationId: organization?.id,
       plan: SubscriptionPlan.FREE,
       startsAt: new Date(),
-      limits: {
-        maxAgents: 1,
-        maxRequestsPerMonth: 100,
-        maxStorageBytes: 100 * 1024 * 1024, // 100MB
-        maxKnowledgeChars: 50000,
-        maxKnowledgeBases: 1,
-        maxLLMTokensPerMonth: 10000,
-        maxVectorSearches: 500,
-        maxConversationsPerMonth: 50,
-        maxDocumentsPerKB: 50,
-        maxFileUploadSize: 10 * 1024 * 1024, // 10MB
-      },
-      features: {
-        customBranding: false,
-        prioritySupport: false,
-        analytics: false,
-        apiAccess: false,
-        whiteLabel: false,
-        advancedLLMs: false,
-        premiumVectorSearch: false,
-        functionCalling: false,
-        imageAnalysis: false,
-        customEmbeddings: false,
-        webhooks: false,
-        sso: false,
-      },
+      limits: SUBSCRIPTION_LIMITS[SubscriptionPlan.FREE],
+      features: SUBSCRIPTION_FEATURES[SubscriptionPlan.FREE],
       metadata: selectedPlan !== 'FREE' ? {
         pendingUpgrade: {
           plan: selectedPlan,

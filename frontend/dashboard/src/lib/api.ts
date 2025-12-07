@@ -825,11 +825,10 @@ class ApiClient {
   }
 
   async createBroadcastCampaignWithMedia(formData: FormData) {
-    const token = this.getToken();
     const response = await fetch(`${this.baseUrl}/broadcast/campaigns/with-media`, {
       method: 'POST',
       headers: {
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(this.token ? { Authorization: `Bearer ${this.token}` } : {}),
       },
       body: formData,
     });
@@ -837,7 +836,7 @@ class ApiClient {
     const data = await response.json();
 
     if (response.status === 401) {
-      const refreshed = await this.refreshToken();
+      const refreshed = await this.tryRefreshToken();
       if (refreshed) {
         return this.createBroadcastCampaignWithMedia(formData);
       }

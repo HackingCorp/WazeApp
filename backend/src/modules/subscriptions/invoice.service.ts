@@ -226,10 +226,12 @@ export class InvoiceService {
       .getRawOne();
 
     const plan = subscription?.plan?.toLowerCase() || 'free';
-    const nextAmount = (PLAN_PRICES[plan] || 0) * 100;
+    const nextAmount = (PLAN_PRICES[plan] || 0) * 100; // Convert to cents
 
     // Calculate current billing period
     let billingPeriod = null;
+    let nextBillingDate: Date | null = null;
+
     if (subscription?.startsAt) {
       const now = new Date();
       const subscriptionStart = new Date(subscription.startsAt);
@@ -245,11 +247,14 @@ export class InvoiceService {
       periodEnd.setDate(periodEnd.getDate() + 30);
 
       billingPeriod = { start: periodStart, end: periodEnd };
+
+      // Next billing date is the end of current period
+      nextBillingDate = periodEnd;
     }
 
     return {
       currentPlan: subscription?.plan || 'FREE',
-      nextBillingDate: subscription?.nextBillingDate || null,
+      nextBillingDate,
       nextAmount,
       currency: 'XAF',
       pendingInvoices,

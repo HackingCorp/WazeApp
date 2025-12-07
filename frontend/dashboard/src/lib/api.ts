@@ -775,6 +775,10 @@ class ApiClient {
   }
 
   // Campaigns
+  async getBroadcastCampaignLimits() {
+    return this.request('/broadcast/campaigns/limits');
+  }
+
   async getBroadcastCampaigns(params?: {
     status?: string;
     page?: number;

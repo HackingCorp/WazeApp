@@ -118,6 +118,7 @@ export default function BroadcastPage() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [contactStats, setContactStats] = useState<{ total: number; limit: number | undefined; validated: number; subscribed: number }>({ total: 0, limit: undefined, validated: 0, subscribed: 0 });
+  const [campaignLimits, setCampaignLimits] = useState<{ campaignsPerMonth: number; messagesPerDay: number } | null>(null);
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -352,6 +353,17 @@ export default function BroadcastPage() {
     }
   }, []);
 
+  const fetchCampaignLimits = useCallback(async () => {
+    try {
+      const response = await api.getBroadcastCampaignLimits();
+      if (response.success) {
+        setCampaignLimits(response.data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch campaign limits:', error);
+    }
+  }, []);
+
   useEffect(() => {
     setLoading(true);
     Promise.all([
@@ -360,8 +372,9 @@ export default function BroadcastPage() {
       fetchCampaigns(),
       fetchContactStats(),
       fetchSessions(),
+      fetchCampaignLimits(),
     ]).finally(() => setLoading(false));
-  }, [fetchContacts, fetchTemplates, fetchCampaigns, fetchContactStats, fetchSessions]);
+  }, [fetchContacts, fetchTemplates, fetchCampaigns, fetchContactStats, fetchSessions, fetchCampaignLimits]);
 
   // Subscribe to validation progress events
   useEffect(() => {
@@ -752,8 +765,10 @@ export default function BroadcastPage() {
               <Send className="w-5 h-5 text-green-600 dark:text-green-400" />
             </div>
             <div>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Campagnes</p>
-              <p className="text-xl font-bold text-gray-900 dark:text-white">{campaigns.length}</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Campagnes / mois</p>
+              <p className="text-xl font-bold text-gray-900 dark:text-white">
+                {campaigns.length} / {campaignLimits?.campaignsPerMonth ?? '...'}
+              </p>
             </div>
           </div>
         </div>
@@ -763,9 +778,9 @@ export default function BroadcastPage() {
               <CheckCircle className="w-5 h-5 text-orange-600 dark:text-orange-400" />
             </div>
             <div>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Messages envoyés</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Messages / jour</p>
               <p className="text-xl font-bold text-gray-900 dark:text-white">
-                {campaigns.reduce((acc, c) => acc + (c.stats?.sent || 0), 0)}
+                {campaigns.reduce((acc, c) => acc + (c.stats?.sent || 0), 0)} / {campaignLimits?.messagesPerDay ?? '...'}
               </p>
             </div>
           </div>

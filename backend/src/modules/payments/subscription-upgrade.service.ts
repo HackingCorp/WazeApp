@@ -58,6 +58,9 @@ export class SubscriptionUpgradeService {
     this.logger.log(`Processing subscription upgrade for user ${userId} to ${paymentDetails.plan}`);
 
     try {
+      // Ensure plans are loaded before accessing them
+      await this.currencyService.ensurePlansLoaded();
+
       // Find user
       const user = await this.userRepository.findOne({ where: { id: userId } });
       if (!user) {
@@ -85,7 +88,15 @@ export class SubscriptionUpgradeService {
       const nextBillingDate = endsAt;
 
       // Get price in cents (USD base)
-      const priceInCents = this.currencyService.PRICING[paymentDetails.plan].priceUSD * 100;
+      const planInfo = this.currencyService.getPlan(paymentDetails.plan);
+      if (!planInfo) {
+        return {
+          success: false,
+          message: 'Plan not found',
+          error: `Plan ${paymentDetails.plan} not found in pricing`,
+        };
+      }
+      const priceInCents = planInfo.priceUSD * 100;
 
       if (subscription) {
         // Update existing subscription
@@ -194,7 +205,12 @@ export class SubscriptionUpgradeService {
     subscription: Subscription,
   ): Promise<void> {
     const firstName = user.firstName || user.email.split('@')[0];
-    const planInfo = this.currencyService.PRICING[paymentDetails.plan];
+    const planInfo = this.currencyService.getPlan(paymentDetails.plan);
+
+    if (!planInfo) {
+      this.logger.warn(`Plan info not found for ${paymentDetails.plan}, skipping email`);
+      return;
+    }
 
     // Send payment confirmation email
     await this.emailService.sendPaymentConfirmationEmail(
@@ -242,6 +258,9 @@ export class SubscriptionUpgradeService {
     this.logger.log(`Processing subscription upgrade for organization ${organizationId} to ${paymentDetails.plan}`);
 
     try {
+      // Ensure plans are loaded before accessing them
+      await this.currencyService.ensurePlansLoaded();
+
       // Find organization
       const organization = await this.organizationRepository.findOne({
         where: { id: organizationId },
@@ -268,7 +287,15 @@ export class SubscriptionUpgradeService {
       const nextBillingDate = endsAt;
 
       // Get price in cents (USD base)
-      const priceInCents = this.currencyService.PRICING[paymentDetails.plan].priceUSD * 100;
+      const planInfo = this.currencyService.getPlan(paymentDetails.plan);
+      if (!planInfo) {
+        return {
+          success: false,
+          message: 'Plan not found',
+          error: `Plan ${paymentDetails.plan} not found in pricing`,
+        };
+      }
+      const priceInCents = planInfo.priceUSD * 100;
 
       if (subscription) {
         // Update existing subscription

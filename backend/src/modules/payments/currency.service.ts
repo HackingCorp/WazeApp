@@ -62,7 +62,28 @@ export class CurrencyService implements OnModuleInit {
 
   // Getter pour PRICING - récupère depuis le cache (chargé depuis la DB)
   get PRICING(): Record<string, PricingPlan> {
+    // Si le cache est vide, charger les plans de fallback
+    if (Object.keys(this.cachedPricing).length === 0) {
+      this.loadFallbackPlans();
+    }
     return this.cachedPricing;
+  }
+
+  /**
+   * Assure que les plans sont chargés (utile pour les appels async)
+   */
+  async ensurePlansLoaded(): Promise<void> {
+    if (Object.keys(this.cachedPricing).length === 0) {
+      await this.refreshPlansFromDatabase();
+    }
+  }
+
+  /**
+   * Obtient un plan par son ID de façon sécurisée
+   */
+  getPlan(planId: string): PricingPlan | null {
+    const pricing = this.PRICING;
+    return pricing[planId.toUpperCase()] || null;
   }
 
   // Devises supportées

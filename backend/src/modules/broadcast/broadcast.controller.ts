@@ -10,11 +10,15 @@ import {
   UseGuards,
   UseInterceptors,
   UploadedFile,
+  UploadedFiles,
   ParseUUIDPipe,
   HttpStatus,
   BadRequestException,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
+import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
+import { extname, join } from 'path';
+import { v4 as uuidv4 } from 'uuid';
 import {
   ApiTags,
   ApiOperation,
@@ -343,6 +347,74 @@ export class BroadcastController {
   // ==========================================
   // CAMPAIGNS
   // ==========================================
+
+  @Post('campaigns/with-media')
+  @ApiOperation({ summary: 'Create a broadcast campaign with media files' })
+  @ApiConsumes('multipart/form-data')
+  @UseInterceptors(
+    FilesInterceptor('mediaFiles', 10, {
+      storage: diskStorage({
+        destination: './uploads/broadcast',
+        filename: (req, file, cb) => {
+          const uniqueName = `${Date.now()}-${uuidv4()}${extname(file.originalname)}`;
+          cb(null, uniqueName);
+        },
+      }),
+      limits: {
+        fileSize: 50 * 1024 * 1024, // 50MB per file
+      },
+      fileFilter: (req, file, cb) => {
+        const allowedMimes = [
+          'image/jpeg',
+          'image/png',
+          'image/gif',
+          'image/webp',
+          'video/mp4',
+          'video/quicktime',
+          'application/pdf',
+          'application/msword',
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        ];
+        if (allowedMimes.includes(file.mimetype)) {
+          cb(null, true);
+        } else {
+          cb(new BadRequestException(`Invalid file type: ${file.mimetype}`), false);
+        }
+      },
+    }),
+  )
+  async createCampaignWithMedia(
+    @CurrentUser() user: AuthUser,
+    @UploadedFiles() files: Express.Multer.File[],
+    @Body() body: any,
+  ) {
+    const organizationId = this.ensureOrganization(user);
+
+    // Parse JSON fields from FormData
+    const dto: CreateCampaignDto = {
+      name: body.name,
+      description: body.description,
+      sessionId: body.sessionId,
+      templateId: body.templateId,
+      messageContent: body.messageContent ? JSON.parse(body.messageContent) : undefined,
+      contactFilter: body.contactFilter ? JSON.parse(body.contactFilter) : undefined,
+      contactIds: body.contactIds ? JSON.parse(body.contactIds) : undefined,
+      scheduledAt: body.scheduledAt,
+      recurrenceType: body.recurrenceType,
+      delayBetweenMessages: body.delayBetweenMessages ? parseInt(body.delayBetweenMessages) : undefined,
+    };
+
+    // Build media URLs from uploaded files
+    const mediaUrls = files?.map(file => `/uploads/broadcast/${file.filename}`) || [];
+
+    const campaign = await this.campaignService.createCampaign(
+      organizationId,
+      user.userId,
+      dto,
+      mediaUrls,
+    );
+    return { success: true, data: campaign };
+  }
 
   @Post('campaigns')
   @ApiOperation({ summary: 'Create a broadcast campaign' })

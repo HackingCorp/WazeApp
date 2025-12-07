@@ -3,6 +3,8 @@ import { Logger } from '@nestjs/common';
 import { Job } from 'bull';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { ConfigService } from '@nestjs/config';
+import { join } from 'path';
 import {
   BroadcastMessage,
   BroadcastCampaign,
@@ -24,6 +26,7 @@ interface SendMessageJob {
 @Processor('broadcast')
 export class BroadcastProcessor {
   private readonly logger = new Logger(BroadcastProcessor.name);
+  private readonly apiUrl: string;
 
   constructor(
     @InjectRepository(BroadcastMessage)
@@ -37,7 +40,10 @@ export class BroadcastProcessor {
     private baileysService: BaileysService,
     private templateService: TemplateService,
     private webhookService: WebhookService,
-  ) {}
+    private configService: ConfigService,
+  ) {
+    this.apiUrl = this.configService.get('API_URL') || 'http://localhost:3100';
+  }
 
   @Process('send-message')
   async handleSendMessage(job: Job<SendMessageJob>): Promise<void> {
@@ -78,12 +84,6 @@ export class BroadcastProcessor {
     await this.messageRepository.save(message);
 
     try {
-      // Prepare message content
-      const messageContent = await this.prepareMessageContent(
-        campaign,
-        contact,
-      );
-
       // Format phone number with country code
       let phoneNumber = contact.phoneNumber.replace(/[\s\-\+\(\)]/g, '');
 
@@ -96,21 +96,77 @@ export class BroadcastProcessor {
         phoneNumber = '237' + phoneNumber.substring(1);
       }
 
-      // Send via Baileys
-      const result = await this.baileysService.sendMessage(campaign.sessionId, {
-        to: phoneNumber,
-        message: messageContent.text || messageContent.caption || '',
-        type: messageContent.type as any,
-        mediaUrl: messageContent.mediaUrl,
-        caption: messageContent.caption,
-        filename: messageContent.filename,
-      });
+      // Check if campaign has custom media files uploaded
+      const hasCustomMedia = campaign.mediaUrls && campaign.mediaUrls.length > 0;
+      let lastMessageId = '';
+
+      if (hasCustomMedia) {
+        // Send each uploaded media as a separate message
+        const baseContent = await this.prepareMessageContent(campaign, contact);
+
+        for (let i = 0; i < campaign.mediaUrls.length; i++) {
+          let mediaUrl = campaign.mediaUrls[i];
+          const isLastMedia = i === campaign.mediaUrls.length - 1;
+
+          // Convert relative path to full URL if needed
+          if (mediaUrl.startsWith('/uploads/')) {
+            mediaUrl = `${this.apiUrl}${mediaUrl}`;
+          }
+
+          // Determine media type from URL extension
+          const extension = mediaUrl.split('.').pop()?.toLowerCase() || '';
+          const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(extension);
+          const isVideo = ['mp4', 'mov', 'avi'].includes(extension);
+          const isDocument = ['pdf', 'doc', 'docx', 'xls', 'xlsx'].includes(extension);
+
+          const mediaType = isImage ? 'image' : isVideo ? 'video' : isDocument ? 'document' : 'image';
+
+          // Only add caption to the last media (or first if only one)
+          const caption = isLastMedia ? (baseContent.caption || baseContent.text || '') : '';
+
+          this.logger.debug(`Sending media ${i + 1}/${campaign.mediaUrls.length}: ${mediaUrl} (type: ${mediaType})`);
+
+          const result = await this.baileysService.sendMessage(campaign.sessionId, {
+            to: phoneNumber,
+            message: caption,
+            type: mediaType as any,
+            mediaUrl: mediaUrl,
+            caption: caption,
+          });
+
+          lastMessageId = result.messageId;
+
+          // Small delay between multiple media messages
+          if (i < campaign.mediaUrls.length - 1) {
+            await new Promise(resolve => setTimeout(resolve, 500));
+          }
+        }
+
+        this.logger.debug(`Sent ${campaign.mediaUrls.length} media files to ${phoneNumber}`);
+      } else {
+        // Standard single message flow
+        const messageContent = await this.prepareMessageContent(campaign, contact);
+
+        const result = await this.baileysService.sendMessage(campaign.sessionId, {
+          to: phoneNumber,
+          message: messageContent.text || messageContent.caption || '',
+          type: messageContent.type as any,
+          mediaUrl: messageContent.mediaUrl,
+          caption: messageContent.caption,
+          filename: messageContent.filename,
+        });
+
+        lastMessageId = result.messageId;
+        this.logger.debug(`Message sent to ${phoneNumber} (original: ${contact.phoneNumber})`);
+      }
 
       // Update message status
       message.status = BroadcastMessageStatus.SENT;
       message.sentAt = new Date();
-      message.whatsappMessageId = result.messageId;
-      message.renderedContent = messageContent.text || messageContent.caption;
+      message.whatsappMessageId = lastMessageId;
+      message.renderedContent = hasCustomMedia
+        ? `[${campaign.mediaUrls.length} media files]`
+        : (await this.prepareMessageContent(campaign, contact)).text || '';
       await this.messageRepository.save(message);
 
       // Update campaign stats
@@ -122,10 +178,9 @@ export class BroadcastProcessor {
         campaignId: campaign.id,
         contactId: contact.id,
         phoneNumber: contact.phoneNumber,
-        whatsappMessageId: result.messageId,
+        whatsappMessageId: lastMessageId,
+        mediaCount: hasCustomMedia ? campaign.mediaUrls.length : 1,
       });
-
-      this.logger.debug(`Message sent to ${phoneNumber} (original: ${contact.phoneNumber})`);
     } catch (error) {
       this.logger.error(
         `Failed to send message to ${contact.phoneNumber}:`,

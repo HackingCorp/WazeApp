@@ -824,6 +824,28 @@ class ApiClient {
     });
   }
 
+  async createBroadcastCampaignWithMedia(formData: FormData) {
+    const token = this.getToken();
+    const response = await fetch(`${this.baseUrl}/broadcast/campaigns/with-media`, {
+      method: 'POST',
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: formData,
+    });
+
+    const data = await response.json();
+
+    if (response.status === 401) {
+      const refreshed = await this.refreshToken();
+      if (refreshed) {
+        return this.createBroadcastCampaignWithMedia(formData);
+      }
+    }
+
+    return { success: response.ok, data: data.data || data, error: data.message };
+  }
+
   async updateBroadcastCampaign(id: string, data: any) {
     return this.request(`/broadcast/campaigns/${id}`, {
       method: 'PUT',

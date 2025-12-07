@@ -1,8 +1,10 @@
 import { NestFactory } from "@nestjs/core";
+import { NestExpressApplication } from "@nestjs/platform-express";
 import { ValidationPipe, Logger } from "@nestjs/common";
 import { SwaggerModule, DocumentBuilder } from "@nestjs/swagger";
 import { ConfigService } from "@nestjs/config";
 import { useContainer } from "class-validator";
+import { join } from "path";
 import helmet from "helmet";
 import { AppModule } from "./app.module";
 import { AllExceptionsFilter } from "./common/filters";
@@ -13,7 +15,7 @@ import {
 import { BaileysService } from "./modules/whatsapp/baileys.service";
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, {
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     logger: ["error", "warn", "log", "debug", "verbose"],
   });
 
@@ -41,6 +43,11 @@ async function bootstrap() {
   //   crossOriginResourcePolicy: { policy: 'cross-origin' },
   //   crossOriginEmbedderPolicy: false,
   // }));
+
+  // Serve static files from uploads directory
+  app.useStaticAssets(join(__dirname, "..", "uploads"), {
+    prefix: "/uploads/",
+  });
 
   // Global pipes
   app.useGlobalPipes(

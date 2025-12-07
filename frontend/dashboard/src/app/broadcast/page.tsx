@@ -206,6 +206,11 @@ export default function BroadcastPage() {
   const [creatingCampaign, setCreatingCampaign] = useState(false);
   const [campaignFilterTagInput, setCampaignFilterTagInput] = useState('');
   const [allContactsForSelection, setAllContactsForSelection] = useState<Contact[]>([]);
+
+  // Campaign media files (for image/document templates)
+  const [campaignMediaFiles, setCampaignMediaFiles] = useState<File[]>([]);
+  const [campaignMediaPreviews, setCampaignMediaPreviews] = useState<string[]>([]);
+  const campaignMediaInputRef = useRef<HTMLInputElement>(null);
   const [loadingAllContacts, setLoadingAllContacts] = useState(false);
   const [contactSelectionSearch, setContactSelectionSearch] = useState('');
 
@@ -512,6 +517,57 @@ export default function BroadcastPage() {
     }
   };
 
+  // Handle campaign media file selection
+  const handleCampaignMediaSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+
+    const newFiles = Array.from(files).slice(0, 10 - campaignMediaFiles.length);
+    const validFiles = newFiles.filter(file => {
+      const isImage = file.type.startsWith('image/');
+      const isDocument = file.type === 'application/pdf' ||
+                         file.type.includes('document') ||
+                         file.type.includes('spreadsheet');
+      return isImage || isDocument;
+    });
+
+    if (validFiles.length === 0) return;
+
+    // Generate previews for images
+    const newPreviews: string[] = [];
+    validFiles.forEach(file => {
+      if (file.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          setCampaignMediaPreviews(prev => [...prev, event.target?.result as string]);
+        };
+        reader.readAsDataURL(file);
+      } else {
+        newPreviews.push('document');
+      }
+    });
+
+    setCampaignMediaFiles(prev => [...prev, ...validFiles]);
+  };
+
+  const removeCampaignMedia = (index: number) => {
+    setCampaignMediaFiles(prev => prev.filter((_, i) => i !== index));
+    setCampaignMediaPreviews(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const clearCampaignMedia = () => {
+    setCampaignMediaFiles([]);
+    setCampaignMediaPreviews([]);
+    if (campaignMediaInputRef.current) {
+      campaignMediaInputRef.current.value = '';
+    }
+  };
+
+  // Get selected template details
+  const getSelectedTemplate = () => {
+    return templates.find(t => t.id === newCampaign.templateId);
+  };
+
   // Handle create campaign
   const handleCreateCampaign = async () => {
     if (!newCampaign.name || !newCampaign.sessionId) return;
@@ -523,59 +579,108 @@ export default function BroadcastPage() {
 
     setCreatingCampaign(true);
     try {
-      const response = await api.createBroadcastCampaign({
-        name: newCampaign.name,
-        description: newCampaign.description || undefined,
-        sessionId: newCampaign.sessionId,
-        templateId: !newCampaign.useCustomMessage ? newCampaign.templateId : undefined,
-        messageContent: newCampaign.useCustomMessage
-          ? {
-              type: newCampaign.customMessage.type,
-              text: newCampaign.customMessage.content,
-            }
-          : undefined,
-        contactFilter: newCampaign.recipientMode === 'filter'
-          ? {
-              tags: newCampaign.contactFilter.tags.length > 0 ? newCampaign.contactFilter.tags : undefined,
-              isValidWhatsApp: newCampaign.contactFilter.isValidWhatsApp,
-            }
-          : undefined,
-        contactIds: newCampaign.recipientMode === 'select'
-          ? newCampaign.selectedContactIds
-          : undefined,
-        scheduledAt: newCampaign.scheduleLater && newCampaign.scheduledAt
-          ? new Date(newCampaign.scheduledAt).toISOString()
-          : undefined,
-        recurrenceType: newCampaign.recurrenceType as any,
-        delayBetweenMessages: newCampaign.delayBetweenMessages,
-      });
+      // If we have media files, use FormData
+      if (campaignMediaFiles.length > 0) {
+        const formData = new FormData();
+        formData.append('name', newCampaign.name);
+        if (newCampaign.description) formData.append('description', newCampaign.description);
+        formData.append('sessionId', newCampaign.sessionId);
+        if (!newCampaign.useCustomMessage && newCampaign.templateId) {
+          formData.append('templateId', newCampaign.templateId);
+        }
+        if (newCampaign.useCustomMessage) {
+          formData.append('messageContent', JSON.stringify({
+            type: newCampaign.customMessage.type,
+            text: newCampaign.customMessage.content,
+          }));
+        }
+        if (newCampaign.recipientMode === 'filter') {
+          formData.append('contactFilter', JSON.stringify({
+            tags: newCampaign.contactFilter.tags.length > 0 ? newCampaign.contactFilter.tags : undefined,
+            isValidWhatsApp: newCampaign.contactFilter.isValidWhatsApp,
+          }));
+        }
+        if (newCampaign.recipientMode === 'select') {
+          formData.append('contactIds', JSON.stringify(newCampaign.selectedContactIds));
+        }
+        if (newCampaign.scheduleLater && newCampaign.scheduledAt) {
+          formData.append('scheduledAt', new Date(newCampaign.scheduledAt).toISOString());
+        }
+        formData.append('recurrenceType', newCampaign.recurrenceType);
+        formData.append('delayBetweenMessages', String(newCampaign.delayBetweenMessages));
 
-      if (response.success) {
-        setShowCreateCampaignModal(false);
-        setNewCampaign({
-          name: '',
-          description: '',
-          sessionId: '',
-          templateId: '',
-          useCustomMessage: false,
-          customMessage: { type: 'text', content: '' },
-          recipientMode: 'all',
-          contactFilter: { tags: [], isValidWhatsApp: true },
-          selectedContactIds: [],
-          scheduleLater: false,
-          scheduledAt: '',
-          recurrenceType: 'none',
-          delayBetweenMessages: 3000,
+        // Append media files
+        campaignMediaFiles.forEach((file) => {
+          formData.append('mediaFiles', file);
         });
-        setAllContactsForSelection([]);
-        setContactSelectionSearch('');
-        await fetchCampaigns();
+
+        const response = await api.createBroadcastCampaignWithMedia(formData);
+        if (response.success) {
+          resetCampaignForm();
+          await fetchCampaigns();
+        }
+      } else {
+        // No media files, use JSON
+        const response = await api.createBroadcastCampaign({
+          name: newCampaign.name,
+          description: newCampaign.description || undefined,
+          sessionId: newCampaign.sessionId,
+          templateId: !newCampaign.useCustomMessage ? newCampaign.templateId : undefined,
+          messageContent: newCampaign.useCustomMessage
+            ? {
+                type: newCampaign.customMessage.type,
+                text: newCampaign.customMessage.content,
+              }
+            : undefined,
+          contactFilter: newCampaign.recipientMode === 'filter'
+            ? {
+                tags: newCampaign.contactFilter.tags.length > 0 ? newCampaign.contactFilter.tags : undefined,
+                isValidWhatsApp: newCampaign.contactFilter.isValidWhatsApp,
+              }
+            : undefined,
+          contactIds: newCampaign.recipientMode === 'select'
+            ? newCampaign.selectedContactIds
+            : undefined,
+          scheduledAt: newCampaign.scheduleLater && newCampaign.scheduledAt
+            ? new Date(newCampaign.scheduledAt).toISOString()
+            : undefined,
+          recurrenceType: newCampaign.recurrenceType as any,
+          delayBetweenMessages: newCampaign.delayBetweenMessages,
+        });
+
+        if (response.success) {
+          resetCampaignForm();
+          await fetchCampaigns();
+        }
       }
     } catch (error) {
       console.error('Failed to create campaign:', error);
     } finally {
       setCreatingCampaign(false);
     }
+  };
+
+  // Reset campaign form
+  const resetCampaignForm = () => {
+    setShowCreateCampaignModal(false);
+    setNewCampaign({
+      name: '',
+      description: '',
+      sessionId: '',
+      templateId: '',
+      useCustomMessage: false,
+      customMessage: { type: 'text', content: '' },
+      recipientMode: 'all',
+      contactFilter: { tags: [], isValidWhatsApp: true },
+      selectedContactIds: [],
+      scheduleLater: false,
+      scheduledAt: '',
+      recurrenceType: 'none',
+      delayBetweenMessages: 3000,
+    });
+    setAllContactsForSelection([]);
+    setContactSelectionSearch('');
+    clearCampaignMedia();
   };
 
   // Handle campaign actions
@@ -1976,7 +2081,10 @@ export default function BroadcastPage() {
                     </label>
                     <select
                       value={newCampaign.templateId}
-                      onChange={(e) => setNewCampaign({ ...newCampaign, templateId: e.target.value })}
+                      onChange={(e) => {
+                        setNewCampaign({ ...newCampaign, templateId: e.target.value });
+                        clearCampaignMedia();
+                      }}
                       className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     >
                       <option value="">Sélectionner un template</option>
@@ -1986,6 +2094,85 @@ export default function BroadcastPage() {
                         </option>
                       ))}
                     </select>
+
+                    {/* Media upload for image/document templates */}
+                    {getSelectedTemplate() && ['image', 'document', 'video'].includes(getSelectedTemplate()?.type || '') && (
+                      <div className="mt-4 p-4 border border-dashed border-gray-300 dark:border-gray-600 rounded-lg">
+                        <div className="flex items-center justify-between mb-3">
+                          <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                            {getSelectedTemplate()?.type === 'image' ? 'Images' : 'Fichiers'} pour cette campagne
+                            <span className="text-gray-500 text-xs ml-2">(max 10)</span>
+                          </h4>
+                          {campaignMediaFiles.length > 0 && (
+                            <button
+                              type="button"
+                              onClick={clearCampaignMedia}
+                              className="text-xs text-red-500 hover:text-red-700"
+                            >
+                              Tout supprimer
+                            </button>
+                          )}
+                        </div>
+
+                        <input
+                          ref={campaignMediaInputRef}
+                          type="file"
+                          multiple
+                          accept={getSelectedTemplate()?.type === 'image' ? 'image/*' : '*'}
+                          onChange={handleCampaignMediaSelect}
+                          className="hidden"
+                        />
+
+                        {campaignMediaFiles.length < 10 && (
+                          <button
+                            type="button"
+                            onClick={() => campaignMediaInputRef.current?.click()}
+                            className="w-full py-3 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg hover:border-green-500 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors flex items-center justify-center gap-2 text-gray-500 hover:text-green-600"
+                          >
+                            <Upload className="w-5 h-5" />
+                            <span>Cliquez pour ajouter des {getSelectedTemplate()?.type === 'image' ? 'images' : 'fichiers'}</span>
+                          </button>
+                        )}
+
+                        {/* File previews */}
+                        {campaignMediaFiles.length > 0 && (
+                          <div className="mt-3 grid grid-cols-5 gap-2">
+                            {campaignMediaFiles.map((file, index) => (
+                              <div key={index} className="relative group">
+                                {file.type.startsWith('image/') ? (
+                                  <div className="aspect-square rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700">
+                                    {campaignMediaPreviews[index] && (
+                                      <img
+                                        src={campaignMediaPreviews[index]}
+                                        alt={file.name}
+                                        className="w-full h-full object-cover"
+                                      />
+                                    )}
+                                  </div>
+                                ) : (
+                                  <div className="aspect-square rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
+                                    <File className="w-8 h-8 text-gray-400" />
+                                  </div>
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={() => removeCampaignMedia(index)}
+                                  className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                                >
+                                  <X className="w-3 h-3" />
+                                </button>
+                                <p className="text-xs text-gray-500 truncate mt-1">{file.name}</p>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        <p className="text-xs text-gray-500 mt-2">
+                          {campaignMediaFiles.length}/10 fichiers sélectionnés.
+                          {getSelectedTemplate()?.type === 'image' && ' Chaque image sera envoyée comme message séparé.'}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div>

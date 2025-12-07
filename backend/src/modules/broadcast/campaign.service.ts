@@ -101,6 +101,7 @@ export class CampaignService {
     organizationId: string,
     userId: string,
     dto: CreateCampaignDto,
+    mediaUrls?: string[],
   ): Promise<BroadcastCampaign> {
     // Check limits
     const canCreate = await this.canCreateCampaign(organizationId);
@@ -157,6 +158,7 @@ export class CampaignService {
       messageContent: dto.messageContent,
       contactFilter: dto.contactFilter,
       contactIds: dto.contactIds,
+      mediaUrls: mediaUrls && mediaUrls.length > 0 ? mediaUrls : undefined,
       scheduledAt: dto.scheduledAt ? new Date(dto.scheduledAt) : null,
       recurrenceType: dto.recurrenceType || RecurrenceType.NONE,
       recurrenceDay: dto.recurrenceDay,

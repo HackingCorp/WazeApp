@@ -95,6 +95,10 @@ export class BroadcastCampaign {
   @Column('simple-array', { name: 'contact_ids', nullable: true })
   contactIds?: string[];
 
+  // Media URLs (for campaigns with uploaded media files)
+  @Column('simple-array', { name: 'media_urls', nullable: true })
+  mediaUrls?: string[];
+
   // Scheduling
   @Column({ name: 'scheduled_at', nullable: true })
   scheduledAt?: Date;

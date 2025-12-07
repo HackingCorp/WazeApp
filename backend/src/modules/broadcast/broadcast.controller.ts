@@ -226,19 +226,6 @@ export class BroadcastController {
     return { success: true, updated };
   }
 
-  @Post('contacts/:id/validate')
-  @ApiOperation({ summary: 'Validate contact WhatsApp number' })
-  async validateContact(
-    @CurrentUser() user: AuthUser,
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body('sessionId') sessionId: string,
-  ) {
-    const organizationId = this.ensureOrganization(user);
-    const contact = await this.contactService.getContact(organizationId, id);
-    await this.contactService.validateWhatsAppNumbers(organizationId, sessionId, [contact.phoneNumber]);
-    return { success: true, message: 'Validation started' };
-  }
-
   @Post('contacts/bulk-validate')
   @ApiOperation({ summary: 'Bulk validate all unverified contacts' })
   async bulkValidateContacts(
@@ -251,6 +238,19 @@ export class BroadcastController {
     }
     const result = await this.contactService.bulkValidateContacts(organizationId, sessionId);
     return { success: true, data: result };
+  }
+
+  @Post('contacts/:id/validate')
+  @ApiOperation({ summary: 'Validate contact WhatsApp number' })
+  async validateContact(
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body('sessionId') sessionId: string,
+  ) {
+    const organizationId = this.ensureOrganization(user);
+    const contact = await this.contactService.getContact(organizationId, id);
+    await this.contactService.validateWhatsAppNumbers(organizationId, sessionId, [contact.phoneNumber]);
+    return { success: true, message: 'Validation started' };
   }
 
   // ==========================================

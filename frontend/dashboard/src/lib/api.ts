@@ -825,7 +825,7 @@ class ApiClient {
   }
 
   async createBroadcastCampaignWithMedia(formData: FormData) {
-    const response = await fetch(`${this.baseUrl}/broadcast/campaigns/with-media`, {
+    const response = await fetch(`${this.baseURL}/broadcast/campaigns/with-media`, {
       method: 'POST',
       headers: {
         ...(this.token ? { Authorization: `Bearer ${this.token}` } : {}),

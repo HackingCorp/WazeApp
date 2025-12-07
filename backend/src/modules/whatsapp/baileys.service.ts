@@ -1049,10 +1049,26 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
     try {
       let message: any;
 
-      // Format phone number
-      const jid = messageDto.to.includes("@")
-        ? messageDto.to
-        : `${messageDto.to}@s.whatsapp.net`;
+      // Format phone number - use onWhatsApp to get correct JID
+      let jid = messageDto.to;
+      if (!messageDto.to.includes("@")) {
+        // Validate number and get correct JID format
+        try {
+          const [result] = await sock.onWhatsApp(messageDto.to);
+          if (result?.exists && result?.jid) {
+            jid = result.jid;
+            this.logger.debug(`Resolved ${messageDto.to} to JID: ${jid}`);
+          } else {
+            // Fallback to standard format if validation fails
+            jid = `${messageDto.to}@s.whatsapp.net`;
+            this.logger.warn(`Could not validate ${messageDto.to}, using fallback JID: ${jid}`);
+          }
+        } catch (validationError) {
+          // Fallback to standard format
+          jid = `${messageDto.to}@s.whatsapp.net`;
+          this.logger.warn(`Failed to validate ${messageDto.to}: ${validationError.message}`);
+        }
+      }
 
       // Prepare message based on type
       switch (messageDto.type) {

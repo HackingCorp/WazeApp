@@ -153,16 +153,18 @@ export class BroadcastController {
   @ApiOperation({ summary: 'Get contact statistics' })
   async getContactStats(@CurrentUser() user: AuthUser) {
     const organizationId = this.ensureOrganization(user);
-    const count = await this.contactService.getContactCount(organizationId);
+    const stats = await this.contactService.getContactStats(organizationId);
     const limit = await this.contactService.getContactLimit(organizationId);
     const tags = await this.contactService.getAllTags(organizationId);
 
     return {
       success: true,
       data: {
-        total: count,
+        total: stats.total,
         limit,
-        available: limit - count,
+        available: limit - stats.total,
+        validated: stats.validated,
+        subscribed: stats.subscribed,
         tags,
       },
     };

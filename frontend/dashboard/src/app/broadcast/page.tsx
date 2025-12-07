@@ -221,8 +221,14 @@ export default function BroadcastPage() {
   const fetchContactStats = useCallback(async () => {
     try {
       const response = await api.getBroadcastContactStats();
-      if (response.success) {
-        setContactStats(response.data || { total: 0, limit: 50, validated: 0, subscribed: 0 });
+      if (response.success && response.data) {
+        // Merge with defaults to ensure all fields are present
+        setContactStats({
+          total: response.data.total ?? 0,
+          limit: response.data.limit ?? 50,
+          validated: response.data.validated ?? 0,
+          subscribed: response.data.subscribed ?? 0,
+        });
       }
     } catch (error) {
       console.error('Failed to fetch contact stats:', error);
@@ -572,7 +578,7 @@ export default function BroadcastPage() {
             <div>
               <p className="text-sm text-gray-500 dark:text-gray-400">Contacts</p>
               <p className="text-xl font-bold text-gray-900 dark:text-white">
-                {contactStats.total} / {contactStats.limit}
+                {contactStats.total ?? 0} / {contactStats.limit ?? 50}
               </p>
             </div>
           </div>

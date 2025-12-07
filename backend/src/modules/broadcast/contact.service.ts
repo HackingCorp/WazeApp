@@ -29,24 +29,18 @@ export class ContactService {
    * Get contact limit based on subscription plan
    */
   async getContactLimit(organizationId: string): Promise<number> {
-    // Query by status column (ACTIVE or TRIALING) instead of isActive getter
     const subscription = await this.subscriptionRepository.findOne({
-      where: {
-        organizationId,
-        status: In([SubscriptionStatus.ACTIVE, SubscriptionStatus.TRIALING]),
-      },
+      where: { organizationId },
       order: { createdAt: 'DESC' },
     });
 
-    const plan = subscription?.plan?.toUpperCase() || 'FREE';
+    const plan = subscription?.plan || 'free';
 
-    this.logger.debug(`Organization ${organizationId} has plan: ${plan}, subscription found: ${!!subscription}`);
-
-    const limits = {
-      FREE: 50,
-      STANDARD: 1000,
-      PRO: 5000,
-      ENTERPRISE: 10000,
+    const limits: Record<string, number> = {
+      free: 50,
+      standard: 1000,
+      pro: 5000,
+      enterprise: 10000,
     };
 
     return limits[plan] || 50;
@@ -57,6 +51,25 @@ export class ContactService {
    */
   async getContactCount(organizationId: string): Promise<number> {
     return this.contactRepository.count({ where: { organizationId } });
+  }
+
+  /**
+   * Get contact statistics for organization
+   */
+  async getContactStats(organizationId: string): Promise<{
+    total: number;
+    validated: number;
+    subscribed: number;
+  }> {
+    const total = await this.contactRepository.count({ where: { organizationId } });
+    const validated = await this.contactRepository.count({
+      where: { organizationId, isValidWhatsApp: true },
+    });
+    const subscribed = await this.contactRepository.count({
+      where: { organizationId, isSubscribed: true },
+    });
+
+    return { total, validated, subscribed };
   }
 
   /**

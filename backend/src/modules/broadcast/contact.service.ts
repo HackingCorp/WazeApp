@@ -123,6 +123,25 @@ export class ContactService {
   ): Promise<ImportResultDto> {
     this.logger.log(`Import: filename=${filename}, bufferSize=${fileBuffer?.length || 0}`);
 
+    // Parse tags from JSON string if needed (FormData sends strings)
+    let parsedTags: string[] = [];
+    if (options.tags) {
+      if (typeof options.tags === 'string') {
+        try {
+          parsedTags = JSON.parse(options.tags);
+        } catch {
+          parsedTags = options.tags.split(',').map(t => t.trim()).filter(t => t);
+        }
+      } else if (Array.isArray(options.tags)) {
+        parsedTags = options.tags;
+      }
+    }
+    this.logger.log(`Import options: tags=${JSON.stringify(parsedTags)}, validateWhatsApp=${options.validateWhatsApp}, skipDuplicates=${options.skipDuplicates}`);
+
+    // Parse booleans from string if needed (FormData sends strings)
+    const validateWhatsApp = options.validateWhatsApp === true || options.validateWhatsApp === 'true';
+    const skipDuplicates = options.skipDuplicates === true || options.skipDuplicates === 'true';
+
     const extension = filename.split('.').pop()?.toLowerCase();
     let contacts: any[] = [];
 
@@ -183,7 +202,7 @@ export class ContactService {
           row.company || row.Company || row.entreprise || row.Entreprise || row.organization || '';
         const tags = row.tags
           ? (typeof row.tags === 'string' ? row.tags.split(',').map((t: string) => t.trim()) : row.tags)
-          : options.tags || [];
+          : parsedTags;
 
         // Validate required fields
         if (!phoneNumber) {
@@ -214,7 +233,7 @@ export class ContactService {
         });
 
         if (existing) {
-          if (options.skipDuplicates) {
+          if (skipDuplicates) {
             result.skipped++;
             continue;
           }
@@ -247,26 +266,22 @@ export class ContactService {
       }
     }
 
-    // Save new contacts with upsert to handle duplicates
+    // Save new contacts one by one to properly handle arrays like tags
     if (contactsToSave.length > 0) {
-      try {
-        await this.contactRepository
-          .createQueryBuilder()
-          .insert()
-          .into('broadcast_contacts')
-          .values(contactsToSave)
-          .orIgnore() // Skip duplicates instead of failing
-          .execute();
-      } catch (error) {
-        this.logger.error('Bulk insert error, trying individual inserts:', error.message);
-        // Fallback: insert one by one
-        for (const contact of contactsToSave) {
-          try {
-            await this.contactRepository.save(contact);
-          } catch (e) {
+      this.logger.log(`Saving ${contactsToSave.length} contacts with tags...`);
+      for (const contact of contactsToSave) {
+        try {
+          await this.contactRepository.save(contact);
+          this.logger.debug(`Saved contact ${contact.phoneNumber} with tags: ${JSON.stringify(contact.tags)}`);
+        } catch (e) {
+          if (e.code === '23505') { // Unique constraint violation
             this.logger.warn(`Skipped duplicate contact: ${contact.phoneNumber}`);
             result.imported--;
             result.skipped++;
+          } else {
+            this.logger.error(`Failed to save contact ${contact.phoneNumber}:`, e.message);
+            result.imported--;
+            result.failed++;
           }
         }
       }
@@ -278,7 +293,7 @@ export class ContactService {
     }
 
     // Validate WhatsApp numbers in background
-    if (options.validateWhatsApp && options.sessionId) {
+    if (validateWhatsApp && options.sessionId) {
       // Get all unverified contacts for this organization
       const unverifiedContacts = await this.contactRepository.find({
         where: { organizationId, isValidWhatsApp: null },

@@ -61,25 +61,22 @@ export class CreateContactDto {
 }
 
 export class ImportContactsDto {
-  @ApiProperty({ description: 'Session ID to use for WhatsApp validation' })
-  @IsUUID()
-  sessionId: string;
-
-  @ApiPropertyOptional({ description: 'Tags to apply to all imported contacts' })
+  @ApiPropertyOptional({ description: 'Session ID to use for WhatsApp validation' })
   @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  tags?: string[];
+  @IsString()
+  sessionId?: string;
+
+  @ApiPropertyOptional({ description: 'Tags to apply to all imported contacts (JSON string or array)' })
+  @IsOptional()
+  tags?: string | string[];
 
   @ApiPropertyOptional({ description: 'Whether to validate WhatsApp numbers', default: true })
   @IsOptional()
-  @IsBoolean()
-  validateWhatsApp?: boolean;
+  validateWhatsApp?: boolean | string;
 
   @ApiPropertyOptional({ description: 'Skip duplicates instead of updating', default: false })
   @IsOptional()
-  @IsBoolean()
-  skipDuplicates?: boolean;
+  skipDuplicates?: boolean | string;
 }
 
 export class ContactFilterDto {

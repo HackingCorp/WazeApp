@@ -174,10 +174,10 @@ export class ContactService {
       try {
         // Extract fields (support multiple column naming conventions)
         const phoneNumber = this.normalizePhoneNumber(
-          row.phoneNumber || row.phone || row.Phone || row.numero || row.Numero || row.tel || row.Tel || '',
+          row.phoneNumber || row.phone || row.Phone || row.numero || row.Numero || row.tel || row.Tel || row.Telephone || row.telephone || row.mobile || row.Mobile || '',
         );
         const name =
-          row.name || row.Name || row.nom || row.Nom || row.firstName || row.first_name || '';
+          row.name || row.Name || row.nom || row.Nom || row.Prenom || row.prenom || row.firstName || row.first_name || '';
         const email = row.email || row.Email || row.e_mail || '';
         const company =
           row.company || row.Company || row.entreprise || row.Entreprise || row.organization || '';

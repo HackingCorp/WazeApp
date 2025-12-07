@@ -275,7 +275,16 @@ export default function BroadcastPage() {
       });
 
       if (response.success) {
-        setImportResult(response.data);
+        // Handle nested response structure
+        const resultData = response.data?.data || response.data;
+        setImportResult({
+          totalProcessed: resultData?.totalProcessed || 0,
+          created: resultData?.imported || resultData?.created || 0,
+          updated: resultData?.updated || 0,
+          skipped: resultData?.skipped || 0,
+          failed: resultData?.failed || 0,
+          errors: resultData?.errors || [],
+        });
         await fetchContacts();
         await fetchContactStats();
       } else {

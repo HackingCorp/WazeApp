@@ -261,6 +261,62 @@ export class BroadcastController {
   // TEMPLATES
   // ==========================================
 
+  @Post('templates/with-media')
+  @ApiOperation({ summary: 'Create a message template with media file' })
+  @ApiConsumes('multipart/form-data')
+  @UseInterceptors(
+    FileInterceptor('mediaFile', {
+      storage: diskStorage({
+        destination: './uploads/templates',
+        filename: (req, file, cb) => {
+          const uniqueName = `${Date.now()}-${uuidv4()}${extname(file.originalname)}`;
+          cb(null, uniqueName);
+        },
+      }),
+      limits: {
+        fileSize: 50 * 1024 * 1024, // 50MB
+      },
+      fileFilter: (req, file, cb) => {
+        const allowedMimes = [
+          'image/jpeg',
+          'image/png',
+          'image/gif',
+          'image/webp',
+          'video/mp4',
+          'video/quicktime',
+          'application/pdf',
+          'application/msword',
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        ];
+        if (allowedMimes.includes(file.mimetype)) {
+          cb(null, true);
+        } else {
+          cb(new BadRequestException(`Invalid file type: ${file.mimetype}`), false);
+        }
+      },
+    }),
+  )
+  async createTemplateWithMedia(
+    @CurrentUser() user: AuthUser,
+    @UploadedFile() file: Express.Multer.File,
+    @Body() body: any,
+  ) {
+    const organizationId = this.ensureOrganization(user);
+
+    const dto: CreateTemplateDto = {
+      name: body.name,
+      description: body.description,
+      type: body.type,
+      category: body.category,
+      content: body.content,
+      caption: body.caption,
+      mediaUrl: file ? `/uploads/templates/${file.filename}` : undefined,
+    };
+
+    const template = await this.templateService.createTemplate(organizationId, dto);
+    return { success: true, data: template };
+  }
+
   @Post('templates')
   @ApiOperation({ summary: 'Create a message template' })
   async createTemplate(

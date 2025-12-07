@@ -180,6 +180,9 @@ export default function BroadcastPage() {
     mediaUrl: '',
   });
   const [creatingTemplate, setCreatingTemplate] = useState(false);
+  const [templateMediaFile, setTemplateMediaFile] = useState<File | null>(null);
+  const [templateMediaPreview, setTemplateMediaPreview] = useState<string>('');
+  const templateMediaInputRef = useRef<HTMLInputElement>(null);
 
   // Campaign state
   const [newCampaign, setNewCampaign] = useState({
@@ -481,21 +484,76 @@ export default function BroadcastPage() {
     }
   };
 
+  // Handle template media file selection
+  const handleTemplateMediaSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    const isImage = file.type.startsWith('image/');
+    const isVideo = file.type.startsWith('video/');
+    const isDocument = file.type === 'application/pdf' || file.type.includes('document');
+
+    if (!isImage && !isVideo && !isDocument) {
+      alert('Type de fichier non supporté');
+      return;
+    }
+
+    setTemplateMediaFile(file);
+    setNewTemplate({ ...newTemplate, mediaUrl: '' }); // Clear URL if file is selected
+
+    // Generate preview for images
+    if (isImage) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setTemplateMediaPreview(event.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+    } else {
+      setTemplateMediaPreview('');
+    }
+  };
+
+  const clearTemplateMedia = () => {
+    setTemplateMediaFile(null);
+    setTemplateMediaPreview('');
+    if (templateMediaInputRef.current) {
+      templateMediaInputRef.current.value = '';
+    }
+  };
+
   // Handle create template
   const handleCreateTemplate = async () => {
     if (!newTemplate.name || !newTemplate.content) return;
 
     setCreatingTemplate(true);
     try {
-      const response = await api.createBroadcastTemplate({
-        name: newTemplate.name,
-        description: newTemplate.description || undefined,
-        type: newTemplate.type as any,
-        category: newTemplate.category,
-        content: newTemplate.content,
-        caption: newTemplate.caption || undefined,
-        mediaUrl: newTemplate.mediaUrl || undefined,
-      });
+      let response;
+
+      // If we have a media file, use FormData
+      if (templateMediaFile) {
+        const formData = new FormData();
+        formData.append('name', newTemplate.name);
+        if (newTemplate.description) formData.append('description', newTemplate.description);
+        formData.append('type', newTemplate.type);
+        formData.append('category', newTemplate.category);
+        formData.append('content', newTemplate.content);
+        if (newTemplate.caption) formData.append('caption', newTemplate.caption);
+        formData.append('mediaFile', templateMediaFile);
+
+        response = await api.createBroadcastTemplateWithMedia(formData);
+      } else {
+        // No media file, use JSON
+        response = await api.createBroadcastTemplate({
+          name: newTemplate.name,
+          description: newTemplate.description || undefined,
+          type: newTemplate.type as any,
+          category: newTemplate.category,
+          content: newTemplate.content,
+          caption: newTemplate.caption || undefined,
+          mediaUrl: newTemplate.mediaUrl || undefined,
+        });
+      }
 
       if (response.success) {
         setShowCreateTemplateModal(false);
@@ -508,6 +566,7 @@ export default function BroadcastPage() {
           caption: '',
           mediaUrl: '',
         });
+        clearTemplateMedia();
         await fetchTemplates();
       }
     } catch (error) {
@@ -1931,16 +1990,69 @@ export default function BroadcastPage() {
               {newTemplate.type !== 'text' && newTemplate.type !== 'location' && newTemplate.type !== 'contact' && (
                 <>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      URL du média
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Média
                     </label>
+
+                    {/* File upload option */}
                     <input
-                      type="url"
-                      value={newTemplate.mediaUrl}
-                      onChange={(e) => setNewTemplate({ ...newTemplate, mediaUrl: e.target.value })}
-                      placeholder="https://example.com/image.jpg"
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      ref={templateMediaInputRef}
+                      type="file"
+                      accept={newTemplate.type === 'image' ? 'image/*' : newTemplate.type === 'video' ? 'video/*' : '*'}
+                      onChange={handleTemplateMediaSelect}
+                      className="hidden"
                     />
+
+                    {!templateMediaFile && !newTemplate.mediaUrl && (
+                      <button
+                        type="button"
+                        onClick={() => templateMediaInputRef.current?.click()}
+                        className="w-full py-4 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg hover:border-green-500 dark:hover:border-green-500 transition-colors flex flex-col items-center gap-2 text-gray-500 dark:text-gray-400"
+                      >
+                        <Upload className="w-6 h-6" />
+                        <span className="text-sm">Cliquez pour uploader un fichier</span>
+                      </button>
+                    )}
+
+                    {/* Show file preview */}
+                    {templateMediaFile && (
+                      <div className="relative border border-gray-300 dark:border-gray-600 rounded-lg p-3">
+                        <div className="flex items-center gap-3">
+                          {templateMediaPreview ? (
+                            <img src={templateMediaPreview} alt="Preview" className="w-16 h-16 object-cover rounded" />
+                          ) : (
+                            <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded flex items-center justify-center">
+                              <File className="w-8 h-8 text-gray-400" />
+                            </div>
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{templateMediaFile.name}</p>
+                            <p className="text-xs text-gray-500">{(templateMediaFile.size / 1024 / 1024).toFixed(2)} MB</p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={clearTemplateMedia}
+                            className="p-1 hover:bg-red-100 dark:hover:bg-red-900/30 rounded text-red-500"
+                          >
+                            <X className="w-5 h-5" />
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Show URL input if no file */}
+                    {!templateMediaFile && (
+                      <div className="mt-3">
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Ou entrez une URL:</p>
+                        <input
+                          type="url"
+                          value={newTemplate.mediaUrl}
+                          onChange={(e) => setNewTemplate({ ...newTemplate, mediaUrl: e.target.value })}
+                          placeholder="https://example.com/image.jpg"
+                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                        />
+                      </div>
+                    )}
                   </div>
 
                   <div>

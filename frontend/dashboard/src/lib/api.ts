@@ -747,6 +747,27 @@ class ApiClient {
     });
   }
 
+  async createBroadcastTemplateWithMedia(formData: FormData) {
+    const response = await fetch(`${this.baseURL}/broadcast/templates/with-media`, {
+      method: 'POST',
+      headers: {
+        ...(this.token ? { Authorization: `Bearer ${this.token}` } : {}),
+      },
+      body: formData,
+    });
+
+    const data = await response.json();
+
+    if (response.status === 401) {
+      const refreshed = await this.tryRefreshToken();
+      if (refreshed) {
+        return this.createBroadcastTemplateWithMedia(formData);
+      }
+    }
+
+    return { success: response.ok, data: data.data || data, error: data.message };
+  }
+
   async updateBroadcastTemplate(id: string, data: {
     name?: string;
     description?: string;

@@ -15,10 +15,7 @@ import {
 } from "../../common/entities";
 import { MessageRole } from "../../common/enums";
 import { SubscriptionPlan, UsageMetricType } from "../../common/enums";
-import {
-  SUBSCRIPTION_LIMITS,
-  SUBSCRIPTION_FEATURES,
-} from "../../common/entities/subscription.entity";
+import { PlanService } from "./plan.service";
 
 export interface QuotaCheck {
   allowed: boolean;
@@ -69,6 +66,8 @@ export class QuotaEnforcementService {
 
     @InjectRepository(AgentMessage)
     private readonly messageRepository: Repository<AgentMessage>,
+
+    private readonly planService: PlanService,
   ) {}
 
   async checkAgentQuota(organizationId: string): Promise<QuotaCheck> {
@@ -420,7 +419,7 @@ export class QuotaEnforcementService {
   // Feature access checks
   async checkFeatureAccess(
     organizationId: string,
-    feature: keyof (typeof SUBSCRIPTION_FEATURES)[SubscriptionPlan.FREE],
+    feature: string,
   ): Promise<FeatureCheck> {
     const subscription = await this.getActiveSubscription(organizationId);
     const enabled = subscription.features[feature];
@@ -663,31 +662,30 @@ export class QuotaEnforcementService {
       this.logger.debug(
         "No active subscription found, creating free subscription",
       );
-      // Create default free subscription
+      // Create default free subscription using database plans
       const freeSubscription = this.subscriptionRepository.create({
         organizationId,
         plan: SubscriptionPlan.FREE,
-        limits: SUBSCRIPTION_LIMITS[SubscriptionPlan.FREE],
-        features: SUBSCRIPTION_FEATURES[SubscriptionPlan.FREE],
+        limits: this.planService.getPlanLimits('free'),
+        features: this.planService.getPlanFeatures('free'),
         startsAt: new Date(),
       });
 
       return this.subscriptionRepository.save(freeSubscription);
     }
 
-    // Always sync limits and features with the latest code values
-    // This ensures upgrades and code updates are always reflected
-    // Note: SUBSCRIPTION_LIMITS keys are lowercase enum values (e.g., 'standard', 'pro')
-    const planKey = activeSubscription.plan.toLowerCase() as SubscriptionPlan;
-    const currentLimits = SUBSCRIPTION_LIMITS[planKey] || SUBSCRIPTION_LIMITS[SubscriptionPlan.FREE];
-    const currentFeatures = SUBSCRIPTION_FEATURES[planKey] || SUBSCRIPTION_FEATURES[SubscriptionPlan.FREE];
+    // Always sync limits and features with the latest database values
+    // This ensures upgrades and plan updates in database are always reflected
+    const planCode = activeSubscription.plan.toLowerCase();
+    const currentLimits = this.planService.getPlanLimits(planCode);
+    const currentFeatures = this.planService.getPlanFeatures(planCode);
 
     // Check if limits/features need updating
     const limitsNeedUpdate = JSON.stringify(activeSubscription.limits) !== JSON.stringify(currentLimits);
     const featuresNeedUpdate = JSON.stringify(activeSubscription.features) !== JSON.stringify(currentFeatures);
 
     if (limitsNeedUpdate || featuresNeedUpdate) {
-      this.logger.log(`Syncing subscription limits/features for plan ${activeSubscription.plan}`);
+      this.logger.log(`Syncing subscription limits/features for plan ${activeSubscription.plan} from database`);
       activeSubscription.limits = currentLimits;
       activeSubscription.features = currentFeatures;
       await this.subscriptionRepository.save(activeSubscription);
@@ -733,15 +731,16 @@ export class QuotaEnforcementService {
     if (!activeSubscription) {
       // Default or mapped plan on first subscription creation
       const plan: SubscriptionPlan = mapEmailToPlan();
+      const planCode = plan.toLowerCase();
       console.log(`[QUOTA] Creating subscription for ${email} with plan ${plan}`);
 
-      // Create subscription for user
+      // Create subscription for user using database plans
       activeSubscription = this.subscriptionRepository.create({
         userId,
         organizationId: null,
         plan,
-        limits: SUBSCRIPTION_LIMITS[plan],
-        features: SUBSCRIPTION_FEATURES[plan],
+        limits: this.planService.getPlanLimits(planCode),
+        features: this.planService.getPlanFeatures(planCode),
         startsAt: new Date(),
       });
 
@@ -763,26 +762,26 @@ export class QuotaEnforcementService {
       // If an existing subscription exists but mapping expects a higher plan (demo accounts), adjust it
       const desired = mapEmailToPlan();
       if (desired !== activeSubscription.plan) {
+        const desiredCode = desired.toLowerCase();
         console.log(
           `[QUOTA] Adjusting existing plan for ${email} from ${activeSubscription.plan} to ${desired}`,
         );
         activeSubscription.plan = desired;
-        activeSubscription.limits = SUBSCRIPTION_LIMITS[desired];
-        activeSubscription.features = SUBSCRIPTION_FEATURES[desired];
+        activeSubscription.limits = this.planService.getPlanLimits(desiredCode);
+        activeSubscription.features = this.planService.getPlanFeatures(desiredCode);
         await this.subscriptionRepository.save(activeSubscription);
       } else {
-        // Always sync limits and features with the latest code values
-        // This ensures upgrades and code updates are always reflected
-        // Note: SUBSCRIPTION_LIMITS keys are lowercase enum values (e.g., 'standard', 'pro')
-        const planKey = activeSubscription.plan.toLowerCase() as SubscriptionPlan;
-        const currentLimits = SUBSCRIPTION_LIMITS[planKey] || SUBSCRIPTION_LIMITS[SubscriptionPlan.FREE];
-        const currentFeatures = SUBSCRIPTION_FEATURES[planKey] || SUBSCRIPTION_FEATURES[SubscriptionPlan.FREE];
+        // Always sync limits and features with the latest database values
+        // This ensures upgrades and plan updates in database are always reflected
+        const planCode = activeSubscription.plan.toLowerCase();
+        const currentLimits = this.planService.getPlanLimits(planCode);
+        const currentFeatures = this.planService.getPlanFeatures(planCode);
 
         const limitsNeedUpdate = JSON.stringify(activeSubscription.limits) !== JSON.stringify(currentLimits);
         const featuresNeedUpdate = JSON.stringify(activeSubscription.features) !== JSON.stringify(currentFeatures);
 
         if (limitsNeedUpdate || featuresNeedUpdate) {
-          this.logger.log(`Syncing user subscription limits/features for plan ${activeSubscription.plan}`);
+          this.logger.log(`Syncing user subscription limits/features for plan ${activeSubscription.plan} from database`);
           activeSubscription.limits = currentLimits;
           activeSubscription.features = currentFeatures;
           await this.subscriptionRepository.save(activeSubscription);
@@ -904,11 +903,26 @@ export class QuotaEnforcementService {
   }
 
   private findRequiredPlan(feature: string): SubscriptionPlan {
-    for (const [plan, features] of Object.entries(SUBSCRIPTION_FEATURES)) {
-      if (features[feature as keyof typeof features]) {
-        return plan as SubscriptionPlan;
+    // Get all plan features from database
+    const allPlanFeatures = this.planService.getAllPlanFeatures();
+
+    // Define plan order from lowest to highest
+    const planOrder: SubscriptionPlan[] = [
+      SubscriptionPlan.FREE,
+      SubscriptionPlan.STANDARD,
+      SubscriptionPlan.PRO,
+      SubscriptionPlan.ENTERPRISE,
+    ];
+
+    // Find the lowest plan that has this feature
+    for (const plan of planOrder) {
+      const planCode = plan.toLowerCase();
+      const features = allPlanFeatures[planCode];
+      if (features && features[feature as keyof typeof features]) {
+        return plan;
       }
     }
+
     return SubscriptionPlan.ENTERPRISE;
   }
 }

@@ -270,4 +270,134 @@ export class PlanService implements OnModuleInit {
     await this.refreshCache();
     return savedPlan;
   }
+
+  /**
+   * Get plan limits in the format expected by quota enforcement
+   * This replaces the hardcoded SUBSCRIPTION_LIMITS
+   */
+  getPlanLimits(code: string): {
+    maxAgents: number;
+    maxRequestsPerMonth: number;
+    maxStorageBytes: number;
+    maxKnowledgeChars: number;
+    maxKnowledgeBases: number;
+    maxLLMTokensPerMonth: number;
+    maxVectorSearches: number;
+    maxConversationsPerMonth: number;
+    maxDocumentsPerKB: number;
+    maxFileUploadSize: number;
+    broadcastContacts: number;
+  } {
+    const plan = this.getPlanByCode(code);
+
+    // Default FREE limits if plan not found
+    if (!plan) {
+      return {
+        maxAgents: 1,
+        maxRequestsPerMonth: 100,
+        maxStorageBytes: 100 * 1024 * 1024,
+        maxKnowledgeChars: 50000,
+        maxKnowledgeBases: 1,
+        maxLLMTokensPerMonth: 10000,
+        maxVectorSearches: 500,
+        maxConversationsPerMonth: 50,
+        maxDocumentsPerKB: 50,
+        maxFileUploadSize: 10 * 1024 * 1024,
+        broadcastContacts: 50,
+      };
+    }
+
+    return {
+      maxAgents: plan.maxAgents,
+      maxRequestsPerMonth: plan.maxWhatsAppMessages, // Using WhatsApp messages as requests
+      maxStorageBytes: Number(plan.maxStorageBytes),
+      maxKnowledgeChars: plan.maxKnowledgeCharacters,
+      maxKnowledgeBases: plan.maxKnowledgeBases,
+      maxLLMTokensPerMonth: plan.maxLlmTokens,
+      maxVectorSearches: plan.maxVectorSearches,
+      maxConversationsPerMonth: plan.maxConversations,
+      maxDocumentsPerKB: plan.maxDocumentsPerKb,
+      maxFileUploadSize: plan.maxFileUploadBytes,
+      broadcastContacts: plan.maxBroadcastContacts,
+    };
+  }
+
+  /**
+   * Get plan features in the format expected by quota enforcement
+   * This replaces the hardcoded SUBSCRIPTION_FEATURES
+   */
+  getPlanFeatures(code: string): {
+    customBranding: boolean;
+    prioritySupport: boolean;
+    analytics: boolean;
+    apiAccess: boolean;
+    whiteLabel: boolean;
+    advancedLLMs: boolean;
+    premiumVectorSearch: boolean;
+    functionCalling: boolean;
+    imageAnalysis: boolean;
+    customEmbeddings: boolean;
+    webhooks: boolean;
+    scheduling: boolean;
+    sso: boolean;
+  } {
+    const plan = this.getPlanByCode(code);
+
+    // Default FREE features if plan not found
+    if (!plan) {
+      return {
+        customBranding: false,
+        prioritySupport: false,
+        analytics: false,
+        apiAccess: false,
+        whiteLabel: false,
+        advancedLLMs: false,
+        premiumVectorSearch: false,
+        functionCalling: false,
+        imageAnalysis: false,
+        customEmbeddings: false,
+        webhooks: false,
+        scheduling: false,
+        sso: false,
+      };
+    }
+
+    return {
+      customBranding: plan.featureCustomBranding,
+      prioritySupport: plan.featurePrioritySupport,
+      analytics: plan.featureAnalytics,
+      apiAccess: plan.featureApiAccess,
+      whiteLabel: plan.featureWhiteLabel,
+      advancedLLMs: plan.featureAdvancedLlms,
+      premiumVectorSearch: plan.featurePremiumVectorSearch,
+      functionCalling: plan.featureFunctionCalling,
+      imageAnalysis: plan.featureImageAnalysis,
+      customEmbeddings: plan.featureCustomEmbeddings,
+      webhooks: plan.featureWebhooks,
+      scheduling: plan.featureScheduledCampaigns,
+      sso: plan.featureSso,
+    };
+  }
+
+  /**
+   * Get all plan limits (for iteration)
+   */
+  getAllPlanLimits(): Record<string, ReturnType<typeof this.getPlanLimits>> {
+    const result: Record<string, ReturnType<typeof this.getPlanLimits>> = {};
+    for (const [code] of this.plansCache) {
+      result[code] = this.getPlanLimits(code);
+    }
+    return result;
+  }
+
+  /**
+   * Get all plan features (for iteration)
+   */
+  getAllPlanFeatures(): Record<string, ReturnType<typeof this.getPlanFeatures>> {
+    const result: Record<string, ReturnType<typeof this.getPlanFeatures>> = {};
+    for (const [code] of this.plansCache) {
+      result[code] = this.getPlanFeatures(code);
+    }
+    return result;
+  }
 }

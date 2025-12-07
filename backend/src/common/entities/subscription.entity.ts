@@ -151,52 +151,56 @@ export class Subscription extends BaseEntity {
 // Default subscription limits
 export const SUBSCRIPTION_LIMITS = {
   [SubscriptionPlan.FREE]: {
-    maxAgents: 1, // 1 WhatsApp account
+    maxAgents: 1,
     maxRequestsPerMonth: 100,
-    maxStorageBytes: 100 * 1024 * 1024, // 100MB
+    maxStorageBytes: 100 * 1024 * 1024,
     maxKnowledgeChars: 50000,
     maxKnowledgeBases: 1,
     maxLLMTokensPerMonth: 10000,
     maxVectorSearches: 500,
     maxConversationsPerMonth: 50,
     maxDocumentsPerKB: 50,
-    maxFileUploadSize: 10 * 1024 * 1024, // 10MB
+    maxFileUploadSize: 10 * 1024 * 1024,
+    broadcastContacts: 50,
   },
   [SubscriptionPlan.STANDARD]: {
-    maxAgents: 1, // 1 WhatsApp account
+    maxAgents: 1,
     maxRequestsPerMonth: 2000,
-    maxStorageBytes: 500 * 1024 * 1024, // 500MB
+    maxStorageBytes: 500 * 1024 * 1024,
     maxKnowledgeChars: 1000000,
     maxKnowledgeBases: 3,
     maxLLMTokensPerMonth: 100000,
     maxVectorSearches: 5000,
     maxConversationsPerMonth: 500,
     maxDocumentsPerKB: 200,
-    maxFileUploadSize: 25 * 1024 * 1024, // 25MB
+    maxFileUploadSize: 25 * 1024 * 1024,
+    broadcastContacts: 1000,
   },
   [SubscriptionPlan.PRO]: {
-    maxAgents: 3, // 3 WhatsApp accounts (updated for Mobile Money pricing)
+    maxAgents: 3,
     maxRequestsPerMonth: 8000,
-    maxStorageBytes: 5 * 1024 * 1024 * 1024, // 5GB
+    maxStorageBytes: 5 * 1024 * 1024 * 1024,
     maxKnowledgeChars: 5000000,
     maxKnowledgeBases: 10,
     maxLLMTokensPerMonth: 500000,
     maxVectorSearches: 25000,
     maxConversationsPerMonth: 2500,
     maxDocumentsPerKB: 1000,
-    maxFileUploadSize: 100 * 1024 * 1024, // 100MB
+    maxFileUploadSize: 100 * 1024 * 1024,
+    broadcastContacts: 5000,
   },
   [SubscriptionPlan.ENTERPRISE]: {
-    maxAgents: 10, // 10 WhatsApp accounts (updated for Mobile Money pricing)
+    maxAgents: 10,
     maxRequestsPerMonth: 30000,
-    maxStorageBytes: 20 * 1024 * 1024 * 1024, // 20GB
+    maxStorageBytes: 20 * 1024 * 1024 * 1024,
     maxKnowledgeChars: 20000000,
     maxKnowledgeBases: 50,
     maxLLMTokensPerMonth: 2000000,
     maxVectorSearches: 100000,
     maxConversationsPerMonth: 10000,
     maxDocumentsPerKB: 5000,
-    maxFileUploadSize: 500 * 1024 * 1024, // 500MB
+    maxFileUploadSize: 500 * 1024 * 1024,
+    broadcastContacts: 10000,
   },
 };
 

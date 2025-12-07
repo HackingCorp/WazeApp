@@ -35,15 +35,7 @@ export class ContactService {
     });
 
     const plan = subscription?.plan || 'free';
-
-    const limits: Record<string, number> = {
-      free: 50,
-      standard: 1000,
-      pro: 5000,
-      enterprise: 10000,
-    };
-
-    return limits[plan] || 50;
+    return SUBSCRIPTION_LIMITS[plan]?.broadcastContacts;
   }
 
   /**

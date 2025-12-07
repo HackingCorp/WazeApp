@@ -346,7 +346,10 @@ export default function BroadcastPage() {
       const response = await api.getWhatsAppSessions();
       if (response.success) {
         const sessionList = response.data?.data || response.data || [];
-        setSessions(sessionList.filter((s: WhatsAppSession) => s.status === 'connected'));
+        // Filter connected sessions (case-insensitive)
+        setSessions(sessionList.filter((s: WhatsAppSession) =>
+          s.status?.toLowerCase() === 'connected'
+        ));
       }
     } catch (error) {
       console.error('Failed to fetch sessions:', error);
@@ -834,7 +837,7 @@ export default function BroadcastPage() {
               className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
             >
               <option value="">Session WhatsApp...</option>
-              {sessions.filter(s => s.status === 'connected').map(session => (
+              {sessions.map(session => (
                 <option key={session.id} value={session.id}>
                   {session.name || session.phoneNumber || 'Session'}
                 </option>

@@ -115,7 +115,7 @@ export default function BroadcastPage() {
   const [sessions, setSessions] = useState<WhatsAppSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [contactStats, setContactStats] = useState({ total: 0, limit: 50, validated: 0, subscribed: 0 });
+  const [contactStats, setContactStats] = useState<{ total: number; limit: number | undefined; validated: number; subscribed: number }>({ total: 0, limit: undefined, validated: 0, subscribed: 0 });
 
   // Modals
   const [showImportModal, setShowImportModal] = useState(false);
@@ -221,14 +221,16 @@ export default function BroadcastPage() {
   const fetchContactStats = useCallback(async () => {
     try {
       const response = await api.getBroadcastContactStats();
+      console.log('[Broadcast] Contact stats API response:', JSON.stringify(response, null, 2));
       if (response.success && response.data) {
-        // Merge with defaults to ensure all fields are present
-        setContactStats({
+        const newStats = {
           total: response.data.total ?? 0,
-          limit: response.data.limit ?? 50,
+          limit: response.data.limit,
           validated: response.data.validated ?? 0,
           subscribed: response.data.subscribed ?? 0,
-        });
+        };
+        console.log('[Broadcast] Setting contact stats:', newStats);
+        setContactStats(newStats);
       }
     } catch (error) {
       console.error('Failed to fetch contact stats:', error);
@@ -578,7 +580,7 @@ export default function BroadcastPage() {
             <div>
               <p className="text-sm text-gray-500 dark:text-gray-400">Contacts</p>
               <p className="text-xl font-bold text-gray-900 dark:text-white">
-                {contactStats.total ?? 0} / {contactStats.limit ?? 50}
+                {contactStats.total} / {contactStats.limit !== undefined ? contactStats.limit : '...'}
               </p>
             </div>
           </div>

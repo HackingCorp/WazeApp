@@ -10,6 +10,7 @@ import { MobileMoneyController } from './mobile-money.controller';
 import { PricingController } from './pricing.controller';
 import { Subscription, User, Organization } from '../../common/entities';
 import { EmailModule } from '../email/email.module';
+import { SubscriptionModule } from '../subscriptions/subscription.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { EmailModule } from '../email/email.module';
     ConfigModule,
     TypeOrmModule.forFeature([Subscription, User, Organization]),
     EmailModule,
+    forwardRef(() => SubscriptionModule), // Import SubscriptionModule for PlanService
   ],
   controllers: [MobileMoneyController, PricingController],
   providers: [S3PService, EnkapService, CurrencyService, SubscriptionUpgradeService],

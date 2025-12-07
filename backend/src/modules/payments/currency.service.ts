@@ -1,8 +1,10 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Inject, forwardRef, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { HttpService } from '@nestjs/axios';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { firstValueFrom } from 'rxjs';
+import { PlanService } from '../subscriptions/plan.service';
+import { Plan } from '../../common/entities';
 
 export interface ExchangeRates {
   base: string;
@@ -29,7 +31,7 @@ export interface PricingPlan {
 }
 
 @Injectable()
-export class CurrencyService {
+export class CurrencyService implements OnModuleInit {
   private readonly logger = new Logger(CurrencyService.name);
 
   // Cache des taux de change
@@ -55,77 +57,13 @@ export class CurrencyService {
     EGP: 49, // Livre Égyptienne
   };
 
-  // Prix de base en USD
-  readonly PRICING: Record<string, PricingPlan> = {
-    FREE: {
-      id: 'FREE',
-      name: 'Free',
-      priceUSD: 0,
-      priceAnnualUSD: 0,
-      messages: 100,
-      agents: 1,
-      storage: '100MB',
-      // Broadcast limits
-      broadcastContacts: 50,
-      broadcastTemplates: 3,
-      broadcastCampaignsPerMonth: 2,
-      broadcastMessagesPerDay: 50,
-      hasExternalApi: false,
-      hasWebhooks: false,
-      hasScheduling: false,
-    },
-    STANDARD: {
-      id: 'STANDARD',
-      name: 'Standard',
-      priceUSD: 2, // TEMP TEST PRICE (was 29.99)
-      priceAnnualUSD: 19.20, // TEMP TEST PRICE (was 287.90)
-      messages: 2000,
-      agents: 1,
-      storage: '500MB',
-      // Broadcast limits
-      broadcastContacts: 1000,
-      broadcastTemplates: 10,
-      broadcastCampaignsPerMonth: 20,
-      broadcastMessagesPerDay: 500,
-      hasExternalApi: false,
-      hasWebhooks: false,
-      hasScheduling: true,
-    },
-    PRO: {
-      id: 'PRO',
-      name: 'Pro',
-      priceUSD: 3, // TEMP TEST PRICE (was 49.99)
-      priceAnnualUSD: 28.80, // TEMP TEST PRICE (was 479.90)
-      messages: 8000,
-      agents: 3,
-      storage: '5GB',
-      // Broadcast limits
-      broadcastContacts: 5000,
-      broadcastTemplates: 50,
-      broadcastCampaignsPerMonth: 100,
-      broadcastMessagesPerDay: 2000,
-      hasExternalApi: false,
-      hasWebhooks: true,
-      hasScheduling: true,
-    },
-    ENTERPRISE: {
-      id: 'ENTERPRISE',
-      name: 'Enterprise',
-      priceUSD: 4, // TEMP TEST PRICE (was 199)
-      priceAnnualUSD: 38.40, // TEMP TEST PRICE (was 1910)
-      messages: 30000,
-      agents: 10,
-      storage: '20GB',
-      // Broadcast limits
-      broadcastContacts: 10000,
-      broadcastTemplates: 999999, // Unlimited
-      broadcastCampaignsPerMonth: 999999, // Unlimited
-      broadcastMessagesPerDay: 5000,
-      hasExternalApi: true,
-      hasWebhooks: true,
-      hasScheduling: true,
-    },
-  };
+  // Cache des plans depuis la base de données
+  private cachedPricing: Record<string, PricingPlan> = {};
+
+  // Getter pour PRICING - récupère depuis le cache (chargé depuis la DB)
+  get PRICING(): Record<string, PricingPlan> {
+    return this.cachedPricing;
+  }
 
   // Devises supportées
   readonly SUPPORTED_CURRENCIES = ['USD', 'EUR', 'GBP', 'XAF', 'XOF', 'NGN', 'GHS', 'KES', 'ZAR', 'MAD', 'TND', 'EGP'];
@@ -133,9 +71,140 @@ export class CurrencyService {
   constructor(
     private readonly configService: ConfigService,
     private readonly httpService: HttpService,
-  ) {
-    // Charger les taux au démarrage
-    this.refreshExchangeRates();
+    @Inject(forwardRef(() => PlanService))
+    private readonly planService: PlanService,
+  ) {}
+
+  async onModuleInit() {
+    // Charger les taux et les plans au démarrage
+    await this.refreshExchangeRates();
+    await this.refreshPlansFromDatabase();
+  }
+
+  /**
+   * Rafraîchit les plans depuis la base de données
+   */
+  async refreshPlansFromDatabase(): Promise<void> {
+    try {
+      const plans = await this.planService.getAllPlans();
+      this.cachedPricing = {};
+
+      for (const plan of plans) {
+        this.cachedPricing[plan.code.toUpperCase()] = this.convertPlanToPricingPlan(plan);
+      }
+
+      this.logger.log(`Plans loaded from database: ${Object.keys(this.cachedPricing).length} plans`);
+    } catch (error) {
+      this.logger.error(`Failed to load plans from database: ${error.message}`);
+      // Utiliser des valeurs par défaut si la DB n'est pas accessible
+      this.loadFallbackPlans();
+    }
+  }
+
+  /**
+   * Convertit une entité Plan en PricingPlan
+   */
+  private convertPlanToPricingPlan(plan: Plan): PricingPlan {
+    return {
+      id: plan.code.toUpperCase(),
+      name: plan.name,
+      priceUSD: plan.priceMonthlyUSD,
+      priceAnnualUSD: plan.priceAnnualUSD,
+      messages: plan.maxWhatsAppMessages,
+      agents: plan.maxAgents,
+      storage: this.formatStorageSize(plan.maxStorageBytes),
+      // Broadcast limits
+      broadcastContacts: plan.maxBroadcastContacts,
+      broadcastTemplates: plan.maxMessageTemplates,
+      broadcastCampaignsPerMonth: plan.maxCampaignsPerMonth,
+      broadcastMessagesPerDay: plan.maxMessagesPerCampaign,
+      hasExternalApi: plan.featureApiAccess,
+      hasWebhooks: plan.featureWebhooks,
+      hasScheduling: plan.featureScheduledCampaigns,
+    };
+  }
+
+  /**
+   * Formate la taille de stockage en chaîne lisible
+   */
+  private formatStorageSize(bytes: number): string {
+    if (bytes < 0) return 'Unlimited';
+    if (bytes >= 1073741824) return `${Math.round(bytes / 1073741824)}GB`;
+    if (bytes >= 1048576) return `${Math.round(bytes / 1048576)}MB`;
+    return `${bytes}B`;
+  }
+
+  /**
+   * Charge des plans par défaut si la DB n'est pas accessible
+   */
+  private loadFallbackPlans(): void {
+    this.cachedPricing = {
+      FREE: {
+        id: 'FREE',
+        name: 'Free',
+        priceUSD: 0,
+        priceAnnualUSD: 0,
+        messages: 100,
+        agents: 1,
+        storage: '100MB',
+        broadcastContacts: 50,
+        broadcastTemplates: 3,
+        broadcastCampaignsPerMonth: 5,
+        broadcastMessagesPerDay: 50,
+        hasExternalApi: false,
+        hasWebhooks: false,
+        hasScheduling: false,
+      },
+      STANDARD: {
+        id: 'STANDARD',
+        name: 'Standard',
+        priceUSD: 2,
+        priceAnnualUSD: 20,
+        messages: 1000,
+        agents: 1,
+        storage: '500MB',
+        broadcastContacts: 500,
+        broadcastTemplates: 10,
+        broadcastCampaignsPerMonth: 20,
+        broadcastMessagesPerDay: 500,
+        hasExternalApi: false,
+        hasWebhooks: true,
+        hasScheduling: true,
+      },
+      PRO: {
+        id: 'PRO',
+        name: 'Pro',
+        priceUSD: 3,
+        priceAnnualUSD: 30,
+        messages: 5000,
+        agents: 3,
+        storage: '2GB',
+        broadcastContacts: 2000,
+        broadcastTemplates: 50,
+        broadcastCampaignsPerMonth: 100,
+        broadcastMessagesPerDay: 2000,
+        hasExternalApi: true,
+        hasWebhooks: true,
+        hasScheduling: true,
+      },
+      ENTERPRISE: {
+        id: 'ENTERPRISE',
+        name: 'Enterprise',
+        priceUSD: 4,
+        priceAnnualUSD: 40,
+        messages: -1,
+        agents: 10,
+        storage: '10GB',
+        broadcastContacts: -1,
+        broadcastTemplates: -1,
+        broadcastCampaignsPerMonth: -1,
+        broadcastMessagesPerDay: -1,
+        hasExternalApi: true,
+        hasWebhooks: true,
+        hasScheduling: true,
+      },
+    };
+    this.logger.warn('Using fallback pricing plans');
   }
 
   /**

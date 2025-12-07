@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In, LessThanOrEqual, Not } from 'typeorm';
+import { Repository, In, LessThanOrEqual, MoreThanOrEqual, Not } from 'typeorm';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
 import { Cron, CronExpression } from '@nestjs/schedule';
@@ -59,7 +59,8 @@ export class CampaignService {
       order: { createdAt: 'DESC' },
     });
 
-    const plan = subscription?.plan || 'FREE';
+    // Normalize plan name to uppercase for comparison
+    const plan = (subscription?.plan || 'FREE').toUpperCase();
     const limits = {
       FREE: { campaignsPerMonth: 2, messagesPerDay: 50 },
       STANDARD: { campaignsPerMonth: 20, messagesPerDay: 500 },
@@ -84,9 +85,11 @@ export class CampaignService {
     const campaignsThisMonth = await this.campaignRepository.count({
       where: {
         organizationId,
-        createdAt: LessThanOrEqual(new Date()),
+        createdAt: MoreThanOrEqual(startOfMonth),
       },
     });
+
+    this.logger.debug(`Campaign limit check: ${campaignsThisMonth}/${limits.campaignsPerMonth} campaigns this month`);
 
     return campaignsThisMonth < limits.campaignsPerMonth;
   }

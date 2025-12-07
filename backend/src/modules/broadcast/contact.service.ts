@@ -4,6 +4,7 @@ import { Repository, In, Like, ILike } from 'typeorm';
 import * as XLSX from 'xlsx';
 import * as Papa from 'papaparse';
 import { BroadcastContact, Subscription, SUBSCRIPTION_LIMITS } from '../../common/entities';
+import { SubscriptionStatus } from '../../common/enums';
 import { BaileysService } from '../whatsapp/baileys.service';
 import {
   CreateContactDto,
@@ -28,12 +29,19 @@ export class ContactService {
    * Get contact limit based on subscription plan
    */
   async getContactLimit(organizationId: string): Promise<number> {
+    // Query by status column (ACTIVE or TRIALING) instead of isActive getter
     const subscription = await this.subscriptionRepository.findOne({
-      where: { organizationId, isActive: true },
+      where: {
+        organizationId,
+        status: In([SubscriptionStatus.ACTIVE, SubscriptionStatus.TRIALING]),
+      },
       order: { createdAt: 'DESC' },
     });
 
-    const plan = subscription?.plan || 'FREE';
+    const plan = subscription?.plan?.toUpperCase() || 'FREE';
+
+    this.logger.debug(`Organization ${organizationId} has plan: ${plan}, subscription found: ${!!subscription}`);
+
     const limits = {
       FREE: 50,
       STANDARD: 1000,

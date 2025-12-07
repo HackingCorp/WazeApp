@@ -84,9 +84,21 @@ export class BroadcastProcessor {
         contact,
       );
 
+      // Format phone number with country code
+      let phoneNumber = contact.phoneNumber.replace(/[\s\-\+\(\)]/g, '');
+
+      // Add country code if missing (assume Cameroon 237 for 9-digit numbers starting with 6)
+      if (phoneNumber.length === 9 && phoneNumber.startsWith('6')) {
+        phoneNumber = '237' + phoneNumber;
+      }
+      // Handle numbers starting with 0 (local format)
+      if (phoneNumber.startsWith('0')) {
+        phoneNumber = '237' + phoneNumber.substring(1);
+      }
+
       // Send via Baileys
       const result = await this.baileysService.sendMessage(campaign.sessionId, {
-        to: contact.phoneNumber,
+        to: phoneNumber,
         message: messageContent.text || messageContent.caption || '',
         type: messageContent.type as any,
         mediaUrl: messageContent.mediaUrl,
@@ -113,7 +125,7 @@ export class BroadcastProcessor {
         whatsappMessageId: result.messageId,
       });
 
-      this.logger.debug(`Message sent to ${contact.phoneNumber}`);
+      this.logger.debug(`Message sent to ${phoneNumber} (original: ${contact.phoneNumber})`);
     } catch (error) {
       this.logger.error(
         `Failed to send message to ${contact.phoneNumber}:`,

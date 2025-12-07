@@ -221,16 +221,15 @@ export default function BroadcastPage() {
   const fetchContactStats = useCallback(async () => {
     try {
       const response = await api.getBroadcastContactStats();
-      console.log('[Broadcast] Contact stats API response:', JSON.stringify(response, null, 2));
-      if (response.success && response.data) {
-        const newStats = {
-          total: response.data.total ?? 0,
-          limit: response.data.limit,
-          validated: response.data.validated ?? 0,
-          subscribed: response.data.subscribed ?? 0,
-        };
-        console.log('[Broadcast] Setting contact stats:', newStats);
-        setContactStats(newStats);
+      // Handle nested response structure: response.data may contain another { success, data } object
+      const statsData = response.data?.data || response.data;
+      if (response.success && statsData) {
+        setContactStats({
+          total: statsData.total ?? 0,
+          limit: statsData.limit,
+          validated: statsData.validated ?? 0,
+          subscribed: statsData.subscribed ?? 0,
+        });
       }
     } catch (error) {
       console.error('Failed to fetch contact stats:', error);

@@ -371,8 +371,7 @@ export class BroadcastController {
   @ApiOperation({ summary: 'Get campaign limits' })
   async getCampaignLimits(@CurrentUser() user: AuthUser) {
     const organizationId = this.ensureOrganization(user);
-    const limits = await this.campaignService.getCampaignLimits(organizationId);
-    return { success: true, data: limits };
+    return this.campaignService.getCampaignLimits(organizationId);
   }
 
   @Get('campaigns/:id')

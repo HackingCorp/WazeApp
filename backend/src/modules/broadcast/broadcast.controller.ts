@@ -236,7 +236,7 @@ export class BroadcastController {
     if (!sessionId) {
       throw new BadRequestException('Session ID is required');
     }
-    const result = await this.contactService.bulkValidateContacts(organizationId, sessionId, user.id);
+    const result = await this.contactService.bulkValidateContacts(organizationId, sessionId, user.userId);
     return { success: true, data: result };
   }
 

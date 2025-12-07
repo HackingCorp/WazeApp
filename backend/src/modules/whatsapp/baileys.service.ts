@@ -1039,6 +1039,13 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
       throw new Error("Session not found or not connected");
     }
 
+    // Verify session is actually connected
+    const status = this.getSessionStatus(sessionId);
+    if (status !== "connected") {
+      this.logger.error(`Session ${sessionId} is not connected (status: ${status}). Cannot send message.`);
+      throw new Error(`Session is not connected (status: ${status}). Please reconnect WhatsApp.`);
+    }
+
     try {
       let message: any;
 

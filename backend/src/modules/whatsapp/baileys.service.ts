@@ -1049,25 +1049,33 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
     try {
       let message: any;
 
+      // Log incoming message request for debugging
+      this.logger.log(`📤 sendMessage called: to=${messageDto.to}, type=${messageDto.type}, message=${(messageDto.message || '').substring(0, 50)}...`);
+
       // Format phone number - use onWhatsApp to get correct JID
       let jid = messageDto.to;
       if (!messageDto.to.includes("@")) {
         // Validate number and get correct JID format
+        this.logger.log(`🔍 Validating phone number: ${messageDto.to}`);
         try {
-          const [result] = await sock.onWhatsApp(messageDto.to);
-          if (result?.exists && result?.jid) {
-            jid = result.jid;
-            this.logger.debug(`Resolved ${messageDto.to} to JID: ${jid}`);
+          const results = await sock.onWhatsApp(messageDto.to);
+          this.logger.log(`🔍 onWhatsApp result: ${JSON.stringify(results)}`);
+
+          if (results && results.length > 0 && results[0]?.exists && results[0]?.jid) {
+            jid = results[0].jid;
+            this.logger.log(`✅ Resolved ${messageDto.to} to JID: ${jid}`);
           } else {
             // Fallback to standard format if validation fails
             jid = `${messageDto.to}@s.whatsapp.net`;
-            this.logger.warn(`Could not validate ${messageDto.to}, using fallback JID: ${jid}`);
+            this.logger.warn(`⚠️ Could not validate ${messageDto.to} (results: ${JSON.stringify(results)}), using fallback JID: ${jid}`);
           }
         } catch (validationError) {
           // Fallback to standard format
           jid = `${messageDto.to}@s.whatsapp.net`;
-          this.logger.warn(`Failed to validate ${messageDto.to}: ${validationError.message}`);
+          this.logger.warn(`⚠️ Failed to validate ${messageDto.to}: ${validationError.message}`);
         }
+      } else {
+        this.logger.log(`📋 Using existing JID format: ${jid}`);
       }
 
       // Prepare message based on type
@@ -1119,10 +1127,15 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
           };
       }
 
+      // Log message content for debugging
+      this.logger.log(`📨 Sending message to ${jid}: ${JSON.stringify(message).substring(0, 200)}...`);
+
       // Send message
       const sentMessage = await sock.sendMessage(jid, message);
 
-      this.logger.log(`Message sent from session ${sessionId} to ${jid}`);
+      // Log full response for debugging
+      this.logger.log(`✅ Message sent successfully!`);
+      this.logger.log(`📩 Response: messageId=${sentMessage?.key?.id}, remoteJid=${sentMessage?.key?.remoteJid}, status=${sentMessage?.status}`);
 
       return {
         messageId: sentMessage.key.id,

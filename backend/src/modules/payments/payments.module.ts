@@ -8,7 +8,7 @@ import { CurrencyService } from './currency.service';
 import { SubscriptionUpgradeService } from './subscription-upgrade.service';
 import { MobileMoneyController } from './mobile-money.controller';
 import { PricingController } from './pricing.controller';
-import { Subscription, User, Organization } from '../../common/entities';
+import { Subscription, User, Organization, Invoice } from '../../common/entities';
 import { EmailModule } from '../email/email.module';
 import { SubscriptionModule } from '../subscriptions/subscription.module';
 
@@ -19,7 +19,7 @@ import { SubscriptionModule } from '../subscriptions/subscription.module';
       maxRedirects: 5,
     }),
     ConfigModule,
-    TypeOrmModule.forFeature([Subscription, User, Organization]),
+    TypeOrmModule.forFeature([Subscription, User, Organization, Invoice]),
     EmailModule,
     forwardRef(() => SubscriptionModule), // Import SubscriptionModule for PlanService
   ],

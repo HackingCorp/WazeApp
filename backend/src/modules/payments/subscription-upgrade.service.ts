@@ -1,8 +1,9 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Inject, forwardRef } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull } from 'typeorm';
-import { Subscription, User, Organization } from '../../common/entities';
+import { Subscription, User, Organization, Invoice } from '../../common/entities';
 import { SubscriptionPlan, SubscriptionStatus } from '../../common/enums';
+import { InvoiceStatus } from '../../common/entities/invoice.entity';
 import {
   SUBSCRIPTION_LIMITS,
   SUBSCRIPTION_FEATURES,
@@ -43,6 +44,9 @@ export class SubscriptionUpgradeService {
 
     @InjectRepository(Organization)
     private readonly organizationRepository: Repository<Organization>,
+
+    @InjectRepository(Invoice)
+    private readonly invoiceRepository: Repository<Invoice>,
 
     private readonly currencyService: CurrencyService,
     private readonly emailService: EmailService,
@@ -172,6 +176,11 @@ export class SubscriptionUpgradeService {
 
       this.logger.log(`Subscription upgraded successfully: ${previousPlan} -> ${newPlan} for user ${userId}`);
 
+      // Create invoice for the payment (don't block the response)
+      this.createPaymentInvoice(subscription, paymentDetails, userId, undefined).catch(err => {
+        this.logger.error(`Failed to create invoice: ${err.message}`);
+      });
+
       // Send confirmation emails (don't block the response)
       this.sendUpgradeEmails(user, paymentDetails, previousPlan, newPlan, subscription).catch(err => {
         this.logger.error(`Failed to send upgrade emails: ${err.message}`);
@@ -246,6 +255,70 @@ export class SubscriptionUpgradeService {
     );
 
     this.logger.log(`✅ Confirmation emails sent to ${user.email}`);
+  }
+
+  /**
+   * Send payment and upgrade confirmation emails for organization
+   */
+  private async sendOrganizationUpgradeEmails(
+    organization: Organization,
+    paymentDetails: PaymentDetails,
+    previousPlan: SubscriptionPlan,
+    newPlan: SubscriptionPlan,
+    subscription: Subscription,
+  ): Promise<void> {
+    // Get organization owner to send email
+    const owner = await this.userRepository.findOne({
+      where: { id: organization.ownerId },
+    });
+
+    if (!owner) {
+      this.logger.warn(`Organization owner not found for ${organization.id}, skipping email`);
+      return;
+    }
+
+    const firstName = owner.firstName || owner.email.split('@')[0];
+    const planInfo = this.currencyService.getPlan(paymentDetails.plan);
+
+    if (!planInfo) {
+      this.logger.warn(`Plan info not found for ${paymentDetails.plan}, skipping email`);
+      return;
+    }
+
+    // Send payment confirmation email
+    await this.emailService.sendPaymentConfirmationEmail(
+      owner.email,
+      firstName,
+      {
+        amount: paymentDetails.amount,
+        currency: paymentDetails.currency,
+        transactionId: paymentDetails.transactionId,
+        paymentMethod: paymentDetails.paymentMethod === 'mobile_money' ? 'Mobile Money' :
+                       paymentDetails.paymentMethod === 'card' ? 'Carte bancaire' : 'Virement',
+        planName: planInfo.name,
+        date: new Date(),
+      },
+    );
+
+    // Send subscription upgrade email
+    await this.emailService.sendSubscriptionUpgradeEmail(
+      owner.email,
+      firstName,
+      {
+        previousPlan: previousPlan,
+        newPlan: newPlan,
+        newLimits: {
+          messages: planInfo.messages,
+          agents: planInfo.agents,
+          storage: planInfo.storage,
+        },
+        nextBillingDate: subscription.nextBillingDate || subscription.endsAt,
+        amount: paymentDetails.amount,
+        currency: paymentDetails.currency,
+      },
+    );
+
+    this.logger.log(`✅ Organization confirmation emails sent to ${owner.email}`);
   }
 
   /**
@@ -371,6 +444,16 @@ export class SubscriptionUpgradeService {
 
       this.logger.log(`Subscription upgraded successfully: ${previousPlan} -> ${newPlan} for organization ${organizationId}`);
 
+      // Create invoice for the payment (don't block the response)
+      this.createPaymentInvoice(subscription, paymentDetails, undefined, organizationId).catch(err => {
+        this.logger.error(`Failed to create invoice: ${err.message}`);
+      });
+
+      // Send confirmation emails to organization owner (don't block the response)
+      this.sendOrganizationUpgradeEmails(organization, paymentDetails, previousPlan, newPlan, subscription).catch(err => {
+        this.logger.error(`Failed to send organization upgrade emails: ${err.message}`);
+      });
+
       return {
         success: true,
         subscription,
@@ -454,6 +537,90 @@ export class SubscriptionUpgradeService {
     return this.subscriptionRepository.findOne({
       where: whereClause,
     });
+  }
+
+  /**
+   * Create invoice after successful payment
+   */
+  private async createPaymentInvoice(
+    subscription: Subscription,
+    paymentDetails: PaymentDetails,
+    userId?: string,
+    organizationId?: string,
+  ): Promise<Invoice | null> {
+    // Invoice requires organizationId - for user subscriptions, we may not have an org
+    // In that case, we need to get or create an organization for the user
+    if (!organizationId && userId) {
+      // Find user's organization or skip invoice creation
+      const org = await this.organizationRepository.findOne({
+        where: { ownerId: userId },
+      });
+      if (org) {
+        organizationId = org.id;
+      } else {
+        this.logger.warn(`No organization found for user ${userId}, skipping invoice creation`);
+        return null;
+      }
+    }
+
+    if (!organizationId) {
+      this.logger.warn('No organizationId available, skipping invoice creation');
+      return null;
+    }
+
+    const invoiceNumber = this.generateInvoiceNumber();
+    const planInfo = this.currencyService.getPlan(paymentDetails.plan);
+    const planName = planInfo?.name || paymentDetails.plan;
+    const amountInCents = Math.round(paymentDetails.amount * 100);
+
+    const invoice = this.invoiceRepository.create({
+      invoiceNumber,
+      organizationId,
+      subscriptionId: subscription.id,
+      status: InvoiceStatus.PAID,
+      amountInCents,
+      totalAmountInCents: amountInCents,
+      currency: paymentDetails.currency,
+      description: `Abonnement ${planName} - ${paymentDetails.billingPeriod === 'annually' ? 'Annuel' : 'Mensuel'}`,
+      periodStart: subscription.startsAt,
+      periodEnd: subscription.endsAt,
+      dueDate: new Date(),
+      paidAt: new Date(),
+      paymentMethod: paymentDetails.paymentMethod === 'mobile_money' ? 'Mobile Money' :
+                     paymentDetails.paymentMethod === 'card' ? 'Carte bancaire' : 'Virement',
+      paymentReference: paymentDetails.transactionId,
+      lineItems: [
+        {
+          description: `Plan ${planName}`,
+          quantity: 1,
+          unitPrice: paymentDetails.amount,
+          total: paymentDetails.amount,
+        },
+      ],
+      metadata: {
+        transactionId: paymentDetails.transactionId,
+        ptn: paymentDetails.ptn,
+        paymentMethod: paymentDetails.paymentMethod,
+        paymentProvider: paymentDetails.paymentProvider,
+        billingPeriod: paymentDetails.billingPeriod,
+        planName,
+      },
+    });
+
+    const savedInvoice = await this.invoiceRepository.save(invoice);
+    this.logger.log(`Invoice created: ${invoiceNumber} for ${paymentDetails.amount} ${paymentDetails.currency}`);
+    return savedInvoice;
+  }
+
+  /**
+   * Generate unique invoice number
+   */
+  private generateInvoiceNumber(): string {
+    const date = new Date();
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const random = Math.random().toString(36).substring(2, 8).toUpperCase();
+    return `INV-${year}${month}-${random}`;
   }
 
   /**

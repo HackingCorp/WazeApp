@@ -121,16 +121,21 @@ export class ContactService {
     filename: string,
     options: ImportContactsDto,
   ): Promise<ImportResultDto> {
+    this.logger.log(`Import: filename=${filename}, bufferSize=${fileBuffer?.length || 0}`);
+
     const extension = filename.split('.').pop()?.toLowerCase();
     let contacts: any[] = [];
 
     // Parse file based on extension
     if (extension === 'csv') {
       contacts = await this.parseCSV(fileBuffer);
+      this.logger.log(`CSV parsed: ${contacts.length} rows, first row: ${JSON.stringify(contacts[0] || {})}`);
     } else if (['xlsx', 'xls'].includes(extension)) {
       contacts = await this.parseExcel(fileBuffer);
+      this.logger.log(`Excel parsed: ${contacts.length} rows, first row: ${JSON.stringify(contacts[0] || {})}`);
     } else if (extension === 'json') {
       contacts = JSON.parse(fileBuffer.toString());
+      this.logger.log(`JSON parsed: ${contacts.length} rows`);
     } else {
       throw new BadRequestException(
         'Unsupported file format. Please use CSV, Excel, or JSON.',

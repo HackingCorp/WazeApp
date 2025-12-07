@@ -51,7 +51,7 @@ import {
 
 interface AuthUser {
   userId: string;
-  organizationId: string;
+  organizationId?: string;
 }
 
 @ApiTags('Broadcast')
@@ -67,6 +67,13 @@ export class BroadcastController {
     private apiKeyService: ApiKeyService,
   ) {}
 
+  private ensureOrganization(user: AuthUser): string {
+    if (!user.organizationId) {
+      throw new BadRequestException('Organization is required. Please create or join an organization first.');
+    }
+    return user.organizationId;
+  }
+
   // ==========================================
   // CONTACTS
   // ==========================================
@@ -78,8 +85,9 @@ export class BroadcastController {
     @CurrentUser() user: AuthUser,
     @Body() dto: CreateContactDto,
   ) {
+    const organizationId = this.ensureOrganization(user);
     const contact = await this.contactService.createContact(
-      user.organizationId,
+      organizationId,
       dto,
     );
     return { success: true, data: contact };
@@ -106,12 +114,13 @@ export class BroadcastController {
     @UploadedFile() file: Express.Multer.File,
     @Body() dto: ImportContactsDto,
   ) {
+    const organizationId = this.ensureOrganization(user);
     if (!file) {
       throw new BadRequestException('File is required');
     }
 
     const result = await this.contactService.importContacts(
-      user.organizationId,
+      organizationId,
       file.buffer,
       file.originalname,
       dto,
@@ -132,8 +141,9 @@ export class BroadcastController {
     @CurrentUser() user: AuthUser,
     @Query() filter: ContactFilterDto,
   ) {
+    const organizationId = this.ensureOrganization(user);
     const result = await this.contactService.getContacts(
-      user.organizationId,
+      organizationId,
       filter,
     );
     return { success: true, ...result };
@@ -142,9 +152,10 @@ export class BroadcastController {
   @Get('contacts/stats')
   @ApiOperation({ summary: 'Get contact statistics' })
   async getContactStats(@CurrentUser() user: AuthUser) {
-    const count = await this.contactService.getContactCount(user.organizationId);
-    const limit = await this.contactService.getContactLimit(user.organizationId);
-    const tags = await this.contactService.getAllTags(user.organizationId);
+    const organizationId = this.ensureOrganization(user);
+    const count = await this.contactService.getContactCount(organizationId);
+    const limit = await this.contactService.getContactLimit(organizationId);
+    const tags = await this.contactService.getAllTags(organizationId);
 
     return {
       success: true,
@@ -163,10 +174,8 @@ export class BroadcastController {
     @CurrentUser() user: AuthUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    const contact = await this.contactService.getContact(
-      user.organizationId,
-      id,
-    );
+    const organizationId = this.ensureOrganization(user);
+    const contact = await this.contactService.getContact(organizationId, id);
     return { success: true, data: contact };
   }
 
@@ -177,11 +186,8 @@ export class BroadcastController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: Partial<CreateContactDto>,
   ) {
-    const contact = await this.contactService.updateContact(
-      user.organizationId,
-      id,
-      dto,
-    );
+    const organizationId = this.ensureOrganization(user);
+    const contact = await this.contactService.updateContact(organizationId, id, dto);
     return { success: true, data: contact };
   }
 
@@ -191,7 +197,8 @@ export class BroadcastController {
     @CurrentUser() user: AuthUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    await this.contactService.deleteContact(user.organizationId, id);
+    const organizationId = this.ensureOrganization(user);
+    await this.contactService.deleteContact(organizationId, id);
     return { success: true };
   }
 
@@ -201,10 +208,8 @@ export class BroadcastController {
     @CurrentUser() user: AuthUser,
     @Body('contactIds') contactIds: string[],
   ) {
-    const deleted = await this.contactService.bulkDeleteContacts(
-      user.organizationId,
-      contactIds,
-    );
+    const organizationId = this.ensureOrganization(user);
+    const deleted = await this.contactService.bulkDeleteContacts(organizationId, contactIds);
     return { success: true, deleted };
   }
 
@@ -214,11 +219,8 @@ export class BroadcastController {
     @CurrentUser() user: AuthUser,
     @Body() body: { contactIds: string[]; tags: string[] },
   ) {
-    const updated = await this.contactService.addTags(
-      user.organizationId,
-      body.contactIds,
-      body.tags,
-    );
+    const organizationId = this.ensureOrganization(user);
+    const updated = await this.contactService.addTags(organizationId, body.contactIds, body.tags);
     return { success: true, updated };
   }
 
@@ -229,17 +231,9 @@ export class BroadcastController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body('sessionId') sessionId: string,
   ) {
-    const contact = await this.contactService.getContact(
-      user.organizationId,
-      id,
-    );
-
-    await this.contactService.validateWhatsAppNumbers(
-      user.organizationId,
-      sessionId,
-      [contact.phoneNumber],
-    );
-
+    const organizationId = this.ensureOrganization(user);
+    const contact = await this.contactService.getContact(organizationId, id);
+    await this.contactService.validateWhatsAppNumbers(organizationId, sessionId, [contact.phoneNumber]);
     return { success: true, message: 'Validation started' };
   }
 
@@ -253,10 +247,8 @@ export class BroadcastController {
     @CurrentUser() user: AuthUser,
     @Body() dto: CreateTemplateDto,
   ) {
-    const template = await this.templateService.createTemplate(
-      user.organizationId,
-      dto,
-    );
+    const organizationId = this.ensureOrganization(user);
+    const template = await this.templateService.createTemplate(organizationId, dto);
     return { success: true, data: template };
   }
 
@@ -269,11 +261,8 @@ export class BroadcastController {
     @Query('category') category?: TemplateCategory,
     @Query('type') type?: TemplateType,
   ) {
-    const templates = await this.templateService.getTemplates(
-      user.organizationId,
-      category,
-      type,
-    );
+    const organizationId = this.ensureOrganization(user);
+    const templates = await this.templateService.getTemplates(organizationId, category, type);
     return { success: true, data: templates };
   }
 
@@ -287,8 +276,9 @@ export class BroadcastController {
   @Get('templates/stats')
   @ApiOperation({ summary: 'Get template statistics' })
   async getTemplateStats(@CurrentUser() user: AuthUser) {
-    const count = await this.templateService.getTemplateCount(user.organizationId);
-    const limit = await this.templateService.getTemplateLimit(user.organizationId);
+    const organizationId = this.ensureOrganization(user);
+    const count = await this.templateService.getTemplateCount(organizationId);
+    const limit = await this.templateService.getTemplateLimit(organizationId);
 
     return {
       success: true,
@@ -306,10 +296,8 @@ export class BroadcastController {
     @CurrentUser() user: AuthUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    const template = await this.templateService.getTemplate(
-      user.organizationId,
-      id,
-    );
+    const organizationId = this.ensureOrganization(user);
+    const template = await this.templateService.getTemplate(organizationId, id);
     return { success: true, data: template };
   }
 
@@ -320,11 +308,8 @@ export class BroadcastController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateTemplateDto,
   ) {
-    const template = await this.templateService.updateTemplate(
-      user.organizationId,
-      id,
-      dto,
-    );
+    const organizationId = this.ensureOrganization(user);
+    const template = await this.templateService.updateTemplate(organizationId, id, dto);
     return { success: true, data: template };
   }
 
@@ -334,7 +319,8 @@ export class BroadcastController {
     @CurrentUser() user: AuthUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    await this.templateService.deleteTemplate(user.organizationId, id);
+    const organizationId = this.ensureOrganization(user);
+    await this.templateService.deleteTemplate(organizationId, id);
     return { success: true };
   }
 
@@ -348,11 +334,8 @@ export class BroadcastController {
     @CurrentUser() user: AuthUser,
     @Body() dto: CreateCampaignDto,
   ) {
-    const campaign = await this.campaignService.createCampaign(
-      user.organizationId,
-      user.userId,
-      dto,
-    );
+    const organizationId = this.ensureOrganization(user);
+    const campaign = await this.campaignService.createCampaign(organizationId, user.userId, dto);
     return { success: true, data: campaign };
   }
 
@@ -363,19 +346,16 @@ export class BroadcastController {
     @CurrentUser() user: AuthUser,
     @Query('status') status?: CampaignStatus,
   ) {
-    const campaigns = await this.campaignService.getCampaigns(
-      user.organizationId,
-      status,
-    );
+    const organizationId = this.ensureOrganization(user);
+    const campaigns = await this.campaignService.getCampaigns(organizationId, status);
     return { success: true, data: campaigns };
   }
 
   @Get('campaigns/limits')
   @ApiOperation({ summary: 'Get campaign limits' })
   async getCampaignLimits(@CurrentUser() user: AuthUser) {
-    const limits = await this.campaignService.getCampaignLimits(
-      user.organizationId,
-    );
+    const organizationId = this.ensureOrganization(user);
+    const limits = await this.campaignService.getCampaignLimits(organizationId);
     return { success: true, data: limits };
   }
 
@@ -385,10 +365,8 @@ export class BroadcastController {
     @CurrentUser() user: AuthUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    const campaign = await this.campaignService.getCampaign(
-      user.organizationId,
-      id,
-    );
+    const organizationId = this.ensureOrganization(user);
+    const campaign = await this.campaignService.getCampaign(organizationId, id);
     return { success: true, data: campaign };
   }
 
@@ -399,11 +377,8 @@ export class BroadcastController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateCampaignDto,
   ) {
-    const campaign = await this.campaignService.updateCampaign(
-      user.organizationId,
-      id,
-      dto,
-    );
+    const organizationId = this.ensureOrganization(user);
+    const campaign = await this.campaignService.updateCampaign(organizationId, id, dto);
     return { success: true, data: campaign };
   }
 
@@ -413,10 +388,8 @@ export class BroadcastController {
     @CurrentUser() user: AuthUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    const campaign = await this.campaignService.startCampaign(
-      user.organizationId,
-      id,
-    );
+    const organizationId = this.ensureOrganization(user);
+    const campaign = await this.campaignService.startCampaign(organizationId, id);
     return { success: true, data: campaign };
   }
 
@@ -426,10 +399,8 @@ export class BroadcastController {
     @CurrentUser() user: AuthUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    const campaign = await this.campaignService.pauseCampaign(
-      user.organizationId,
-      id,
-    );
+    const organizationId = this.ensureOrganization(user);
+    const campaign = await this.campaignService.pauseCampaign(organizationId, id);
     return { success: true, data: campaign };
   }
 
@@ -439,10 +410,8 @@ export class BroadcastController {
     @CurrentUser() user: AuthUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    const campaign = await this.campaignService.resumeCampaign(
-      user.organizationId,
-      id,
-    );
+    const organizationId = this.ensureOrganization(user);
+    const campaign = await this.campaignService.resumeCampaign(organizationId, id);
     return { success: true, data: campaign };
   }
 
@@ -452,10 +421,8 @@ export class BroadcastController {
     @CurrentUser() user: AuthUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    const campaign = await this.campaignService.cancelCampaign(
-      user.organizationId,
-      id,
-    );
+    const organizationId = this.ensureOrganization(user);
+    const campaign = await this.campaignService.cancelCampaign(organizationId, id);
     return { success: true, data: campaign };
   }
 
@@ -465,7 +432,8 @@ export class BroadcastController {
     @CurrentUser() user: AuthUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    await this.campaignService.deleteCampaign(user.organizationId, id);
+    const organizationId = this.ensureOrganization(user);
+    await this.campaignService.deleteCampaign(organizationId, id);
     return { success: true };
   }
 
@@ -475,10 +443,8 @@ export class BroadcastController {
     @CurrentUser() user: AuthUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    const stats = await this.campaignService.getCampaignStats(
-      user.organizationId,
-      id,
-    );
+    const organizationId = this.ensureOrganization(user);
+    const stats = await this.campaignService.getCampaignStats(organizationId, id);
     return { success: true, data: stats };
   }
 
@@ -494,13 +460,8 @@ export class BroadcastController {
     @Query('page') page = 1,
     @Query('limit') limit = 50,
   ) {
-    const result = await this.campaignService.getCampaignMessages(
-      user.organizationId,
-      id,
-      status,
-      page,
-      limit,
-    );
+    const organizationId = this.ensureOrganization(user);
+    const result = await this.campaignService.getCampaignMessages(organizationId, id, status, page, limit);
     return { success: true, ...result };
   }
 
@@ -514,17 +475,16 @@ export class BroadcastController {
     @CurrentUser() user: AuthUser,
     @Body() dto: CreateWebhookDto,
   ) {
-    const webhook = await this.webhookService.createWebhook(
-      user.organizationId,
-      dto,
-    );
+    const organizationId = this.ensureOrganization(user);
+    const webhook = await this.webhookService.createWebhook(organizationId, dto);
     return { success: true, data: webhook };
   }
 
   @Get('webhooks')
   @ApiOperation({ summary: 'Get all webhooks' })
   async getWebhooks(@CurrentUser() user: AuthUser) {
-    const webhooks = await this.webhookService.getWebhooks(user.organizationId);
+    const organizationId = this.ensureOrganization(user);
+    const webhooks = await this.webhookService.getWebhooks(organizationId);
     return { success: true, data: webhooks };
   }
 
@@ -534,10 +494,8 @@ export class BroadcastController {
     @CurrentUser() user: AuthUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    const webhook = await this.webhookService.getWebhook(
-      user.organizationId,
-      id,
-    );
+    const organizationId = this.ensureOrganization(user);
+    const webhook = await this.webhookService.getWebhook(organizationId, id);
     return { success: true, data: webhook };
   }
 
@@ -548,11 +506,8 @@ export class BroadcastController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: Partial<CreateWebhookDto>,
   ) {
-    const webhook = await this.webhookService.updateWebhook(
-      user.organizationId,
-      id,
-      dto,
-    );
+    const organizationId = this.ensureOrganization(user);
+    const webhook = await this.webhookService.updateWebhook(organizationId, id, dto);
     return { success: true, data: webhook };
   }
 
@@ -562,7 +517,8 @@ export class BroadcastController {
     @CurrentUser() user: AuthUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    await this.webhookService.deleteWebhook(user.organizationId, id);
+    const organizationId = this.ensureOrganization(user);
+    await this.webhookService.deleteWebhook(organizationId, id);
     return { success: true };
   }
 
@@ -572,10 +528,8 @@ export class BroadcastController {
     @CurrentUser() user: AuthUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    const result = await this.webhookService.testWebhook(
-      user.organizationId,
-      id,
-    );
+    const organizationId = this.ensureOrganization(user);
+    const result = await this.webhookService.testWebhook(organizationId, id);
     return { success: true, data: result };
   }
 
@@ -585,10 +539,8 @@ export class BroadcastController {
     @CurrentUser() user: AuthUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    const result = await this.webhookService.regenerateSecret(
-      user.organizationId,
-      id,
-    );
+    const organizationId = this.ensureOrganization(user);
+    const result = await this.webhookService.regenerateSecret(organizationId, id);
     return { success: true, data: result };
   }
 
@@ -602,11 +554,8 @@ export class BroadcastController {
     @CurrentUser() user: AuthUser,
     @Body() dto: CreateApiKeyDto,
   ) {
-    const result = await this.apiKeyService.createApiKey(
-      user.organizationId,
-      user.userId,
-      dto,
-    );
+    const organizationId = this.ensureOrganization(user);
+    const result = await this.apiKeyService.createApiKey(organizationId, user.userId, dto);
     return {
       success: true,
       data: {
@@ -620,7 +569,8 @@ export class BroadcastController {
   @Get('api-keys')
   @ApiOperation({ summary: 'Get all API keys' })
   async getApiKeys(@CurrentUser() user: AuthUser) {
-    const apiKeys = await this.apiKeyService.getApiKeys(user.organizationId);
+    const organizationId = this.ensureOrganization(user);
+    const apiKeys = await this.apiKeyService.getApiKeys(organizationId);
     return { success: true, data: apiKeys };
   }
 
@@ -630,7 +580,8 @@ export class BroadcastController {
     @CurrentUser() user: AuthUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    const apiKey = await this.apiKeyService.getApiKey(user.organizationId, id);
+    const organizationId = this.ensureOrganization(user);
+    const apiKey = await this.apiKeyService.getApiKey(organizationId, id);
     return { success: true, data: apiKey };
   }
 
@@ -641,11 +592,8 @@ export class BroadcastController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: Partial<CreateApiKeyDto>,
   ) {
-    const apiKey = await this.apiKeyService.updateApiKey(
-      user.organizationId,
-      id,
-      dto,
-    );
+    const organizationId = this.ensureOrganization(user);
+    const apiKey = await this.apiKeyService.updateApiKey(organizationId, id, dto);
     return { success: true, data: apiKey };
   }
 
@@ -655,7 +603,8 @@ export class BroadcastController {
     @CurrentUser() user: AuthUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    await this.apiKeyService.deleteApiKey(user.organizationId, id);
+    const organizationId = this.ensureOrganization(user);
+    await this.apiKeyService.deleteApiKey(organizationId, id);
     return { success: true };
   }
 
@@ -666,11 +615,8 @@ export class BroadcastController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body('isActive') isActive: boolean,
   ) {
-    const apiKey = await this.apiKeyService.toggleApiKey(
-      user.organizationId,
-      id,
-      isActive,
-    );
+    const organizationId = this.ensureOrganization(user);
+    const apiKey = await this.apiKeyService.toggleApiKey(organizationId, id, isActive);
     return { success: true, data: apiKey };
   }
 }

@@ -512,10 +512,10 @@ export default function BroadcastPage() {
         description: newCampaign.description || undefined,
         sessionId: newCampaign.sessionId,
         templateId: !newCampaign.useCustomMessage ? newCampaign.templateId : undefined,
-        customMessage: newCampaign.useCustomMessage
+        messageContent: newCampaign.useCustomMessage
           ? {
               type: newCampaign.customMessage.type,
-              content: newCampaign.customMessage.content,
+              text: newCampaign.customMessage.content,
             }
           : undefined,
         contactFilter: newCampaign.recipientMode === 'filter'

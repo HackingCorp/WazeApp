@@ -767,6 +767,22 @@ export class QuotaEnforcementService {
         activeSubscription.limits = SUBSCRIPTION_LIMITS[desired];
         activeSubscription.features = SUBSCRIPTION_FEATURES[desired];
         await this.subscriptionRepository.save(activeSubscription);
+      } else {
+        // Always sync limits and features with the latest code values
+        // This ensures upgrades and code updates are always reflected
+        const planKey = activeSubscription.plan.toUpperCase() as keyof typeof SUBSCRIPTION_LIMITS;
+        const currentLimits = SUBSCRIPTION_LIMITS[planKey] || SUBSCRIPTION_LIMITS[SubscriptionPlan.FREE];
+        const currentFeatures = SUBSCRIPTION_FEATURES[planKey] || SUBSCRIPTION_FEATURES[SubscriptionPlan.FREE];
+
+        const limitsNeedUpdate = JSON.stringify(activeSubscription.limits) !== JSON.stringify(currentLimits);
+        const featuresNeedUpdate = JSON.stringify(activeSubscription.features) !== JSON.stringify(currentFeatures);
+
+        if (limitsNeedUpdate || featuresNeedUpdate) {
+          this.logger.log(`Syncing user subscription limits/features for plan ${activeSubscription.plan}`);
+          activeSubscription.limits = currentLimits;
+          activeSubscription.features = currentFeatures;
+          await this.subscriptionRepository.save(activeSubscription);
+        }
       }
     }
 

@@ -28,6 +28,8 @@ import {
   BroadcastMessage,
   ApiKey,
   WebhookConfig,
+  // Billing entities
+  Invoice,
 } from "../common/entities";
 
 @Module({
@@ -68,6 +70,8 @@ import {
           BroadcastMessage,
           ApiKey,
           WebhookConfig,
+          // Billing entities
+          Invoice,
         ],
         synchronize:
           configService.get("DATABASE_SYNCHRONIZE", "true") === "true",

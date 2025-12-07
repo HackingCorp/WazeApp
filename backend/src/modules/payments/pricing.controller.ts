@@ -33,11 +33,16 @@ export class PricingController {
   ): Promise<any> {
     const billingPeriod = billing || 'monthly';
 
+    // Ensure plans are loaded from database
+    await this.currencyService.ensurePlansLoaded();
+
     if (currency) {
       // Return pricing for specific currency
       const plans = {};
       for (const planId of ['FREE', 'STANDARD', 'PRO', 'ENTERPRISE']) {
-        const plan = this.currencyService.PRICING[planId];
+        const plan = this.currencyService.getPlan(planId);
+        if (!plan) continue;
+
         const price = await this.currencyService.getPlanPrice(planId, currency, billingPeriod);
 
         plans[planId] = {
@@ -164,7 +169,10 @@ export class PricingController {
     @Query('billing') billing: 'monthly' | 'annually' = 'monthly',
   ): Promise<any> {
     try {
-      const plan = this.currencyService.PRICING[planId?.toUpperCase()];
+      // Ensure plans are loaded from database
+      await this.currencyService.ensurePlansLoaded();
+
+      const plan = this.currencyService.getPlan(planId);
 
       if (!plan) {
         return {

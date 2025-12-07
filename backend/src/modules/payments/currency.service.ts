@@ -379,6 +379,9 @@ export class CurrencyService implements OnModuleInit {
    * Obtient tous les prix pour toutes les devises supportées
    */
   async getAllPricing(billingPeriod: 'monthly' | 'annually' = 'monthly'): Promise<any> {
+    // Ensure plans are loaded from database
+    await this.ensurePlansLoaded();
+
     const pricing: Record<string, Record<string, any>> = {};
 
     for (const [planId, plan] of Object.entries(this.PRICING)) {

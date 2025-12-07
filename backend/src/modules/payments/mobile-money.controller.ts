@@ -275,10 +275,18 @@ export class MobileMoneyController {
     @Query('currency') currency: string = 'XAF',
     @Query('billing') billing: 'monthly' | 'annually' = 'monthly',
   ): Promise<any> {
+    // Ensure plans are loaded from database
+    await this.currencyService.ensurePlansLoaded();
+
     const plans = {};
 
     for (const planId of ['STANDARD', 'PRO', 'ENTERPRISE']) {
-      const plan = this.currencyService.PRICING[planId];
+      const plan = this.currencyService.getPlan(planId);
+      if (!plan) {
+        this.logger.warn(`Plan ${planId} not found in pricing cache`);
+        continue;
+      }
+
       const price = await this.currencyService.getPlanPrice(planId, currency, billing);
 
       plans[planId] = {

@@ -684,6 +684,13 @@ class ApiClient {
     });
   }
 
+  async bulkValidateBroadcastContacts(sessionId: string) {
+    return this.request('/broadcast/contacts/bulk-validate', {
+      method: 'POST',
+      body: JSON.stringify({ sessionId }),
+    });
+  }
+
   async exportBroadcastContacts(params?: {
     format?: 'csv' | 'json' | 'xlsx';
     tags?: string[];

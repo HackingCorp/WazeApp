@@ -278,14 +278,25 @@ export class ContactService {
     }
 
     // Validate WhatsApp numbers in background
-    if (options.validateWhatsApp && options.sessionId && phonesForValidation.length > 0) {
-      this.validateWhatsAppNumbers(
-        organizationId,
-        options.sessionId,
-        phonesForValidation,
-      ).catch((err) => {
-        this.logger.error('WhatsApp validation failed:', err);
+    if (options.validateWhatsApp && options.sessionId) {
+      // Get all unverified contacts for this organization
+      const unverifiedContacts = await this.contactRepository.find({
+        where: { organizationId, isValidWhatsApp: null },
+        select: ['phoneNumber'],
       });
+      const phonesToValidate = unverifiedContacts.map(c => c.phoneNumber);
+
+      this.logger.log(`Starting WhatsApp validation for ${phonesToValidate.length} contacts`);
+
+      if (phonesToValidate.length > 0) {
+        this.validateWhatsAppNumbers(
+          organizationId,
+          options.sessionId,
+          phonesToValidate,
+        ).catch((err) => {
+          this.logger.error('WhatsApp validation failed:', err);
+        });
+      }
     }
 
     return result;
@@ -328,6 +339,36 @@ export class ContactService {
     }
 
     this.logger.log('WhatsApp validation completed');
+  }
+
+  /**
+   * Bulk validate all unverified contacts
+   */
+  async bulkValidateContacts(
+    organizationId: string,
+    sessionId: string,
+  ): Promise<{ total: number; message: string }> {
+    const unverifiedContacts = await this.contactRepository.find({
+      where: { organizationId, isValidWhatsApp: null },
+      select: ['phoneNumber'],
+    });
+
+    if (unverifiedContacts.length === 0) {
+      return { total: 0, message: 'No unverified contacts found' };
+    }
+
+    const phoneNumbers = unverifiedContacts.map(c => c.phoneNumber);
+    this.logger.log(`Bulk validation started for ${phoneNumbers.length} contacts`);
+
+    // Run validation in background
+    this.validateWhatsAppNumbers(organizationId, sessionId, phoneNumbers).catch((err) => {
+      this.logger.error('Bulk WhatsApp validation failed:', err);
+    });
+
+    return {
+      total: phoneNumbers.length,
+      message: `Validation started for ${phoneNumbers.length} contacts. This may take a few minutes.`,
+    };
   }
 
   /**

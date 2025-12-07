@@ -239,6 +239,20 @@ export class BroadcastController {
     return { success: true, message: 'Validation started' };
   }
 
+  @Post('contacts/bulk-validate')
+  @ApiOperation({ summary: 'Bulk validate all unverified contacts' })
+  async bulkValidateContacts(
+    @CurrentUser() user: AuthUser,
+    @Body('sessionId') sessionId: string,
+  ) {
+    const organizationId = this.ensureOrganization(user);
+    if (!sessionId) {
+      throw new BadRequestException('Session ID is required');
+    }
+    const result = await this.contactService.bulkValidateContacts(organizationId, sessionId);
+    return { success: true, data: result };
+  }
+
   // ==========================================
   // TEMPLATES
   // ==========================================

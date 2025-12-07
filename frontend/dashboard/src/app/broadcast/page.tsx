@@ -117,6 +117,16 @@ export default function BroadcastPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [contactStats, setContactStats] = useState<{ total: number; limit: number | undefined; validated: number; subscribed: number }>({ total: 0, limit: undefined, validated: 0, subscribed: 0 });
 
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalContacts, setTotalContacts] = useState(0);
+  const contactsPerPage = 50;
+  const totalPages = Math.ceil(totalContacts / contactsPerPage);
+
+  // Bulk validation state
+  const [bulkValidating, setBulkValidating] = useState(false);
+  const [bulkValidationSessionId, setBulkValidationSessionId] = useState('');
+
   // Modals
   const [showImportModal, setShowImportModal] = useState(false);
   const [showAddContactModal, setShowAddContactModal] = useState(false);
@@ -185,16 +195,58 @@ export default function BroadcastPage() {
   const [campaignFilterTagInput, setCampaignFilterTagInput] = useState('');
 
   // Fetch functions
-  const fetchContacts = useCallback(async () => {
+  const fetchContacts = useCallback(async (page = currentPage) => {
     try {
-      const response = await api.getBroadcastContacts({ search: searchTerm });
+      const response = await api.getBroadcastContacts({
+        search: searchTerm,
+        page,
+        limit: contactsPerPage
+      });
       if (response.success) {
-        setContacts(response.data?.data || response.data || []);
+        const responseData = response.data?.data || response.data;
+        // Handle nested response structure
+        if (Array.isArray(responseData)) {
+          setContacts(responseData);
+          setTotalContacts(response.data?.total || responseData.length);
+        } else if (responseData?.data) {
+          setContacts(responseData.data);
+          setTotalContacts(responseData.total || responseData.data.length);
+        } else {
+          setContacts([]);
+          setTotalContacts(0);
+        }
       }
     } catch (error) {
       console.error('Failed to fetch contacts:', error);
     }
-  }, [searchTerm]);
+  }, [searchTerm, currentPage]);
+
+  // Bulk validation handler
+  const handleBulkValidation = async () => {
+    if (!bulkValidationSessionId) {
+      alert('Veuillez sélectionner une session WhatsApp');
+      return;
+    }
+    setBulkValidating(true);
+    try {
+      const response = await api.bulkValidateBroadcastContacts(bulkValidationSessionId);
+      const resultData = response.data?.data || response.data;
+      if (response.success) {
+        alert(resultData?.message || 'Validation en cours...');
+      }
+    } catch (error) {
+      console.error('Bulk validation failed:', error);
+      alert('Erreur lors de la validation');
+    } finally {
+      setBulkValidating(false);
+    }
+  };
+
+  // Handle page change
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    fetchContacts(page);
+  };
 
   const fetchTemplates = useCallback(async () => {
     try {
@@ -669,6 +721,34 @@ export default function BroadcastPage() {
           <Filter className="w-4 h-4" />
           Filtrer
         </button>
+        {activeTab === 'contacts' && (
+          <div className="flex items-center gap-2">
+            <select
+              value={bulkValidationSessionId}
+              onChange={(e) => setBulkValidationSessionId(e.target.value)}
+              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+            >
+              <option value="">Session WhatsApp...</option>
+              {sessions.filter(s => s.status === 'connected').map(session => (
+                <option key={session.id} value={session.id}>
+                  {session.name || session.phoneNumber || 'Session'}
+                </option>
+              ))}
+            </select>
+            <button
+              onClick={handleBulkValidation}
+              disabled={bulkValidating || !bulkValidationSessionId}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {bulkValidating ? (
+                <RefreshCw className="w-4 h-4 animate-spin" />
+              ) : (
+                <CheckCircle className="w-4 h-4" />
+              )}
+              Valider WhatsApp
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Content */}
@@ -787,6 +867,57 @@ export default function BroadcastPage() {
                     ))}
                   </tbody>
                 </table>
+              )}
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200 dark:border-gray-700">
+                  <div className="text-sm text-gray-500 dark:text-gray-400">
+                    Affichage {((currentPage - 1) * contactsPerPage) + 1} - {Math.min(currentPage * contactsPerPage, totalContacts)} sur {totalContacts} contacts
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => handlePageChange(currentPage - 1)}
+                      disabled={currentPage === 1}
+                      className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-700"
+                    >
+                      Précédent
+                    </button>
+                    <div className="flex items-center gap-1">
+                      {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                        let pageNum: number;
+                        if (totalPages <= 5) {
+                          pageNum = i + 1;
+                        } else if (currentPage <= 3) {
+                          pageNum = i + 1;
+                        } else if (currentPage >= totalPages - 2) {
+                          pageNum = totalPages - 4 + i;
+                        } else {
+                          pageNum = currentPage - 2 + i;
+                        }
+                        return (
+                          <button
+                            key={pageNum}
+                            onClick={() => handlePageChange(pageNum)}
+                            className={`px-3 py-1 rounded-lg ${
+                              currentPage === pageNum
+                                ? 'bg-green-600 text-white'
+                                : 'border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
+                            }`}
+                          >
+                            {pageNum}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <button
+                      onClick={() => handlePageChange(currentPage + 1)}
+                      disabled={currentPage === totalPages}
+                      className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-700"
+                    >
+                      Suivant
+                    </button>
+                  </div>
+                </div>
               )}
             </div>
           )}

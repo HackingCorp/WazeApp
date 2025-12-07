@@ -126,6 +126,8 @@ export default function BroadcastPage() {
   // Bulk validation state
   const [bulkValidating, setBulkValidating] = useState(false);
   const [bulkValidationSessionId, setBulkValidationSessionId] = useState('');
+  const [showValidationModal, setShowValidationModal] = useState(false);
+  const [validationProgress, setValidationProgress] = useState({ total: 0, message: '' });
 
   // Modals
   const [showImportModal, setShowImportModal] = useState(false);
@@ -180,7 +182,7 @@ export default function BroadcastPage() {
       type: 'text',
       content: '',
     },
-    useContactFilter: false,
+    recipientMode: 'all' as 'all' | 'filter' | 'select',
     contactFilter: {
       tags: [] as string[],
       isValidWhatsApp: true,
@@ -193,6 +195,9 @@ export default function BroadcastPage() {
   });
   const [creatingCampaign, setCreatingCampaign] = useState(false);
   const [campaignFilterTagInput, setCampaignFilterTagInput] = useState('');
+  const [allContactsForSelection, setAllContactsForSelection] = useState<Contact[]>([]);
+  const [loadingAllContacts, setLoadingAllContacts] = useState(false);
+  const [contactSelectionSearch, setContactSelectionSearch] = useState('');
 
   // Fetch functions
   const fetchContacts = useCallback(async (page = currentPage) => {
@@ -221,6 +226,27 @@ export default function BroadcastPage() {
     }
   }, [searchTerm, currentPage]);
 
+  // Load all contacts for selection in campaign
+  const loadAllContactsForSelection = async () => {
+    if (allContactsForSelection.length > 0) return;
+    setLoadingAllContacts(true);
+    try {
+      const response = await api.getBroadcastContacts({ limit: 10000 });
+      if (response.success) {
+        const responseData = response.data?.data || response.data;
+        if (Array.isArray(responseData)) {
+          setAllContactsForSelection(responseData);
+        } else if (responseData?.data) {
+          setAllContactsForSelection(responseData.data);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load contacts for selection:', error);
+    } finally {
+      setLoadingAllContacts(false);
+    }
+  };
+
   // Bulk validation handler
   const handleBulkValidation = async () => {
     if (!bulkValidationSessionId) {
@@ -228,14 +254,20 @@ export default function BroadcastPage() {
       return;
     }
     setBulkValidating(true);
+    setShowValidationModal(true);
+    setValidationProgress({ total: 0, message: 'Démarrage de la validation...' });
     try {
       const response = await api.bulkValidateBroadcastContacts(bulkValidationSessionId);
       const resultData = response.data?.data || response.data;
       if (response.success) {
-        alert(resultData?.message || 'Validation en cours...');
+        setValidationProgress({
+          total: resultData?.total || 0,
+          message: resultData?.message || 'Validation en cours...'
+        });
       }
     } catch (error) {
       console.error('Bulk validation failed:', error);
+      setShowValidationModal(false);
       alert('Erreur lors de la validation');
     } finally {
       setBulkValidating(false);
@@ -416,6 +448,10 @@ export default function BroadcastPage() {
   const handleCreateCampaign = async () => {
     if (!newCampaign.name || !newCampaign.sessionId) return;
     if (!newCampaign.templateId && !newCampaign.useCustomMessage) return;
+    if (newCampaign.recipientMode === 'select' && newCampaign.selectedContactIds.length === 0) {
+      alert('Veuillez sélectionner au moins un contact');
+      return;
+    }
 
     setCreatingCampaign(true);
     try {
@@ -430,13 +466,13 @@ export default function BroadcastPage() {
               content: newCampaign.customMessage.content,
             }
           : undefined,
-        contactFilter: newCampaign.useContactFilter
+        contactFilter: newCampaign.recipientMode === 'filter'
           ? {
               tags: newCampaign.contactFilter.tags.length > 0 ? newCampaign.contactFilter.tags : undefined,
               isValidWhatsApp: newCampaign.contactFilter.isValidWhatsApp,
             }
           : undefined,
-        contactIds: !newCampaign.useContactFilter && newCampaign.selectedContactIds.length > 0
+        contactIds: newCampaign.recipientMode === 'select'
           ? newCampaign.selectedContactIds
           : undefined,
         scheduledAt: newCampaign.scheduleLater && newCampaign.scheduledAt
@@ -455,7 +491,7 @@ export default function BroadcastPage() {
           templateId: '',
           useCustomMessage: false,
           customMessage: { type: 'text', content: '' },
-          useContactFilter: false,
+          recipientMode: 'all',
           contactFilter: { tags: [], isValidWhatsApp: true },
           selectedContactIds: [],
           scheduleLater: false,
@@ -463,6 +499,8 @@ export default function BroadcastPage() {
           recurrenceType: 'none',
           delayBetweenMessages: 3000,
         });
+        setAllContactsForSelection([]);
+        setContactSelectionSearch('');
         await fetchCampaigns();
       }
     } catch (error) {
@@ -1147,6 +1185,51 @@ export default function BroadcastPage() {
         </>
       )}
 
+      {/* Validation Progress Modal */}
+      {showValidationModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 w-full max-w-md">
+            <div className="text-center">
+              <div className="w-16 h-16 mx-auto mb-4 relative">
+                <div className="absolute inset-0 rounded-full border-4 border-green-200 dark:border-green-900"></div>
+                <div className="absolute inset-0 rounded-full border-4 border-green-600 border-t-transparent animate-spin"></div>
+              </div>
+              <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-2">
+                Validation WhatsApp en cours
+              </h2>
+              <p className="text-gray-600 dark:text-gray-300 mb-4">
+                {validationProgress.message}
+              </p>
+              {validationProgress.total > 0 && (
+                <div className="bg-gray-100 dark:bg-gray-700 rounded-lg p-4 mb-4">
+                  <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+                    {validationProgress.total}
+                  </div>
+                  <div className="text-sm text-gray-500 dark:text-gray-400">
+                    contacts à vérifier
+                  </div>
+                  <div className="text-xs text-gray-400 dark:text-gray-500 mt-2">
+                    Temps estimé: ~{Math.ceil(validationProgress.total * 0.5 / 60)} minutes
+                  </div>
+                </div>
+              )}
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                La validation se poursuit en arrière-plan. Vous pouvez fermer cette fenêtre.
+              </p>
+              <button
+                onClick={() => {
+                  setShowValidationModal(false);
+                  fetchContacts();
+                }}
+                className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+              >
+                Fermer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Import Modal */}
       {showImportModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -1825,32 +1908,46 @@ export default function BroadcastPage() {
               <div className="space-y-4 border-t border-gray-200 dark:border-gray-700 pt-6">
                 <h3 className="font-medium text-gray-900 dark:text-white">Destinataires</h3>
 
-                <div className="flex gap-4">
+                <div className="flex flex-wrap gap-4">
                   <label className="flex items-center gap-2">
                     <input
                       type="radio"
-                      checked={!newCampaign.useContactFilter}
-                      onChange={() => setNewCampaign({ ...newCampaign, useContactFilter: false })}
+                      checked={newCampaign.recipientMode === 'all'}
+                      onChange={() => setNewCampaign({ ...newCampaign, recipientMode: 'all', selectedContactIds: [] })}
                       className="text-green-600 focus:ring-green-500"
                     />
                     <span className="text-sm text-gray-700 dark:text-gray-300">
-                      Tous les contacts ({contacts.length})
+                      Tous les contacts ({totalContacts})
                     </span>
                   </label>
                   <label className="flex items-center gap-2">
                     <input
                       type="radio"
-                      checked={newCampaign.useContactFilter}
-                      onChange={() => setNewCampaign({ ...newCampaign, useContactFilter: true })}
+                      checked={newCampaign.recipientMode === 'filter'}
+                      onChange={() => setNewCampaign({ ...newCampaign, recipientMode: 'filter', selectedContactIds: [] })}
                       className="text-green-600 focus:ring-green-500"
                     />
                     <span className="text-sm text-gray-700 dark:text-gray-300">
                       Filtrer par tags
                     </span>
                   </label>
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="radio"
+                      checked={newCampaign.recipientMode === 'select'}
+                      onChange={() => {
+                        setNewCampaign({ ...newCampaign, recipientMode: 'select' });
+                        loadAllContactsForSelection();
+                      }}
+                      className="text-green-600 focus:ring-green-500"
+                    />
+                    <span className="text-sm text-gray-700 dark:text-gray-300">
+                      Sélectionner des contacts {newCampaign.selectedContactIds.length > 0 && `(${newCampaign.selectedContactIds.length})`}
+                    </span>
+                  </label>
                 </div>
 
-                {newCampaign.useContactFilter && (
+                {newCampaign.recipientMode === 'filter' && (
                   <div className="space-y-3 p-4 bg-gray-50 dark:bg-gray-900/50 rounded-lg">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -1939,6 +2036,96 @@ export default function BroadcastPage() {
                         Uniquement les numéros WhatsApp vérifiés
                       </span>
                     </label>
+                  </div>
+                )}
+
+                {newCampaign.recipientMode === 'select' && (
+                  <div className="space-y-3 p-4 bg-gray-50 dark:bg-gray-900/50 rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        {newCampaign.selectedContactIds.length} contact(s) sélectionné(s)
+                      </span>
+                      {newCampaign.selectedContactIds.length > 0 && (
+                        <button
+                          onClick={() => setNewCampaign({ ...newCampaign, selectedContactIds: [] })}
+                          className="text-xs text-red-600 hover:text-red-700"
+                        >
+                          Tout désélectionner
+                        </button>
+                      )}
+                    </div>
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                      <input
+                        type="text"
+                        value={contactSelectionSearch}
+                        onChange={(e) => setContactSelectionSearch(e.target.value)}
+                        placeholder="Rechercher un contact..."
+                        className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      />
+                    </div>
+                    {loadingAllContacts ? (
+                      <div className="flex items-center justify-center py-8">
+                        <RefreshCw className="w-6 h-6 text-green-600 animate-spin" />
+                      </div>
+                    ) : (
+                      <div className="max-h-64 overflow-y-auto border border-gray-200 dark:border-gray-600 rounded-lg">
+                        {allContactsForSelection
+                          .filter(c =>
+                            contactSelectionSearch === '' ||
+                            c.name.toLowerCase().includes(contactSelectionSearch.toLowerCase()) ||
+                            c.phoneNumber.includes(contactSelectionSearch)
+                          )
+                          .map((contact) => (
+                            <label
+                              key={contact.id}
+                              className="flex items-center gap-3 p-3 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer border-b border-gray-100 dark:border-gray-700 last:border-b-0"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={newCampaign.selectedContactIds.includes(contact.id)}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setNewCampaign({
+                                      ...newCampaign,
+                                      selectedContactIds: [...newCampaign.selectedContactIds, contact.id]
+                                    });
+                                  } else {
+                                    setNewCampaign({
+                                      ...newCampaign,
+                                      selectedContactIds: newCampaign.selectedContactIds.filter(id => id !== contact.id)
+                                    });
+                                  }
+                                }}
+                                className="rounded border-gray-300 dark:border-gray-600 text-green-600 focus:ring-green-500"
+                              />
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                                  {contact.name}
+                                </p>
+                                <p className="text-xs text-gray-500 dark:text-gray-400">
+                                  {contact.phoneNumber}
+                                </p>
+                              </div>
+                              {contact.isValidWhatsApp === true && (
+                                <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
+                              )}
+                              {contact.isValidWhatsApp === false && (
+                                <XCircle className="w-4 h-4 text-red-500 flex-shrink-0" />
+                              )}
+                            </label>
+                          ))}
+                        {allContactsForSelection.filter(c =>
+                          contactSelectionSearch === '' ||
+                          c.name.toLowerCase().includes(contactSelectionSearch.toLowerCase()) ||
+                          c.phoneNumber.includes(contactSelectionSearch)
+                        ).length === 0 && (
+                          <div className="p-4 text-center text-gray-500 dark:text-gray-400 text-sm">
+                            Aucun contact trouvé
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

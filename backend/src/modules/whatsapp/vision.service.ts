@@ -250,9 +250,12 @@ Réponds en français et sois précis.`;
 
   /**
    * Vérifier si les services de vision sont configurés
+   * Retourne true si OpenAI est configuré OU si des solutions open source peuvent être disponibles
    */
   isVisionServiceAvailable(): boolean {
-    return !!this.openaiApiKey;
+    // Always return true to try open source options first (Ollama, Tesseract)
+    // The analyzeImageWithGPT4Vision method handles fallbacks gracefully
+    return true;
   }
 
   /**

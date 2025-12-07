@@ -40,10 +40,22 @@ interface WhatsAppMessageEvent {
   type: string;
 }
 
+interface BufferedMessage {
+  event: WhatsAppMessageEvent;
+  messageText: string;
+  mediaAnalysis: any;
+  receivedAt: Date;
+}
+
 @Injectable()
 export class WhatsAppAIResponderService {
   private readonly logger = new Logger(WhatsAppAIResponderService.name);
   private readonly processingMessages = new Set<string>();
+
+  // Message batching: buffer messages per conversation for grouping
+  private readonly messageBuffer = new Map<string, BufferedMessage[]>();
+  private readonly batchTimeouts = new Map<string, NodeJS.Timeout>();
+  private readonly BATCH_DELAY_MS = 4000; // Wait 4 seconds to collect messages
 
   // Détection de langue améliorée avec mots-clés uniques et pondération
   private detectLanguage(text: string): string {
@@ -194,34 +206,17 @@ export class WhatsAppAIResponderService {
 
   @OnEvent("whatsapp.message.received")
   async handleIncomingMessage(event: WhatsAppMessageEvent) {
-    console.log(`🚀🚀🚀 WhatsAppAIResponderService: EVENT RECEIVED!!! - whatsapp.message.received`);
-    console.log(`Event data:`, JSON.stringify(event, null, 2));
-    this.logger.log(
-      `🚀 WhatsAppAIResponderService: DÉBUT - Received event whatsapp.message.received`,
-    );
-    this.logger.log(`Event data:`, JSON.stringify(event, null, 2));
-
     const message = event.message;
     const messageId = message.key?.id;
     const fromNumber = message.key?.remoteJid;
 
-    console.log(`📝 STEP 1: Message details: ID=${messageId}, From=${fromNumber}`);
-    this.logger.log(`📝 Message details: ID=${messageId}, From=${fromNumber}`);
-
     // Skip if no message ID, no fromNumber, or if we're already processing this message
     if (!messageId || !fromNumber || this.processingMessages.has(messageId)) {
-      this.logger.log(
-        `⏭️ Skipping message: no ID (${!messageId}), no fromNumber (${!fromNumber}), or already processing (${this.processingMessages.has(messageId)})`,
-      );
       return;
     }
 
     // Skip group messages - AI only responds to private chats
-    const isGroupMessage = fromNumber.endsWith("@g.us");
-    if (isGroupMessage) {
-      this.logger.log(
-        `⏭️ Skipping GROUP message from ${fromNumber} - AI only responds to private chats`,
-      );
+    if (fromNumber.endsWith("@g.us")) {
       return;
     }
 
@@ -229,16 +224,80 @@ export class WhatsAppAIResponderService {
     this.processingMessages.add(messageId);
 
     try {
-      this.logger.log(
-        `Processing incoming message ${messageId} for session: ${event.sessionId}`,
-      );
+      // Extract message details and analyze media quickly
+      const messageText = this.extractMessageText(message);
+      const sock = await this.baileysService.getSessionSocket(event.sessionId);
+      const mediaAnalysis = await this.mediaAnalysisService.analyzeMedia(message, sock);
 
-      // Get session details with assigned agent
+      // Skip if no content
+      if ((!messageText || messageText.trim() === "") && !mediaAnalysis) {
+        return;
+      }
+
+      // Create buffer key for this conversation (session + sender)
+      const bufferKey = `${event.sessionId}:${fromNumber}`;
+
+      // Add message to buffer
+      if (!this.messageBuffer.has(bufferKey)) {
+        this.messageBuffer.set(bufferKey, []);
+      }
+
+      this.messageBuffer.get(bufferKey)!.push({
+        event,
+        messageText: messageText || "",
+        mediaAnalysis,
+        receivedAt: new Date(),
+      });
+
+      this.logger.log(`📦 Message buffered for ${fromNumber} (${this.messageBuffer.get(bufferKey)!.length} messages in buffer)`);
+
+      // Clear existing timeout for this conversation
+      if (this.batchTimeouts.has(bufferKey)) {
+        clearTimeout(this.batchTimeouts.get(bufferKey)!);
+      }
+
+      // Set new timeout to process batch
+      const timeout = setTimeout(async () => {
+        await this.processBatchedMessages(bufferKey);
+      }, this.BATCH_DELAY_MS);
+
+      this.batchTimeouts.set(bufferKey, timeout);
+
+    } catch (error) {
+      this.logger.error(`Error buffering message: ${error.message}`);
+    } finally {
+      if (messageId) {
+        this.processingMessages.delete(messageId);
+      }
+    }
+  }
+
+  /**
+   * Process all buffered messages for a conversation as a single batch
+   */
+  private async processBatchedMessages(bufferKey: string) {
+    const bufferedMessages = this.messageBuffer.get(bufferKey);
+    if (!bufferedMessages || bufferedMessages.length === 0) {
+      return;
+    }
+
+    // Clear buffer and timeout
+    this.messageBuffer.delete(bufferKey);
+    this.batchTimeouts.delete(bufferKey);
+
+    const firstMessage = bufferedMessages[0];
+    const event = firstMessage.event;
+    const fromNumber = event.message.key?.remoteJid;
+
+    this.logger.log(`🔄 Processing batch of ${bufferedMessages.length} messages from ${fromNumber}`);
+
+    try {
+      // Get session details
       const session = await this.sessionRepository.findOne({
         where: { id: event.sessionId },
         relations: [
           "user",
-          "organization", 
+          "organization",
           "agent",
           "agent.knowledgeBases",
           "knowledgeBase",
@@ -246,15 +305,11 @@ export class WhatsAppAIResponderService {
       });
 
       if (!session) {
-        this.logger.warn(
-          `Session not found or not connected: ${event.sessionId}`,
-        );
+        this.logger.warn(`Session not found: ${event.sessionId}`);
         return;
       }
 
-      this.logger.log(`✅ Session found: ${session.id}, status: ${session.status}, agent: ${session.agent ? `${session.agent.id} (${session.agent.name})` : 'none'}, organizationId: ${session.organizationId}`);
-
-      // Check message quota before processing
+      // Check message quota
       try {
         if (session.organizationId) {
           await this.quotaEnforcementService.enforceWhatsAppMessageQuota(session.organizationId);
@@ -262,144 +317,159 @@ export class WhatsAppAIResponderService {
           await this.quotaEnforcementService.enforceUserWhatsAppMessageQuota(session.userId);
         }
       } catch (quotaError) {
-        // Quota exceeded - simply stop processing, don't send any message
-        this.logger.warn(`Message quota exceeded for session ${session.id}: ${quotaError.message} - AI will not respond`);
+        this.logger.warn(`Message quota exceeded: ${quotaError.message}`);
         return;
       }
 
-      // Extract message details and analyze media
-      const messageText = this.extractMessageText(message);
-      const replyContext = this.extractReplyContext(message);
-      
-      // Get Baileys socket for media download
-      const sock = await this.baileysService.getSessionSocket(event.sessionId);
-      const mediaAnalysis = await this.mediaAnalysisService.analyzeMedia(message, sock);
+      // Combine all messages into one context
+      const combinedParts: string[] = [];
+      const allMediaAnalyses: any[] = [];
+      let imageCount = 0;
+      let audioCount = 0;
+      let videoCount = 0;
+      let documentCount = 0;
 
-      // Si pas de texte ET pas de média, on skip
-      if ((!messageText || messageText.trim() === "") && !mediaAnalysis) {
-        this.logger.debug("No text content or media in message, skipping AI response");
-        return;
-      }
+      for (const msg of bufferedMessages) {
+        // Add text content
+        if (msg.messageText && msg.messageText.trim()) {
+          combinedParts.push(msg.messageText.trim());
+        }
 
-      // Construire le message complet avec le contexte média
-      let fullMessageContent = messageText || "";
-      
-      if (mediaAnalysis) {
-        this.logger.log(`Media detected: ${mediaAnalysis.type} - ${mediaAnalysis.description}`);
-        
-        // Ajouter le contexte du média au message
-        if (mediaAnalysis.type === 'image') {
-          fullMessageContent += `\n\n[IMAGE REÇUE: ${mediaAnalysis.description}]`;
-          if (mediaAnalysis.extractedText) {
-            fullMessageContent += `\nTexte/Légende: ${mediaAnalysis.extractedText}`;
+        // Collect media analyses
+        if (msg.mediaAnalysis) {
+          allMediaAnalyses.push(msg.mediaAnalysis);
+
+          switch (msg.mediaAnalysis.type) {
+            case 'image': imageCount++; break;
+            case 'audio': audioCount++; break;
+            case 'video': videoCount++; break;
+            case 'document': documentCount++; break;
           }
-        } else if (mediaAnalysis.type === 'document') {
-          fullMessageContent += `\n\n[DOCUMENT REÇU: ${mediaAnalysis.description}]`;
-          if (mediaAnalysis.extractedText) {
-            fullMessageContent += `\nContenu: ${mediaAnalysis.extractedText.substring(0, 500)}...`;
-          }
-        } else if (mediaAnalysis.type === 'link') {
-          fullMessageContent += `\n\n[LIEN PARTAGÉ: ${mediaAnalysis.description}]`;
-          if (mediaAnalysis.extractedText) {
-            fullMessageContent += `\nDescription: ${mediaAnalysis.extractedText}`;
-          }
-        } else if (mediaAnalysis.type === 'video') {
-          fullMessageContent += `\n\n[VIDÉO REÇUE: ${mediaAnalysis.description}]`;
-        } else if (mediaAnalysis.type === 'audio') {
-          fullMessageContent += `\n\n[MESSAGE AUDIO REÇU]`;
         }
       }
 
-      // Si toujours pas de contenu, skip
+      // Build combined message content
+      let fullMessageContent = combinedParts.join("\n\n");
+
+      // Add media summary if multiple media items
+      if (allMediaAnalyses.length > 0) {
+        if (imageCount > 1) {
+          fullMessageContent += `\n\n[${imageCount} IMAGES REÇUES]`;
+          // Add descriptions for each image
+          allMediaAnalyses
+            .filter(m => m.type === 'image')
+            .forEach((m, i) => {
+              fullMessageContent += `\n- Image ${i + 1}: ${m.description}`;
+              if (m.extractedText) {
+                fullMessageContent += ` (Légende: ${m.extractedText})`;
+              }
+            });
+        } else if (imageCount === 1) {
+          const img = allMediaAnalyses.find(m => m.type === 'image');
+          fullMessageContent += `\n\n[IMAGE REÇUE: ${img.description}]`;
+          if (img.extractedText) {
+            fullMessageContent += `\nLégende: ${img.extractedText}`;
+          }
+        }
+
+        if (audioCount > 0) {
+          fullMessageContent += `\n\n[${audioCount} MESSAGE(S) AUDIO REÇU(S)]`;
+          allMediaAnalyses
+            .filter(m => m.type === 'audio')
+            .forEach((m, i) => {
+              if (m.extractedText) {
+                fullMessageContent += `\n- Audio ${i + 1} (transcription): ${m.extractedText}`;
+              }
+            });
+        }
+
+        if (videoCount > 0) {
+          fullMessageContent += `\n\n[${videoCount} VIDÉO(S) REÇUE(S)]`;
+          allMediaAnalyses
+            .filter(m => m.type === 'video')
+            .forEach((m, i) => {
+              fullMessageContent += `\n- Vidéo ${i + 1}: ${m.description}`;
+            });
+        }
+
+        if (documentCount > 0) {
+          fullMessageContent += `\n\n[${documentCount} DOCUMENT(S) REÇU(S)]`;
+          allMediaAnalyses
+            .filter(m => m.type === 'document')
+            .forEach((m, i) => {
+              fullMessageContent += `\n- Document ${i + 1}: ${m.description}`;
+            });
+        }
+
+        // Handle links
+        const links = allMediaAnalyses.filter(m => m.type === 'link');
+        if (links.length > 0) {
+          fullMessageContent += `\n\n[${links.length} LIEN(S) PARTAGÉ(S)]`;
+          links.forEach((m, i) => {
+            fullMessageContent += `\n- Lien ${i + 1}: ${m.description}`;
+          });
+        }
+      }
+
+      // Skip if no content
       if (!fullMessageContent.trim()) {
-        this.logger.debug("No processable content after media analysis, skipping AI response");
         return;
       }
 
-      // Skip if message is from bot itself or is a command
-      if (
-        fromNumber === session.id ||
-        fullMessageContent.startsWith("/") ||
-        fullMessageContent.startsWith("!")
-      ) {
-        this.logger.debug("Skipping bot message or command");
+      // Skip commands
+      if (fullMessageContent.startsWith("/") || fullMessageContent.startsWith("!")) {
         return;
       }
 
-      this.logger.log(`Message from ${fromNumber}: ${fullMessageContent.substring(0, 200)}...`);
-
-      // Check if auto-response is enabled for this organization
-      const autoResponseEnabled =
-        this.configService.get("WHATSAPP_AUTO_RESPONSE_ENABLED", "true") ===
-        "true";
+      // Check auto-response setting
+      const autoResponseEnabled = this.configService.get("WHATSAPP_AUTO_RESPONSE_ENABLED", "true") === "true";
       if (!autoResponseEnabled) {
-        this.logger.debug("Auto-response is disabled");
         return;
       }
 
-      // Get AI agent assigned to this session, or create default if none assigned
+      // Get or create agent
       let agent = session.agent;
       if (!agent) {
-        this.logger.log(
-          `No agent assigned to session ${session.id}, creating default agent`,
-        );
-        
-        // Use session's organizationId or fallback to user's current organization  
-        let targetOrganizationId = session.organizationId;
-        if (!targetOrganizationId && session.user) {
-          // Get user's current organization from their membership
-          targetOrganizationId = session.user.currentOrganizationId;
-          this.logger.log(`Session has no organizationId, using user's current organization: ${targetOrganizationId}`);
-        }
-        
-        if (!targetOrganizationId) {
-          this.logger.log(`No organization found for user ${session.userId}, will create agent without organization`);
-        }
-
+        let targetOrganizationId = session.organizationId || session.user?.currentOrganizationId;
         agent = await this.getOrCreateAgent(targetOrganizationId);
         if (!agent) {
-          this.logger.warn(
-            `No AI agent available - will skip this message`,
-          );
           return;
         }
-      } else {
-        this.logger.log(
-          `Using assigned agent ${agent.id} (${agent.name}) for session ${session.id}`,
-        );
       }
 
       // Get or create conversation
-      const conversation = await this.getOrCreateConversation(
-        fromNumber,
-        session,
-        agent,
-      );
+      const conversation = await this.getOrCreateConversation(fromNumber, session, agent);
 
-      // Save incoming message with media context
-      await this.saveIncomingMessage(conversation, fullMessageContent, message, mediaAnalysis);
+      // Save all incoming messages
+      for (const msg of bufferedMessages) {
+        let msgContent = msg.messageText || "";
+        if (msg.mediaAnalysis) {
+          msgContent += msg.mediaAnalysis.description ? ` [${msg.mediaAnalysis.type}: ${msg.mediaAnalysis.description}]` : ` [${msg.mediaAnalysis.type}]`;
+        }
+        if (msgContent.trim()) {
+          await this.saveIncomingMessage(conversation, msgContent.trim(), msg.event.message, msg.mediaAnalysis);
+        }
+      }
 
-      // Generate AI response
+      // Generate single AI response for all messages
+      const replyContext = this.extractReplyContext(firstMessage.event.message);
+
+      this.logger.log(`🤖 Generating AI response for combined message: ${fullMessageContent.substring(0, 200)}...`);
+
       await this.generateAndSendResponse(
         conversation,
         agent,
         session,
         fromNumber,
         fullMessageContent,
-        mediaAnalysis,
+        allMediaAnalyses.length > 0 ? allMediaAnalyses[0] : null, // Pass first media for context
         replyContext,
       );
+
+      this.logger.log(`✅ Batch processing complete for ${fromNumber}`);
+
     } catch (error) {
-      console.error(`❌ ERROR in handleIncomingMessage:`, error);
-      this.logger.error(
-        `Error processing WhatsApp message: ${error.message}`,
-        error.stack,
-      );
-    } finally {
-      // Always remove from processing set
-      if (messageId) {
-        this.processingMessages.delete(messageId);
-      }
+      this.logger.error(`Error processing batched messages: ${error.message}`, error.stack);
     }
   }
 

@@ -5,12 +5,13 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { Invoice, InvoiceStatus, Subscription, Organization } from '../../common/entities';
 import { SubscriptionStatus } from '../../common/enums';
 
-// Pricing in XAF (CFA Francs)
+// Pricing in XAF (CFA Francs) - TEMP TEST PRICES
+// Real prices: standard=19000, pro=32000, enterprise=130000
 const PLAN_PRICES = {
   free: 0,
-  standard: 5000,   // 5,000 XAF/month
-  pro: 15000,       // 15,000 XAF/month
-  enterprise: 50000, // 50,000 XAF/month
+  standard: 1300,    // TEMP TEST (real: 19,000 XAF/month)
+  pro: 1950,         // TEMP TEST (real: 32,000 XAF/month)
+  enterprise: 2600,  // TEMP TEST (real: 130,000 XAF/month)
 };
 
 @Injectable()

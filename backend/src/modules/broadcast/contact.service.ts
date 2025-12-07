@@ -35,7 +35,11 @@ export class ContactService {
     });
 
     const plan = subscription?.plan || 'free';
-    return SUBSCRIPTION_LIMITS[plan]?.broadcastContacts;
+    const limit = SUBSCRIPTION_LIMITS[plan]?.broadcastContacts;
+
+    this.logger.log(`ContactLimit: orgId=${organizationId}, found=${!!subscription}, plan=${plan}, limit=${limit}`);
+
+    return limit;
   }
 
   /**

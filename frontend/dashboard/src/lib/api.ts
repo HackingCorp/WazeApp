@@ -1106,6 +1106,41 @@ class ApiClient {
       body: JSON.stringify(data),
     });
   }
+
+  // ============================================
+  // BILLING & INVOICE ENDPOINTS
+  // ============================================
+
+  // Get all invoices for the organization
+  async getBillingInvoices() {
+    return this.request('/billing/invoices');
+  }
+
+  // Get pending/overdue invoices
+  async getPendingInvoices() {
+    return this.request('/billing/invoices/pending');
+  }
+
+  // Get specific invoice details
+  async getBillingInvoice(invoiceId: string) {
+    return this.request(`/billing/invoices/${invoiceId}`);
+  }
+
+  // Mark invoice as paid
+  async payInvoice(invoiceId: string, data: {
+    paymentMethod: string;
+    paymentReference: string;
+  }) {
+    return this.request(`/billing/invoices/${invoiceId}/pay`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Get billing summary
+  async getBillingSummary() {
+    return this.request('/billing/summary');
+  }
 }
 
 export const api = new ApiClient(API_BASE_URL);
@@ -1141,6 +1176,13 @@ export const apiHelpers = {
   },
   subscriptions: {
     getUsage: () => api.getSubscriptionUsage(),
+  },
+  billing: {
+    getInvoices: () => api.getBillingInvoices(),
+    getPendingInvoices: () => api.getPendingInvoices(),
+    getInvoice: (id: string) => api.getBillingInvoice(id),
+    payInvoice: (id: string, data: { paymentMethod: string; paymentReference: string }) => api.payInvoice(id, data),
+    getSummary: () => api.getBillingSummary(),
   },
 };
 

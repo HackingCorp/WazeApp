@@ -343,8 +343,21 @@ export class ContactService {
 
     for (const phone of phoneNumbers) {
       try {
-        const jid = phone.includes('@') ? phone : `${phone}@s.whatsapp.net`;
-        const [result] = await sock.onWhatsApp(jid.replace('@s.whatsapp.net', ''));
+        // Clean phone number - remove spaces, dashes, plus sign
+        let cleanPhone = phone.replace(/[\s\-\+\(\)]/g, '');
+
+        // Add country code if missing (assume Cameroon 237 for 9-digit numbers starting with 6)
+        if (cleanPhone.length === 9 && cleanPhone.startsWith('6')) {
+          cleanPhone = '237' + cleanPhone;
+        }
+        // Handle numbers starting with 0 (local format)
+        if (cleanPhone.startsWith('0')) {
+          cleanPhone = '237' + cleanPhone.substring(1);
+        }
+
+        this.logger.debug(`Validating phone: ${phone} -> ${cleanPhone}`);
+
+        const [result] = await sock.onWhatsApp(cleanPhone);
         const isValid = result?.exists || false;
 
         await this.contactRepository.update(

@@ -247,9 +247,29 @@ export class ContactService {
       }
     }
 
-    // Save new contacts
+    // Save new contacts with upsert to handle duplicates
     if (contactsToSave.length > 0) {
-      await this.contactRepository.save(contactsToSave);
+      try {
+        await this.contactRepository
+          .createQueryBuilder()
+          .insert()
+          .into('broadcast_contacts')
+          .values(contactsToSave)
+          .orIgnore() // Skip duplicates instead of failing
+          .execute();
+      } catch (error) {
+        this.logger.error('Bulk insert error, trying individual inserts:', error.message);
+        // Fallback: insert one by one
+        for (const contact of contactsToSave) {
+          try {
+            await this.contactRepository.save(contact);
+          } catch (e) {
+            this.logger.warn(`Skipped duplicate contact: ${contact.phoneNumber}`);
+            result.imported--;
+            result.skipped++;
+          }
+        }
+      }
     }
 
     // Update existing contacts

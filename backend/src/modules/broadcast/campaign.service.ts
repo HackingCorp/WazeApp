@@ -19,6 +19,7 @@ import {
   BroadcastMessageStatus,
   RecurrenceType,
 } from '../../common/entities';
+import { SubscriptionStatus } from '../../common/enums';
 import { BaileysService } from '../whatsapp/baileys.service';
 import { TemplateService } from './template.service';
 import { CreateCampaignDto, UpdateCampaignDto, CampaignStatsDto } from './dto/broadcast.dto';
@@ -54,7 +55,7 @@ export class CampaignService {
     messagesPerDay: number;
   }> {
     const subscription = await this.subscriptionRepository.findOne({
-      where: { organizationId, isActive: true },
+      where: { organizationId, status: SubscriptionStatus.ACTIVE },
       order: { createdAt: 'DESC' },
     });
 

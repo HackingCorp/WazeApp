@@ -14,23 +14,26 @@ import {
   KnowledgeBase,
   KnowledgeDocument,
 } from "@/common/entities";
-import { QuotaEnforcementService } from "@/modules/subscriptions/quota-enforcement.service";
+import { SubscriptionModule } from "@/modules/subscriptions/subscription.module";
 
 @Module({
-  imports: [TypeOrmModule.forFeature([
-    User,
-    Organization,
-    AiAgent,
-    AgentConversation,
-    AgentMessage,
-    WhatsAppSession,
-    Subscription,
-    UsageMetric,
-    KnowledgeBase,
-    KnowledgeDocument,
-  ])],
+  imports: [
+    SubscriptionModule,
+    TypeOrmModule.forFeature([
+      User,
+      Organization,
+      AiAgent,
+      AgentConversation,
+      AgentMessage,
+      WhatsAppSession,
+      Subscription,
+      UsageMetric,
+      KnowledgeBase,
+      KnowledgeDocument,
+    ]),
+  ],
   controllers: [AnalyticsController],
-  providers: [AnalyticsService, QuotaEnforcementService],
+  providers: [AnalyticsService],
   exports: [AnalyticsService],
 })
 export class AnalyticsModule {}

@@ -708,13 +708,10 @@ export class BroadcastController {
   ) {
     const organizationId = this.ensureOrganization(user);
     const result = await this.apiKeyService.createApiKey(organizationId, user.userId, dto);
+    // Return just the data - TransformInterceptor will wrap it in { success: true, data: ... }
     return {
-      success: true,
-      data: {
-        ...result.apiKey,
-        key: result.key, // Only shown once!
-      },
-      warning: 'Save this API key now. It will not be shown again.',
+      ...result.apiKey,
+      key: result.key, // Only shown once!
     };
   }
 
@@ -722,8 +719,7 @@ export class BroadcastController {
   @ApiOperation({ summary: 'Get all API keys' })
   async getApiKeys(@CurrentUser() user: AuthUser) {
     const organizationId = this.ensureOrganization(user);
-    const apiKeys = await this.apiKeyService.getApiKeys(organizationId);
-    return { success: true, data: apiKeys };
+    return this.apiKeyService.getApiKeys(organizationId);
   }
 
   @Get('api-keys/:id')
@@ -733,8 +729,7 @@ export class BroadcastController {
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     const organizationId = this.ensureOrganization(user);
-    const apiKey = await this.apiKeyService.getApiKey(organizationId, id);
-    return { success: true, data: apiKey };
+    return this.apiKeyService.getApiKey(organizationId, id);
   }
 
   @Put('api-keys/:id')
@@ -745,8 +740,7 @@ export class BroadcastController {
     @Body() dto: Partial<CreateApiKeyDto>,
   ) {
     const organizationId = this.ensureOrganization(user);
-    const apiKey = await this.apiKeyService.updateApiKey(organizationId, id, dto);
-    return { success: true, data: apiKey };
+    return this.apiKeyService.updateApiKey(organizationId, id, dto);
   }
 
   @Delete('api-keys/:id')
@@ -757,7 +751,7 @@ export class BroadcastController {
   ) {
     const organizationId = this.ensureOrganization(user);
     await this.apiKeyService.deleteApiKey(organizationId, id);
-    return { success: true };
+    return { deleted: true };
   }
 
   @Post('api-keys/:id/toggle')
@@ -768,7 +762,6 @@ export class BroadcastController {
     @Body('isActive') isActive: boolean,
   ) {
     const organizationId = this.ensureOrganization(user);
-    const apiKey = await this.apiKeyService.toggleApiKey(organizationId, id, isActive);
-    return { success: true, data: apiKey };
+    return this.apiKeyService.toggleApiKey(organizationId, id, isActive);
   }
 }

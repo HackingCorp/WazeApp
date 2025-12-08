@@ -113,20 +113,29 @@ export default function ApiKeysPage() {
 
   const handleCreateKey = async () => {
     try {
+      console.log('Creating API key with data:', newKeyData);
       const response = await api.createBroadcastApiKey({
         name: newKeyData.name,
+        description: newKeyData.description || undefined,
         permissions: newKeyData.permissions,
         expiresAt: newKeyData.expiresAt || undefined,
-        ipWhitelist: newKeyData.allowedIps ? newKeyData.allowedIps.split(',').map(ip => ip.trim()) : undefined,
+        allowedIps: newKeyData.allowedIps ? newKeyData.allowedIps.split(',').map(ip => ip.trim()).filter(ip => ip) : undefined,
         rateLimitPerMinute: newKeyData.rateLimitPerMinute,
       });
 
+      console.log('Create API key response:', response);
+
+      // The response structure is: { success: true, data: { ...apiKey, key: "wz_live_..." } }
       if (response.success && response.data?.key) {
         setCreatedKey(response.data.key);
         fetchApiKeys();
+      } else {
+        console.error('API key creation failed or no key returned:', response);
+        alert('Erreur lors de la création de la clé API: ' + (response.error || 'Erreur inconnue'));
       }
     } catch (error) {
       console.error('Error creating API key:', error);
+      alert('Erreur lors de la création de la clé API');
     }
   };
 

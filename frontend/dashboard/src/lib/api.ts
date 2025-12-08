@@ -956,8 +956,9 @@ class ApiClient {
     name: string;
     permissions: string[];
     expiresAt?: string;
-    ipWhitelist?: string[];
+    allowedIps?: string[];
     rateLimitPerMinute?: number;
+    description?: string;
   }) {
     return this.request('/broadcast/api-keys', {
       method: 'POST',

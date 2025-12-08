@@ -19,6 +19,7 @@ import {
 } from "@/common/entities";
 import { EmailService } from "../email/email.service";
 import { AuditService } from "../audit/audit.service";
+import { SubscriptionModule } from "../subscriptions/subscription.module";
 
 // Dynamically load OAuth strategies only if configured
 const providers: any[] = [
@@ -52,6 +53,7 @@ if (isValidOAuthConfig(process.env.FACEBOOK_APP_ID)) {
 
 @Module({
   imports: [
+    SubscriptionModule,
     TypeOrmModule.forFeature([
       User,
       Organization,

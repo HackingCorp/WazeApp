@@ -13,9 +13,11 @@ import {
 } from "@/common/entities";
 import { AuditService } from "../audit/audit.service";
 import { EmailService } from "../email/email.service";
+import { SubscriptionModule } from "../subscriptions/subscription.module";
 
 @Module({
   imports: [
+    SubscriptionModule,
     TypeOrmModule.forFeature([
       Organization,
       OrganizationMember,

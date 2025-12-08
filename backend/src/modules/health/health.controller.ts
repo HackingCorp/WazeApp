@@ -29,7 +29,7 @@ export class HealthController {
     return this.health.check([
       () => this.db.pingCheck("database"),
       () => this.memory.checkHeap("memory_heap", 512 * 1024 * 1024),
-      () => this.memory.checkRSS("memory_rss", 256 * 1024 * 1024),
+      () => this.memory.checkRSS("memory_rss", 512 * 1024 * 1024),
       () =>
         this.disk.checkStorage("storage", {
           path: "/",

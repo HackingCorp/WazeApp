@@ -20,6 +20,7 @@ interface PaymentModalProps {
   dynamicPrice: number; // Prix de l'API (déjà converti dans la devise sélectionnée)
   currency?: string; // Devise sélectionnée
   userId?: string;
+  organizationId?: string; // Organization ID for subscription upgrade
   billingPeriod?: 'monthly' | 'annually';
 }
 
@@ -37,6 +38,7 @@ export function PaymentModal({
   dynamicPrice,
   currency = 'XAF',
   userId,
+  organizationId,
   billingPeriod = 'monthly',
 }: PaymentModalProps) {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(null);
@@ -189,6 +191,7 @@ export function PaymentModal({
           transactionId: transId,
           plan: plan?.id.toUpperCase() as 'STANDARD' | 'PRO' | 'ENTERPRISE',
           userId,
+          organizationId, // Pass organization ID for organization subscription upgrade
           amount: paymentAmount,
           billingPeriod,
         });

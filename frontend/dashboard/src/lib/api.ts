@@ -1099,6 +1099,7 @@ class ApiClient {
     transactionId?: string;
     plan?: 'STANDARD' | 'PRO' | 'ENTERPRISE';
     userId?: string;
+    organizationId?: string; // Organization ID for subscription upgrade
     amount?: number;
     billingPeriod?: 'monthly' | 'annually';
   }) {

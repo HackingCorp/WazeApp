@@ -871,6 +871,7 @@ export function SubscriptionManager({
         dynamicPrice={planToPurchase ? getPlanPrice(planToPurchase.id).price : 0}
         currency={selectedCurrency}
         userId={user?.id}
+        organizationId={user?.organization?.id || user?.currentOrganizationId}
         billingPeriod={selectedCycle === 'monthly' ? 'monthly' : 'annually'}
       />
     </div>

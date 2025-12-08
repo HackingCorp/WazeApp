@@ -200,15 +200,13 @@ export default function ApiKeysPage() {
                   Mettre à niveau
                   <ExternalLink className="w-4 h-4 ml-2" />
                 </Link>
-                <a
-                  href="https://api.wazeapp.xyz/api/v1/docs"
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <Link
+                  href="/api-keys/documentation"
                   className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors font-medium"
                 >
                   <BookOpen className="w-4 h-4 mr-2" />
                   Voir la documentation
-                </a>
+                </Link>
               </div>
             </div>
           </div>
@@ -231,15 +229,13 @@ export default function ApiKeysPage() {
           </p>
         </div>
         <div className="flex gap-3">
-          <a
-            href="https://api.wazeapp.xyz/api/v1/docs"
-            target="_blank"
-            rel="noopener noreferrer"
+          <Link
+            href="/api-keys/documentation"
             className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
           >
             <BookOpen className="w-4 h-4 mr-2" />
             Documentation
-          </a>
+          </Link>
           <button
             onClick={() => {
               setNewKeyData({ name: '', description: '', permissions: [], expiresAt: '', allowedIps: '', rateLimitPerMinute: 60 });

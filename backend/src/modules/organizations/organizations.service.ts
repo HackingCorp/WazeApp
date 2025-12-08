@@ -15,9 +15,8 @@ import {
   Subscription,
   WhatsAppSession,
   UsageMetric,
-  SUBSCRIPTION_LIMITS,
-  SUBSCRIPTION_FEATURES,
 } from "@/common/entities";
+import { PlanService } from "../subscriptions/plan.service";
 import {
   UserRole,
   SubscriptionPlan,
@@ -52,6 +51,7 @@ export class OrganizationsService {
     private usageMetricRepository: Repository<UsageMetric>,
     private auditService: AuditService,
     private emailService: EmailService,
+    private planService: PlanService,
   ) {}
 
   async create(
@@ -83,13 +83,13 @@ export class OrganizationsService {
     await this.organizationMemberRepository.save(membership);
 
     // Create default free subscription
-    // IMPORTANT: Use SUBSCRIPTION_LIMITS/FEATURES constants to ensure consistency
+    // Use database-driven plan limits and features
     const subscription = this.subscriptionRepository.create({
       organizationId: savedOrganization.id,
       plan: SubscriptionPlan.FREE,
       startsAt: new Date(),
-      limits: SUBSCRIPTION_LIMITS[SubscriptionPlan.FREE],
-      features: SUBSCRIPTION_FEATURES[SubscriptionPlan.FREE],
+      limits: this.planService.getPlanLimits('free'),
+      features: this.planService.getPlanFeatures('free'),
     });
     await this.subscriptionRepository.save(subscription);
 

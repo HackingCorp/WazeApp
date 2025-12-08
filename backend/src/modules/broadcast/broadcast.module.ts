@@ -20,6 +20,7 @@ import { BroadcastProcessor } from './broadcast.processor';
 import { BroadcastController } from './broadcast.controller';
 import { ExternalApiController } from './external-api.controller';
 import { WhatsAppModule } from '../whatsapp/whatsapp.module';
+import { SubscriptionModule } from '../subscriptions/subscription.module';
 
 @Module({
   imports: [
@@ -45,6 +46,7 @@ import { WhatsAppModule } from '../whatsapp/whatsapp.module';
       },
     }),
     WhatsAppModule,
+    SubscriptionModule,
   ],
   controllers: [BroadcastController, ExternalApiController],
   providers: [

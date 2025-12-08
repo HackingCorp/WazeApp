@@ -16,10 +16,9 @@ import {
   Organization,
   OrganizationMember,
   Subscription,
-  SUBSCRIPTION_LIMITS,
-  SUBSCRIPTION_FEATURES,
 } from "@/common/entities";
 import { UserRole, SubscriptionPlan, AuditAction } from "@/common/enums";
+import { PlanService } from "../subscriptions/plan.service";
 import {
   RegisterDto,
   LoginDto,
@@ -48,6 +47,7 @@ export class AuthService {
     private configService: ConfigService,
     private emailService: EmailService,
     private auditService: AuditService,
+    private planService: PlanService,
   ) {}
 
   async register(dto: RegisterDto): Promise<AuthResponseDto> {
@@ -101,15 +101,15 @@ export class AuthService {
 
     // Create free subscription for all users (with or without organization)
     // Store selected plan in metadata - will be upgraded after payment if paid plan selected
-    // IMPORTANT: Use SUBSCRIPTION_LIMITS/FEATURES constants to ensure consistency
+    // Use database-driven plan limits and features
     const selectedPlan = dto.plan?.toUpperCase() || 'FREE';
     const subscription = this.subscriptionRepository.create({
       userId: user.id.toString(),
       organizationId: organization?.id,
       plan: SubscriptionPlan.FREE,
       startsAt: new Date(),
-      limits: SUBSCRIPTION_LIMITS[SubscriptionPlan.FREE],
-      features: SUBSCRIPTION_FEATURES[SubscriptionPlan.FREE],
+      limits: this.planService.getPlanLimits('free'),
+      features: this.planService.getPlanFeatures('free'),
       metadata: selectedPlan !== 'FREE' ? {
         pendingUpgrade: {
           plan: selectedPlan,

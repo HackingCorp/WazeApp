@@ -4,7 +4,8 @@ import { Repository, In, Like, ILike } from 'typeorm';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import * as XLSX from 'xlsx';
 import * as Papa from 'papaparse';
-import { BroadcastContact, Subscription, SUBSCRIPTION_LIMITS } from '../../common/entities';
+import { BroadcastContact, Subscription } from '../../common/entities';
+import { PlanService } from '../subscriptions/plan.service';
 import { SubscriptionStatus } from '../../common/enums';
 import { BaileysService } from '../whatsapp/baileys.service';
 import {
@@ -25,6 +26,7 @@ export class ContactService {
     private subscriptionRepository: Repository<Subscription>,
     private baileysService: BaileysService,
     private eventEmitter: EventEmitter2,
+    private planService: PlanService,
   ) {}
 
   /**
@@ -37,7 +39,7 @@ export class ContactService {
     });
 
     const plan = subscription?.plan || 'free';
-    const limit = SUBSCRIPTION_LIMITS[plan]?.broadcastContacts;
+    const limit = this.planService.getPlanLimits(plan).broadcastContacts;
 
     this.logger.log(`ContactLimit: orgId=${organizationId}, found=${!!subscription}, plan=${plan}, limit=${limit}`);
 

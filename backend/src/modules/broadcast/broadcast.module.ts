@@ -10,6 +10,7 @@ import {
   ApiKey,
   WebhookConfig,
   Subscription,
+  WhatsAppSession,
 } from '../../common/entities';
 import { ContactService } from './contact.service';
 import { TemplateService } from './template.service';
@@ -32,6 +33,7 @@ import { SubscriptionModule } from '../subscriptions/subscription.module';
       ApiKey,
       WebhookConfig,
       Subscription,
+      WhatsAppSession,
     ]),
     BullModule.registerQueue({
       name: 'broadcast',

@@ -146,6 +146,48 @@ export default function ApiDocumentationPage() {
             />
           </div>
 
+          {/* WhatsApp Sessions */}
+          <div className="mb-8 pt-6 border-t border-gray-200 dark:border-gray-700">
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2 flex items-center gap-2">
+              <span className="px-2 py-1 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 text-xs font-bold rounded">GET</span>
+              /sessions
+            </h3>
+            <p className="text-gray-600 dark:text-gray-300 mb-1">Lister vos sessions WhatsApp disponibles.</p>
+            <p className="text-sm text-amber-600 dark:text-amber-400 mb-3">Permission requise: <code>send:message</code></p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">
+              Utilisez cet endpoint pour obtenir les IDs des sessions WhatsApp connectées à votre organisation.
+              Vous aurez besoin du <code className="bg-gray-100 dark:bg-gray-700 px-1 rounded">sessionId</code> pour envoyer des messages.
+            </p>
+            <CodeBlock
+              code={`// Réponse
+{
+  "success": true,
+  "data": [
+    {
+      "id": "uuid-session-1",
+      "name": "Support Client",
+      "phoneNumber": "+237612345678",
+      "status": "connected",
+      "isConnected": true,
+      "isActive": true,
+      "lastSeenAt": "2025-01-15T12:00:00.000Z"
+    },
+    {
+      "id": "uuid-session-2",
+      "name": "Marketing",
+      "phoneNumber": "+237698765432",
+      "status": "disconnected",
+      "isConnected": false,
+      "isActive": true,
+      "lastSeenAt": "2025-01-14T10:30:00.000Z"
+    }
+  ]
+}`}
+              id="sessions-response"
+              language="json"
+            />
+          </div>
+
           {/* Send Messages */}
           <div className="mb-8 pt-6 border-t border-gray-200 dark:border-gray-700">
             <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2 flex items-center gap-2">

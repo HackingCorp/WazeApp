@@ -10,6 +10,8 @@ import {
   HttpStatus,
   UseGuards,
   ParseUUIDPipe,
+  ForbiddenException,
+  NotFoundException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -18,6 +20,8 @@ import {
   ApiHeader,
   ApiQuery,
 } from '@nestjs/swagger';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { Public } from '../../common/decorators/public.decorator';
 import { ApiKeyService } from './api-key.service';
 import { ContactService } from './contact.service';
@@ -30,7 +34,8 @@ import {
   CreateCampaignDto,
   ContactFilterDto,
 } from './dto/broadcast.dto';
-import { ApiKeyPermission } from '../../common/entities';
+import { ApiKeyPermission, WhatsAppSession } from '../../common/entities';
+import { WhatsAppSessionStatus } from '../../common/enums';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
 
@@ -47,7 +52,69 @@ export class ExternalApiController {
     private baileysService: BaileysService,
     @InjectQueue('broadcast')
     private broadcastQueue: Queue,
+    @InjectRepository(WhatsAppSession)
+    private sessionRepository: Repository<WhatsAppSession>,
   ) {}
+
+  /**
+   * Verify that a session belongs to the organization and is connected
+   */
+  private async verifySession(sessionId: string, organizationId: string): Promise<WhatsAppSession> {
+    const session = await this.sessionRepository.findOne({
+      where: { id: sessionId },
+    });
+
+    if (!session) {
+      throw new NotFoundException('WhatsApp session not found');
+    }
+
+    if (session.organizationId !== organizationId) {
+      throw new ForbiddenException('This WhatsApp session does not belong to your organization');
+    }
+
+    if (session.status !== WhatsAppSessionStatus.CONNECTED) {
+      throw new ForbiddenException(`WhatsApp session is not connected. Current status: ${session.status}`);
+    }
+
+    return session;
+  }
+
+  // ==========================================
+  // WHATSAPP SESSIONS
+  // ==========================================
+
+  @Get('sessions')
+  @ApiOperation({ summary: 'Get available WhatsApp sessions' })
+  @ApiHeader({ name: 'X-API-Key', required: true })
+  async getSessions(
+    @Headers('x-api-key') apiKey: string,
+    @Ip() clientIp: string,
+  ) {
+    const { organizationId } = await this.apiKeyService.validateApiKey(
+      apiKey,
+      ApiKeyPermission.SEND_MESSAGE,
+      clientIp,
+    );
+
+    const sessions = await this.sessionRepository.find({
+      where: { organizationId },
+      select: ['id', 'name', 'phoneNumber', 'status', 'isActive', 'lastSeenAt', 'createdAt'],
+      order: { createdAt: 'DESC' },
+    });
+
+    return {
+      success: true,
+      data: sessions.map(s => ({
+        id: s.id,
+        name: s.name,
+        phoneNumber: s.phoneNumber,
+        status: s.status,
+        isConnected: s.status === WhatsAppSessionStatus.CONNECTED,
+        isActive: s.isActive,
+        lastSeenAt: s.lastSeenAt,
+      })),
+    };
+  }
 
   // ==========================================
   // SEND MESSAGES
@@ -70,6 +137,9 @@ export class ExternalApiController {
       ApiKeyPermission.SEND_MESSAGE,
       clientIp,
     );
+
+    // Verify the session belongs to the organization and is connected
+    await this.verifySession(dto.sessionId, organizationId);
 
     // Get template if provided
     let template = null;
@@ -179,6 +249,9 @@ export class ExternalApiController {
       ApiKeyPermission.SEND_MESSAGE,
       clientIp,
     );
+
+    // Verify the session belongs to the organization and is connected
+    await this.verifySession(dto.sessionId, organizationId);
 
     const result = await this.baileysService.sendMessage(dto.sessionId, {
       to: dto.to,

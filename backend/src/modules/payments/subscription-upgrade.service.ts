@@ -4,12 +4,9 @@ import { Repository, IsNull } from 'typeorm';
 import { Subscription, User, Organization, Invoice } from '../../common/entities';
 import { SubscriptionPlan, SubscriptionStatus } from '../../common/enums';
 import { InvoiceStatus } from '../../common/entities/invoice.entity';
-import {
-  SUBSCRIPTION_LIMITS,
-  SUBSCRIPTION_FEATURES,
-} from '../../common/entities/subscription.entity';
 import { CurrencyService } from './currency.service';
 import { EmailService } from '../email/email.service';
+import { PlanService } from '../subscriptions/plan.service';
 
 export interface PaymentDetails {
   transactionId: string;
@@ -50,6 +47,8 @@ export class SubscriptionUpgradeService {
 
     private readonly currencyService: CurrencyService,
     private readonly emailService: EmailService,
+    @Inject(forwardRef(() => PlanService))
+    private readonly planService: PlanService,
   ) {}
 
   /**
@@ -111,8 +110,8 @@ export class SubscriptionUpgradeService {
         subscription.startsAt = now;
         subscription.endsAt = endsAt;
         subscription.nextBillingDate = nextBillingDate;
-        subscription.limits = SUBSCRIPTION_LIMITS[newPlan];
-        subscription.features = SUBSCRIPTION_FEATURES[newPlan];
+        subscription.limits = this.planService.getPlanLimits(newPlan.toLowerCase());
+        subscription.features = this.planService.getPlanFeatures(newPlan.toLowerCase());
         subscription.metadata = {
           ...subscription.metadata,
           lastPayment: {
@@ -147,8 +146,8 @@ export class SubscriptionUpgradeService {
           startsAt: now,
           endsAt,
           nextBillingDate,
-          limits: SUBSCRIPTION_LIMITS[newPlan],
-          features: SUBSCRIPTION_FEATURES[newPlan],
+          limits: this.planService.getPlanLimits(newPlan.toLowerCase()),
+          features: this.planService.getPlanFeatures(newPlan.toLowerCase()),
           metadata: {
             lastPayment: {
               transactionId: paymentDetails.transactionId,
@@ -379,8 +378,8 @@ export class SubscriptionUpgradeService {
         subscription.startsAt = now;
         subscription.endsAt = endsAt;
         subscription.nextBillingDate = nextBillingDate;
-        subscription.limits = SUBSCRIPTION_LIMITS[newPlan];
-        subscription.features = SUBSCRIPTION_FEATURES[newPlan];
+        subscription.limits = this.planService.getPlanLimits(newPlan.toLowerCase());
+        subscription.features = this.planService.getPlanFeatures(newPlan.toLowerCase());
         subscription.metadata = {
           ...subscription.metadata,
           lastPayment: {
@@ -415,8 +414,8 @@ export class SubscriptionUpgradeService {
           startsAt: now,
           endsAt,
           nextBillingDate,
-          limits: SUBSCRIPTION_LIMITS[newPlan],
-          features: SUBSCRIPTION_FEATURES[newPlan],
+          limits: this.planService.getPlanLimits(newPlan.toLowerCase()),
+          features: this.planService.getPlanFeatures(newPlan.toLowerCase()),
           metadata: {
             lastPayment: {
               transactionId: paymentDetails.transactionId,
@@ -495,8 +494,8 @@ export class SubscriptionUpgradeService {
 
       subscription.plan = SubscriptionPlan.FREE;
       subscription.status = SubscriptionStatus.CANCELLED;
-      subscription.limits = SUBSCRIPTION_LIMITS[SubscriptionPlan.FREE];
-      subscription.features = SUBSCRIPTION_FEATURES[SubscriptionPlan.FREE];
+      subscription.limits = this.planService.getPlanLimits('free');
+      subscription.features = this.planService.getPlanFeatures('free');
       subscription.metadata = {
         ...subscription.metadata,
         cancellation: {

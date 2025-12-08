@@ -11,8 +11,6 @@ import { api } from '@/lib/api';
 interface Plan {
   id: string;
   name: string;
-  price: number;
-  priceFCFA: number;
   interval: 'month' | 'year';
   description: string;
   icon: React.ComponentType<any>;
@@ -51,12 +49,11 @@ interface ExchangeRateData {
   symbol: string;
 }
 
+// Plans structure - prices are fetched dynamically from the API
 const plans: Plan[] = [
   {
     id: 'free',
     name: 'Free',
-    price: 0,
-    priceFCFA: 0,
     interval: 'month',
     description: 'Perfect for trying out our platform',
     icon: Zap,
@@ -79,8 +76,6 @@ const plans: Plan[] = [
   {
     id: 'standard',
     name: 'Standard',
-    price: 2, // TEMP TEST (was 29.99)
-    priceFCFA: 1300, // TEMP TEST (was 19000)
     interval: 'month',
     description: 'Great for small businesses',
     icon: Shield,
@@ -106,8 +101,6 @@ const plans: Plan[] = [
   {
     id: 'pro',
     name: 'Pro',
-    price: 3, // TEMP TEST (was 49.99)
-    priceFCFA: 1950, // TEMP TEST (was 32000)
     interval: 'month',
     description: 'Perfect for growing teams',
     icon: Crown,
@@ -136,8 +129,6 @@ const plans: Plan[] = [
   {
     id: 'enterprise',
     name: 'Enterprise',
-    price: 4, // TEMP TEST (was 199)
-    priceFCFA: 2600, // TEMP TEST (was 130000)
     interval: 'month',
     description: 'For large organizations',
     icon: Star,
@@ -302,7 +293,7 @@ export function SubscriptionManager({
     setShowUpgradeModal(false);
 
     // If upgrading to a paid plan, show Mobile Money payment modal
-    if (selectedPlanData && selectedPlanData.price > 0) {
+    if (selectedPlanData && getPlanPrice(selectedPlanData.id).price > 0) {
       setPlanToPurchase(selectedPlanData);
       setShowPaymentModal(true);
     } else {
@@ -328,9 +319,16 @@ export function SubscriptionManager({
     return currency?.symbol || '$';
   };
 
-  // Get price for a plan in the selected currency
+  // Get price for a plan in the selected currency (from API only)
   const getPlanPrice = (planId: string): { price: number; symbol: string; formatted: string; yearlyTotal?: number } => {
-    // Primary: Use dynamically fetched pricing from backend (already converted)
+    const symbol = getCurrentCurrencySymbol();
+
+    // Free plan is always 0
+    if (planId === 'free') {
+      return { price: 0, symbol, formatted: 'Free' };
+    }
+
+    // Use dynamically fetched pricing from backend
     const pricing = dynamicPricing[planId];
     if (pricing) {
       return {
@@ -341,42 +339,8 @@ export function SubscriptionManager({
       };
     }
 
-    // Fallback: Use official exchange rates from backend for local calculation
-    const plan = plans.find(p => p.id === planId);
-    const basePrice = plan?.price || 0;
-    const symbol = getCurrentCurrencySymbol();
-
-    if (basePrice === 0) {
-      return { price: 0, symbol, formatted: 'Free' };
-    }
-
-    // Use official rates if available, otherwise fall back to hardcoded rates
-    let rateWithMargin: number;
-    const officialRate = officialRates[selectedCurrency];
-
-    if (officialRate) {
-      // Use official rate with margin (already calculated by backend)
-      rateWithMargin = officialRate.rateWithMargin;
-    } else {
-      // Ultimate fallback: hardcoded rates with 10% margin
-      const fallbackRate = FALLBACK_RATES[selectedCurrency] || 1;
-      rateWithMargin = fallbackRate * 1.1;
-    }
-
-    let converted = basePrice * rateWithMargin;
-
-    // Round for African currencies
-    if (['XAF', 'XOF', 'NGN', 'KES', 'GHS', 'EGP'].includes(selectedCurrency)) {
-      converted = Math.ceil(converted / 100) * 100;
-    } else {
-      converted = Math.round(converted * 100) / 100;
-    }
-
-    return {
-      price: converted,
-      symbol,
-      formatted: `${symbol}${converted.toLocaleString()}`,
-    };
+    // Loading state - return 0 while fetching
+    return { price: 0, symbol, formatted: '...' };
   };
 
   const PlanCard = ({ plan }: { plan: Plan }) => {
@@ -568,7 +532,7 @@ export function SubscriptionManager({
               'Current Plan'
             ) : (
               <>
-                {plan.price === 0 ? 'Downgrade' : `Upgrade to ${plan.name}`}
+                {plan.id === 'free' ? 'Downgrade' : `Upgrade to ${plan.name}`}
                 <ArrowRight className="w-4 h-4" />
               </>
             )}
@@ -904,7 +868,7 @@ export function SubscriptionManager({
         onSuccess={handlePaymentSuccess}
         customerName={user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : ''}
         customerEmail={user?.email || ''}
-        dynamicPrice={planToPurchase ? getPlanPrice(planToPurchase.id).price : undefined}
+        dynamicPrice={planToPurchase ? getPlanPrice(planToPurchase.id).price : 0}
         currency={selectedCurrency}
         userId={user?.id}
         billingPeriod={selectedCycle === 'monthly' ? 'monthly' : 'annually'}

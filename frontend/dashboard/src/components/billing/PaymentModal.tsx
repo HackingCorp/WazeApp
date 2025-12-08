@@ -8,8 +8,6 @@ import clsx from 'clsx';
 interface Plan {
   id: string;
   name: string;
-  price: number;
-  priceFCFA: number;
 }
 
 interface PaymentModalProps {
@@ -19,7 +17,7 @@ interface PaymentModalProps {
   onSuccess: () => void;
   customerName: string;
   customerEmail: string;
-  dynamicPrice?: number; // Prix dynamique de l'API
+  dynamicPrice: number; // Prix de l'API (déjà converti dans la devise sélectionnée)
   currency?: string; // Devise sélectionnée
   userId?: string;
   billingPeriod?: 'monthly' | 'annually';
@@ -123,21 +121,9 @@ export function PaymentModal({
     setError(null);
 
     try {
-      // S3P only accepts XAF - convert if needed
-      let amount: number;
-      if (currency === 'XAF' || currency === 'XOF') {
-        amount = dynamicPrice || Math.round(plan.price * 655);
-      } else {
-        // For other currencies, we need to convert to XAF
-        // Use approximate rates (should match backend rates)
-        const rates: Record<string, number> = {
-          USD: 605 * 1.1, // ~665 XAF per USD
-          EUR: 655 * 1.1, // ~720 XAF per EUR
-          GBP: 765 * 1.1, // ~840 XAF per GBP
-        };
-        const rate = rates[currency] || 665;
-        amount = Math.round((dynamicPrice || plan.price) * rate);
-      }
+      // dynamicPrice is already in the selected currency from the API
+      // Backend will convert to XAF for S3P if needed
+      const amount = dynamicPrice;
       const cleanPhone = getCleanPhoneNumber();
 
       console.log('=== S3P PAYMENT DEBUG (Frontend) ===');
@@ -250,7 +236,7 @@ export function PaymentModal({
 
     try {
       // Send the amount in the selected currency - backend will convert to XAF
-      const amount = dynamicPrice || plan.price;
+      const amount = dynamicPrice;
       const selectedCurrency = currency || 'XAF';
       // Format: WAZEAPP-{userId}-{plan}-{timestamp} (userId is required for webhook to upgrade subscription)
       const merchantRef = `WAZEAPP-${userId || 'unknown'}-${plan.id.toUpperCase()}-${Date.now()}`;
@@ -307,7 +293,7 @@ export function PaymentModal({
 
   if (!isOpen || !plan) return null;
 
-  const displayPrice = dynamicPrice || Math.round(plan.price * 655);
+  const displayPrice = dynamicPrice;
   const displayCurrency = currency || 'XAF';
 
   return (

@@ -335,3 +335,27 @@ The dashboard uses a centralized API client class (`frontend/dashboard/src/lib/a
 - Support for MTN, Orange, and other African mobile payment providers
 - Webhook handling for payment notifications
 - Integration in `payments/` module
+
+## Deployment
+
+**IMPORTANT: NE JAMAIS déployer manuellement sur le serveur !**
+
+Le projet utilise **Coolify** pour le déploiement automatique. Quand du code est poussé sur GitHub (git push), Coolify détecte automatiquement les changements et redéploie les containers.
+
+**Workflow de déploiement:**
+1. Faire les modifications localement
+2. `git add` et `git commit`
+3. `git push` vers GitHub
+4. Coolify détecte le push et redéploie automatiquement
+
+**Ne jamais faire:**
+- rsync vers le serveur
+- ssh pour docker compose up
+- Déploiement manuel de quelque nature que ce soit
+
+**Production URLs:**
+- API: https://api.wazeapp.xyz
+- Dashboard: https://app.wazeapp.xyz
+- Marketing: https://wazeapp.xyz
+
+**Serveur:** 94.250.201.167 (géré par Coolify)

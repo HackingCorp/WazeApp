@@ -691,8 +691,16 @@ export class BroadcastController {
   // API KEYS
   // ==========================================
 
+  @Get('api-keys/access')
+  @ApiOperation({ summary: 'Check if organization can use API keys' })
+  async checkApiAccess(@CurrentUser() user: AuthUser) {
+    const organizationId = this.ensureOrganization(user);
+    const canUse = await this.apiKeyService.canUseExternalApi(organizationId);
+    return { success: true, data: { canUseApi: canUse } };
+  }
+
   @Post('api-keys')
-  @ApiOperation({ summary: 'Create an API key (Enterprise only)' })
+  @ApiOperation({ summary: 'Create an API key (Pro/Enterprise only)' })
   async createApiKey(
     @CurrentUser() user: AuthUser,
     @Body() dto: CreateApiKeyDto,

@@ -944,6 +944,10 @@ class ApiClient {
   }
 
   // API Keys
+  async checkApiAccess() {
+    return this.request('/broadcast/api-keys/access');
+  }
+
   async getBroadcastApiKeys() {
     return this.request('/broadcast/api-keys');
   }
@@ -972,8 +976,11 @@ class ApiClient {
     return this.request(`/broadcast/api-keys/${id}`, { method: 'DELETE' });
   }
 
-  async toggleBroadcastApiKey(id: string) {
-    return this.request(`/broadcast/api-keys/${id}/toggle`, { method: 'POST' });
+  async toggleBroadcastApiKey(id: string, isActive: boolean) {
+    return this.request(`/broadcast/api-keys/${id}/toggle`, {
+      method: 'POST',
+      body: JSON.stringify({ isActive }),
+    });
   }
 
   // ============================================

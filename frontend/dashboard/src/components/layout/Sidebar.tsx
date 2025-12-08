@@ -20,6 +20,7 @@ import {
   Headphones,
   Smartphone,
   Radio,
+  Key,
 } from 'lucide-react';
 import { useI18n } from '@/providers/I18nProvider';
 import { useAuth } from '@/providers/AuthProvider';
@@ -76,6 +77,12 @@ export function Sidebar({ collapsed, onToggleCollapse }: SidebarProps) {
   ];
 
   const secondaryNavigation = [
+    {
+      name: t('sidebar.api'),
+      href: '/api-keys',
+      icon: Key,
+      permission: null,
+    },
     {
       name: t('sidebar.billing'),
       href: '/billing',

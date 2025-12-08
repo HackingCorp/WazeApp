@@ -40,9 +40,12 @@ export class ApiKeyService {
     const isActive = subscription.status === 'active' || subscription.status === 'trialing';
     if (!isActive) return false;
 
-    // Only Enterprise plan can use external API (matches pricing page)
-    return subscription.plan === SubscriptionPlan.ENTERPRISE &&
-           subscription.features?.apiAccess === true;
+    // Pro and Enterprise plans can use external API
+    const hasApiAccessPlan = subscription.plan === SubscriptionPlan.PRO ||
+                              subscription.plan === SubscriptionPlan.ENTERPRISE;
+    const hasApiAccessFeature = subscription.features?.apiAccess === true;
+
+    return hasApiAccessPlan || hasApiAccessFeature;
   }
 
   /**
@@ -57,7 +60,7 @@ export class ApiKeyService {
     const canUse = await this.canUseExternalApi(organizationId);
     if (!canUse) {
       throw new ForbiddenException(
-        'External API access requires Enterprise plan',
+        'External API access requires Pro or Enterprise plan',
       );
     }
 
@@ -221,7 +224,7 @@ export class ApiKeyService {
     const canUse = await this.canUseExternalApi(apiKey.organizationId);
     if (!canUse) {
       throw new ForbiddenException(
-        'External API access requires Enterprise plan. Please upgrade your subscription.',
+        'External API access requires Pro or Enterprise plan. Please upgrade your subscription.',
       );
     }
 

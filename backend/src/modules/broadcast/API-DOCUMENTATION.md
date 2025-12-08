@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Broadcast API allows you to manage contacts, create message templates, run campaigns, and send WhatsApp messages programmatically. The External API is available exclusively for **Enterprise** plan subscribers.
+The Broadcast API allows you to manage contacts, create message templates, run campaigns, and send WhatsApp messages programmatically. The External API is available for **Pro** and **Enterprise** plan subscribers.
 
 ## Authentication
 
@@ -545,7 +545,8 @@ Base URL: `https://api.wazeapp.xyz/api/v1/broadcast`
 
 | Plan | Requests/Minute | Messages/Day |
 |------|-----------------|--------------|
-| Enterprise | 60 | 5,000 |
+| Pro | 60 | 2,000 |
+| Enterprise | 120 | 5,000 |
 
 ### Contact Limits
 

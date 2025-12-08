@@ -696,7 +696,8 @@ export class BroadcastController {
   async checkApiAccess(@CurrentUser() user: AuthUser) {
     const organizationId = this.ensureOrganization(user);
     const canUse = await this.apiKeyService.canUseExternalApi(organizationId);
-    return { success: true, data: { canUseApi: canUse } };
+    // Just return the data - TransformInterceptor will wrap it in { success: true, data: ... }
+    return { canUseApi: canUse };
   }
 
   @Post('api-keys')

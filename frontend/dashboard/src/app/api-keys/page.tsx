@@ -79,7 +79,11 @@ export default function ApiKeysPage() {
   const checkApiAccess = async () => {
     try {
       const response = await api.checkApiAccess();
-      if (response.success && response.data?.canUseApi) {
+      console.log('API Access Response:', response);
+
+      // Backend returns { canUseApi: boolean } which gets wrapped by TransformInterceptor
+      // API client extracts data.data, so response.data = { canUseApi: boolean }
+      if (response.success && response.data?.canUseApi === true) {
         setCanUseApi(true);
         fetchApiKeys();
       } else {

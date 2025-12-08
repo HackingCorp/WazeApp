@@ -29,21 +29,34 @@ export class ApiKeyService {
    * Check if organization can use external API
    */
   async canUseExternalApi(organizationId: string): Promise<boolean> {
+    this.logger.debug(`Checking API access for organization: ${organizationId}`);
+
     const subscription = await this.subscriptionRepository.findOne({
       where: { organizationId },
       order: { createdAt: 'DESC' },
     });
 
     // Check if subscription is active and has apiAccess feature
-    if (!subscription) return false;
+    if (!subscription) {
+      this.logger.debug('No subscription found');
+      return false;
+    }
+
+    this.logger.debug(`Subscription found: plan=${subscription.plan}, status=${subscription.status}`);
 
     const isActive = subscription.status === 'active' || subscription.status === 'trialing';
-    if (!isActive) return false;
+    if (!isActive) {
+      this.logger.debug(`Subscription not active: ${subscription.status}`);
+      return false;
+    }
 
     // Pro and Enterprise plans can use external API
-    const hasApiAccessPlan = subscription.plan === SubscriptionPlan.PRO ||
-                              subscription.plan === SubscriptionPlan.ENTERPRISE;
+    // Compare with lowercase since enum values are lowercase
+    const planLower = subscription.plan?.toLowerCase();
+    const hasApiAccessPlan = planLower === 'pro' || planLower === 'enterprise';
     const hasApiAccessFeature = subscription.features?.apiAccess === true;
+
+    this.logger.debug(`Plan check: plan=${subscription.plan}, planLower=${planLower}, hasApiAccessPlan=${hasApiAccessPlan}, hasApiAccessFeature=${hasApiAccessFeature}`);
 
     return hasApiAccessPlan || hasApiAccessFeature;
   }

@@ -142,6 +142,7 @@ export function PaymentModal({
         plan: plan.id.toUpperCase() as 'STANDARD' | 'PRO' | 'ENTERPRISE',
         userId,
         billingPeriod,
+        currency: currency || 'XAF', // Send currency so backend can convert to XAF if needed
       });
 
       console.log('S3P API Response:', response);

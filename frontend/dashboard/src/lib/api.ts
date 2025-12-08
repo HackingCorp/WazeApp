@@ -1028,6 +1028,7 @@ class ApiClient {
     plan?: 'STANDARD' | 'PRO' | 'ENTERPRISE';
     userId?: string;
     billingPeriod?: 'monthly' | 'annually';
+    currency?: string; // Currency of the amount (will be converted to XAF by backend)
   }) {
     return this.request('/payments/s3p/initiate', {
       method: 'POST',

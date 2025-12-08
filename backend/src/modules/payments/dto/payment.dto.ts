@@ -9,10 +9,15 @@ export enum PaymentType {
 }
 
 export class S3PPaymentDto {
-  @ApiProperty({ description: 'Montant du paiement en XAF', example: 5000 })
+  @ApiProperty({ description: 'Montant du paiement', example: 5000 })
   @IsNumber()
-  @Min(100)
+  @Min(1) // Allow small amounts in USD, will convert to XAF
   amount: number;
+
+  @ApiPropertyOptional({ description: 'Devise du montant', example: 'XAF', default: 'XAF' })
+  @IsOptional()
+  @IsString()
+  currency?: string;
 
   @ApiProperty({ description: 'Numéro de téléphone du client à débiter', example: '237670000000' })
   @IsString()

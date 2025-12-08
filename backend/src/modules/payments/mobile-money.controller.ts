@@ -362,8 +362,32 @@ export class MobileMoneyController {
   async initiateS3PPayment(
     @Body() paymentDto: S3PPaymentDto,
   ): Promise<any> {
+    // S3P only accepts XAF - convert if necessary
+    let amountXAF = paymentDto.amount;
+    const clientCurrency = (paymentDto.currency || 'XAF').toUpperCase();
+
+    if (clientCurrency !== 'XAF' && clientCurrency !== 'XOF') {
+      // Convert from client currency to XAF
+      const clientRate = await this.currencyService.getExchangeRate(clientCurrency);
+      const xafRate = await this.currencyService.getExchangeRate('XAF');
+
+      // Convert: clientAmount → USD → XAF
+      const amountInUSD = paymentDto.amount / clientRate;
+      amountXAF = Math.round(amountInUSD * xafRate * 1.1); // 10% margin
+
+      // Round to nearest 100 for XAF
+      amountXAF = Math.ceil(amountXAF / 100) * 100;
+
+      // Ensure minimum 100 XAF
+      if (amountXAF < 100) {
+        amountXAF = 100;
+      }
+
+      this.logger.log(`Converting ${paymentDto.amount} ${clientCurrency} to ${amountXAF} XAF for S3P`);
+    }
+
     return await this.s3pService.processPayment({
-      amount: paymentDto.amount,
+      amount: amountXAF,
       customerPhone: paymentDto.customerPhone,
       paymentType: paymentDto.paymentType as 'orange' | 'mtn',
       customerName: paymentDto.customerName,

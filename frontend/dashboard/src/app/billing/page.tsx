@@ -131,55 +131,19 @@ export default function BillingPage() {
   const currentPlan = user?.organization?.plan?.toLowerCase() || 'free';
   const billingCycle = 'monthly';
 
+  // Plan change is handled by PaymentModal for upgrades
+  // For downgrades to free, just reload the page (backend handles it via payment success callback)
   const handlePlanChange = async (planId: string) => {
-    setIsLoading(true);
-
-    try {
-      const response = await fetch('/api/billing/change-plan', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ planId }),
-      });
-
-      if (response.ok) {
-        toast.success('Plan updated successfully!');
-        window.location.reload();
-      } else {
-        throw new Error('Failed to update plan');
-      }
-    } catch (error) {
-      console.error('Failed to change plan:', error);
-      toast.error('Failed to update plan. Please try again.');
-    } finally {
-      setIsLoading(false);
-    }
+    // The actual plan change happens in PaymentModal after successful payment
+    // This callback is called after payment success, so just refresh auth
+    console.log('Plan changed to:', planId);
+    await refreshAuth();
   };
 
+  // Billing cycle is passed to PaymentModal and handled during payment
   const handleBillingCycleChange = async (cycle: 'monthly' | 'annual') => {
-    setIsLoading(true);
-
-    try {
-      const response = await fetch('/api/billing/change-cycle', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ cycle }),
-      });
-
-      if (response.ok) {
-        toast.success('Billing cycle updated successfully!');
-      } else {
-        throw new Error('Failed to update billing cycle');
-      }
-    } catch (error) {
-      console.error('Failed to change billing cycle:', error);
-      toast.error('Failed to update billing cycle. Please try again.');
-    } finally {
-      setIsLoading(false);
-    }
+    // The billing cycle is stored with the subscription during payment
+    console.log('Billing cycle changed to:', cycle);
   };
 
   const handlePayInvoice = async (invoiceId: string) => {

@@ -209,21 +209,22 @@ export class LLMRouterService implements OnModuleInit {
       },
     };
 
+    // DeepSeek is the PRIMARY provider (fast, cheap API)
     if (deepseekConfig.apiKey && deepseekConfig.apiKey !== 'disabled') {
       const deepseekProvider = new DeepSeekProvider(deepseekConfig);
-      this.providerInstances.set("deepseek-fallback", deepseekProvider);
-      this.logger.log("Initialized DeepSeek as fallback provider");
+      this.providerInstances.set("deepseek-primary", deepseekProvider);
+      this.logger.log("Initialized DeepSeek as PRIMARY provider");
     } else {
-      this.logger.warn("DeepSeek API key not found or disabled, skipping fallback provider");
+      this.logger.warn("DeepSeek API key not found or disabled, skipping primary provider");
     }
 
-    // Create fallback Ollama provider if available
+    // Ollama is the FALLBACK provider (local, slower on CPU)
     const ollamaConfig = {
       apiEndpoint: process.env.OLLAMA_BASE_URL || "http://localhost:11434",
       model: process.env.OLLAMA_MODEL || "qwen2.5:7b",
       maxTokens: 2000,
       temperature: 0.7,
-      timeout: 60000, // Increased timeout for better performance
+      timeout: 120000, // Increased timeout for CPU inference
       supportedFeatures: {
         streaming: true,
         functionCalling: false,
@@ -236,10 +237,10 @@ export class LLMRouterService implements OnModuleInit {
       const ollamaProvider = new OllamaProvider(ollamaConfig);
       // Test if Ollama is available
       await ollamaProvider.checkHealth();
-      this.providerInstances.set("ollama-primary", ollamaProvider);
-      this.logger.log("Initialized primary Ollama provider");
+      this.providerInstances.set("ollama-fallback", ollamaProvider);
+      this.logger.log("Initialized Ollama as FALLBACK provider");
     } catch (error) {
-      this.logger.warn(`Ollama not available: ${error.message}, skipping primary provider`);
+      this.logger.warn(`Ollama not available: ${error.message}, skipping fallback provider`);
     }
   }
 
@@ -358,18 +359,18 @@ export class LLMRouterService implements OnModuleInit {
     providers: BaseLLMProvider[],
     request: RouterRequest,
   ): Promise<BaseLLMProvider> {
-    // Priority order: Ollama primary > DeepSeek fallback > autres
-    const nameOrder = ["ollama-primary", "deepseek-fallback", "ollama-fallback", "qwen-fallback", "mistral-secondary-fallback"];
-    
+    // Priority order: DeepSeek primary (fast API) > Ollama fallback (local) > autres
+    const nameOrder = ["deepseek-primary", "ollama-fallback", "qwen-fallback", "mistral-secondary-fallback"];
+
     // Sort providers by name priority
     const sortedProviders = providers.sort((a, b) => {
       const priorityA = nameOrder.indexOf(a.getName());
       const priorityB = nameOrder.indexOf(b.getName());
-      
+
       // If name not in priority list, put it at the end
       const adjustedPriorityA = priorityA === -1 ? 999 : priorityA;
       const adjustedPriorityB = priorityB === -1 ? 999 : priorityB;
-      
+
       return adjustedPriorityA - adjustedPriorityB;
     });
 
@@ -397,9 +398,9 @@ export class LLMRouterService implements OnModuleInit {
     request: RouterRequest,
   ): Promise<BaseLLMProvider | null> {
     const availableProviders = Array.from(this.providerInstances.values());
-    
-    // Sort by fallback priority: Ollama > DeepSeek > Mistral > others
-    const fallbackOrder = ["ollama-primary", "deepseek-fallback", "mistral-secondary-fallback"];
+
+    // Sort by fallback priority: DeepSeek > Ollama > Mistral > others
+    const fallbackOrder = ["deepseek-primary", "ollama-fallback", "mistral-secondary-fallback"];
     
     const sortedProviders = availableProviders.sort((a, b) => {
       const priorityA = fallbackOrder.indexOf(a.getName());

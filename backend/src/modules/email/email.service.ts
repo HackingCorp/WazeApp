@@ -241,6 +241,50 @@ export class EmailService {
   }
 
   /**
+   * Send payment reminder email
+   */
+  async sendPaymentReminderEmail(
+    email: string,
+    firstName: string,
+    reminderDetails: {
+      invoiceNumber: string;
+      amount: number;
+      currency: string;
+      dueDate: Date;
+      daysUntilDue: number;
+      planName: string;
+      organizationName: string;
+      isOverdue: boolean;
+    },
+  ): Promise<void> {
+    const dashboardUrl = this.getDashboardUrl();
+    const billingUrl = `${dashboardUrl}/billing`;
+
+    const html = this.getPaymentReminderEmailTemplate(firstName, reminderDetails, billingUrl);
+
+    const subject = reminderDetails.isOverdue
+      ? `🚨 Facture en retard - ${reminderDetails.invoiceNumber}`
+      : reminderDetails.daysUntilDue <= 1
+        ? `⚠️ Dernière chance - Facture ${reminderDetails.invoiceNumber} due demain`
+        : `📅 Rappel - Facture ${reminderDetails.invoiceNumber} due dans ${reminderDetails.daysUntilDue} jours`;
+
+    try {
+      await this.transporter.sendMail({
+        from: `"${this.getFromName()}" <${this.getFromAddress()}>`,
+        to: email,
+        subject,
+        html,
+        text: `Bonjour ${firstName},\n\n${reminderDetails.isOverdue ? 'Votre facture est en retard!' : 'Rappel de paiement'}\n\nFacture: ${reminderDetails.invoiceNumber}\nMontant: ${reminderDetails.amount.toLocaleString()} ${reminderDetails.currency}\nDate d'échéance: ${reminderDetails.dueDate.toLocaleDateString('fr-FR')}\nPlan: ${reminderDetails.planName}\n\nPour payer: ${billingUrl}\n\nL'équipe WazeApp`,
+      });
+
+      this.logger.log(`✅ Payment reminder email sent to ${email} for invoice ${reminderDetails.invoiceNumber}`);
+    } catch (error) {
+      this.logger.error(`❌ Failed to send payment reminder email to ${email}:`, error);
+      // Don't throw for reminder emails
+    }
+  }
+
+  /**
    * Send subscription upgrade confirmation email
    */
   async sendSubscriptionUpgradeEmail(
@@ -873,6 +917,161 @@ export class EmailService {
 
               <p style="color: #999999; line-height: 1.6; margin: 20px 0 0 0; font-size: 12px; text-align: center;">
                 Merci de nous faire confiance! 💚<br>
+                Questions? Contactez-nous à <a href="mailto:support@wazeapp.xyz" style="color: #25D366;">support@wazeapp.xyz</a>
+              </p>
+            </td>
+          </tr>
+          <!-- Footer -->
+          <tr>
+            <td style="background-color: #f8f8f8; padding: 20px 30px; text-align: center; border-top: 1px solid #eeeeee;">
+              <p style="color: #999999; margin: 0; font-size: 12px;">
+                © 2025 WazeApp. Tous droits réservés.<br>
+                <a href="https://wazeapp.xyz" style="color: #25D366; text-decoration: none;">wazeapp.xyz</a>
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+    `;
+  }
+
+  private getPaymentReminderEmailTemplate(
+    firstName: string,
+    reminderDetails: {
+      invoiceNumber: string;
+      amount: number;
+      currency: string;
+      dueDate: Date;
+      daysUntilDue: number;
+      planName: string;
+      organizationName: string;
+      isOverdue: boolean;
+    },
+    billingUrl: string,
+  ): string {
+    const formattedDueDate = reminderDetails.dueDate.toLocaleDateString('fr-FR', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    });
+
+    const headerBg = reminderDetails.isOverdue
+      ? 'linear-gradient(135deg, #dc3545 0%, #c82333 100%)'
+      : reminderDetails.daysUntilDue <= 1
+        ? 'linear-gradient(135deg, #fd7e14 0%, #e06700 100%)'
+        : 'linear-gradient(135deg, #25D366 0%, #128C7E 100%)';
+
+    const alertIcon = reminderDetails.isOverdue ? '🚨' : reminderDetails.daysUntilDue <= 1 ? '⚠️' : '📅';
+    const alertColor = reminderDetails.isOverdue ? '#dc3545' : reminderDetails.daysUntilDue <= 1 ? '#fd7e14' : '#25D366';
+    const alertBgColor = reminderDetails.isOverdue ? '#f8d7da' : reminderDetails.daysUntilDue <= 1 ? '#fff3cd' : '#d4edda';
+
+    const headerTitle = reminderDetails.isOverdue
+      ? 'Facture en retard'
+      : reminderDetails.daysUntilDue <= 1
+        ? 'Dernière chance de paiement'
+        : 'Rappel de paiement';
+
+    const urgencyMessage = reminderDetails.isOverdue
+      ? `Votre facture est en retard de ${Math.abs(reminderDetails.daysUntilDue)} jour(s). Pour éviter une suspension de votre service, veuillez régler cette facture dès que possible.`
+      : reminderDetails.daysUntilDue <= 1
+        ? `Votre facture arrive à échéance demain. Pensez à effectuer votre paiement pour garantir la continuité de votre service.`
+        : `Votre facture arrive à échéance dans ${reminderDetails.daysUntilDue} jours. Pensez à effectuer votre paiement avant la date limite.`;
+
+    return `
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${headerTitle}</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f4f4f4; padding: 20px;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+          <!-- Header -->
+          <tr>
+            <td style="background: ${headerBg}; padding: 40px 20px; text-align: center;">
+              <h1 style="color: #ffffff; margin: 0; font-size: 28px;">WazeApp</h1>
+              <p style="color: #ffffff; margin: 10px 0 0 0; font-size: 16px;">${alertIcon} ${headerTitle}</p>
+            </td>
+          </tr>
+          <!-- Content -->
+          <tr>
+            <td style="padding: 40px 30px;">
+              <p style="color: #666666; line-height: 1.6; margin: 0 0 20px 0; font-size: 18px;">
+                Bonjour <strong style="color: #333;">${firstName}</strong>,
+              </p>
+
+              <!-- Alert Box -->
+              <div style="background-color: ${alertBgColor}; border-left: 4px solid ${alertColor}; padding: 20px; margin: 20px 0; border-radius: 4px;">
+                <p style="color: #333; margin: 0; font-size: 14px;">
+                  ${urgencyMessage}
+                </p>
+              </div>
+
+              <!-- Invoice Details Box -->
+              <div style="background-color: #f8f9fa; border-radius: 8px; padding: 25px; margin: 25px 0;">
+                <h3 style="color: #333; margin: 0 0 15px 0; font-size: 16px;">📄 Détails de la facture</h3>
+                <table width="100%" cellpadding="5" cellspacing="0">
+                  <tr>
+                    <td style="color: #666; padding: 8px 0; border-bottom: 1px solid #e9ecef;">Numéro de facture</td>
+                    <td style="color: #333; font-weight: bold; text-align: right; padding: 8px 0; border-bottom: 1px solid #e9ecef;">
+                      ${reminderDetails.invoiceNumber}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="color: #666; padding: 8px 0; border-bottom: 1px solid #e9ecef;">Organisation</td>
+                    <td style="color: #333; text-align: right; padding: 8px 0; border-bottom: 1px solid #e9ecef;">
+                      ${reminderDetails.organizationName}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="color: #666; padding: 8px 0; border-bottom: 1px solid #e9ecef;">Plan</td>
+                    <td style="color: #333; text-align: right; padding: 8px 0; border-bottom: 1px solid #e9ecef;">
+                      ${reminderDetails.planName}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="color: #666; padding: 8px 0; border-bottom: 1px solid #e9ecef;">Date d'échéance</td>
+                    <td style="color: ${reminderDetails.isOverdue ? '#dc3545' : '#333'}; font-weight: ${reminderDetails.isOverdue ? 'bold' : 'normal'}; text-align: right; padding: 8px 0; border-bottom: 1px solid #e9ecef;">
+                      ${formattedDueDate}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="color: #666; padding: 8px 0;">Montant à payer</td>
+                    <td style="color: ${alertColor}; font-weight: bold; font-size: 20px; text-align: right; padding: 8px 0;">
+                      ${reminderDetails.amount.toLocaleString()} ${reminderDetails.currency}
+                    </td>
+                  </tr>
+                </table>
+              </div>
+
+              ${reminderDetails.isOverdue ? `
+              <div style="background-color: #f8d7da; border: 1px solid #f5c6cb; padding: 15px; border-radius: 4px; margin: 20px 0;">
+                <p style="color: #721c24; margin: 0; font-size: 14px;">
+                  <strong>Important:</strong> Sans paiement dans les 48 heures, votre accès aux services WazeApp pourrait être temporairement suspendu.
+                </p>
+              </div>
+              ` : ''}
+
+              <div style="text-align: center; margin: 30px 0;">
+                <a href="${billingUrl}" style="display: inline-block; background-color: ${alertColor}; color: #ffffff; text-decoration: none; padding: 15px 40px; border-radius: 5px; font-weight: bold; font-size: 16px;">
+                  Payer maintenant
+                </a>
+              </div>
+
+              <p style="color: #666666; line-height: 1.6; margin: 20px 0 0 0; font-size: 14px; text-align: center;">
+                Vous pouvez payer par Mobile Money (MTN, Orange Money) directement depuis votre tableau de bord.
+              </p>
+
+              <p style="color: #999999; line-height: 1.6; margin: 20px 0 0 0; font-size: 12px; text-align: center;">
+                Si vous avez déjà effectué ce paiement, ignorez cet email.<br>
                 Questions? Contactez-nous à <a href="mailto:support@wazeapp.xyz" style="color: #25D366;">support@wazeapp.xyz</a>
               </p>
             </td>

@@ -2,9 +2,10 @@ import { Injectable, Logger, NotFoundException, BadRequestException, Inject, for
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, LessThanOrEqual, In } from 'typeorm';
 import { Cron, CronExpression } from '@nestjs/schedule';
-import { Invoice, InvoiceStatus, Subscription, Organization } from '../../common/entities';
+import { Invoice, InvoiceStatus, Subscription, Organization, User } from '../../common/entities';
 import { SubscriptionStatus } from '../../common/enums';
 import { PlanService } from './plan.service';
+import { EmailService } from '../email/email.service';
 
 @Injectable()
 export class InvoiceService {
@@ -17,8 +18,11 @@ export class InvoiceService {
     private readonly subscriptionRepository: Repository<Subscription>,
     @InjectRepository(Organization)
     private readonly organizationRepository: Repository<Organization>,
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
     @Inject(forwardRef(() => PlanService))
     private readonly planService: PlanService,
+    private readonly emailService: EmailService,
   ) {}
 
   /**
@@ -350,7 +354,7 @@ export class InvoiceService {
       where: {
         status: In([InvoiceStatus.PENDING, InvoiceStatus.OVERDUE]),
       },
-      relations: ['organization'],
+      relations: ['organization', 'subscription'],
     });
 
     for (const invoice of pendingInvoices) {
@@ -358,7 +362,7 @@ export class InvoiceService {
         (invoice.dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
       );
 
-      // Send reminders at specific intervals: 7 days, 3 days, 1 day before, and 1 day after
+      // Send reminders at specific intervals: 7 days, 3 days, 1 day before, and 1 day after (overdue)
       const shouldSendReminder =
         (daysUntilDue === 7 && invoice.remindersSent < 1) ||
         (daysUntilDue === 3 && invoice.remindersSent < 2) ||
@@ -366,12 +370,66 @@ export class InvoiceService {
         (daysUntilDue <= 0 && invoice.remindersSent < 4);
 
       if (shouldSendReminder) {
-        // TODO: Send actual email/notification here
-        this.logger.log(
-          `Payment reminder for invoice ${invoice.invoiceNumber} ` +
-          `(${invoice.organization?.name || 'Unknown'}) - ` +
-          `Due in ${daysUntilDue} days - Amount: ${invoice.totalAmountInCents / 100} ${invoice.currency}`,
-        );
+        try {
+          // Get organization owner/admin to send email
+          const orgAdmins = await this.userRepository.find({
+            where: {
+              organizationMemberships: {
+                organizationId: invoice.organizationId,
+                role: In(['owner', 'admin']),
+              },
+            },
+            relations: ['organizationMemberships'],
+          });
+
+          // Fallback: get any user from the organization if no admin found
+          let recipients = orgAdmins;
+          if (recipients.length === 0) {
+            recipients = await this.userRepository.find({
+              where: {
+                organizationMemberships: {
+                  organizationId: invoice.organizationId,
+                },
+              },
+              relations: ['organizationMemberships'],
+              take: 1,
+            });
+          }
+
+          // Send email to each admin/owner
+          const isOverdue = daysUntilDue <= 0;
+          const planName = invoice.subscription?.plan || 'Standard';
+
+          for (const user of recipients) {
+            if (user.email) {
+              await this.emailService.sendPaymentReminderEmail(
+                user.email,
+                user.firstName || user.email.split('@')[0],
+                {
+                  invoiceNumber: invoice.invoiceNumber,
+                  amount: invoice.totalAmountInCents / 100,
+                  currency: invoice.currency,
+                  dueDate: invoice.dueDate,
+                  daysUntilDue,
+                  planName,
+                  organizationName: invoice.organization?.name || 'Votre organisation',
+                  isOverdue,
+                },
+              );
+            }
+          }
+
+          this.logger.log(
+            `✅ Payment reminder sent for invoice ${invoice.invoiceNumber} ` +
+            `(${invoice.organization?.name || 'Unknown'}) - ` +
+            `Due in ${daysUntilDue} days - Amount: ${invoice.totalAmountInCents / 100} ${invoice.currency} - ` +
+            `Sent to ${recipients.length} recipient(s)`,
+          );
+        } catch (error) {
+          this.logger.error(
+            `❌ Failed to send payment reminder for invoice ${invoice.invoiceNumber}: ${error.message}`,
+          );
+        }
 
         invoice.remindersSent++;
         invoice.lastReminderSentAt = now;

@@ -196,6 +196,10 @@ export class ApiKeyService {
     requiredPermission?: ApiKeyPermission,
     clientIp?: string,
   ): Promise<{ organizationId: string; permissions: ApiKeyPermission[] }> {
+    if (!key) {
+      throw new UnauthorizedException('API key is required. Please provide X-API-Key header.');
+    }
+
     if (!key.startsWith(this.KEY_PREFIX)) {
       throw new UnauthorizedException('Invalid API key format');
     }

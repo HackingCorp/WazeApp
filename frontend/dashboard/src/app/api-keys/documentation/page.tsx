@@ -252,6 +252,59 @@ export default function ApiDocumentationPage() {
             />
           </div>
 
+          {/* Validate Phone Numbers */}
+          <div className="mb-8 pt-6 border-t border-gray-200 dark:border-gray-700">
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2 flex items-center gap-2">
+              <span className="px-2 py-1 bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 text-xs font-bold rounded">POST</span>
+              /validate-numbers
+            </h3>
+            <p className="text-gray-600 dark:text-gray-300 mb-1">Valider si des numéros de téléphone sont enregistrés sur WhatsApp.</p>
+            <p className="text-sm text-amber-600 dark:text-amber-400 mb-3">Permission requise: <code>send:message</code></p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">
+              Utilisez cet endpoint pour vérifier si vos contacts ont WhatsApp avant d'envoyer des messages.
+              <strong className="text-gray-700 dark:text-gray-300"> Maximum 100 numéros par requête.</strong>
+            </p>
+            <CodeBlock
+              code={`// Requête
+{
+  "sessionId": "uuid-session-whatsapp",
+  "phoneNumbers": [
+    "237691371922",
+    "237670000000",
+    "237699999999"
+  ]
+}
+
+// Réponse
+{
+  "success": true,
+  "data": {
+    "total": 3,
+    "valid": 2,
+    "invalid": 1,
+    "results": [
+      {
+        "phoneNumber": "237691371922",
+        "isValid": true,
+        "jid": "237691371922@s.whatsapp.net"
+      },
+      {
+        "phoneNumber": "237670000000",
+        "isValid": true,
+        "jid": "237670000000@s.whatsapp.net"
+      },
+      {
+        "phoneNumber": "237699999999",
+        "isValid": false
+      }
+    ]
+  }
+}`}
+              id="validate-numbers"
+              language="json"
+            />
+          </div>
+
           {/* Contacts */}
           <div className="mb-8 pt-6 border-t border-gray-200 dark:border-gray-700">
             <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2 flex items-center gap-2">

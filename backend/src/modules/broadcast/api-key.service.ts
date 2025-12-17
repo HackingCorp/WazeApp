@@ -17,6 +17,7 @@ import { CreateApiKeyDto } from './dto/broadcast.dto';
 export class ApiKeyService {
   private readonly logger = new Logger(ApiKeyService.name);
   private readonly KEY_PREFIX = 'wz_live_';
+  private readonly LEGACY_KEY_PREFIXES = ['waze_sk_', 'wz_live_'];
 
   constructor(
     @InjectRepository(ApiKey)
@@ -200,7 +201,9 @@ export class ApiKeyService {
       throw new UnauthorizedException('API key is required. Please provide X-API-Key header.');
     }
 
-    if (!key.startsWith(this.KEY_PREFIX)) {
+    // Accept both legacy (waze_sk_) and new (wz_live_) key formats
+    const hasValidPrefix = this.LEGACY_KEY_PREFIXES.some(prefix => key.startsWith(prefix));
+    if (!hasValidPrefix) {
       throw new UnauthorizedException('Invalid API key format');
     }
 

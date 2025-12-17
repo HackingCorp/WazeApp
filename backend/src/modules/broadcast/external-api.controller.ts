@@ -275,6 +275,53 @@ export class ExternalApiController {
   }
 
   // ==========================================
+  // VALIDATE PHONE NUMBERS
+  // ==========================================
+
+  @Post('validate-numbers')
+  @ApiOperation({ summary: 'Validate if phone numbers are registered on WhatsApp' })
+  @ApiHeader({ name: 'X-API-Key', required: true })
+  @ApiResponse({ status: HttpStatus.OK, description: 'Validation results' })
+  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Invalid API key' })
+  async validateNumbers(
+    @Headers('x-api-key') apiKey: string,
+    @Ip() clientIp: string,
+    @Body() dto: { sessionId: string; phoneNumbers: string[] },
+  ) {
+    const { organizationId } = await this.apiKeyService.validateApiKey(
+      apiKey,
+      ApiKeyPermission.SEND_MESSAGE,
+      clientIp,
+    );
+
+    // Verify the session belongs to the organization and is connected
+    await this.verifySession(dto.sessionId, organizationId);
+
+    // Limit to 100 numbers per request to avoid abuse
+    if (dto.phoneNumbers.length > 100) {
+      return {
+        success: false,
+        error: 'Maximum 100 phone numbers per request',
+      };
+    }
+
+    const results = await this.baileysService.validatePhoneNumbers(
+      dto.sessionId,
+      dto.phoneNumbers,
+    );
+
+    return {
+      success: true,
+      data: {
+        total: dto.phoneNumbers.length,
+        valid: results.filter(r => r.isValid).length,
+        invalid: results.filter(r => !r.isValid).length,
+        results,
+      },
+    };
+  }
+
+  // ==========================================
   // CONTACTS
   // ==========================================
 

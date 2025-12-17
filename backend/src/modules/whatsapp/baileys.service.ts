@@ -1029,6 +1029,55 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
     }
   }
 
+  /**
+   * Validate if phone numbers are registered on WhatsApp
+   */
+  async validatePhoneNumbers(
+    sessionId: string,
+    phoneNumbers: string[],
+  ): Promise<Array<{ phoneNumber: string; isValid: boolean; jid?: string }>> {
+    const sock = this.sessions.get(sessionId);
+
+    if (!sock) {
+      throw new Error("Session not found or not connected");
+    }
+
+    const results: Array<{ phoneNumber: string; isValid: boolean; jid?: string }> = [];
+
+    for (const phoneNumber of phoneNumbers) {
+      try {
+        // Clean phone number - remove spaces, dashes, and ensure proper format
+        let cleanNumber = phoneNumber.replace(/[\s\-\(\)]/g, '');
+        if (!cleanNumber.startsWith('+')) {
+          cleanNumber = '+' + cleanNumber;
+        }
+
+        const waResults = await sock.onWhatsApp(cleanNumber);
+
+        if (waResults && waResults.length > 0 && waResults[0]?.exists) {
+          results.push({
+            phoneNumber,
+            isValid: true,
+            jid: waResults[0].jid,
+          });
+        } else {
+          results.push({
+            phoneNumber,
+            isValid: false,
+          });
+        }
+      } catch (error) {
+        this.logger.warn(`Failed to validate ${phoneNumber}: ${error.message}`);
+        results.push({
+          phoneNumber,
+          isValid: false,
+        });
+      }
+    }
+
+    return results;
+  }
+
   async sendMessage(
     sessionId: string,
     messageDto: SendMessageDto,

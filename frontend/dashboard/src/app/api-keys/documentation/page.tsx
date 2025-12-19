@@ -136,10 +136,13 @@ export default function ApiDocumentationPage() {
               code={`// Réponse
 {
   "success": true,
-  "status": "healthy",
-  "organizationId": "uuid",
-  "permissions": ["send:message", "contacts:read"],
-  "timestamp": "2025-01-15T12:00:00.000Z"
+  "data": {
+    "status": "healthy",
+    "organizationId": "uuid",
+    "permissions": ["send:message", "contacts:read"]
+  },
+  "timestamp": "2025-01-15T12:00:00.000Z",
+  "path": "/api/v1/external/health"
 }`}
               id="health-response"
               language="json"
@@ -181,7 +184,9 @@ export default function ApiDocumentationPage() {
       "isActive": true,
       "lastSeenAt": "2025-01-14T10:30:00.000Z"
     }
-  ]
+  ],
+  "timestamp": "2025-01-15T12:00:00.000Z",
+  "path": "/api/v1/external/sessions"
 }`}
               id="sessions-response"
               language="json"
@@ -298,7 +303,9 @@ export default function ApiDocumentationPage() {
         "isValid": false
       }
     ]
-  }
+  },
+  "timestamp": "2025-01-15T12:00:00.000Z",
+  "path": "/api/v1/external/validate-numbers"
 }`}
               id="validate-numbers"
               language="json"

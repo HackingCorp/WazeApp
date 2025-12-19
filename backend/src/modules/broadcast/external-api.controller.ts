@@ -102,18 +102,16 @@ export class ExternalApiController {
       order: { createdAt: 'DESC' },
     });
 
-    return {
-      success: true,
-      data: sessions.map(s => ({
-        id: s.id,
-        name: s.name,
-        phoneNumber: s.phoneNumber,
-        status: s.status,
-        isConnected: s.status === WhatsAppSessionStatus.CONNECTED,
-        isActive: s.isActive,
-        lastSeenAt: s.lastSeenAt,
-      })),
-    };
+    // Return data directly - TransformInterceptor will wrap it
+    return sessions.map(s => ({
+      id: s.id,
+      name: s.name,
+      phoneNumber: s.phoneNumber,
+      status: s.status,
+      isConnected: s.status === WhatsAppSessionStatus.CONNECTED,
+      isActive: s.isActive,
+      lastSeenAt: s.lastSeenAt,
+    }));
   }
 
   // ==========================================
@@ -220,7 +218,6 @@ export class ExternalApiController {
     }
 
     return {
-      success: true,
       totalRecipients: dto.recipients.length,
       queued: results.filter((r) => r.success).length,
       failed: results.filter((r) => !r.success).length,
@@ -268,10 +265,7 @@ export class ExternalApiController {
       status: result.status,
     });
 
-    return {
-      success: true,
-      data: result,
-    };
+    return result;
   }
 
   // ==========================================
@@ -310,14 +304,12 @@ export class ExternalApiController {
       dto.phoneNumbers,
     );
 
+    // Return data directly - TransformInterceptor will wrap it
     return {
-      success: true,
-      data: {
-        total: dto.phoneNumbers.length,
-        valid: results.filter(r => r.isValid).length,
-        invalid: results.filter(r => !r.isValid).length,
-        results,
-      },
+      total: dto.phoneNumbers.length,
+      valid: results.filter(r => r.isValid).length,
+      invalid: results.filter(r => !r.isValid).length,
+      results,
     };
   }
 
@@ -344,7 +336,7 @@ export class ExternalApiController {
     );
 
     const result = await this.contactService.getContacts(organizationId, filter);
-    return { success: true, ...result };
+    return result;
   }
 
   @Post('contacts')
@@ -362,7 +354,7 @@ export class ExternalApiController {
     );
 
     const contact = await this.contactService.createContact(organizationId, dto);
-    return { success: true, data: contact };
+    return contact;
   }
 
   // ==========================================
@@ -383,7 +375,7 @@ export class ExternalApiController {
     );
 
     const templates = await this.templateService.getTemplates(organizationId);
-    return { success: true, data: templates };
+    return templates;
   }
 
   @Get('templates/:id')
@@ -401,7 +393,7 @@ export class ExternalApiController {
     );
 
     const template = await this.templateService.getTemplate(organizationId, id);
-    return { success: true, data: template };
+    return template;
   }
 
   // ==========================================
@@ -422,7 +414,7 @@ export class ExternalApiController {
     );
 
     const campaigns = await this.campaignService.getCampaigns(organizationId);
-    return { success: true, data: campaigns };
+    return campaigns;
   }
 
   @Get('campaigns/:id')
@@ -440,7 +432,7 @@ export class ExternalApiController {
     );
 
     const campaign = await this.campaignService.getCampaign(organizationId, id);
-    return { success: true, data: campaign };
+    return campaign;
   }
 
   @Get('campaigns/:id/stats')
@@ -458,7 +450,7 @@ export class ExternalApiController {
     );
 
     const stats = await this.campaignService.getCampaignStats(organizationId, id);
-    return { success: true, data: stats };
+    return stats;
   }
 
   @Post('campaigns')
@@ -485,7 +477,7 @@ export class ExternalApiController {
       await this.campaignService.startCampaign(organizationId, campaign.id);
     }
 
-    return { success: true, data: campaign };
+    return campaign;
   }
 
   @Post('campaigns/:id/start')
@@ -503,7 +495,7 @@ export class ExternalApiController {
     );
 
     const campaign = await this.campaignService.startCampaign(organizationId, id);
-    return { success: true, data: campaign };
+    return campaign;
   }
 
   @Post('campaigns/:id/pause')
@@ -521,7 +513,7 @@ export class ExternalApiController {
     );
 
     const campaign = await this.campaignService.pauseCampaign(organizationId, id);
-    return { success: true, data: campaign };
+    return campaign;
   }
 
   @Post('campaigns/:id/cancel')
@@ -539,7 +531,7 @@ export class ExternalApiController {
     );
 
     const campaign = await this.campaignService.cancelCampaign(organizationId, id);
-    return { success: true, data: campaign };
+    return campaign;
   }
 
   // ==========================================
@@ -560,7 +552,7 @@ export class ExternalApiController {
     );
 
     const webhooks = await this.webhookService.getWebhooks(organizationId);
-    return { success: true, data: webhooks };
+    return webhooks;
   }
 
   // ==========================================
@@ -578,11 +570,9 @@ export class ExternalApiController {
       await this.apiKeyService.validateApiKey(apiKey, undefined, clientIp);
 
     return {
-      success: true,
       status: 'healthy',
       organizationId,
       permissions,
-      timestamp: new Date().toISOString(),
     };
   }
 }

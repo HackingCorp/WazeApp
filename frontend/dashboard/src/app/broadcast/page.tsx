@@ -2287,22 +2287,106 @@ export default function BroadcastPage() {
                     )}
                   </div>
                 ) : (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Message *
-                    </label>
-                    <textarea
-                      value={newCampaign.customMessage.content}
-                      onChange={(e) =>
-                        setNewCampaign({
-                          ...newCampaign,
-                          customMessage: { ...newCampaign.customMessage, content: e.target.value },
-                        })
-                      }
-                      placeholder="Votre message..."
-                      rows={4}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white resize-none"
-                    />
+                  <div className="space-y-4">
+                    {/* Media upload for custom message */}
+                    <div className="p-4 border border-dashed border-gray-300 dark:border-gray-600 rounded-lg">
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                          Images / Fichiers
+                          <span className="text-gray-500 text-xs ml-2">(optionnel, max 10)</span>
+                        </h4>
+                        {campaignMediaFiles.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={clearCampaignMedia}
+                            className="text-xs text-red-500 hover:text-red-700"
+                          >
+                            Tout supprimer
+                          </button>
+                        )}
+                      </div>
+
+                      <input
+                        ref={campaignMediaInputRef}
+                        type="file"
+                        multiple
+                        accept="image/*,video/*,application/pdf,.doc,.docx,.xls,.xlsx"
+                        onChange={handleCampaignMediaSelect}
+                        className="hidden"
+                      />
+
+                      {campaignMediaFiles.length < 10 && (
+                        <button
+                          type="button"
+                          onClick={() => campaignMediaInputRef.current?.click()}
+                          className="w-full py-3 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg hover:border-green-500 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors flex items-center justify-center gap-2 text-gray-500 hover:text-green-600"
+                        >
+                          <Upload className="w-5 h-5" />
+                          <span>Cliquez pour ajouter des images ou fichiers</span>
+                        </button>
+                      )}
+
+                      {/* File previews */}
+                      {campaignMediaFiles.length > 0 && (
+                        <div className="mt-3 grid grid-cols-5 gap-2">
+                          {campaignMediaFiles.map((file, index) => (
+                            <div key={index} className="relative group">
+                              {file.type.startsWith('image/') ? (
+                                <div className="aspect-square rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700">
+                                  {campaignMediaPreviews[index] && (
+                                    <img
+                                      src={campaignMediaPreviews[index]}
+                                      alt={file.name}
+                                      className="w-full h-full object-cover"
+                                    />
+                                  )}
+                                </div>
+                              ) : (
+                                <div className="aspect-square rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
+                                  <File className="w-8 h-8 text-gray-400" />
+                                </div>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => removeCampaignMedia(index)}
+                                className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                              <p className="text-xs text-gray-500 truncate mt-1">{file.name}</p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      <p className="text-xs text-gray-500 mt-2">
+                        {campaignMediaFiles.length}/10 fichiers sélectionnés. Chaque fichier sera envoyé comme message séparé.
+                      </p>
+                    </div>
+
+                    {/* Text message (optional if media is present) */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Message {campaignMediaFiles.length === 0 ? '*' : '(optionnel)'}
+                      </label>
+                      <textarea
+                        value={newCampaign.customMessage.content}
+                        onChange={(e) =>
+                          setNewCampaign({
+                            ...newCampaign,
+                            customMessage: { ...newCampaign.customMessage, content: e.target.value },
+                          })
+                        }
+                        placeholder={campaignMediaFiles.length > 0 ? "Ajouter un texte (optionnel)..." : "Votre message..."}
+                        rows={4}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white resize-none"
+                      />
+                      {campaignMediaFiles.length > 0 && !newCampaign.customMessage.content && (
+                        <p className="text-xs text-gray-500 mt-1">
+                          Les images seront envoyées sans texte
+                        </p>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
@@ -2615,7 +2699,7 @@ export default function BroadcastPage() {
                   !newCampaign.name ||
                   !newCampaign.sessionId ||
                   (!newCampaign.templateId && !newCampaign.useCustomMessage) ||
-                  (newCampaign.useCustomMessage && !newCampaign.customMessage.content) ||
+                  (newCampaign.useCustomMessage && !newCampaign.customMessage.content && campaignMediaFiles.length === 0) ||
                   creatingCampaign
                 }
                 className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"

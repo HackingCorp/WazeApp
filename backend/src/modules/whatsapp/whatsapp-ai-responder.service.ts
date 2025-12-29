@@ -1628,13 +1628,19 @@ EXEMPLE DE BONNE RÉPONSE AUTOMATIQUE:
     try {
       this.logger.log(`Sending media from knowledge base: ${mediaDocument.title}`);
 
-      // Use the same format as other sendMessage calls
+      // Use only the title for caption (content often contains unreadable OCR text)
+      // Use description field if available, otherwise just the title
+      const description = mediaDocument.metadata?.description || '';
+      const caption = description
+        ? `📁 ${mediaDocument.title}\n\n${description}`
+        : `📁 ${mediaDocument.title}`;
+
       await this.baileysService.sendMessage(session.id, {
         to: fromNumber,
-        message: `📁 ${mediaDocument.title}`,
+        message: caption,
         type: "image",
         mediaUrl: mediaDocument.filePath,
-        caption: `📁 ${mediaDocument.title}\n\n${mediaDocument.content ? mediaDocument.content.substring(0, 200) + '...' : 'Image de votre base de connaissances'}`
+        caption: caption
       });
 
       // Track sent message for usage statistics

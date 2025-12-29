@@ -1570,23 +1570,36 @@ EXEMPLE DE BONNE RÉPONSE AUTOMATIQUE:
     try {
       // Extract keywords from user message for search
       const keywords = this.extractKeywordsFromMessage(userMessage);
-      
+
       this.logger.log(`Searching for media with keywords: ${keywords.join(', ')}`);
 
-      // Search for image and video documents in the knowledge base
-      const mediaDocuments = await this.knowledgeDocumentRepository
+      if (keywords.length === 0) {
+        this.logger.log('No keywords extracted, skipping media search');
+        return [];
+      }
+
+      // Build OR conditions for each keyword
+      const queryBuilder = this.knowledgeDocumentRepository
         .createQueryBuilder('doc')
         .where('doc.knowledgeBaseId = :knowledgeBaseId', { knowledgeBaseId })
-        .andWhere('doc.type IN (:...mediaTypes)', { 
-          mediaTypes: ['image', 'video'] 
+        .andWhere('doc.type IN (:...mediaTypes)', {
+          mediaTypes: ['image', 'video']
         })
-        .andWhere('doc.status = :status', { status: 'processed' })
-        .andWhere(
-          '(LOWER(doc.title) LIKE ANY(:keywords) OR LOWER(doc.filename) LIKE ANY(:keywords) OR LOWER(doc.content) LIKE ANY(:keywords))',
-          { 
-            keywords: keywords.map(k => `%${k.toLowerCase()}%`) 
-          }
-        )
+        .andWhere('doc.status = :status', { status: 'processed' });
+
+      // Build dynamic OR conditions for keywords
+      const keywordConditions = keywords.map((_, index) =>
+        `(LOWER(doc.title) LIKE :kw${index} OR LOWER(doc.filename) LIKE :kw${index} OR LOWER(doc.content) LIKE :kw${index})`
+      ).join(' OR ');
+
+      const keywordParams = {};
+      keywords.forEach((keyword, index) => {
+        keywordParams[`kw${index}`] = `%${keyword.toLowerCase()}%`;
+      });
+
+      queryBuilder.andWhere(`(${keywordConditions})`, keywordParams);
+
+      const mediaDocuments = await queryBuilder
         .orderBy('doc.updatedAt', 'DESC')
         .limit(5)
         .getMany();

@@ -1629,11 +1629,7 @@ EXEMPLE DE BONNE RÉPONSE AUTOMATIQUE:
       this.logger.log(`Sending media from knowledge base: ${mediaDocument.title}`);
 
       // Use only the title for caption (content often contains unreadable OCR text)
-      // Use description field if available, otherwise just the title
-      const description = mediaDocument.metadata?.description || '';
-      const caption = description
-        ? `📁 ${mediaDocument.title}\n\n${description}`
-        : `📁 ${mediaDocument.title}`;
+      const caption = `📁 ${mediaDocument.title}`;
 
       await this.baileysService.sendMessage(session.id, {
         to: fromNumber,

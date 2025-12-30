@@ -1308,12 +1308,14 @@ EXEMPLE DE RÉPONSE CORRECTE:
           agent
         );
 
-        // Check if user is asking for images/photos
-        await this.handleImageRequest(
-          session,
-          fromNumber,
-          userMessage
-        );
+        // DISABLED: handleImageRequest was sending generic Unsplash images with "Box TV Android" caption
+        // This caused confusing behavior where AI would send unrelated images
+        // TODO: Re-enable only when proper product catalog with real images is implemented
+        // await this.handleImageRequest(
+        //   session,
+        //   fromNumber,
+        //   userMessage
+        // );
       } catch (sendError) {
         this.logger.error(
           `Failed to send WhatsApp message: ${sendError.message}`,

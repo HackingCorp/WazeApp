@@ -61,6 +61,9 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
   private credentialsSaveTimers = new Map<string, NodeJS.Timeout>();
   private baileysLoaded = false;
 
+  // Track real connection state (connected, disconnected, reconnecting)
+  private connectionStates = new Map<string, 'connected' | 'disconnected' | 'reconnecting'>();
+
   // Memory management configuration
   private readonly MAX_SESSIONS = 50; // Maximum concurrent sessions
   private readonly SESSION_CLEANUP_INTERVAL = 30 * 60 * 1000; // 30 minutes
@@ -103,9 +106,11 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
 
   /**
    * Check if a session is currently active in Baileys
+   * Returns true only if the session is genuinely connected
    */
   async isSessionActive(sessionId: string): Promise<boolean> {
-    return this.sessions.has(sessionId);
+    const status = this.getSessionStatus(sessionId);
+    return status === 'connected';
   }
 
   private async handleTriggerSync(data: { sessionId: string }): Promise<void> {
@@ -416,6 +421,9 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
             this.logger.warn(`⚠️ Session ${sessionId} received device_removed (401) - clearing credentials`);
             this.logger.warn(`💡 User needs to unlink old devices from WhatsApp > Linked Devices and scan QR again`);
 
+            // Update connection state to disconnected
+            this.connectionStates.set(sessionId, 'disconnected');
+
             // Stop timers
             this.stopKeepAlive(sessionId);
             this.stopCredentialsSave(sessionId);
@@ -434,6 +442,7 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
 
             this.sessions.delete(sessionId);
             this.authStates.delete(sessionId);
+            this.connectionStates.delete(sessionId);
 
             // Emit specific event for device removed
             this.eventEmitter.emit("whatsapp.device.removed", {
@@ -443,10 +452,17 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
             });
           } else if (isPermanentError) {
             this.logger.log(`🚪 Session ${sessionId} logged out permanently (code: ${statusCode}) - cleaning up`);
+            // Update connection state to disconnected
+            this.connectionStates.set(sessionId, 'disconnected');
             this.sessions.delete(sessionId);
             this.authStates.delete(sessionId);
+            this.connectionStates.delete(sessionId);
           } else {
             // Temporary disconnect - try to reconnect with exponential backoff
+            // Update connection state to reconnecting
+            this.connectionStates.set(sessionId, 'reconnecting');
+            this.logger.log(`🔄 Session ${sessionId} temporarily disconnected (code: ${statusCode}) - attempting reconnection...`);
+
             const maxRetries = 5; // Reduced retries for faster failure
             const baseDelay = 5000; // 5 second initial delay
             let retryCount = 0;
@@ -509,6 +525,9 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
           this.logger.log(
             `📚 History sync configured - waiting for messaging-history.set event...`,
           );
+
+          // Update connection state to connected
+          this.connectionStates.set(sessionId, 'connected');
 
           // Start keep-alive ping system
           this.startKeepAlive(sessionId);
@@ -1202,6 +1221,19 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
   getSessionStatus(
     sessionId: string,
   ): "connected" | "connecting" | "disconnected" {
+    // First, check the explicit connection state (most reliable)
+    const connectionState = this.connectionStates.get(sessionId);
+
+    if (connectionState === 'reconnecting') {
+      this.logger.debug(`Session ${sessionId} status: reconnecting (from connectionStates)`);
+      return "connecting"; // Map reconnecting to connecting for dashboard
+    }
+
+    if (connectionState === 'disconnected') {
+      this.logger.debug(`Session ${sessionId} status: disconnected (from connectionStates)`);
+      return "disconnected";
+    }
+
     const sock = this.sessions.get(sessionId);
 
     if (!sock) {
@@ -1212,12 +1244,18 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
     // Baileys socket structure may vary - check multiple indicators
     const hasUser = !!sock.user;
     const wsReadyState = sock.ws?.readyState;
-    const isWsOpen = wsReadyState === 1 || wsReadyState === undefined; // undefined means internal handling
 
-    this.logger.debug(`Session ${sessionId} status check: hasUser=${hasUser}, wsReadyState=${wsReadyState}`);
+    this.logger.debug(`Session ${sessionId} status check: connectionState=${connectionState}, hasUser=${hasUser}, wsReadyState=${wsReadyState}`);
 
-    // If we have user info, consider it connected (Baileys manages the socket internally)
-    if (hasUser) {
+    // Only return connected if connectionState is explicitly 'connected' AND we have user info
+    if (connectionState === 'connected' && hasUser) {
+      return "connected";
+    }
+
+    // If we have user but no explicit connected state, we're likely reconnecting
+    if (hasUser && !connectionState) {
+      // Session has user but we haven't tracked state yet - assume connected for backward compat
+      this.connectionStates.set(sessionId, 'connected');
       return "connected";
     }
 

@@ -939,6 +939,73 @@ export class EmailService {
     `;
   }
 
+  /**
+   * Send WhatsApp disconnection alert email
+   */
+  async sendWhatsAppDisconnectionAlert(
+    email: string,
+    firstName: string,
+    details: {
+      sessionName: string;
+      phoneNumber: string;
+      organizationName: string;
+      disconnectedAt: Date;
+    },
+  ): Promise<void> {
+    const dashboardUrl = this.getDashboardUrl();
+    const whatsappUrl = `${dashboardUrl}/dashboard/whatsapp`;
+
+    const html = this.getWhatsAppDisconnectionEmailTemplate(firstName, details, whatsappUrl);
+
+    try {
+      await this.transporter.sendMail({
+        from: `"${this.getFromName()}" <${this.getFromAddress()}>`,
+        to: email,
+        subject: `🔴 Session WhatsApp déconnectée - ${details.sessionName}`,
+        html,
+        text: `Bonjour ${firstName},\n\nVotre session WhatsApp "${details.sessionName}" (${details.phoneNumber}) s'est déconnectée le ${details.disconnectedAt.toLocaleDateString('fr-FR')} à ${details.disconnectedAt.toLocaleTimeString('fr-FR')}.\n\nVos agents IA ne peuvent plus répondre aux messages sur ce numéro.\n\nPour reconnecter: ${whatsappUrl}\n\nL'équipe WazeApp`,
+      });
+
+      this.logger.log(`✅ WhatsApp disconnection alert sent to ${email}`);
+    } catch (error) {
+      this.logger.error(`❌ Failed to send WhatsApp disconnection alert to ${email}:`, error);
+    }
+  }
+
+  /**
+   * Send WhatsApp reconnection alert email
+   */
+  async sendWhatsAppReconnectionAlert(
+    email: string,
+    firstName: string,
+    details: {
+      sessionName: string;
+      phoneNumber: string;
+      organizationName: string;
+      reconnectedAt: Date;
+      downtimeMinutes: number;
+    },
+  ): Promise<void> {
+    const dashboardUrl = this.getDashboardUrl();
+    const whatsappUrl = `${dashboardUrl}/dashboard/whatsapp`;
+
+    const html = this.getWhatsAppReconnectionEmailTemplate(firstName, details, whatsappUrl);
+
+    try {
+      await this.transporter.sendMail({
+        from: `"${this.getFromName()}" <${this.getFromAddress()}>`,
+        to: email,
+        subject: `🟢 Session WhatsApp reconnectée - ${details.sessionName}`,
+        html,
+        text: `Bonjour ${firstName},\n\nBonne nouvelle! Votre session WhatsApp "${details.sessionName}" (${details.phoneNumber}) est de nouveau connectée.\n\nTemps d'indisponibilité: ${details.downtimeMinutes} minutes.\n\nVos agents IA peuvent à nouveau répondre aux messages.\n\nL'équipe WazeApp`,
+      });
+
+      this.logger.log(`✅ WhatsApp reconnection alert sent to ${email}`);
+    } catch (error) {
+      this.logger.error(`❌ Failed to send WhatsApp reconnection alert to ${email}:`, error);
+    }
+  }
+
   private getPaymentReminderEmailTemplate(
     firstName: string,
     reminderDetails: {
@@ -1072,6 +1139,271 @@ export class EmailService {
 
               <p style="color: #999999; line-height: 1.6; margin: 20px 0 0 0; font-size: 12px; text-align: center;">
                 Si vous avez déjà effectué ce paiement, ignorez cet email.<br>
+                Questions? Contactez-nous à <a href="mailto:support@wazeapp.xyz" style="color: #25D366;">support@wazeapp.xyz</a>
+              </p>
+            </td>
+          </tr>
+          <!-- Footer -->
+          <tr>
+            <td style="background-color: #f8f8f8; padding: 20px 30px; text-align: center; border-top: 1px solid #eeeeee;">
+              <p style="color: #999999; margin: 0; font-size: 12px;">
+                © 2025 WazeApp. Tous droits réservés.<br>
+                <a href="https://wazeapp.xyz" style="color: #25D366; text-decoration: none;">wazeapp.xyz</a>
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+    `;
+  }
+
+  private getWhatsAppDisconnectionEmailTemplate(
+    firstName: string,
+    details: {
+      sessionName: string;
+      phoneNumber: string;
+      organizationName: string;
+      disconnectedAt: Date;
+    },
+    whatsappUrl: string,
+  ): string {
+    const formattedDate = details.disconnectedAt.toLocaleDateString('fr-FR', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    });
+    const formattedTime = details.disconnectedAt.toLocaleTimeString('fr-FR', {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+
+    return `
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Session WhatsApp déconnectée</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f4f4f4; padding: 20px;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+          <!-- Header -->
+          <tr>
+            <td style="background: linear-gradient(135deg, #dc3545 0%, #c82333 100%); padding: 40px 20px; text-align: center;">
+              <h1 style="color: #ffffff; margin: 0; font-size: 28px;">🔴 Session Déconnectée</h1>
+              <p style="color: #ffffff; margin: 10px 0 0 0; font-size: 16px;">Action requise</p>
+            </td>
+          </tr>
+          <!-- Content -->
+          <tr>
+            <td style="padding: 40px 30px;">
+              <p style="color: #666666; line-height: 1.6; margin: 0 0 20px 0; font-size: 18px;">
+                Bonjour <strong style="color: #333;">${firstName}</strong>,
+              </p>
+
+              <!-- Alert Box -->
+              <div style="background-color: #f8d7da; border-left: 4px solid #dc3545; padding: 20px; margin: 20px 0; border-radius: 4px;">
+                <p style="color: #721c24; margin: 0; font-size: 16px; font-weight: bold;">
+                  Votre session WhatsApp s'est déconnectée !
+                </p>
+              </div>
+
+              <p style="color: #666666; line-height: 1.6; margin: 0 0 20px 0;">
+                Vos agents IA ne peuvent plus répondre aux messages sur ce numéro tant que la session n'est pas reconnectée.
+              </p>
+
+              <!-- Session Details Box -->
+              <div style="background-color: #f8f9fa; border-radius: 8px; padding: 25px; margin: 25px 0;">
+                <h3 style="color: #333; margin: 0 0 15px 0; font-size: 16px;">📱 Détails de la session</h3>
+                <table width="100%" cellpadding="5" cellspacing="0">
+                  <tr>
+                    <td style="color: #666; padding: 8px 0; border-bottom: 1px solid #e9ecef;">Nom de la session</td>
+                    <td style="color: #333; font-weight: bold; text-align: right; padding: 8px 0; border-bottom: 1px solid #e9ecef;">
+                      ${details.sessionName}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="color: #666; padding: 8px 0; border-bottom: 1px solid #e9ecef;">Numéro WhatsApp</td>
+                    <td style="color: #333; text-align: right; padding: 8px 0; border-bottom: 1px solid #e9ecef;">
+                      ${details.phoneNumber}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="color: #666; padding: 8px 0; border-bottom: 1px solid #e9ecef;">Organisation</td>
+                    <td style="color: #333; text-align: right; padding: 8px 0; border-bottom: 1px solid #e9ecef;">
+                      ${details.organizationName}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="color: #666; padding: 8px 0;">Déconnexion</td>
+                    <td style="color: #dc3545; font-weight: bold; text-align: right; padding: 8px 0;">
+                      ${formattedDate} à ${formattedTime}
+                    </td>
+                  </tr>
+                </table>
+              </div>
+
+              <!-- Warning Box -->
+              <div style="background-color: #fff3cd; border: 1px solid #ffc107; padding: 15px; border-radius: 4px; margin: 20px 0;">
+                <p style="color: #856404; margin: 0; font-size: 14px;">
+                  <strong>⚠️ Important:</strong> Les messages WhatsApp reçus pendant la déconnexion ne seront pas traités par vos agents IA.
+                </p>
+              </div>
+
+              <div style="text-align: center; margin: 30px 0;">
+                <a href="${whatsappUrl}" style="display: inline-block; background-color: #25D366; color: #ffffff; text-decoration: none; padding: 15px 40px; border-radius: 5px; font-weight: bold; font-size: 16px;">
+                  Reconnecter maintenant
+                </a>
+              </div>
+
+              <p style="color: #999999; line-height: 1.6; margin: 20px 0 0 0; font-size: 12px; text-align: center;">
+                Vous recevez cet email car vous êtes administrateur de l'organisation.<br>
+                Questions? Contactez-nous à <a href="mailto:support@wazeapp.xyz" style="color: #25D366;">support@wazeapp.xyz</a>
+              </p>
+            </td>
+          </tr>
+          <!-- Footer -->
+          <tr>
+            <td style="background-color: #f8f8f8; padding: 20px 30px; text-align: center; border-top: 1px solid #eeeeee;">
+              <p style="color: #999999; margin: 0; font-size: 12px;">
+                © 2025 WazeApp. Tous droits réservés.<br>
+                <a href="https://wazeapp.xyz" style="color: #25D366; text-decoration: none;">wazeapp.xyz</a>
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+    `;
+  }
+
+  private getWhatsAppReconnectionEmailTemplate(
+    firstName: string,
+    details: {
+      sessionName: string;
+      phoneNumber: string;
+      organizationName: string;
+      reconnectedAt: Date;
+      downtimeMinutes: number;
+    },
+    whatsappUrl: string,
+  ): string {
+    const formattedDate = details.reconnectedAt.toLocaleDateString('fr-FR', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    });
+    const formattedTime = details.reconnectedAt.toLocaleTimeString('fr-FR', {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+
+    // Format downtime
+    let downtimeText = '';
+    if (details.downtimeMinutes < 60) {
+      downtimeText = `${details.downtimeMinutes} minute${details.downtimeMinutes > 1 ? 's' : ''}`;
+    } else {
+      const hours = Math.floor(details.downtimeMinutes / 60);
+      const minutes = details.downtimeMinutes % 60;
+      downtimeText = `${hours} heure${hours > 1 ? 's' : ''}`;
+      if (minutes > 0) {
+        downtimeText += ` et ${minutes} minute${minutes > 1 ? 's' : ''}`;
+      }
+    }
+
+    return `
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Session WhatsApp reconnectée</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f4f4f4; padding: 20px;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+          <!-- Header -->
+          <tr>
+            <td style="background: linear-gradient(135deg, #25D366 0%, #128C7E 100%); padding: 40px 20px; text-align: center;">
+              <h1 style="color: #ffffff; margin: 0; font-size: 28px;">🟢 Session Reconnectée</h1>
+              <p style="color: #ffffff; margin: 10px 0 0 0; font-size: 16px;">Tout est revenu à la normale</p>
+            </td>
+          </tr>
+          <!-- Content -->
+          <tr>
+            <td style="padding: 40px 30px;">
+              <p style="color: #666666; line-height: 1.6; margin: 0 0 20px 0; font-size: 18px;">
+                Bonjour <strong style="color: #333;">${firstName}</strong>,
+              </p>
+
+              <!-- Success Box -->
+              <div style="background-color: #d4edda; border-left: 4px solid #28a745; padding: 20px; margin: 20px 0; border-radius: 4px;">
+                <p style="color: #155724; margin: 0; font-size: 16px; font-weight: bold;">
+                  ✅ Bonne nouvelle ! Votre session WhatsApp est de nouveau connectée.
+                </p>
+              </div>
+
+              <p style="color: #666666; line-height: 1.6; margin: 0 0 20px 0;">
+                Vos agents IA peuvent à nouveau répondre aux messages sur ce numéro.
+              </p>
+
+              <!-- Session Details Box -->
+              <div style="background-color: #f8f9fa; border-radius: 8px; padding: 25px; margin: 25px 0;">
+                <h3 style="color: #333; margin: 0 0 15px 0; font-size: 16px;">📱 Détails de la session</h3>
+                <table width="100%" cellpadding="5" cellspacing="0">
+                  <tr>
+                    <td style="color: #666; padding: 8px 0; border-bottom: 1px solid #e9ecef;">Nom de la session</td>
+                    <td style="color: #333; font-weight: bold; text-align: right; padding: 8px 0; border-bottom: 1px solid #e9ecef;">
+                      ${details.sessionName}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="color: #666; padding: 8px 0; border-bottom: 1px solid #e9ecef;">Numéro WhatsApp</td>
+                    <td style="color: #333; text-align: right; padding: 8px 0; border-bottom: 1px solid #e9ecef;">
+                      ${details.phoneNumber}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="color: #666; padding: 8px 0; border-bottom: 1px solid #e9ecef;">Organisation</td>
+                    <td style="color: #333; text-align: right; padding: 8px 0; border-bottom: 1px solid #e9ecef;">
+                      ${details.organizationName}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="color: #666; padding: 8px 0; border-bottom: 1px solid #e9ecef;">Reconnexion</td>
+                    <td style="color: #25D366; font-weight: bold; text-align: right; padding: 8px 0; border-bottom: 1px solid #e9ecef;">
+                      ${formattedDate} à ${formattedTime}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="color: #666; padding: 8px 0;">Durée d'indisponibilité</td>
+                    <td style="color: #666; text-align: right; padding: 8px 0;">
+                      ${downtimeText}
+                    </td>
+                  </tr>
+                </table>
+              </div>
+
+              <div style="text-align: center; margin: 30px 0;">
+                <a href="${whatsappUrl}" style="display: inline-block; background-color: #25D366; color: #ffffff; text-decoration: none; padding: 15px 40px; border-radius: 5px; font-weight: bold; font-size: 16px;">
+                  Voir le statut
+                </a>
+              </div>
+
+              <p style="color: #999999; line-height: 1.6; margin: 20px 0 0 0; font-size: 12px; text-align: center;">
+                Vous recevez cet email car vous êtes administrateur de l'organisation.<br>
                 Questions? Contactez-nous à <a href="mailto:support@wazeapp.xyz" style="color: #25D366;">support@wazeapp.xyz</a>
               </p>
             </td>

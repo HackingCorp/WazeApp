@@ -8,12 +8,14 @@ import { BaileysService } from "./baileys.service";
 import { SimpleConversationService } from "./simple-conversation.service";
 import { WhatsAppGateway } from "./whatsapp.gateway";
 import { WhatsAppAIResponderService } from "./whatsapp-ai-responder.service";
+import { WhatsAppSessionMonitorService } from "./whatsapp-session-monitor.service";
 // import { WhatsAppAIResponderSimpleService } from "./whatsapp-ai-responder-simple.service"; // DISABLED: Causes duplicate AI responses
 import { WebSearchService } from "./web-search.service";
 import { MediaAnalysisService } from "./media-analysis.service";
 import { VisionService } from "./vision.service";
 import { OpenSourceVisionService } from "./open-source-vision.service";
 import { AudioTranscriptionService } from "./audio-transcription.service";
+import { EmailModule } from "../email/email.module";
 import {
   WhatsAppSession,
   WhatsAppContact,
@@ -59,6 +61,7 @@ import { LlmProvidersModule } from "../llm-providers/llm-providers.module";
     }),
     SubscriptionModule,
     LlmProvidersModule,
+    EmailModule,
   ],
   controllers: [WhatsAppController],
   providers: [
@@ -74,7 +77,8 @@ import { LlmProvidersModule } from "../llm-providers/llm-providers.module";
     VisionService,
     OpenSourceVisionService,
     AudioTranscriptionService,
+    WhatsAppSessionMonitorService,
   ],
-  exports: [WhatsAppService, BaileysService, SimpleConversationService, WhatsAppGateway],
+  exports: [WhatsAppService, BaileysService, SimpleConversationService, WhatsAppGateway, WhatsAppSessionMonitorService],
 })
 export class WhatsAppModule {}

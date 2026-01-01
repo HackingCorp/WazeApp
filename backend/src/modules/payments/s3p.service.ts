@@ -24,6 +24,24 @@ export interface S3PPaymentResponse {
   transactionId: string;
 }
 
+// Mapping des codes d'erreur S3P vers des messages utilisateur
+const S3P_ERROR_CODES: Record<number, { userMessage: string; technicalMessage: string }> = {
+  // Erreurs de solde et compte
+  41004: { userMessage: 'Solde insuffisant sur votre compte Mobile Money', technicalMessage: 'INSUFFICIENT_BALANCE' },
+  41001: { userMessage: 'Le numero de telephone est invalide ou non enregistre', technicalMessage: 'INVALID_PHONE_NUMBER' },
+  41002: { userMessage: 'Le compte Mobile Money est bloque ou suspendu', technicalMessage: 'ACCOUNT_BLOCKED' },
+  41003: { userMessage: 'Le montant depasse la limite autorisee', technicalMessage: 'AMOUNT_LIMIT_EXCEEDED' },
+  41005: { userMessage: 'Transaction annulee par l\'utilisateur', technicalMessage: 'USER_CANCELLED' },
+  41006: { userMessage: 'Transaction expiree - delai de confirmation depasse', technicalMessage: 'TRANSACTION_EXPIRED' },
+  41007: { userMessage: 'Code PIN incorrect', technicalMessage: 'INVALID_PIN' },
+  // Erreurs de service
+  50001: { userMessage: 'Le service de paiement est temporairement indisponible', technicalMessage: 'SERVICE_UNAVAILABLE' },
+  50002: { userMessage: 'Le service de paiement est en maintenance', technicalMessage: 'SERVICE_MAINTENANCE' },
+  // Erreurs d'authentification
+  40001: { userMessage: 'Erreur de configuration du paiement', technicalMessage: 'AUTH_FAILED' },
+  40010: { userMessage: 'Le numero de telephone fourni est invalide', technicalMessage: 'INVALID_PHONE_FORMAT' },
+};
+
 @Injectable()
 export class S3PService {
   private readonly logger = new Logger(S3PService.name);
@@ -34,9 +52,19 @@ export class S3PService {
   // Services configurés pour les abonnements WazeApp
   private readonly services = {
     STANDARD: '20052', // Service ID pour abonnement STANDARD
-    PRO: '20053',      // Service ID pour abonnement PRO  
+    PRO: '20053',      // Service ID pour abonnement PRO
     ENTERPRISE: '20054' // Service ID pour abonnement ENTERPRISE
   };
+
+  /**
+   * Mappe un code d'erreur S3P vers un message utilisateur
+   */
+  private mapErrorCode(errorCode: number): { userMessage: string; technicalMessage: string } {
+    return S3P_ERROR_CODES[errorCode] || {
+      userMessage: 'Une erreur est survenue lors du paiement',
+      technicalMessage: `S3P_ERROR_${errorCode}`
+    };
+  }
 
   constructor(
     private readonly configService: ConfigService,
@@ -484,10 +512,49 @@ export class S3PService {
 
       const verifyResponse = await this.verifyPayment(ptn, trid);
 
-      const s3pStatus = verifyResponse.status || 'PENDING';
-      const finalStatus = s3pStatus === 'SUCCESS' ? 'SUCCESS' : s3pStatus === 'PENDING' ? 'PENDING' : 'FAILED';
+      // Extraire le errorCode de la réponse S3P
+      let errorCode: number | undefined;
+      let s3pStatus = verifyResponse.status || 'PENDING';
 
-      this.logger.log(`Statut final: ${finalStatus} (S3P: ${s3pStatus})`);
+      // Si c'est un tableau (réponse S3P standard), extraire le premier élément
+      if (Array.isArray(verifyResponse) && verifyResponse.length > 0) {
+        errorCode = verifyResponse[0].errorCode;
+        s3pStatus = verifyResponse[0].status || s3pStatus;
+      } else if (verifyResponse.errorCode) {
+        errorCode = verifyResponse.errorCode;
+      }
+
+      // Déterminer le statut final
+      let finalStatus = 'PENDING';
+      let errorMessage: string | undefined;
+
+      if (s3pStatus === 'SUCCESS' || s3pStatus === 'SUCCESSFUL') {
+        finalStatus = 'SUCCESS';
+      } else if (s3pStatus === 'ERRORED' || s3pStatus === 'FAILED') {
+        finalStatus = 'FAILED';
+        // Mapper le code d'erreur vers un message utilisateur
+        if (errorCode) {
+          const errorInfo = this.mapErrorCode(errorCode);
+          errorMessage = errorInfo.userMessage;
+          this.logger.warn(`S3P Error ${errorCode}: ${errorInfo.technicalMessage}`);
+        }
+      }
+
+      this.logger.log(`Statut final: ${finalStatus} (S3P: ${s3pStatus}, errorCode: ${errorCode || 'none'})`);
+
+      // Si le paiement a échoué, retourner avec l'erreur
+      if (finalStatus === 'FAILED') {
+        return {
+          success: false,
+          transactionId: trid,
+          ptn,
+          status: finalStatus,
+          s3pStatus,
+          errorCode,
+          message: errorMessage || 'Le paiement a echoue',
+          error: errorMessage || 'Le paiement a echoue',
+        };
+      }
 
       return {
         success: true,

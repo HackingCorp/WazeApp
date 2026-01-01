@@ -445,8 +445,8 @@ export class S3PService {
       this.logger.log(`Initiation paiement S3P: ${trid} - ${amount} XAF - ${paymentType}`);
 
       // ÉTAPE 1: Récupérer les informations du service
-      // IMPORTANT: Utiliser /cashin pour COLLECTER de l'argent du client (pas /cashout qui est pour ENVOYER)
-      const url = `${this.baseUrl}/cashin`;
+      // Selon la doc S3P: /cashout = collecter de l'argent du client
+      const url = `${this.baseUrl}/cashout`;
       const params = { serviceid: serviceId };
       const authHeader = this.generateAuthHeader('GET', url, params);
 
@@ -474,7 +474,7 @@ export class S3PService {
         if (!service) {
           // Log tous les services disponibles pour debug
           this.logger.warn(`Service ${serviceId} non trouvé. Services disponibles: ${JSON.stringify(services.map(s => ({ id: s.id, serviceid: s.serviceid, serviceId: s.serviceId, name: s.name || s.serviceName })))}`);
-          throw new Error(`Service ${serviceId} non trouvé dans la liste des services cashin`);
+          throw new Error(`Service ${serviceId} non trouvé dans la liste des services cashout`);
         }
         payItemId = service.payItemId || service.payitemid || service.pay_item_id;
       } else if (services.payItemId) {

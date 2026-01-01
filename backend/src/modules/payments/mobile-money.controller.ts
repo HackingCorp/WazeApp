@@ -196,6 +196,8 @@ export class MobileMoneyController {
 
           // If user has an organization, upgrade the organization subscription
           // Otherwise, upgrade the user subscription
+          const validPlan = plan.toUpperCase() as 'STANDARD' | 'PRO' | 'ENTERPRISE';
+
           if (organizationId) {
             this.logger.log(`Upgrading ORGANIZATION subscription for org ${organizationId}`);
             upgradeResult = await this.subscriptionUpgradeService.upgradeOrganizationSubscription(
@@ -203,7 +205,7 @@ export class MobileMoneyController {
               {
                 transactionId: verificationDto.transactionId || paymentStatus.ptn,
                 ptn: verificationDto.ptn,
-                plan: plan,
+                plan: validPlan,
                 amount: amount,
                 currency: 'XAF',
                 billingPeriod: billingPeriod,
@@ -218,7 +220,7 @@ export class MobileMoneyController {
               {
                 transactionId: verificationDto.transactionId || paymentStatus.ptn,
                 ptn: verificationDto.ptn,
-                plan: plan,
+                plan: validPlan,
                 amount: amount,
                 currency: 'XAF',
                 billingPeriod: billingPeriod,

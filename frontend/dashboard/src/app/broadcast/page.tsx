@@ -584,25 +584,25 @@ export default function BroadcastPage() {
     const newFiles = Array.from(files).slice(0, 10 - campaignMediaFiles.length);
     const validFiles = newFiles.filter(file => {
       const isImage = file.type.startsWith('image/');
+      const isVideo = file.type.startsWith('video/');
       const isDocument = file.type === 'application/pdf' ||
                          file.type.includes('document') ||
                          file.type.includes('spreadsheet');
-      return isImage || isDocument;
+      return isImage || isVideo || isDocument;
     });
 
     if (validFiles.length === 0) return;
 
-    // Generate previews for images
-    const newPreviews: string[] = [];
+    // Generate previews for images and videos
     validFiles.forEach(file => {
-      if (file.type.startsWith('image/')) {
+      if (file.type.startsWith('image/') || file.type.startsWith('video/')) {
         const reader = new FileReader();
         reader.onload = (event) => {
           setCampaignMediaPreviews(prev => [...prev, event.target?.result as string]);
         };
         reader.readAsDataURL(file);
       } else {
-        newPreviews.push('document');
+        setCampaignMediaPreviews(prev => [...prev, 'document']);
       }
     });
 
@@ -2230,7 +2230,7 @@ export default function BroadcastPage() {
                           ref={campaignMediaInputRef}
                           type="file"
                           multiple
-                          accept={getSelectedTemplate()?.type === 'image' ? 'image/*' : '*'}
+                          accept={getSelectedTemplate()?.type === 'image' ? 'image/*' : getSelectedTemplate()?.type === 'video' ? 'video/*' : 'image/*,video/*,application/pdf,.doc,.docx,.xls,.xlsx'}
                           onChange={handleCampaignMediaSelect}
                           className="hidden"
                         />
@@ -2242,7 +2242,7 @@ export default function BroadcastPage() {
                             className="w-full py-3 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg hover:border-green-500 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors flex items-center justify-center gap-2 text-gray-500 hover:text-green-600"
                           >
                             <Upload className="w-5 h-5" />
-                            <span>Cliquez pour ajouter des {getSelectedTemplate()?.type === 'image' ? 'images' : 'fichiers'}</span>
+                            <span>Cliquez pour ajouter des {getSelectedTemplate()?.type === 'image' ? 'images' : getSelectedTemplate()?.type === 'video' ? 'vidéos' : 'fichiers'}</span>
                           </button>
                         )}
 
@@ -2260,6 +2260,18 @@ export default function BroadcastPage() {
                                         className="w-full h-full object-cover"
                                       />
                                     )}
+                                  </div>
+                                ) : file.type.startsWith('video/') ? (
+                                  <div className="aspect-square rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700 relative">
+                                    <video
+                                      src={campaignMediaPreviews[index]}
+                                      className="w-full h-full object-cover"
+                                    />
+                                    <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                                      <svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 24 24">
+                                        <path d="M8 5v14l11-7z"/>
+                                      </svg>
+                                    </div>
                                   </div>
                                 ) : (
                                   <div className="aspect-square rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
@@ -2281,7 +2293,7 @@ export default function BroadcastPage() {
 
                         <p className="text-xs text-gray-500 mt-2">
                           {campaignMediaFiles.length}/10 fichiers sélectionnés.
-                          {getSelectedTemplate()?.type === 'image' && ' Chaque image sera envoyée comme message séparé.'}
+                          {(getSelectedTemplate()?.type === 'image' || getSelectedTemplate()?.type === 'video') && ' Chaque fichier sera envoyé comme message séparé.'}
                         </p>
                       </div>
                     )}
@@ -2292,7 +2304,7 @@ export default function BroadcastPage() {
                     <div className="p-4 border border-dashed border-gray-300 dark:border-gray-600 rounded-lg">
                       <div className="flex items-center justify-between mb-3">
                         <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                          Images / Fichiers
+                          Images / Vidéos / Fichiers
                           <span className="text-gray-500 text-xs ml-2">(optionnel, max 10)</span>
                         </h4>
                         {campaignMediaFiles.length > 0 && (
@@ -2322,7 +2334,7 @@ export default function BroadcastPage() {
                           className="w-full py-3 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg hover:border-green-500 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors flex items-center justify-center gap-2 text-gray-500 hover:text-green-600"
                         >
                           <Upload className="w-5 h-5" />
-                          <span>Cliquez pour ajouter des images ou fichiers</span>
+                          <span>Cliquez pour ajouter des images, vidéos ou fichiers</span>
                         </button>
                       )}
 
@@ -2340,6 +2352,18 @@ export default function BroadcastPage() {
                                       className="w-full h-full object-cover"
                                     />
                                   )}
+                                </div>
+                              ) : file.type.startsWith('video/') ? (
+                                <div className="aspect-square rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700 relative">
+                                  <video
+                                    src={campaignMediaPreviews[index]}
+                                    className="w-full h-full object-cover"
+                                  />
+                                  <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                                    <svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 24 24">
+                                      <path d="M8 5v14l11-7z"/>
+                                    </svg>
+                                  </div>
                                 </div>
                               ) : (
                                 <div className="aspect-square rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center">

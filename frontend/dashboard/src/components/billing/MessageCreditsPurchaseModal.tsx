@@ -148,10 +148,23 @@ export function MessageCreditsPurchaseModal({
     try {
       if (provider === 'enkap') {
         // Initiate E-nkap payment (card payment)
+        const merchantReference = `MSGCRED-${Date.now()}-${Math.random().toString(36).substring(7)}`;
         const response = await api.initiateEnkapPayment({
-          amount: calculatedPrice.xaf,
+          merchantReference,
+          customerName: 'Client WazeApp',
+          customerPhone: '237600000000', // Placeholder for card payments
+          totalAmount: calculatedPrice.xaf,
+          currency: 'XAF',
           description: `Achat de ${amount} messages supplementaires`,
-          plan: 'MESSAGE_CREDITS' as any,
+          items: [
+            {
+              id: 'msg-credits',
+              name: `${amount} Messages WhatsApp`,
+              quantity: 1,
+              price: calculatedPrice.xaf,
+            }
+          ],
+          returnUrl: `${window.location.origin}/billing?payment=enkap&status=success&credits=${amount}`,
         });
 
         if (response.success && response.data) {
@@ -159,7 +172,8 @@ export function MessageCreditsPurchaseModal({
           if (data.paymentUrl) {
             // Store transaction info for later verification
             localStorage.setItem('enkap_pending_credit_purchase', JSON.stringify({
-              transactionId: data.transactionId,
+              transactionId: data.txid || merchantReference,
+              merchantReference,
               amount: amount,
               totalXaf: calculatedPrice.xaf,
             }));

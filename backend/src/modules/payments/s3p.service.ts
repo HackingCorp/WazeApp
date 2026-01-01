@@ -445,7 +445,8 @@ export class S3PService {
       this.logger.log(`Initiation paiement S3P: ${trid} - ${amount} XAF - ${paymentType}`);
 
       // ÉTAPE 1: Récupérer les informations du service
-      const url = `${this.baseUrl}/cashout`;
+      // IMPORTANT: Utiliser /cashin pour COLLECTER de l'argent du client (pas /cashout qui est pour ENVOYER)
+      const url = `${this.baseUrl}/cashin`;
       const params = { serviceid: serviceId };
       const authHeader = this.generateAuthHeader('GET', url, params);
 

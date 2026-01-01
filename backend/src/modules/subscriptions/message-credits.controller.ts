@@ -9,18 +9,33 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiBody, ApiQuery } from '@nestjs/swagger';
+import { IsNumber, IsString, IsOptional, Min } from 'class-validator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { MessageCreditsService, MESSAGE_CREDIT_CONFIG } from './message-credits.service';
 
 class CalculatePriceDto {
+  @IsNumber()
+  @Min(1000)
   amount: number;
 }
 
 class PurchaseCreditsDto {
+  @IsNumber()
+  @Min(1000)
   amount: number;
+
+  @IsString()
   transactionId: string;
+
+  @IsOptional()
+  @IsString()
   ptn?: string;
+
+  @IsString()
   paymentMethod: string;
+
+  @IsOptional()
+  @IsString()
   phoneNumber?: string;
 }
 

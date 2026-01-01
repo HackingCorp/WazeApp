@@ -24,6 +24,7 @@ export interface QuotaCheck {
   remaining: number;
   percentUsed: number;
   message?: string;
+  resetDate?: string; // ISO date string for when quota resets (nextBillingDate)
 }
 
 export interface FeatureCheck {
@@ -227,7 +228,16 @@ export class QuotaEnforcementService {
 
     const current = await this.getActualWhatsAppMessageCount(organizationId);
 
-    return this.buildQuotaCheck(current, limit, "monthly WhatsApp messages");
+    const quotaCheck = this.buildQuotaCheck(current, limit, "monthly WhatsApp messages");
+
+    // Add reset date from subscription's nextBillingDate
+    if (subscription.nextBillingDate) {
+      quotaCheck.resetDate = subscription.nextBillingDate.toISOString();
+    } else if (subscription.endsAt) {
+      quotaCheck.resetDate = subscription.endsAt.toISOString();
+    }
+
+    return quotaCheck;
   }
 
   /**

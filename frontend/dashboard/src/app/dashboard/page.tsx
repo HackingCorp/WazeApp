@@ -40,6 +40,7 @@ interface QuotaInfo {
   remaining: number;
   percentUsed: number;
   message?: string;
+  resetDate?: string; // ISO date string for when quota resets
 }
 
 interface QuotaData {
@@ -414,7 +415,12 @@ export default function DashboardPage() {
                 {quota.messages.remaining.toLocaleString()} {t('dashboard.remaining') || 'restants'}
               </p>
               <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                {t('dashboard.quotaResetDate') || 'Réinitialisation'}: {(() => {
+                {t('dashboard.quotaResetDate') || 'Réinitialisation le'}: {(() => {
+                  // Use resetDate from API if available, otherwise fallback to calculated date
+                  if (quota.messages?.resetDate) {
+                    return new Date(quota.messages.resetDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+                  }
+                  // Fallback: first day of next month
                   const now = new Date();
                   const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
                   return nextMonth.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });

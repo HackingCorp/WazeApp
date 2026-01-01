@@ -27,7 +27,13 @@ interface BonusCreditsWidgetProps {
 }
 
 export function BonusCreditsWidget({ variant = 'full', onRefresh }: BonusCreditsWidgetProps) {
-  const [credits, setCredits] = useState<CreditsSummary | null>(null);
+  // Initialize with default values to prevent crashes
+  const [credits, setCredits] = useState<CreditsSummary>({
+    totalAvailable: 0,
+    totalUsed: 0,
+    activeCredits: [],
+    expiredCredits: 0,
+  });
   const [loading, setLoading] = useState(true);
   const [showPurchaseModal, setShowPurchaseModal] = useState(false);
 
@@ -44,6 +50,7 @@ export function BonusCreditsWidget({ variant = 'full', onRefresh }: BonusCredits
       }
     } catch (err) {
       console.error('Failed to load bonus credits:', err);
+      // Keep default values on error - don't crash the component
     } finally {
       setLoading(false);
     }
@@ -87,7 +94,7 @@ export function BonusCreditsWidget({ variant = 'full', onRefresh }: BonusCredits
           <div className="flex items-center gap-2 px-3 py-1.5 bg-purple-100 dark:bg-purple-900/30 rounded-full">
             <Gift className="w-4 h-4 text-purple-600 dark:text-purple-400" />
             <span className="text-sm font-medium text-purple-700 dark:text-purple-300">
-              {credits?.totalAvailable.toLocaleString() || 0} bonus
+              {credits.totalAvailable.toLocaleString()} bonus
             </span>
           </div>
           <button
@@ -143,7 +150,7 @@ export function BonusCreditsWidget({ variant = 'full', onRefresh }: BonusCredits
               <span className="text-sm text-gray-600 dark:text-gray-400">Disponibles</span>
             </div>
             <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
-              {credits?.totalAvailable.toLocaleString() || 0}
+              {credits.totalAvailable.toLocaleString()}
             </div>
           </div>
           <div className="bg-white/60 dark:bg-gray-800/60 rounded-lg p-4">
@@ -152,13 +159,13 @@ export function BonusCreditsWidget({ variant = 'full', onRefresh }: BonusCredits
               <span className="text-sm text-gray-600 dark:text-gray-400">Utilises</span>
             </div>
             <div className="text-2xl font-bold text-gray-700 dark:text-gray-300">
-              {credits?.totalUsed.toLocaleString() || 0}
+              {credits.totalUsed.toLocaleString()}
             </div>
           </div>
         </div>
 
         {/* Next Expiration Warning */}
-        {credits?.nextExpiration && getDaysUntilExpiration(credits.nextExpiration.date) <= 7 && (
+        {credits.nextExpiration && getDaysUntilExpiration(credits.nextExpiration.date) <= 7 && (
           <div className="flex items-start gap-3 p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg mb-4">
             <AlertTriangle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
             <div className="text-sm">
@@ -173,7 +180,7 @@ export function BonusCreditsWidget({ variant = 'full', onRefresh }: BonusCredits
         )}
 
         {/* Active Credits List */}
-        {credits?.activeCredits && credits.activeCredits.length > 0 && (
+        {credits.activeCredits && credits.activeCredits.length > 0 && (
           <div className="space-y-2">
             <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Packs actifs
@@ -209,7 +216,7 @@ export function BonusCreditsWidget({ variant = 'full', onRefresh }: BonusCredits
         )}
 
         {/* No credits message */}
-        {(!credits?.activeCredits || credits.activeCredits.length === 0) && (
+        {(!credits.activeCredits || credits.activeCredits.length === 0) && (
           <div className="text-center py-4">
             <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
               Aucun message bonus disponible

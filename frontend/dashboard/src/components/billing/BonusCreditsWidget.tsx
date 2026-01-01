@@ -94,7 +94,7 @@ export function BonusCreditsWidget({ variant = 'full', onRefresh }: BonusCredits
           <div className="flex items-center gap-2 px-3 py-1.5 bg-purple-100 dark:bg-purple-900/30 rounded-full">
             <Gift className="w-4 h-4 text-purple-600 dark:text-purple-400" />
             <span className="text-sm font-medium text-purple-700 dark:text-purple-300">
-              {credits.totalAvailable.toLocaleString()} bonus
+              {(credits.totalAvailable ?? 0).toLocaleString()} bonus
             </span>
           </div>
           <button
@@ -150,7 +150,7 @@ export function BonusCreditsWidget({ variant = 'full', onRefresh }: BonusCredits
               <span className="text-sm text-gray-600 dark:text-gray-400">Disponibles</span>
             </div>
             <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
-              {credits.totalAvailable.toLocaleString()}
+              {(credits.totalAvailable ?? 0).toLocaleString()}
             </div>
           </div>
           <div className="bg-white/60 dark:bg-gray-800/60 rounded-lg p-4">
@@ -159,7 +159,7 @@ export function BonusCreditsWidget({ variant = 'full', onRefresh }: BonusCredits
               <span className="text-sm text-gray-600 dark:text-gray-400">Utilises</span>
             </div>
             <div className="text-2xl font-bold text-gray-700 dark:text-gray-300">
-              {credits.totalUsed.toLocaleString()}
+              {(credits.totalUsed ?? 0).toLocaleString()}
             </div>
           </div>
         </div>

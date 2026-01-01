@@ -26,18 +26,21 @@ export interface S3PPaymentResponse {
 
 // Mapping des codes d'erreur S3P vers des messages utilisateur
 const S3P_ERROR_CODES: Record<number, { userMessage: string; technicalMessage: string }> = {
-  // Erreurs de solde et compte
-  41004: { userMessage: 'Solde insuffisant sur votre compte Mobile Money', technicalMessage: 'INSUFFICIENT_BALANCE' },
-  41001: { userMessage: 'Le numero de telephone est invalide ou non enregistre', technicalMessage: 'INVALID_PHONE_NUMBER' },
+  // Erreurs de transaction operateur (41xxx)
+  41001: { userMessage: 'Le numero de telephone est invalide ou non enregistre Mobile Money', technicalMessage: 'INVALID_PHONE_NUMBER' },
   41002: { userMessage: 'Le compte Mobile Money est bloque ou suspendu', technicalMessage: 'ACCOUNT_BLOCKED' },
   41003: { userMessage: 'Le montant depasse la limite autorisee', technicalMessage: 'AMOUNT_LIMIT_EXCEEDED' },
+  41004: { userMessage: 'Transaction rejetee - verifiez que votre compte Mobile Money est actif et que vous avez confirme avec votre code PIN', technicalMessage: 'TRANSACTION_REJECTED' },
   41005: { userMessage: 'Transaction annulee par l\'utilisateur', technicalMessage: 'USER_CANCELLED' },
-  41006: { userMessage: 'Transaction expiree - delai de confirmation depasse', technicalMessage: 'TRANSACTION_EXPIRED' },
+  41006: { userMessage: 'Transaction expiree - vous n\'avez pas confirme a temps', technicalMessage: 'TRANSACTION_EXPIRED' },
   41007: { userMessage: 'Code PIN incorrect', technicalMessage: 'INVALID_PIN' },
-  // Erreurs de service
+  41008: { userMessage: 'Solde insuffisant sur votre compte Mobile Money', technicalMessage: 'INSUFFICIENT_BALANCE' },
+  41009: { userMessage: 'Limite journaliere atteinte sur votre compte', technicalMessage: 'DAILY_LIMIT_EXCEEDED' },
+  41010: { userMessage: 'Le numero n\'a pas de compte Mobile Money actif', technicalMessage: 'NO_MOBILE_MONEY_ACCOUNT' },
+  // Erreurs de service (50xxx)
   50001: { userMessage: 'Le service de paiement est temporairement indisponible', technicalMessage: 'SERVICE_UNAVAILABLE' },
   50002: { userMessage: 'Le service de paiement est en maintenance', technicalMessage: 'SERVICE_MAINTENANCE' },
-  // Erreurs d'authentification
+  // Erreurs d'authentification (40xxx)
   40001: { userMessage: 'Erreur de configuration du paiement', technicalMessage: 'AUTH_FAILED' },
   40010: { userMessage: 'Le numero de telephone fourni est invalide', technicalMessage: 'INVALID_PHONE_FORMAT' },
 };

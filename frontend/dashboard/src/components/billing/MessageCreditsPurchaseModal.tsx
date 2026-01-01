@@ -32,8 +32,15 @@ export function MessageCreditsPurchaseModal({
   const [status, setStatus] = useState<PaymentStatus>('idle');
   const [error, setError] = useState<string | null>(null);
   const [ptn, setPtn] = useState<string | null>(null);
-  const [pricing, setPricing] = useState<PricingInfo | null>(null);
-  const [calculatedPrice, setCalculatedPrice] = useState<{ xaf: number; usd: number } | null>(null);
+  const [loadingPricing, setLoadingPricing] = useState(true);
+  // Default pricing values - will be overwritten by API
+  const [pricing, setPricing] = useState<PricingInfo>({
+    pricePerMessage: { xaf: 2, usd: 0.0032 },
+    minimumPurchase: 1000,
+    minimumPrice: { xaf: 2000, usd: 3.2 },
+    expirationDays: 30,
+  });
+  const [calculatedPrice, setCalculatedPrice] = useState<{ xaf: number; usd: number }>({ xaf: 2000, usd: 3.2 });
 
   // Load pricing info on mount
   useEffect(() => {
@@ -65,14 +72,22 @@ export function MessageCreditsPurchaseModal({
   }, [amount, pricing]);
 
   const loadPricingInfo = async () => {
+    setLoadingPricing(true);
     try {
       const response = await apiHelpers.messageCredits.getPricing();
       if (response.success && response.data) {
         setPricing(response.data);
         setAmount(response.data.minimumPurchase);
+        setCalculatedPrice({
+          xaf: response.data.minimumPurchase * response.data.pricePerMessage.xaf,
+          usd: response.data.minimumPurchase * response.data.pricePerMessage.usd,
+        });
       }
     } catch (err) {
       console.error('Failed to load pricing info:', err);
+      // Keep default values if API fails
+    } finally {
+      setLoadingPricing(false);
     }
   };
 

@@ -75,7 +75,7 @@ export function MessageCreditsPurchaseModal({
     setLoadingPricing(true);
     try {
       const response = await apiHelpers.messageCredits.getPricing();
-      if (response.success && response.data) {
+      if (response.success && response.data && response.data.pricePerMessage) {
         setPricing(response.data);
         setAmount(response.data.minimumPurchase);
         setCalculatedPrice({

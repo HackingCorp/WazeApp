@@ -31,6 +31,7 @@ import {
   // Billing entities
   Invoice,
   Plan,
+  MessageCredit,
 } from "../common/entities";
 
 @Module({
@@ -74,6 +75,7 @@ import {
           // Billing entities
           Invoice,
           Plan,
+          MessageCredit,
         ],
         synchronize:
           configService.get("DATABASE_SYNCHRONIZE", "true") === "true",

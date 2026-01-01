@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { X, Smartphone, Loader2, CheckCircle, XCircle, AlertCircle, Plus, Minus, MessageSquare, Clock, Gift } from 'lucide-react';
+import { X, Smartphone, Loader2, CheckCircle, XCircle, AlertCircle, Plus, Minus, MessageSquare, Clock, Gift, CreditCard } from 'lucide-react';
 import { api, apiHelpers } from '@/lib/api';
 import clsx from 'clsx';
 
@@ -11,7 +11,7 @@ interface MessageCreditsPurchaseModalProps {
   onSuccess: () => void;
 }
 
-type MobileProvider = 'mtn' | 'orange';
+type PaymentProvider = 'mtn' | 'orange' | 'enkap';
 type PaymentStatus = 'idle' | 'processing' | 'pending' | 'success' | 'failed';
 
 interface PricingInfo {
@@ -28,7 +28,7 @@ export function MessageCreditsPurchaseModal({
 }: MessageCreditsPurchaseModalProps) {
   const [amount, setAmount] = useState(1000);
   const [phoneNumber, setPhoneNumber] = useState('');
-  const [provider, setProvider] = useState<MobileProvider | null>(null);
+  const [provider, setProvider] = useState<PaymentProvider | null>(null);
   const [status, setStatus] = useState<PaymentStatus>('idle');
   const [error, setError] = useState<string | null>(null);
   const [ptn, setPtn] = useState<string | null>(null);
@@ -139,44 +139,74 @@ export function MessageCreditsPurchaseModal({
   };
 
   const handleInitiatePayment = async () => {
-    if (!provider || !phoneNumber || !calculatedPrice) return;
+    if (!provider || !calculatedPrice) return;
+    if (provider !== 'enkap' && !phoneNumber) return;
 
     setStatus('processing');
     setError(null);
 
     try {
-      // Initiate S3P payment
-      const response = await api.initiateS3PPayment({
-        amount: calculatedPrice.xaf,
-        customerPhone: getCleanPhoneNumber(),
-        paymentType: provider,
-        customerName: 'Client WazeApp',
-        description: `Achat de ${amount} messages supplementaires (credits bonus)`,
-        plan: 'MESSAGE_CREDITS' as any,
-      });
+      if (provider === 'enkap') {
+        // Initiate E-nkap payment (card payment)
+        const response = await api.initiateEnkapPayment({
+          amount: calculatedPrice.xaf,
+          description: `Achat de ${amount} messages supplementaires`,
+          plan: 'MESSAGE_CREDITS' as any,
+        });
 
-      if (response.success && response.data) {
-        const data = response.data;
-        setPtn(data.ptn);
-
-        if (data.status === 'SUCCESS') {
-          // Record the purchase
-          await recordPurchase(data.transactionId, data.ptn);
-          setStatus('success');
-          setTimeout(() => {
-            onSuccess();
-            onClose();
-          }, 2000);
-        } else if (data.status === 'PENDING') {
-          setStatus('pending');
-          pollPaymentStatus(data.ptn, data.transactionId);
+        if (response.success && response.data) {
+          const data = response.data;
+          if (data.paymentUrl) {
+            // Store transaction info for later verification
+            localStorage.setItem('enkap_pending_credit_purchase', JSON.stringify({
+              transactionId: data.transactionId,
+              amount: amount,
+              totalXaf: calculatedPrice.xaf,
+            }));
+            // Redirect to E-nkap payment page
+            window.location.href = data.paymentUrl;
+          } else {
+            setStatus('failed');
+            setError('URL de paiement non disponible');
+          }
         } else {
           setStatus('failed');
-          setError(data.message || 'Le paiement a echoue');
+          setError(response.error || 'Erreur lors de l\'initiation du paiement');
         }
       } else {
-        setStatus('failed');
-        setError(response.error || 'Erreur lors de l\'initiation du paiement');
+        // Initiate S3P payment (Mobile Money)
+        const response = await api.initiateS3PPayment({
+          amount: calculatedPrice.xaf,
+          customerPhone: getCleanPhoneNumber(),
+          paymentType: provider,
+          customerName: 'Client WazeApp',
+          description: `Achat de ${amount} messages supplementaires (credits bonus)`,
+          plan: 'MESSAGE_CREDITS' as any,
+        });
+
+        if (response.success && response.data) {
+          const data = response.data;
+          setPtn(data.ptn);
+
+          if (data.status === 'SUCCESS') {
+            // Record the purchase
+            await recordPurchase(data.transactionId, data.ptn);
+            setStatus('success');
+            setTimeout(() => {
+              onSuccess();
+              onClose();
+            }, 2000);
+          } else if (data.status === 'PENDING') {
+            setStatus('pending');
+            pollPaymentStatus(data.ptn, data.transactionId);
+          } else {
+            setStatus('failed');
+            setError(data.message || 'Le paiement a echoue');
+          }
+        } else {
+          setStatus('failed');
+          setError(response.error || 'Erreur lors de l\'initiation du paiement');
+        }
       }
     } catch (err) {
       console.error('Payment error:', err);
@@ -428,65 +458,92 @@ export function MessageCreditsPurchaseModal({
               {/* Provider Selection */}
               <div className="mb-6">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-                  Choisissez votre operateur
+                  Choisissez votre mode de paiement
                 </label>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-3 gap-3">
                   <button
                     onClick={() => setProvider('mtn')}
                     className={clsx(
-                      'p-4 rounded-xl border-2 transition-all flex flex-col items-center gap-2',
+                      'p-3 rounded-xl border-2 transition-all flex flex-col items-center gap-2',
                       provider === 'mtn'
                         ? 'border-yellow-500 bg-yellow-50 dark:bg-yellow-900/20'
                         : 'border-gray-200 dark:border-gray-600 hover:border-yellow-300'
                     )}
                   >
-                    <div className="w-12 h-12 bg-yellow-500 rounded-full flex items-center justify-center">
-                      <span className="text-white font-bold text-sm">MTN</span>
+                    <div className="w-10 h-10 bg-yellow-500 rounded-full flex items-center justify-center">
+                      <span className="text-white font-bold text-xs">MTN</span>
                     </div>
-                    <span className="text-sm font-medium text-gray-900 dark:text-white">MTN MoMo</span>
+                    <span className="text-xs font-medium text-gray-900 dark:text-white">MTN MoMo</span>
                   </button>
                   <button
                     onClick={() => setProvider('orange')}
                     className={clsx(
-                      'p-4 rounded-xl border-2 transition-all flex flex-col items-center gap-2',
+                      'p-3 rounded-xl border-2 transition-all flex flex-col items-center gap-2',
                       provider === 'orange'
                         ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20'
                         : 'border-gray-200 dark:border-gray-600 hover:border-orange-300'
                     )}
                   >
-                    <div className="w-12 h-12 bg-orange-500 rounded-full flex items-center justify-center">
-                      <span className="text-white font-bold text-xs">Orange</span>
+                    <div className="w-10 h-10 bg-orange-500 rounded-full flex items-center justify-center">
+                      <span className="text-white font-bold text-[10px]">Orange</span>
                     </div>
-                    <span className="text-sm font-medium text-gray-900 dark:text-white">Orange Money</span>
+                    <span className="text-xs font-medium text-gray-900 dark:text-white">Orange Money</span>
+                  </button>
+                  <button
+                    onClick={() => setProvider('enkap')}
+                    className={clsx(
+                      'p-3 rounded-xl border-2 transition-all flex flex-col items-center gap-2',
+                      provider === 'enkap'
+                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                        : 'border-gray-200 dark:border-gray-600 hover:border-blue-300'
+                    )}
+                  >
+                    <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center">
+                      <CreditCard className="w-5 h-5 text-white" />
+                    </div>
+                    <span className="text-xs font-medium text-gray-900 dark:text-white">Carte bancaire</span>
                   </button>
                 </div>
               </div>
 
-              {/* Phone Number Input */}
-              <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Numero de telephone
-                </label>
-                <div className="relative">
-                  <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
-                    <span className="text-gray-500 dark:text-gray-400 font-medium">+237</span>
-                    <div className="w-px h-6 bg-gray-300 dark:bg-gray-600"></div>
+              {/* Phone Number Input - Only for Mobile Money */}
+              {provider && provider !== 'enkap' && (
+                <div className="mb-6">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Numero de telephone
+                  </label>
+                  <div className="relative">
+                    <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
+                      <span className="text-gray-500 dark:text-gray-400 font-medium">+237</span>
+                      <div className="w-px h-6 bg-gray-300 dark:bg-gray-600"></div>
+                    </div>
+                    <input
+                      type="tel"
+                      value={phoneNumber}
+                      onChange={handlePhoneChange}
+                      placeholder="6XX XXX XXX"
+                      maxLength={11}
+                      className="w-full pl-20 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                    />
                   </div>
-                  <input
-                    type="tel"
-                    value={phoneNumber}
-                    onChange={handlePhoneChange}
-                    placeholder="6XX XXX XXX"
-                    maxLength={11}
-                    className="w-full pl-20 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                  />
-                </div>
-                {provider && (
                   <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-                    Operateur detecte: <span className={provider === 'mtn' ? 'text-yellow-600' : 'text-orange-600'}>{provider === 'mtn' ? 'MTN Mobile Money' : 'Orange Money'}</span>
+                    Operateur: <span className={provider === 'mtn' ? 'text-yellow-600' : 'text-orange-600'}>{provider === 'mtn' ? 'MTN Mobile Money' : 'Orange Money'}</span>
                   </p>
-                )}
-              </div>
+                </div>
+              )}
+
+              {/* Card Payment Info */}
+              {provider === 'enkap' && (
+                <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl">
+                  <div className="flex items-center gap-3 mb-2">
+                    <CreditCard className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                    <span className="font-medium text-gray-900 dark:text-white">Paiement par carte bancaire</span>
+                  </div>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    Vous serez redirige vers la plateforme securisee E-nkap pour effectuer votre paiement par carte Visa, Mastercard ou autre.
+                  </p>
+                </div>
+              )}
 
               {/* Info Message */}
               <div className="flex items-start gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl mb-6">
@@ -500,16 +557,16 @@ export function MessageCreditsPurchaseModal({
               {/* Submit Button */}
               <button
                 onClick={handleInitiatePayment}
-                disabled={!provider || phoneNumber.replace(/\D/g, '').length < 9}
+                disabled={!provider || (provider !== 'enkap' && phoneNumber.replace(/\D/g, '').length < 9)}
                 className={clsx(
                   'w-full py-3.5 rounded-xl font-semibold transition-all flex items-center justify-center gap-2',
-                  provider && phoneNumber.replace(/\D/g, '').length >= 9
+                  provider && (provider === 'enkap' || phoneNumber.replace(/\D/g, '').length >= 9)
                     ? 'bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-600 hover:to-green-600 text-white shadow-lg shadow-emerald-500/25'
                     : 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed'
                 )}
               >
-                <Gift className="w-5 h-5" />
-                Acheter {amount.toLocaleString()} messages - {calculatedPrice?.xaf.toLocaleString()} FCFA
+                {provider === 'enkap' ? <CreditCard className="w-5 h-5" /> : <Gift className="w-5 h-5" />}
+                {provider === 'enkap' ? 'Payer par carte' : 'Acheter'} {amount.toLocaleString()} messages - {calculatedPrice?.xaf.toLocaleString()} FCFA
               </button>
             </>
           )}

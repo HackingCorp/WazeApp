@@ -400,89 +400,91 @@ export default function DashboardPage() {
 
       {/* Message Quota and Bonus Credits Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Message Quota Section - Always show with defaults */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center space-x-3">
-              <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
-                <MessageSquare className="h-5 w-5 text-green-600 dark:text-green-400" />
+        {/* Message Quota Section - Only show when data is available */}
+        {quota?.messages && (
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center space-x-3">
+                <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
+                  <MessageSquare className="h-5 w-5 text-green-600 dark:text-green-400" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                    {t('dashboard.messageQuota') || 'Quota de Messages'}
+                  </h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    {t('dashboard.monthlyUsage') || 'Utilisation mensuelle'}
+                  </p>
+                </div>
               </div>
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                  {t('dashboard.messageQuota') || 'Quota de Messages'}
-                </h3>
+              <div className="text-right">
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                  {quota.messages.current.toLocaleString()} / {quota.messages.limit.toLocaleString()}
+                </p>
                 <p className="text-sm text-gray-500 dark:text-gray-400">
-                  {t('dashboard.monthlyUsage') || 'Utilisation mensuelle'}
+                  {quota.messages.remaining.toLocaleString()} {t('dashboard.remaining') || 'restants'}
+                </p>
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                  {t('dashboard.quotaResetDate') || 'Reinitialisation le'}: {(() => {
+                    // Use resetDate from API if available, otherwise fallback to calculated date
+                    if (quota.messages?.resetDate) {
+                      return new Date(quota.messages.resetDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+                    }
+                    // Fallback: first day of next month
+                    const now = new Date();
+                    const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+                    return nextMonth.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+                  })()}
                 </p>
               </div>
             </div>
-            <div className="text-right">
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                {(quota?.messages?.current ?? 0).toLocaleString()} / {(quota?.messages?.limit ?? 500).toLocaleString()}
-              </p>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                {(quota?.messages?.remaining ?? 500).toLocaleString()} {t('dashboard.remaining') || 'restants'}
-              </p>
-              <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                {t('dashboard.quotaResetDate') || 'Reinitialisation le'}: {(() => {
-                  // Use resetDate from API if available, otherwise fallback to calculated date
-                  if (quota?.messages?.resetDate) {
-                    return new Date(quota.messages.resetDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
-                  }
-                  // Fallback: first day of next month
-                  const now = new Date();
-                  const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-                  return nextMonth.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
-                })()}
-              </p>
-            </div>
-          </div>
 
-          {/* Progress Bar */}
-          <div className="relative">
-            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-4 overflow-hidden">
-              <div
-                className={`h-4 rounded-full transition-all duration-500 ${
-                  (quota?.messages?.percentUsed ?? 0) >= 90
-                    ? 'bg-red-500'
-                    : (quota?.messages?.percentUsed ?? 0) >= 70
-                    ? 'bg-yellow-500'
-                    : 'bg-green-500'
-                }`}
-                style={{ width: `${Math.min(quota?.messages?.percentUsed ?? 0, 100)}%` }}
-              />
-            </div>
-            <div className="flex justify-between mt-2 text-xs text-gray-500 dark:text-gray-400">
-              <span>{(quota?.messages?.percentUsed ?? 0).toFixed(1)}% {t('dashboard.used') || 'utilise'}</span>
-              <span>
-                {(quota?.messages?.percentUsed ?? 0) >= 90 && (
-                  <span className="text-red-500 font-medium flex items-center">
-                    <AlertTriangle className="h-3 w-3 mr-1" />
-                    {t('dashboard.quotaWarning') || 'Quota presque atteint!'}
-                  </span>
-                )}
-              </span>
-            </div>
-          </div>
-
-          {/* Bonus Credits Info in Quota Card */}
-          {quota?.messages?.bonusCredits && quota.messages.bonusCredits.available > 0 && (
-            <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Gift className="h-4 w-4 text-purple-500" />
-                  <span className="text-sm text-gray-600 dark:text-gray-400">Messages bonus</span>
-                </div>
-                <span className="text-sm font-semibold text-purple-600 dark:text-purple-400">
-                  +{quota.messages.bonusCredits.available.toLocaleString()}
+            {/* Progress Bar */}
+            <div className="relative">
+              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-4 overflow-hidden">
+                <div
+                  className={`h-4 rounded-full transition-all duration-500 ${
+                    quota.messages.percentUsed >= 90
+                      ? 'bg-red-500'
+                      : quota.messages.percentUsed >= 70
+                      ? 'bg-yellow-500'
+                      : 'bg-green-500'
+                  }`}
+                  style={{ width: `${Math.min(quota.messages.percentUsed, 100)}%` }}
+                />
+              </div>
+              <div className="flex justify-between mt-2 text-xs text-gray-500 dark:text-gray-400">
+                <span>{quota.messages.percentUsed.toFixed(1)}% {t('dashboard.used') || 'utilise'}</span>
+                <span>
+                  {quota.messages.percentUsed >= 90 && (
+                    <span className="text-red-500 font-medium flex items-center">
+                      <AlertTriangle className="h-3 w-3 mr-1" />
+                      {t('dashboard.quotaWarning') || 'Quota presque atteint!'}
+                    </span>
+                  )}
                 </span>
               </div>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                Utilises en priorite avant le quota mensuel
-              </p>
             </div>
-          )}
-        </div>
+
+            {/* Bonus Credits Info in Quota Card */}
+            {quota.messages.bonusCredits && quota.messages.bonusCredits.available > 0 && (
+              <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Gift className="h-4 w-4 text-purple-500" />
+                    <span className="text-sm text-gray-600 dark:text-gray-400">Messages bonus</span>
+                  </div>
+                  <span className="text-sm font-semibold text-purple-600 dark:text-purple-400">
+                    +{quota.messages.bonusCredits.available.toLocaleString()}
+                  </span>
+                </div>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  Utilises en priorite avant le quota mensuel
+                </p>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Bonus Credits Widget */}
         <BonusCreditsWidget onRefresh={loadDashboardData} />

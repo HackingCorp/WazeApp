@@ -462,15 +462,27 @@ export class S3PService {
       let payItemId: string;
       const services = serviceResponse.data;
 
+      this.logger.log(`S3P /cashin response: ${JSON.stringify(services)}`);
+
       if (Array.isArray(services)) {
-        const service = services.find((s) => s.serviceid === serviceId);
+        // Chercher le service par serviceid (peut être string ou number)
+        const service = services.find((s) =>
+          String(s.serviceid) === String(serviceId) ||
+          String(s.serviceId) === String(serviceId) ||
+          String(s.id) === String(serviceId)
+        );
         if (!service) {
-          throw new Error(`Service ${serviceId} non trouvé`);
+          // Log tous les services disponibles pour debug
+          this.logger.warn(`Service ${serviceId} non trouvé. Services disponibles: ${JSON.stringify(services.map(s => ({ id: s.id, serviceid: s.serviceid, serviceId: s.serviceId, name: s.name || s.serviceName })))}`);
+          throw new Error(`Service ${serviceId} non trouvé dans la liste des services cashin`);
         }
-        payItemId = service.payItemId;
+        payItemId = service.payItemId || service.payitemid || service.pay_item_id;
       } else if (services.payItemId) {
         payItemId = services.payItemId;
+      } else if (services.payitemid) {
+        payItemId = services.payitemid;
       } else {
+        this.logger.warn(`Format de réponse inattendu: ${JSON.stringify(services)}`);
         throw new Error('Format de réponse inattendu');
       }
 

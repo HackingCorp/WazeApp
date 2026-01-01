@@ -80,8 +80,8 @@ export class PaymentVerificationDto {
   organizationId?: string;
 
   @IsOptional()
-  @IsIn(['STANDARD', 'PRO', 'ENTERPRISE'])
-  plan?: 'STANDARD' | 'PRO' | 'ENTERPRISE';
+  @IsString()
+  plan?: string;
 
   @IsOptional()
   @IsNumber()
@@ -189,7 +189,8 @@ export class MobileMoneyController {
 
       this.logger.log(`Payment verified successfully for user ${userId}, org: ${organizationId}, plan: ${plan}, amount: ${amount}`);
 
-      if (plan) {
+      // Only upgrade subscription for actual plan upgrades, not for MESSAGE_CREDITS
+      if (plan && ['STANDARD', 'PRO', 'ENTERPRISE'].includes(plan.toUpperCase())) {
         try {
           let upgradeResult;
 

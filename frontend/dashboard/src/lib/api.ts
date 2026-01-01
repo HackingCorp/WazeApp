@@ -1151,6 +1151,56 @@ class ApiClient {
   async getBillingSummary() {
     return this.request('/billing/summary');
   }
+
+  // ============================================
+  // MESSAGE CREDITS ENDPOINTS
+  // ============================================
+
+  // Get message credits pricing info
+  async getMessageCreditsPricing() {
+    return this.request('/message-credits/pricing');
+  }
+
+  // Calculate price for given amount of messages
+  async calculateMessageCreditsPrice(amount: number) {
+    return this.request(`/message-credits/calculate?amount=${amount}`);
+  }
+
+  // Get credits summary for organization
+  async getMessageCreditsSummary() {
+    return this.request('/message-credits/summary');
+  }
+
+  // Get purchase history
+  async getMessageCreditsHistory(limit: number = 10, offset: number = 0) {
+    return this.request(`/message-credits/history?limit=${limit}&offset=${offset}`);
+  }
+
+  // Record completed purchase (after payment verification)
+  async purchaseMessageCredits(data: {
+    amount: number;
+    transactionId: string;
+    ptn?: string;
+    paymentMethod: string;
+    phoneNumber?: string;
+  }) {
+    return this.request('/message-credits/purchase', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Initiate purchase with Mobile Money
+  async initiateMessageCreditsPurchase(data: {
+    amount: number;
+    phoneNumber: string;
+    paymentMethod: 'orange_money' | 'mtn_mobile_money';
+  }) {
+    return this.request('/message-credits/initiate-purchase', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
 }
 
 export const api = new ApiClient(API_BASE_URL);
@@ -1193,6 +1243,14 @@ export const apiHelpers = {
     getInvoice: (id: string) => api.getBillingInvoice(id),
     payInvoice: (id: string, data: { paymentMethod: string; paymentReference: string }) => api.payInvoice(id, data),
     getSummary: () => api.getBillingSummary(),
+  },
+  messageCredits: {
+    getPricing: () => api.getMessageCreditsPricing(),
+    calculatePrice: (amount: number) => api.calculateMessageCreditsPrice(amount),
+    getSummary: () => api.getMessageCreditsSummary(),
+    getHistory: (limit?: number, offset?: number) => api.getMessageCreditsHistory(limit, offset),
+    purchase: (data: Parameters<typeof api.purchaseMessageCredits>[0]) => api.purchaseMessageCredits(data),
+    initiatePurchase: (data: Parameters<typeof api.initiateMessageCreditsPurchase>[0]) => api.initiateMessageCreditsPurchase(data),
   },
 };
 

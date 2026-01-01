@@ -265,6 +265,59 @@ export class InvoiceService {
   }
 
   /**
+   * Create an invoice for message credits purchase
+   */
+  async createCreditInvoice(data: {
+    organizationId: string;
+    amount: number;
+    currency: string;
+    description: string;
+    lineItems: Array<{
+      description: string;
+      quantity: number;
+      unitPrice: number;
+      total: number;
+    }>;
+    paymentReference?: string;
+    metadata?: Record<string, any>;
+  }): Promise<Invoice> {
+    const amountInCents = Math.round(data.amount * 100);
+    const now = new Date();
+    const dueDate = new Date(now);
+    dueDate.setDate(dueDate.getDate() + 7);
+
+    const invoice = this.invoiceRepository.create({
+      invoiceNumber: this.generateInvoiceNumber(),
+      organizationId: data.organizationId,
+      status: InvoiceStatus.PAID, // Credits are pre-paid
+      amountInCents,
+      currency: data.currency,
+      description: data.description,
+      periodStart: now,
+      periodEnd: now,
+      dueDate: now,
+      paidAt: now,
+      paymentMethod: 'mobile_money',
+      paymentReference: data.paymentReference,
+      lineItems: data.lineItems.map(item => ({
+        description: item.description,
+        quantity: item.quantity,
+        unitPrice: Math.round(item.unitPrice * 100),
+        total: Math.round(item.total * 100),
+      })),
+      taxAmountInCents: 0,
+      discountAmountInCents: 0,
+      totalAmountInCents: amountInCents,
+      metadata: data.metadata,
+    });
+
+    const savedInvoice = await this.invoiceRepository.save(invoice);
+    this.logger.log(`Created credit invoice ${savedInvoice.invoiceNumber} for organization ${data.organizationId}`);
+
+    return savedInvoice;
+  }
+
+  /**
    * Cron job: Check for overdue invoices and update status
    */
   @Cron(CronExpression.EVERY_HOUR)

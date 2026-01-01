@@ -16,8 +16,11 @@ import {
   XCircle,
   Download,
   Loader2,
-  ArrowRight
+  ArrowRight,
+  Gift,
 } from 'lucide-react';
+import { BonusCreditsWidget } from '@/components/billing/BonusCreditsWidget';
+import { MessageCreditsPurchaseModal } from '@/components/billing/MessageCreditsPurchaseModal';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
@@ -59,7 +62,7 @@ const statusConfig = {
 export default function BillingPage() {
   const { user, refreshAuth } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'plan' | 'invoices'>('plan');
+  const [activeTab, setActiveTab] = useState<'plan' | 'credits' | 'invoices'>('plan');
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [summary, setSummary] = useState<BillingSummary | null>(null);
   const [loadingInvoices, setLoadingInvoices] = useState(false);
@@ -201,6 +204,17 @@ export default function BillingPage() {
               Abonnement
             </button>
             <button
+              onClick={() => setActiveTab('credits')}
+              className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+                activeTab === 'credits'
+                  ? 'border-primary-500 text-primary-600 dark:text-primary-400'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-200'
+              }`}
+            >
+              <Gift className="w-4 h-4 inline-block mr-2" />
+              Messages Bonus
+            </button>
+            <button
               onClick={() => setActiveTab('invoices')}
               className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
                 activeTab === 'invoices'
@@ -229,6 +243,47 @@ export default function BillingPage() {
           onBillingCycleChange={handleBillingCycleChange}
           isLoading={isLoading}
         />
+      ) : activeTab === 'credits' ? (
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          {/* Header */}
+          <div className="mb-8">
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+              Messages Supplementaires
+            </h1>
+            <p className="text-gray-500 dark:text-gray-400">
+              Achetez des messages bonus pour eviter de depasser votre quota mensuel.
+              Les messages bonus sont utilises en priorite avant votre abonnement.
+            </p>
+          </div>
+
+          {/* Bonus Credits Widget */}
+          <BonusCreditsWidget />
+
+          {/* Info Section */}
+          <div className="mt-8 bg-blue-50 dark:bg-blue-900/20 rounded-xl p-6 border border-blue-200 dark:border-blue-800">
+            <h3 className="text-lg font-semibold text-blue-900 dark:text-blue-100 mb-4">
+              Comment ca marche ?
+            </h3>
+            <ul className="space-y-3 text-sm text-blue-700 dark:text-blue-300">
+              <li className="flex items-start gap-3">
+                <span className="flex-shrink-0 w-6 h-6 bg-blue-100 dark:bg-blue-800 rounded-full flex items-center justify-center text-xs font-bold text-blue-600 dark:text-blue-300">1</span>
+                <span>Achetez des packs de messages supplementaires (minimum 1000 messages)</span>
+              </li>
+              <li className="flex items-start gap-3">
+                <span className="flex-shrink-0 w-6 h-6 bg-blue-100 dark:bg-blue-800 rounded-full flex items-center justify-center text-xs font-bold text-blue-600 dark:text-blue-300">2</span>
+                <span>Les messages bonus sont utilises en priorite avant votre quota mensuel</span>
+              </li>
+              <li className="flex items-start gap-3">
+                <span className="flex-shrink-0 w-6 h-6 bg-blue-100 dark:bg-blue-800 rounded-full flex items-center justify-center text-xs font-bold text-blue-600 dark:text-blue-300">3</span>
+                <span>Les messages non utilises expirent apres 30 jours</span>
+              </li>
+              <li className="flex items-start gap-3">
+                <span className="flex-shrink-0 w-6 h-6 bg-blue-100 dark:bg-blue-800 rounded-full flex items-center justify-center text-xs font-bold text-blue-600 dark:text-blue-300">4</span>
+                <span>Les packs les plus anciens sont utilises en premier (FIFO)</span>
+              </li>
+            </ul>
+          </div>
+        </div>
       ) : (
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           {/* Billing Summary */}

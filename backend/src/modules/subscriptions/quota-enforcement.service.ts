@@ -1,6 +1,6 @@
-import { Injectable, ForbiddenException, Logger } from "@nestjs/common";
+import { Injectable, ForbiddenException, Logger, Inject, forwardRef } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository, IsNull } from "typeorm";
+import { Repository, IsNull, MoreThan } from "typeorm";
 import {
   Organization,
   Subscription,
@@ -12,6 +12,8 @@ import {
   User,
   AgentConversation,
   AgentMessage,
+  MessageCredit,
+  MessageCreditStatus,
 } from "../../common/entities";
 import { MessageRole } from "../../common/enums";
 import { SubscriptionPlan, UsageMetricType } from "../../common/enums";
@@ -25,6 +27,12 @@ export interface QuotaCheck {
   percentUsed: number;
   message?: string;
   resetDate?: string; // ISO date string for when quota resets (nextBillingDate)
+  // Bonus credits info
+  bonusCredits?: {
+    available: number;
+    used: number;
+    nextExpiration?: Date;
+  };
 }
 
 export interface FeatureCheck {
@@ -67,6 +75,9 @@ export class QuotaEnforcementService {
 
     @InjectRepository(AgentMessage)
     private readonly messageRepository: Repository<AgentMessage>,
+
+    @InjectRepository(MessageCredit)
+    private readonly messageCreditRepository: Repository<MessageCredit>,
 
     private readonly planService: PlanService,
   ) {}
@@ -221,14 +232,42 @@ export class QuotaEnforcementService {
   /**
    * Check WhatsApp message quota for an organization
    * Counts actual messages from AgentMessage table
+   * Bonus credits are consumed FIRST, then subscription quota is used
    */
   async checkWhatsAppMessageQuota(organizationId: string): Promise<QuotaCheck> {
     const subscription = await this.getActiveSubscription(organizationId);
-    const limit = subscription.limits.maxRequestsPerMonth; // Using requests limit for messages
+    const planLimit = subscription.limits.maxRequestsPerMonth; // Using requests limit for messages
 
-    const current = await this.getActualWhatsAppMessageCount(organizationId);
+    // Get bonus credits info
+    const bonusCreditsInfo = await this.getBonusCreditsInfo(organizationId);
+    const totalBonusAvailable = bonusCreditsInfo.available;
+    const totalBonusUsed = bonusCreditsInfo.used;
 
-    const quotaCheck = this.buildQuotaCheck(current, limit, "monthly WhatsApp messages");
+    // Get actual message count
+    const totalMessagesUsed = await this.getActualWhatsAppMessageCount(organizationId);
+
+    // Priority: Bonus credits are consumed FIRST
+    // Calculate how many messages are counted against subscription quota
+    // If totalMessagesUsed <= totalBonusUsed (bonus credits covered all messages), subscription usage = 0
+    // Otherwise, subscription usage = totalMessagesUsed - bonus credits originally purchased + remaining
+
+    // Simpler approach: Effective limit = planLimit + bonusAvailable
+    // Messages are consumed from bonus first, so:
+    // - If messagesUsed <= totalBonusCreditsEverPurchased, all from bonus
+    // - Subscription usage = max(0, messagesUsed - totalBonusCreditsEverPurchased)
+
+    // For display purposes, we show:
+    // - current: messages consumed from subscription quota only
+    // - limit: subscription plan limit
+    // - bonusCredits: separate info about bonus
+
+    // Calculate messages consumed from subscription (after bonus is exhausted)
+    // Total bonus credits ever purchased for this period = used + available
+    const totalBonusCredits = totalBonusUsed + totalBonusAvailable;
+    const messagesFromSubscription = Math.max(0, totalMessagesUsed - totalBonusCredits);
+
+    // Build quota check based on subscription usage only
+    const quotaCheck = this.buildQuotaCheck(messagesFromSubscription, planLimit, "monthly WhatsApp messages");
 
     // Add reset date from subscription's nextBillingDate
     if (subscription.nextBillingDate) {
@@ -237,7 +276,103 @@ export class QuotaEnforcementService {
       quotaCheck.resetDate = subscription.endsAt.toISOString();
     }
 
+    // Add bonus credits info
+    quotaCheck.bonusCredits = {
+      available: totalBonusAvailable,
+      used: Math.min(totalBonusUsed, totalMessagesUsed), // Can't use more than total messages
+      nextExpiration: bonusCreditsInfo.nextExpiration,
+    };
+
+    // Recalculate allowed status considering bonus credits
+    // User can send messages if: bonusAvailable > 0 OR messagesFromSubscription < planLimit
+    quotaCheck.allowed = totalBonusAvailable > 0 || messagesFromSubscription < planLimit;
+
+    // Update remaining to include bonus
+    quotaCheck.remaining = totalBonusAvailable + Math.max(0, planLimit - messagesFromSubscription);
+
     return quotaCheck;
+  }
+
+  /**
+   * Get bonus credits information for an organization
+   */
+  private async getBonusCreditsInfo(organizationId: string): Promise<{
+    available: number;
+    used: number;
+    nextExpiration?: Date;
+  }> {
+    const now = new Date();
+
+    // Get all active (non-expired) credits
+    const activeCredits = await this.messageCreditRepository.find({
+      where: {
+        organizationId,
+        status: MessageCreditStatus.ACTIVE,
+        expiresAt: MoreThan(now),
+      },
+      order: {
+        expiresAt: 'ASC', // Oldest first for next expiration
+      },
+    });
+
+    const available = activeCredits.reduce((sum, c) => sum + c.remaining, 0);
+    const used = activeCredits.reduce((sum, c) => sum + c.used, 0);
+
+    // Also count used credits from exhausted packs in current period
+    const exhaustedCredits = await this.messageCreditRepository.find({
+      where: {
+        organizationId,
+        status: MessageCreditStatus.EXHAUSTED,
+      },
+    });
+    const exhaustedUsed = exhaustedCredits.reduce((sum, c) => sum + c.used, 0);
+
+    const nextExpiring = activeCredits.find(c => c.remaining > 0);
+
+    return {
+      available,
+      used: used + exhaustedUsed,
+      nextExpiration: nextExpiring?.expiresAt,
+    };
+  }
+
+  /**
+   * Consume bonus credits for a message
+   * Call this when processing a message to deduct from bonus credits first
+   * Returns true if message was covered by bonus credits
+   */
+  async consumeBonusCredit(organizationId: string): Promise<boolean> {
+    const now = new Date();
+
+    // Find the oldest active credit with remaining balance (FIFO)
+    const credit = await this.messageCreditRepository.findOne({
+      where: {
+        organizationId,
+        status: MessageCreditStatus.ACTIVE,
+        expiresAt: MoreThan(now),
+      },
+      order: {
+        expiresAt: 'ASC',
+      },
+    });
+
+    if (!credit || credit.remaining <= 0) {
+      return false; // No bonus credits available
+    }
+
+    // Consume one credit
+    credit.remaining -= 1;
+    credit.used += 1;
+
+    // Mark as exhausted if no more remaining
+    if (credit.remaining <= 0) {
+      credit.status = MessageCreditStatus.EXHAUSTED;
+    }
+
+    await this.messageCreditRepository.save(credit);
+    this.logger.debug(`Consumed 1 bonus credit for org ${organizationId}, ${credit.remaining} remaining in pack ${credit.id}`);
+
+    return true;
   }
 
   /**

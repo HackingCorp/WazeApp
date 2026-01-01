@@ -36,3 +36,4 @@ export { BroadcastCampaign, CampaignStatus, RecurrenceType } from "./broadcast-c
 export { BroadcastMessage, BroadcastMessageStatus } from "./broadcast-message.entity";
 export { ApiKey, ApiKeyPermission } from "./api-key.entity";
 export { WebhookConfig, WebhookEvent as WebhookEventType } from "./webhook-config.entity";
+export { MessageCredit, MessageCreditStatus } from "./message-credit.entity";

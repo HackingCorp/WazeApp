@@ -283,20 +283,24 @@ export class S3PService {
       const rawData = response.data;
       this.logger.log(`S3P verifyPayment RAW response: ${JSON.stringify(rawData)}`);
 
+      // S3P retourne souvent un tableau - extraire le premier élément
+      let data = rawData;
+      if (Array.isArray(rawData) && rawData.length > 0) {
+        data = rawData[0];
+      }
+
       // Normalize the status - S3P peut retourner le statut dans différents champs
-      let status = rawData.status;
+      let status = data.status;
 
       // Vérifier tous les champs possibles selon la documentation S3P
-      if (!status) status = rawData.transactionStatus;
-      if (!status) status = rawData.txStatus;
-      if (!status) status = rawData.paymentStatus;
-      if (!status) status = rawData.data?.status;
-      if (!status) status = rawData.result?.status;
+      if (!status) status = data.transactionStatus;
+      if (!status) status = data.txStatus;
+      if (!status) status = data.paymentStatus;
+      if (!status) status = data.data?.status;
+      if (!status) status = data.result?.status;
 
-      // Si c'est un tableau, prendre le premier élément
-      if (Array.isArray(rawData) && rawData.length > 0) {
-        status = rawData[0].status || rawData[0].transactionStatus;
-      }
+      // Extraire le errorCode
+      const errorCode = data.errorCode;
 
       // Normalize status values selon la documentation
       if (status) {
@@ -321,12 +325,13 @@ export class S3PService {
         status = 'PENDING';
       }
 
-      this.logger.log(`S3P verifyPayment NORMALIZED status: ${status}`);
+      this.logger.log(`S3P verifyPayment NORMALIZED status: ${status}, errorCode: ${errorCode || 'none'}`);
 
       return {
-        ...rawData,
+        ...data,
         status,
-        ptn: rawData.ptn || ptn,
+        errorCode,
+        ptn: data.ptn || ptn,
         originalStatus: rawData.status || rawData.transactionStatus || 'unknown',
       };
     } catch (error) {
@@ -512,17 +517,9 @@ export class S3PService {
 
       const verifyResponse = await this.verifyPayment(ptn, trid);
 
-      // Extraire le errorCode de la réponse S3P
-      let errorCode: number | undefined;
-      let s3pStatus = verifyResponse.status || 'PENDING';
-
-      // Si c'est un tableau (réponse S3P standard), extraire le premier élément
-      if (Array.isArray(verifyResponse) && verifyResponse.length > 0) {
-        errorCode = verifyResponse[0].errorCode;
-        s3pStatus = verifyResponse[0].status || s3pStatus;
-      } else if (verifyResponse.errorCode) {
-        errorCode = verifyResponse.errorCode;
-      }
+      // Extraire le errorCode et status de la réponse S3P (déjà normalisée par verifyPayment)
+      const errorCode = verifyResponse.errorCode;
+      const s3pStatus = verifyResponse.status || 'PENDING';
 
       // Déterminer le statut final
       let finalStatus = 'PENDING';

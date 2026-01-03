@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { Cron, CronExpression } from '@nestjs/schedule';
+import { OnEvent } from '@nestjs/event-emitter';
 import { WhatsAppSession, User, OrganizationMember } from '../../common/entities';
 import { WhatsAppSessionStatus } from '../../common/enums';
 import { EmailService } from '../email/email.service';
@@ -150,7 +151,7 @@ export class WhatsAppSessionMonitorService {
   /**
    * Send disconnection alert email to organization admins/owners
    */
-  private async sendDisconnectionAlert(session: WhatsAppSession): Promise<void> {
+  async sendDisconnectionAlert(session: WhatsAppSession): Promise<void> {
     try {
       const recipients = await this.getSessionRecipients(session.organizationId);
 
@@ -182,7 +183,7 @@ export class WhatsAppSessionMonitorService {
   /**
    * Send reconnection alert email to organization admins/owners
    */
-  private async sendReconnectionAlert(
+  async sendReconnectionAlert(
     session: WhatsAppSession,
     disconnectedAt: Date | null,
   ): Promise<void> {
@@ -299,6 +300,138 @@ export class WhatsAppSessionMonitorService {
 
     if (session) {
       await this.checkSessionStatus(session);
+    }
+  }
+
+  /**
+   * Handle real-time connection updates from Baileys
+   * This is the primary method for detecting disconnections instantly
+   */
+  @OnEvent('whatsapp.connection.update')
+  async handleConnectionUpdate(data: { sessionId: string; update: any }): Promise<void> {
+    const { sessionId, update } = data;
+    const { connection, lastDisconnect } = update;
+
+    this.logger.log(`📡 Monitor received connection update for session ${sessionId}: ${connection}`);
+
+    // Only handle close (disconnection) events
+    if (connection === 'close') {
+      const statusCode = lastDisconnect?.error?.output?.statusCode;
+      const reason = lastDisconnect?.error?.message || 'Unknown reason';
+
+      this.logger.warn(`📵 Session ${sessionId} disconnected - Status: ${statusCode}, Reason: ${reason}`);
+
+      // Check if this is a permanent disconnection (logout or conflict)
+      // Status codes: 401 = logged out, 403 = conflict (same session on another device), 515 = restart required
+      const isPermanentDisconnect = statusCode === 401 || statusCode === 403;
+
+      try {
+        // Get the session from database
+        const session = await this.sessionRepository.findOne({
+          where: { id: sessionId },
+          relations: ['organization'],
+        });
+
+        if (!session) {
+          this.logger.warn(`Session ${sessionId} not found in database`);
+          return;
+        }
+
+        // Get or create cache entry
+        let cache = this.sessionStatusCache.get(sessionId);
+
+        // Only send alert if:
+        // 1. Cache doesn't exist (first time seeing this session) and session was previously connected
+        // 2. OR Cache exists and last status was 'connected' and we haven't sent disconnect alert yet
+        const shouldSendAlert =
+          (!cache && session.status === WhatsAppSessionStatus.CONNECTED) ||
+          (cache && cache.lastStatus === 'connected' && !cache.disconnectAlertSent);
+
+        if (shouldSendAlert) {
+          this.logger.log(`📧 Sending disconnection alert for session ${sessionId}`);
+
+          // Update or create cache
+          if (!cache) {
+            cache = {
+              sessionId,
+              lastStatus: 'disconnected',
+              lastChecked: new Date(),
+              disconnectAlertSent: false,
+              reconnectAlertSent: false,
+              disconnectedAt: new Date(),
+            };
+          } else {
+            cache.lastStatus = 'disconnected';
+            cache.disconnectedAt = new Date();
+          }
+
+          // Send the alert
+          await this.sendDisconnectionAlert(session);
+          cache.disconnectAlertSent = true;
+          cache.reconnectAlertSent = false;
+
+          this.sessionStatusCache.set(sessionId, cache);
+
+          // Update session status in database
+          await this.sessionRepository.update(sessionId, {
+            status: WhatsAppSessionStatus.DISCONNECTED,
+          });
+        } else {
+          this.logger.log(`Skipping alert for session ${sessionId} - already sent or not previously connected`);
+        }
+
+      } catch (error) {
+        this.logger.error(`Error handling connection update for session ${sessionId}: ${error.message}`);
+      }
+    }
+    // Handle successful connection (open)
+    else if (connection === 'open') {
+      this.logger.log(`✅ Session ${sessionId} connected`);
+
+      try {
+        const session = await this.sessionRepository.findOne({
+          where: { id: sessionId },
+          relations: ['organization'],
+        });
+
+        if (!session) {
+          return;
+        }
+
+        const cache = this.sessionStatusCache.get(sessionId);
+
+        // Send reconnection alert if we previously sent a disconnect alert
+        if (cache && cache.disconnectAlertSent && !cache.reconnectAlertSent) {
+          this.logger.log(`📧 Sending reconnection alert for session ${sessionId}`);
+          await this.sendReconnectionAlert(session, cache.disconnectedAt);
+          cache.reconnectAlertSent = true;
+        }
+
+        // Update cache
+        if (cache) {
+          cache.lastStatus = 'connected';
+          cache.disconnectedAt = null;
+          this.sessionStatusCache.set(sessionId, cache);
+        } else {
+          this.sessionStatusCache.set(sessionId, {
+            sessionId,
+            lastStatus: 'connected',
+            lastChecked: new Date(),
+            disconnectAlertSent: false,
+            reconnectAlertSent: true,
+            disconnectedAt: null,
+          });
+        }
+
+        // Update session status in database
+        await this.sessionRepository.update(sessionId, {
+          status: WhatsAppSessionStatus.CONNECTED,
+          lastSeenAt: new Date(),
+        });
+
+      } catch (error) {
+        this.logger.error(`Error handling reconnection for session ${sessionId}: ${error.message}`);
+      }
     }
   }
 }

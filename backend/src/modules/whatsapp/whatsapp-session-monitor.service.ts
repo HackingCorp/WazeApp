@@ -43,13 +43,16 @@ export class WhatsAppSessionMonitorService {
     this.logger.log('🔍 Checking WhatsApp sessions status...');
 
     try {
-      // Get all sessions that should be monitored
-      const sessions = await this.sessionRepository.find({
-        where: { isActive: true },
-        relations: ['organization'],
-      });
+      // Get all sessions that have been used (have a phone number)
+      // This includes both active and inactive sessions to detect disconnections
+      const sessions = await this.sessionRepository
+        .createQueryBuilder('session')
+        .leftJoinAndSelect('session.organization', 'organization')
+        .where('session.phoneNumber IS NOT NULL')
+        .andWhere("session.phoneNumber != ''")
+        .getMany();
 
-      this.logger.log(`Found ${sessions.length} active sessions to monitor`);
+      this.logger.log(`Found ${sessions.length} sessions to monitor`);
 
       for (const session of sessions) {
         await this.checkSessionStatus(session);
@@ -74,16 +77,36 @@ export class WhatsAppSessionMonitorService {
       // Get or create cache entry
       let cache = this.sessionStatusCache.get(session.id);
       if (!cache) {
+        // First time checking this session - use DB status as baseline
+        // If DB says connected but Baileys says disconnected, send alert
+        const dbSaysConnected = session.status === WhatsAppSessionStatus.CONNECTED;
+
         cache = {
           sessionId: session.id,
-          lastStatus: isConnected ? 'connected' : 'disconnected',
+          lastStatus: dbSaysConnected ? 'connected' : 'disconnected',
           lastChecked: new Date(),
-          disconnectAlertSent: false,
+          disconnectAlertSent: !dbSaysConnected, // If already disconnected in DB, assume alert was sent
           reconnectAlertSent: true, // Don't send reconnect alert on first check
-          disconnectedAt: null,
+          disconnectedAt: dbSaysConnected ? null : new Date(),
         };
         this.sessionStatusCache.set(session.id, cache);
-        return; // Skip first check to establish baseline
+
+        // If DB says connected but actually disconnected, this is a newly detected disconnection
+        if (dbSaysConnected && !isConnected) {
+          this.logger.warn(`📵 Session ${session.id} (${session.phoneNumber}) detected DISCONNECTED on first check`);
+          cache.lastStatus = 'disconnected';
+          cache.disconnectedAt = new Date();
+
+          // Send disconnect alert
+          await this.sendDisconnectionAlert(session);
+          cache.disconnectAlertSent = true;
+
+          // Update session status in database
+          await this.sessionRepository.update(session.id, {
+            status: WhatsAppSessionStatus.DISCONNECTED,
+          });
+        }
+        return;
       }
 
       const previousStatus = cache.lastStatus;

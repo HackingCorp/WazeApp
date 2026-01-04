@@ -487,7 +487,10 @@ export default function DashboardPage() {
         )}
 
         {/* Bonus Credits Widget */}
-        <BonusCreditsWidget onRefresh={loadDashboardData} />
+        <BonusCreditsWidget
+          onRefresh={loadDashboardData}
+          preloadedCredits={quota?.messages?.bonusCredits}
+        />
       </div>
 
       {/* Charts Section */}

@@ -24,22 +24,52 @@ interface CreditsSummary {
 interface BonusCreditsWidgetProps {
   variant?: 'compact' | 'full';
   onRefresh?: () => void;
+  // Optional: Pre-loaded bonus credits data from parent (e.g., from quota API)
+  preloadedCredits?: {
+    available: number;
+    used: number;
+  };
 }
 
-export function BonusCreditsWidget({ variant = 'full', onRefresh }: BonusCreditsWidgetProps) {
-  // Initialize with default values to prevent crashes
-  const [credits, setCredits] = useState<CreditsSummary>({
-    totalAvailable: 0,
-    totalUsed: 0,
-    activeCredits: [],
-    expiredCredits: 0,
+export function BonusCreditsWidget({ variant = 'full', onRefresh, preloadedCredits }: BonusCreditsWidgetProps) {
+  // Initialize with preloaded data if available, otherwise default values
+  const [credits, setCredits] = useState<CreditsSummary>(() => {
+    if (preloadedCredits) {
+      return {
+        totalAvailable: preloadedCredits.available,
+        totalUsed: preloadedCredits.used,
+        activeCredits: [],
+        expiredCredits: 0,
+      };
+    }
+    return {
+      totalAvailable: 0,
+      totalUsed: 0,
+      activeCredits: [],
+      expiredCredits: 0,
+    };
   });
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!preloadedCredits);
   const [showPurchaseModal, setShowPurchaseModal] = useState(false);
 
+  // Update credits when preloadedCredits changes
   useEffect(() => {
-    loadCredits();
-  }, []);
+    if (preloadedCredits) {
+      setCredits(prev => ({
+        ...prev,
+        totalAvailable: preloadedCredits.available,
+        totalUsed: preloadedCredits.used,
+      }));
+      setLoading(false);
+    }
+  }, [preloadedCredits]);
+
+  useEffect(() => {
+    // Only load from API if no preloaded data
+    if (!preloadedCredits) {
+      loadCredits();
+    }
+  }, [preloadedCredits]);
 
   const loadCredits = async () => {
     try {

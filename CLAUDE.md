@@ -2,6 +2,12 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Deployment
+
+**IMPORTANT: Le déploiement est automatique via Dokploy. Un simple `git commit` et `git push` suffit pour déployer sur le serveur de production. NE PAS faire de déploiement manuel (rsync, ssh, docker build, etc.).**
+
+Le serveur de production est hébergé sur Dokploy qui écoute les webhooks GitHub et déploie automatiquement après chaque push sur la branche main.
+
 ## Project Overview
 
 WazeApp is a production-ready WhatsApp AI Agents SaaS Platform that enables businesses to create and manage AI-powered WhatsApp bots. The platform includes:

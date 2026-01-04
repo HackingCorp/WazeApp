@@ -502,6 +502,14 @@ export class BroadcastController {
     return this.campaignService.getCampaignLimits(organizationId);
   }
 
+  @Get('campaigns/daily-stats')
+  @ApiOperation({ summary: 'Get daily broadcast statistics' })
+  async getDailyStats(@CurrentUser() user: AuthUser) {
+    const organizationId = this.ensureOrganization(user);
+    const stats = await this.campaignService.getDailyStats(organizationId);
+    return { success: true, data: stats };
+  }
+
   @Get('campaigns/:id')
   @ApiOperation({ summary: 'Get campaign by ID' })
   async getCampaign(

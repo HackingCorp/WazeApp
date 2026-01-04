@@ -800,6 +800,10 @@ class ApiClient {
     return this.request('/broadcast/campaigns/limits');
   }
 
+  async getBroadcastDailyStats() {
+    return this.request('/broadcast/campaigns/daily-stats');
+  }
+
   async getBroadcastCampaigns(params?: {
     status?: string;
     page?: number;

@@ -119,6 +119,7 @@ export default function BroadcastPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [contactStats, setContactStats] = useState<{ total: number; limit: number | undefined; validated: number; subscribed: number }>({ total: 0, limit: undefined, validated: 0, subscribed: 0 });
   const [campaignLimits, setCampaignLimits] = useState<{ campaignsPerMonth: number; messagesPerDay: number } | null>(null);
+  const [dailyStats, setDailyStats] = useState<{ messagesSentToday: number; messagesLimit: number; campaignsThisMonth: number; campaignsLimit: number } | null>(null);
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -375,6 +376,17 @@ export default function BroadcastPage() {
     }
   }, []);
 
+  const fetchDailyStats = useCallback(async () => {
+    try {
+      const response = await api.getBroadcastDailyStats();
+      if (response.success) {
+        setDailyStats(response.data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch daily stats:', error);
+    }
+  }, []);
+
   useEffect(() => {
     setLoading(true);
     Promise.all([
@@ -384,8 +396,9 @@ export default function BroadcastPage() {
       fetchContactStats(),
       fetchSessions(),
       fetchCampaignLimits(),
+      fetchDailyStats(),
     ]).finally(() => setLoading(false));
-  }, [fetchContacts, fetchTemplates, fetchCampaigns, fetchContactStats, fetchSessions, fetchCampaignLimits]);
+  }, [fetchContacts, fetchTemplates, fetchCampaigns, fetchContactStats, fetchSessions, fetchCampaignLimits, fetchDailyStats]);
 
   // Subscribe to validation progress events
   useEffect(() => {
@@ -947,7 +960,7 @@ export default function BroadcastPage() {
             <div>
               <p className="text-sm text-gray-500 dark:text-gray-400">Messages / jour</p>
               <p className="text-xl font-bold text-gray-900 dark:text-white">
-                {campaigns.reduce((acc, c) => acc + (c.stats?.sent || 0), 0)} / {campaignLimits?.messagesPerDay ?? '...'}
+                {dailyStats?.messagesSentToday ?? 0} / {dailyStats?.messagesLimit ?? campaignLimits?.messagesPerDay ?? '...'}
               </p>
             </div>
           </div>

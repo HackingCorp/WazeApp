@@ -692,4 +692,55 @@ export class CampaignService {
   private getDaysInMonth(date: Date): number {
     return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
   }
+
+  /**
+   * Get daily statistics for broadcast messages
+   * Returns count of messages sent today
+   */
+  async getDailyStats(organizationId: string): Promise<{
+    messagesSentToday: number;
+    messagesLimit: number;
+    campaignsThisMonth: number;
+    campaignsLimit: number;
+  }> {
+    const limits = await this.getCampaignLimits(organizationId);
+
+    // Start of today (UTC)
+    const startOfToday = new Date();
+    startOfToday.setUTCHours(0, 0, 0, 0);
+
+    // Count messages sent today across all campaigns
+    const messagesSentToday = await this.messageRepository
+      .createQueryBuilder('message')
+      .innerJoin('message.campaign', 'campaign')
+      .where('campaign.organizationId = :organizationId', { organizationId })
+      .andWhere('message.status IN (:...statuses)', {
+        statuses: [
+          BroadcastMessageStatus.SENT,
+          BroadcastMessageStatus.DELIVERED,
+          BroadcastMessageStatus.READ,
+        ],
+      })
+      .andWhere('message.sentAt >= :startOfToday', { startOfToday })
+      .getCount();
+
+    // Count campaigns this month
+    const startOfMonth = new Date();
+    startOfMonth.setDate(1);
+    startOfMonth.setHours(0, 0, 0, 0);
+
+    const campaignsThisMonth = await this.campaignRepository.count({
+      where: {
+        organizationId,
+        createdAt: MoreThanOrEqual(startOfMonth),
+      },
+    });
+
+    return {
+      messagesSentToday,
+      messagesLimit: limits.messagesPerDay,
+      campaignsThisMonth,
+      campaignsLimit: limits.campaignsPerMonth,
+    };
+  }
 }

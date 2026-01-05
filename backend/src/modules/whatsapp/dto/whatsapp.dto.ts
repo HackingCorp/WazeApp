@@ -56,6 +56,11 @@ export class UpdateWhatsAppSessionDto extends PartialType(
   @IsBoolean()
   isActive?: boolean;
 
+  @ApiPropertyOptional({ description: "AI responses enabled for this session" })
+  @IsOptional()
+  @IsBoolean()
+  aiResponsesEnabled?: boolean;
+
   @ApiPropertyOptional({ description: "Assigned AI agent ID" })
   @IsOptional()
   @IsUUID()
@@ -146,6 +151,9 @@ export class WhatsAppSessionResponseDto {
 
   @ApiProperty({ description: "Auto-reconnect enabled" })
   autoReconnect: boolean;
+
+  @ApiProperty({ description: "AI responses enabled for this session" })
+  aiResponsesEnabled: boolean;
 
   @ApiPropertyOptional({ description: "Webhook URL" })
   webhookUrl?: string;

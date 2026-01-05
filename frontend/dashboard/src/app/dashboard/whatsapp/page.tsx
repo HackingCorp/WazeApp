@@ -35,6 +35,7 @@ interface WhatsAppSession {
   lastSeenAt?: string;
   createdAt: string;
   autoReconnect: boolean;
+  aiResponsesEnabled: boolean;
   retryCount: number;
   agent?: {
     id: string;
@@ -656,6 +657,43 @@ export default function WhatsAppPage() {
     }
   };
 
+  const toggleAiResponses = async (sessionId: string, currentValue: boolean) => {
+    try {
+      const newValue = !currentValue;
+      const session = sessions.find(s => s.id === sessionId);
+
+      toast.loading(
+        newValue
+          ? `Activation des réponses IA pour ${session?.name}...`
+          : `Désactivation des réponses IA pour ${session?.name}...`,
+        { id: 'toggle-ai' }
+      );
+
+      const response = await api.put(`/whatsapp/sessions/${sessionId}`, {
+        aiResponsesEnabled: newValue
+      });
+
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to update AI responses setting');
+      }
+
+      // Update local state
+      setSessions(prev => prev.map(s =>
+        s.id === sessionId ? { ...s, aiResponsesEnabled: newValue } : s
+      ));
+
+      toast.success(
+        newValue
+          ? `Réponses IA activées pour ${session?.name}`
+          : `Réponses IA désactivées pour ${session?.name}`,
+        { id: 'toggle-ai' }
+      );
+    } catch (error: any) {
+      console.error('Error toggling AI responses:', error);
+      toast.error('Erreur lors de la modification des réponses IA', { id: 'toggle-ai' });
+    }
+  };
+
   const refreshQR = async (sessionId: string) => {
     try {
       const response = await api.get(`/whatsapp/sessions/${sessionId}/qr`);
@@ -1205,6 +1243,39 @@ export default function WhatsAppPage() {
                       Assigner
                     </button>
                   </div>
+                )}
+              </div>
+
+              {/* AI Responses Toggle */}
+              <div className="mb-4">
+                <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                  <div className="flex items-center space-x-2">
+                    <MessageSquare className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Réponses IA automatiques
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => toggleAiResponses(session.id, session.aiResponsesEnabled !== false)}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 ${
+                      session.aiResponsesEnabled !== false
+                        ? 'bg-green-600'
+                        : 'bg-gray-300 dark:bg-gray-600'
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        session.aiResponsesEnabled !== false
+                          ? 'translate-x-6'
+                          : 'translate-x-1'
+                      }`}
+                    />
+                  </button>
+                </div>
+                {session.aiResponsesEnabled === false && (
+                  <p className="mt-1 text-xs text-orange-600 dark:text-orange-400">
+                    ⚠️ Les réponses IA sont désactivées - les messages ne recevront pas de réponse automatique
+                  </p>
                 )}
               </div>
 

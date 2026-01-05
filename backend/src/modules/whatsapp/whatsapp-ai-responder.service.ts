@@ -309,6 +309,12 @@ export class WhatsAppAIResponderService {
         return;
       }
 
+      // Check if AI responses are enabled for this session
+      if (session.aiResponsesEnabled === false) {
+        this.logger.log(`🔇 AI responses disabled for session ${session.id} (${session.name}) - skipping`);
+        return;
+      }
+
       // Check message quota
       try {
         if (session.organizationId) {

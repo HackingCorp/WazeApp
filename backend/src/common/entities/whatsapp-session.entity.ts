@@ -63,6 +63,10 @@ export class WhatsAppSession extends BaseEntity {
   @Column({ default: true })
   autoReconnect: boolean;
 
+  @ApiProperty({ description: "AI responses enabled for this session" })
+  @Column({ default: true })
+  aiResponsesEnabled: boolean;
+
   @ApiProperty({ description: "Webhook URL for events", required: false })
   @Column({ nullable: true })
   webhookUrl?: string;

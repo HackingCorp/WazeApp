@@ -354,6 +354,72 @@ export class WhatsAppSessionMonitorService {
   }
 
   /**
+   * Handle when a session needs QR code re-authentication
+   * This means credentials are lost and manual intervention is required
+   */
+  @OnEvent('whatsapp.reconnect.needs.qr')
+  async handleNeedsQRCode(data: { sessionId: string; message: string }): Promise<void> {
+    const { sessionId } = data;
+
+    this.logger.warn(`🔐 Session ${sessionId} requires QR code - credentials expired/lost`);
+
+    try {
+      const session = await this.sessionRepository.findOne({
+        where: { id: sessionId },
+        relations: ['organization'],
+      });
+
+      if (!session) {
+        this.logger.warn(`Session ${sessionId} not found in database`);
+        return;
+      }
+
+      // Get or create cache entry
+      let cache = this.sessionStatusCache.get(sessionId);
+
+      if (!cache) {
+        cache = {
+          sessionId,
+          lastStatus: 'disconnected',
+          lastChecked: new Date(),
+          disconnectAlertSent: false,
+          reconnectAlertSent: false,
+          disconnectedAt: new Date(),
+          reconnectAttempts: 0,
+          firstDisconnectAt: new Date(),
+        };
+      }
+
+      // Send alert if not already sent
+      if (!cache.disconnectAlertSent) {
+        this.logger.log(`📧 Sending disconnection alert for session ${sessionId} (QR code required)`);
+
+        cache.lastStatus = 'disconnected';
+        cache.disconnectedAt = new Date();
+
+        await this.sendDisconnectionAlert(session);
+        cache.disconnectAlertSent = true;
+        cache.reconnectAlertSent = false;
+
+        this.sessionStatusCache.set(sessionId, cache);
+
+        // Update session status in database
+        await this.sessionRepository.update(sessionId, {
+          status: WhatsAppSessionStatus.DISCONNECTED,
+          isActive: false,
+        });
+
+        this.logger.log(`✅ Session ${sessionId} marked as disconnected and alert sent`);
+      } else {
+        this.logger.log(`Skipping alert for session ${sessionId} - already sent`);
+      }
+
+    } catch (error) {
+      this.logger.error(`Error handling QR code needed for session ${sessionId}: ${error.message}`);
+    }
+  }
+
+  /**
    * Handle real-time connection updates from Baileys
    * This is the primary method for detecting disconnections instantly
    */

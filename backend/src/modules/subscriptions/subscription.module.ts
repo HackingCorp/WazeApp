@@ -2,6 +2,7 @@ import { Module } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import {
   Organization,
+  OrganizationMember,
   Subscription,
   UsageMetric,
   AiAgent,
@@ -30,6 +31,7 @@ import { EmailModule } from "../email/email.module";
   imports: [
     TypeOrmModule.forFeature([
       Organization,
+      OrganizationMember,
       Subscription,
       UsageMetric,
       AiAgent,

@@ -5,12 +5,16 @@ import {
   Body,
   Query,
   UseGuards,
-  Request,
   BadRequestException,
+  Logger,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiBody, ApiQuery } from '@nestjs/swagger';
 import { IsNumber, IsString, IsOptional, Min } from 'class-validator';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { CurrentUser, AuthenticatedRequest } from '../../common/decorators/current-user.decorator';
+import { OrganizationMember } from '../../common/entities';
 import { MessageCreditsService, MESSAGE_CREDIT_CONFIG } from './message-credits.service';
 
 class CalculatePriceDto {
@@ -45,12 +49,57 @@ class InitiatePurchaseDto {
   paymentMethod: 'orange_money' | 'mtn_mobile_money';
 }
 
+class AdminAddCreditsDto {
+  @IsNumber()
+  @Min(1)
+  amount: number;
+
+  @IsOptional()
+  @IsString()
+  reason?: string;
+}
+
 @ApiTags('Message Credits')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
 @Controller('message-credits')
 export class MessageCreditsController {
-  constructor(private readonly creditsService: MessageCreditsService) {}
+  private readonly logger = new Logger(MessageCreditsController.name);
+
+  constructor(
+    private readonly creditsService: MessageCreditsService,
+    @InjectRepository(OrganizationMember)
+    private readonly memberRepository: Repository<OrganizationMember>,
+  ) {}
+
+  /**
+   * Helper to get organizationId from user - checks JWT first, then membership table
+   */
+  private async getOrganizationId(user: AuthenticatedRequest): Promise<string | null> {
+    // First check if organizationId is in JWT
+    if (user.organizationId) {
+      return user.organizationId;
+    }
+
+    // Get userId from various possible sources
+    const userId = user.userId || (user.user as any)?.id;
+
+    if (!userId) {
+      return null;
+    }
+
+    // Look it up from organization_members table
+    const membership = await this.memberRepository.findOne({
+      where: { userId },
+      order: { createdAt: 'DESC' },
+    });
+
+    if (membership) {
+      return membership.organizationId;
+    }
+
+    return null;
+  }
 
   @Get('pricing')
   @ApiOperation({ summary: 'Get message credits pricing information' })
@@ -87,27 +136,21 @@ export class MessageCreditsController {
 
   @Get('summary')
   @ApiOperation({ summary: 'Get credits summary for current organization' })
-  async getCreditsSummary(@Request() req: any) {
-    const organizationId = req.user.organizationId || req.user.currentOrganizationId;
+  async getCreditsSummary(@CurrentUser() user: AuthenticatedRequest) {
+    const organizationId = await this.getOrganizationId(user);
 
     if (!organizationId) {
+      this.logger.warn(`getCreditsSummary: No organizationId found for user ${user?.userId}`);
       return {
-        success: true,
-        data: {
-          totalAvailable: 0,
-          totalUsed: 0,
-          activeCredits: [],
-          expiredCredits: 0,
-        },
+        totalAvailable: 0,
+        totalUsed: 0,
+        activeCredits: [],
+        expiredCredits: 0,
       };
     }
 
-    const summary = await this.creditsService.getCreditsSummary(organizationId);
-
-    return {
-      success: true,
-      data: summary,
-    };
+    this.logger.debug(`getCreditsSummary: Fetching credits for org ${organizationId}`);
+    return this.creditsService.getCreditsSummary(organizationId);
   }
 
   @Get('history')
@@ -115,11 +158,11 @@ export class MessageCreditsController {
   @ApiQuery({ name: 'limit', type: Number, required: false })
   @ApiQuery({ name: 'offset', type: Number, required: false })
   async getPurchaseHistory(
-    @Request() req: any,
+    @CurrentUser() user: AuthenticatedRequest,
     @Query('limit') limitStr?: string,
     @Query('offset') offsetStr?: string
   ) {
-    const organizationId = req.user.organizationId || req.user.currentOrganizationId;
+    const organizationId = await this.getOrganizationId(user);
 
     if (!organizationId) {
       return {
@@ -142,8 +185,8 @@ export class MessageCreditsController {
   @Post('purchase')
   @ApiOperation({ summary: 'Record a completed credit purchase (after payment verification)' })
   @ApiBody({ type: PurchaseCreditsDto })
-  async purchaseCredits(@Request() req: any, @Body() dto: PurchaseCreditsDto) {
-    const organizationId = req.user.organizationId || req.user.currentOrganizationId;
+  async purchaseCredits(@CurrentUser() user: AuthenticatedRequest, @Body() dto: PurchaseCreditsDto) {
+    const organizationId = await this.getOrganizationId(user);
 
     if (!organizationId) {
       throw new BadRequestException('Organization ID is required');
@@ -178,8 +221,8 @@ export class MessageCreditsController {
   @Post('initiate-purchase')
   @ApiOperation({ summary: 'Initiate a credit purchase with Mobile Money' })
   @ApiBody({ type: InitiatePurchaseDto })
-  async initiatePurchase(@Request() req: any, @Body() dto: InitiatePurchaseDto) {
-    const organizationId = req.user.organizationId || req.user.currentOrganizationId;
+  async initiatePurchase(@CurrentUser() user: AuthenticatedRequest, @Body() dto: InitiatePurchaseDto) {
+    const organizationId = await this.getOrganizationId(user);
 
     if (!organizationId) {
       throw new BadRequestException('Organization ID is required');
@@ -210,6 +253,38 @@ export class MessageCreditsController {
           phoneNumber: dto.phoneNumber,
           paymentMethod: dto.paymentMethod,
         },
+      },
+    };
+  }
+
+  @Post('admin/add')
+  @ApiOperation({ summary: 'Admin: Add credits manually to an organization' })
+  @ApiBody({ type: AdminAddCreditsDto })
+  async adminAddCredits(@CurrentUser() user: AuthenticatedRequest, @Body() dto: AdminAddCreditsDto) {
+    const organizationId = await this.getOrganizationId(user);
+
+    if (!organizationId) {
+      throw new BadRequestException('Organization ID is required');
+    }
+
+    // Create credits without payment (admin grant)
+    const credit = await this.creditsService.purchaseCredits({
+      organizationId,
+      amount: dto.amount,
+      transactionId: `ADMIN-${Date.now()}`,
+      paymentMethod: 'admin_grant',
+      phoneNumber: undefined,
+    });
+
+    return {
+      success: true,
+      message: `Successfully added ${dto.amount} message credits`,
+      data: {
+        creditId: credit.id,
+        amount: credit.amount,
+        remaining: credit.remaining,
+        expiresAt: credit.expiresAt,
+        reason: dto.reason || 'Admin grant',
       },
     };
   }

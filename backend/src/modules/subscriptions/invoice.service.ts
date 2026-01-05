@@ -343,11 +343,11 @@ export class InvoiceService {
   }
 
   /**
-   * Cron job: Generate invoices for upcoming billing periods
+   * Cron job: Generate renewal invoices 10 days before subscription end
    */
   @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
   async generateUpcomingInvoices(): Promise<void> {
-    this.logger.log('Checking for subscriptions needing invoices...');
+    this.logger.log('Checking for subscriptions needing renewal invoices...');
 
     // Find active paid subscriptions
     const subscriptions = await this.subscriptionRepository.find({
@@ -356,47 +356,132 @@ export class InvoiceService {
       },
     });
 
+    const now = new Date();
+    const DAYS_BEFORE_RENEWAL = 10; // Generate invoice 10 days before end
+
     for (const subscription of subscriptions) {
       const planCode = subscription.plan.toLowerCase();
       const planPrice = this.planService.getPlanPriceXAF(planCode);
       if (planCode === 'free' || planPrice === 0) continue;
 
-      // Calculate next billing period
-      const now = new Date();
+      // Calculate current billing period
       const subscriptionStart = new Date(subscription.startsAt);
       const daysSinceStart = Math.floor(
         (now.getTime() - subscriptionStart.getTime()) / (1000 * 60 * 60 * 24)
       );
       const completeCycles = Math.floor(daysSinceStart / 30);
 
-      const periodStart = new Date(subscriptionStart);
-      periodStart.setDate(periodStart.getDate() + (completeCycles * 30));
+      // Current period
+      const currentPeriodStart = new Date(subscriptionStart);
+      currentPeriodStart.setDate(currentPeriodStart.getDate() + (completeCycles * 30));
 
-      const periodEnd = new Date(periodStart);
-      periodEnd.setDate(periodEnd.getDate() + 30);
+      const currentPeriodEnd = new Date(currentPeriodStart);
+      currentPeriodEnd.setDate(currentPeriodEnd.getDate() + 30);
 
-      // Check if we need to create an invoice for current period
-      const existingInvoice = await this.invoiceRepository.findOne({
-        where: {
-          subscriptionId: subscription.id,
-          periodStart,
-        },
-      });
+      // Days until current period ends
+      const daysUntilEnd = Math.ceil(
+        (currentPeriodEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
+      );
 
-      if (!existingInvoice) {
-        try {
-          await this.createInvoice(subscription.id, periodStart, periodEnd);
-        } catch (error) {
-          this.logger.error(
-            `Failed to create invoice for subscription ${subscription.id}: ${error.message}`,
-          );
+      // Generate renewal invoice 10 days before current period ends
+      if (daysUntilEnd <= DAYS_BEFORE_RENEWAL && daysUntilEnd > 0) {
+        // Next period (renewal period)
+        const nextPeriodStart = new Date(currentPeriodEnd);
+        nextPeriodStart.setDate(nextPeriodStart.getDate() + 1);
+
+        const nextPeriodEnd = new Date(nextPeriodStart);
+        nextPeriodEnd.setDate(nextPeriodEnd.getDate() + 30);
+
+        // Check if we already have an invoice for the next period
+        const existingInvoice = await this.invoiceRepository.findOne({
+          where: {
+            subscriptionId: subscription.id,
+            periodStart: nextPeriodStart,
+          },
+        });
+
+        if (!existingInvoice) {
+          try {
+            const invoice = await this.createInvoice(subscription.id, nextPeriodStart, nextPeriodEnd);
+            if (invoice) {
+              this.logger.log(
+                `📄 Created renewal invoice ${invoice.invoiceNumber} for subscription ${subscription.id} ` +
+                `(${daysUntilEnd} days before current period ends)`,
+              );
+
+              // Send initial invoice email
+              await this.sendNewInvoiceEmail(invoice, subscription);
+            }
+          } catch (error) {
+            this.logger.error(
+              `Failed to create renewal invoice for subscription ${subscription.id}: ${error.message}`,
+            );
+          }
         }
       }
     }
   }
 
   /**
-   * Cron job: Send payment reminders
+   * Send email notification for a new invoice
+   */
+  private async sendNewInvoiceEmail(invoice: Invoice, subscription: Subscription): Promise<void> {
+    try {
+      const orgAdmins = await this.userRepository.find({
+        where: {
+          organizationMemberships: {
+            organizationId: invoice.organizationId,
+            role: In(['owner', 'admin']),
+          },
+        },
+        relations: ['organizationMemberships'],
+      });
+
+      let recipients = orgAdmins;
+      if (recipients.length === 0) {
+        recipients = await this.userRepository.find({
+          where: {
+            organizationMemberships: {
+              organizationId: invoice.organizationId,
+            },
+          },
+          relations: ['organizationMemberships'],
+          take: 1,
+        });
+      }
+
+      const organization = await this.organizationRepository.findOne({
+        where: { id: invoice.organizationId },
+      });
+
+      for (const user of recipients) {
+        if (user.email) {
+          await this.emailService.sendNewInvoiceEmail(
+            user.email,
+            user.firstName || user.email.split('@')[0],
+            {
+              invoiceNumber: invoice.invoiceNumber,
+              amount: invoice.totalAmountInCents / 100,
+              currency: invoice.currency,
+              dueDate: invoice.dueDate,
+              planName: subscription.plan,
+              organizationName: organization?.name || 'Votre organisation',
+              periodStart: invoice.periodStart,
+              periodEnd: invoice.periodEnd,
+            },
+          );
+        }
+      }
+
+      this.logger.log(`📧 New invoice email sent for ${invoice.invoiceNumber}`);
+    } catch (error) {
+      this.logger.error(`Failed to send new invoice email: ${error.message}`);
+    }
+  }
+
+  /**
+   * Cron job: Send payment reminders continuously until paid
+   * Runs every day at 9AM
    */
   @Cron(CronExpression.EVERY_DAY_AT_9AM)
   async sendPaymentReminders(): Promise<void> {
@@ -415,12 +500,35 @@ export class InvoiceService {
         (invoice.dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
       );
 
-      // Send reminders at specific intervals: 7 days, 3 days, 1 day before, and 1 day after (overdue)
-      const shouldSendReminder =
-        (daysUntilDue === 7 && invoice.remindersSent < 1) ||
-        (daysUntilDue === 3 && invoice.remindersSent < 2) ||
-        (daysUntilDue === 1 && invoice.remindersSent < 3) ||
-        (daysUntilDue <= 0 && invoice.remindersSent < 4);
+      // Calculate days since last reminder
+      const daysSinceLastReminder = invoice.lastReminderSentAt
+        ? Math.floor((now.getTime() - invoice.lastReminderSentAt.getTime()) / (1000 * 60 * 60 * 24))
+        : 999; // Large number if never sent
+
+      // Determine reminder frequency based on urgency:
+      // - Before due date: remind at 7, 5, 3, 2, 1 days before
+      // - After due date (overdue): remind every day for first week, then every 2 days
+      let shouldSendReminder = false;
+
+      if (daysUntilDue > 0) {
+        // Before due date - specific days
+        const reminderDays = [7, 5, 3, 2, 1];
+        shouldSendReminder = reminderDays.includes(daysUntilDue) && daysSinceLastReminder >= 1;
+      } else {
+        // Overdue - continuous reminders
+        const daysOverdue = Math.abs(daysUntilDue);
+
+        if (daysOverdue <= 7) {
+          // First week overdue: remind every day
+          shouldSendReminder = daysSinceLastReminder >= 1;
+        } else if (daysOverdue <= 14) {
+          // Second week overdue: remind every 2 days
+          shouldSendReminder = daysSinceLastReminder >= 2;
+        } else {
+          // After 2 weeks: remind every 3 days (avoid spam but keep reminding)
+          shouldSendReminder = daysSinceLastReminder >= 3;
+        }
+      }
 
       if (shouldSendReminder) {
         try {
@@ -452,6 +560,7 @@ export class InvoiceService {
           // Send email to each admin/owner
           const isOverdue = daysUntilDue <= 0;
           const planName = invoice.subscription?.plan || 'Standard';
+          const daysOverdue = isOverdue ? Math.abs(daysUntilDue) : 0;
 
           for (const user of recipients) {
             if (user.email) {
@@ -464,18 +573,21 @@ export class InvoiceService {
                   currency: invoice.currency,
                   dueDate: invoice.dueDate,
                   daysUntilDue,
+                  daysOverdue,
                   planName,
                   organizationName: invoice.organization?.name || 'Votre organisation',
                   isOverdue,
+                  reminderCount: invoice.remindersSent + 1,
                 },
               );
             }
           }
 
           this.logger.log(
-            `✅ Payment reminder sent for invoice ${invoice.invoiceNumber} ` +
+            `✅ Payment reminder #${invoice.remindersSent + 1} sent for invoice ${invoice.invoiceNumber} ` +
             `(${invoice.organization?.name || 'Unknown'}) - ` +
-            `Due in ${daysUntilDue} days - Amount: ${invoice.totalAmountInCents / 100} ${invoice.currency} - ` +
+            `${isOverdue ? `${daysOverdue} days overdue` : `Due in ${daysUntilDue} days`} - ` +
+            `Amount: ${invoice.totalAmountInCents / 100} ${invoice.currency} - ` +
             `Sent to ${recipients.length} recipient(s)`,
           );
         } catch (error) {

@@ -285,6 +285,130 @@ export class EmailService {
   }
 
   /**
+   * Send new invoice email (for renewal invoices generated 10 days before end)
+   */
+  async sendNewInvoiceEmail(
+    email: string,
+    firstName: string,
+    invoiceDetails: {
+      invoiceNumber: string;
+      amount: number;
+      currency: string;
+      dueDate: Date;
+      planName: string;
+      organizationName: string;
+      periodStart: Date;
+      periodEnd: Date;
+    },
+  ): Promise<void> {
+    const dashboardUrl = this.getDashboardUrl();
+    const billingUrl = `${dashboardUrl}/billing`;
+
+    const periodFormatted = `${invoiceDetails.periodStart.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })} - ${invoiceDetails.periodEnd.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}`;
+    const dueDateFormatted = invoiceDetails.dueDate.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
+
+    const html = `
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nouvelle facture</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f4f4f4; padding: 20px;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+          <!-- Header -->
+          <tr>
+            <td style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center;">
+              <h1 style="color: #ffffff; margin: 0; font-size: 24px;">📄 Nouvelle Facture</h1>
+            </td>
+          </tr>
+
+          <!-- Content -->
+          <tr>
+            <td style="padding: 40px;">
+              <p style="font-size: 16px; color: #333; margin-bottom: 20px;">Bonjour ${firstName},</p>
+
+              <p style="font-size: 16px; color: #333; margin-bottom: 20px;">
+                Votre facture de renouvellement pour <strong>${invoiceDetails.organizationName}</strong> est disponible.
+              </p>
+
+              <!-- Invoice Details Box -->
+              <div style="background-color: #f8f9fa; border-radius: 8px; padding: 20px; margin: 20px 0; border-left: 4px solid #667eea;">
+                <table width="100%" style="border-collapse: collapse;">
+                  <tr>
+                    <td style="padding: 8px 0; color: #666;">Numéro de facture:</td>
+                    <td style="padding: 8px 0; color: #333; font-weight: bold; text-align: right;">${invoiceDetails.invoiceNumber}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 8px 0; color: #666;">Plan:</td>
+                    <td style="padding: 8px 0; color: #333; font-weight: bold; text-align: right;">${invoiceDetails.planName}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 8px 0; color: #666;">Période:</td>
+                    <td style="padding: 8px 0; color: #333; text-align: right;">${periodFormatted}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 8px 0; color: #666;">Montant:</td>
+                    <td style="padding: 8px 0; color: #667eea; font-weight: bold; font-size: 18px; text-align: right;">${invoiceDetails.amount.toLocaleString()} ${invoiceDetails.currency}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 8px 0; color: #666;">Date d'échéance:</td>
+                    <td style="padding: 8px 0; color: #e74c3c; font-weight: bold; text-align: right;">${dueDateFormatted}</td>
+                  </tr>
+                </table>
+              </div>
+
+              <p style="font-size: 14px; color: #666; margin: 20px 0;">
+                Pour assurer la continuité de votre service, veuillez procéder au paiement avant la date d'échéance.
+              </p>
+
+              <!-- CTA Button -->
+              <div style="text-align: center; margin: 30px 0;">
+                <a href="${billingUrl}" style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #ffffff; text-decoration: none; padding: 15px 40px; border-radius: 25px; font-weight: bold; font-size: 16px;">Payer maintenant</a>
+              </div>
+
+              <p style="font-size: 14px; color: #999; text-align: center;">
+                Des questions? Contactez-nous à support@wazeapp.xyz
+              </p>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background-color: #f8f9fa; padding: 20px; text-align: center;">
+              <p style="margin: 0; font-size: 12px; color: #999;">
+                © ${new Date().getFullYear()} WazeApp. Tous droits réservés.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+
+    try {
+      await this.transporter.sendMail({
+        from: `"${this.getFromName()}" <${this.getFromAddress()}>`,
+        to: email,
+        subject: `📄 Facture de renouvellement - ${invoiceDetails.invoiceNumber}`,
+        html,
+        text: `Bonjour ${firstName},\n\nVotre facture de renouvellement est disponible.\n\nFacture: ${invoiceDetails.invoiceNumber}\nPlan: ${invoiceDetails.planName}\nPériode: ${periodFormatted}\nMontant: ${invoiceDetails.amount.toLocaleString()} ${invoiceDetails.currency}\nDate d'échéance: ${dueDateFormatted}\n\nPour payer: ${billingUrl}\n\nL'équipe WazeApp`,
+      });
+
+      this.logger.log(`✅ New invoice email sent to ${email} for invoice ${invoiceDetails.invoiceNumber}`);
+    } catch (error) {
+      this.logger.error(`❌ Failed to send new invoice email to ${email}:`, error);
+      // Don't throw for invoice emails
+    }
+  }
+
+  /**
    * Send subscription upgrade confirmation email
    */
   async sendSubscriptionUpgradeEmail(

@@ -1156,6 +1156,25 @@ class ApiClient {
     return this.request('/billing/summary');
   }
 
+  // Mark multiple invoices as paid
+  async payMultipleInvoices(data: {
+    invoiceIds: string[];
+    paymentMethod: string;
+    paymentReference: string;
+  }) {
+    return this.request('/billing/invoices/pay-multiple', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Manually trigger renewal invoice generation
+  async generateRenewalInvoices() {
+    return this.request('/billing/generate-renewal-invoices', {
+      method: 'POST',
+    });
+  }
+
   // ============================================
   // MESSAGE CREDITS ENDPOINTS
   // ============================================

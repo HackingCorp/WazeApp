@@ -29,6 +29,12 @@ class PayInvoiceDto {
   paymentReference: string;
 }
 
+class PayMultipleInvoicesDto {
+  invoiceIds: string[];
+  paymentMethod: string;
+  paymentReference: string;
+}
+
 @ApiTags('Billing')
 @Controller('billing')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -130,5 +136,53 @@ export class BillingController {
       throw new BadRequestException('Organization required for billing');
     }
     return this.invoiceService.getBillingSummary(user.organizationId);
+  }
+
+  @Post('invoices/pay-multiple')
+  @Roles(UserRole.OWNER, UserRole.ADMIN)
+  @ApiOperation({ summary: 'Mark multiple invoices as paid' })
+  @ApiBody({ type: PayMultipleInvoicesDto })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Invoices marked as paid successfully',
+  })
+  async payMultipleInvoices(
+    @CurrentUser() user: AuthenticatedRequest,
+    @Body() body: PayMultipleInvoicesDto,
+  ): Promise<{ success: boolean; paidInvoices: Invoice[] }> {
+    if (!user.organizationId) {
+      throw new BadRequestException('Organization required for billing');
+    }
+
+    // Verify all invoices belong to the user's organization
+    for (const invoiceId of body.invoiceIds) {
+      await this.invoiceService.getInvoice(invoiceId, user.organizationId);
+    }
+
+    const paidInvoices = await this.invoiceService.markMultipleAsPaid(
+      body.invoiceIds,
+      body.paymentMethod,
+      body.paymentReference,
+    );
+
+    return {
+      success: true,
+      paidInvoices,
+    };
+  }
+
+  @Post('generate-renewal-invoices')
+  @Roles(UserRole.OWNER, UserRole.ADMIN)
+  @ApiOperation({ summary: 'Manually trigger renewal invoice generation' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Renewal invoices generated successfully',
+  })
+  async generateRenewalInvoices(): Promise<{ success: boolean; message: string }> {
+    await this.invoiceService.generateUpcomingInvoices();
+    return {
+      success: true,
+      message: 'Renewal invoice generation triggered',
+    };
   }
 }

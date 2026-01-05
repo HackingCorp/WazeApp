@@ -344,6 +344,7 @@ export class InvoiceService {
 
   /**
    * Cron job: Generate renewal invoices 10 days before subscription end
+   * Also runs at startup to catch any missed invoices
    */
   @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
   async generateUpcomingInvoices(): Promise<void> {
@@ -383,7 +384,7 @@ export class InvoiceService {
         (currentPeriodEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
       );
 
-      // Generate renewal invoice 10 days before current period ends
+      // Generate renewal invoice 10 days before current period ends (or if we're past that point but still in period)
       if (daysUntilEnd <= DAYS_BEFORE_RENEWAL && daysUntilEnd > 0) {
         // Next period (renewal period)
         const nextPeriodStart = new Date(currentPeriodEnd);
@@ -392,13 +393,19 @@ export class InvoiceService {
         const nextPeriodEnd = new Date(nextPeriodStart);
         nextPeriodEnd.setDate(nextPeriodEnd.getDate() + 30);
 
-        // Check if we already have an invoice for the next period
-        const existingInvoice = await this.invoiceRepository.findOne({
-          where: {
-            subscriptionId: subscription.id,
-            periodStart: nextPeriodStart,
-          },
-        });
+        // Check if we already have ANY pending/overdue invoice for this subscription's next period
+        // Use a date range to account for slight date variations
+        const invoiceSearchStart = new Date(currentPeriodEnd);
+        invoiceSearchStart.setDate(invoiceSearchStart.getDate() - 1);
+        const invoiceSearchEnd = new Date(currentPeriodEnd);
+        invoiceSearchEnd.setDate(invoiceSearchEnd.getDate() + 3);
+
+        const existingInvoice = await this.invoiceRepository
+          .createQueryBuilder('invoice')
+          .where('invoice.subscriptionId = :subscriptionId', { subscriptionId: subscription.id })
+          .andWhere('invoice.periodStart >= :searchStart', { searchStart: invoiceSearchStart })
+          .andWhere('invoice.periodStart <= :searchEnd', { searchEnd: invoiceSearchEnd })
+          .getOne();
 
         if (!existingInvoice) {
           try {
@@ -420,6 +427,71 @@ export class InvoiceService {
         }
       }
     }
+  }
+
+  /**
+   * Force generate renewal invoice for a specific subscription (admin/manual use)
+   */
+  async forceGenerateRenewalInvoice(subscriptionId: string): Promise<Invoice | null> {
+    const subscription = await this.subscriptionRepository.findOne({
+      where: { id: subscriptionId },
+    });
+
+    if (!subscription) {
+      throw new NotFoundException('Subscription not found');
+    }
+
+    const planCode = subscription.plan.toLowerCase();
+    const planPrice = this.planService.getPlanPriceXAF(planCode);
+    if (planCode === 'free' || planPrice === 0) {
+      return null;
+    }
+
+    const now = new Date();
+    const subscriptionStart = new Date(subscription.startsAt);
+    const daysSinceStart = Math.floor(
+      (now.getTime() - subscriptionStart.getTime()) / (1000 * 60 * 60 * 24)
+    );
+    const completeCycles = Math.floor(daysSinceStart / 30);
+
+    // Current period end
+    const currentPeriodStart = new Date(subscriptionStart);
+    currentPeriodStart.setDate(currentPeriodStart.getDate() + (completeCycles * 30));
+    const currentPeriodEnd = new Date(currentPeriodStart);
+    currentPeriodEnd.setDate(currentPeriodEnd.getDate() + 30);
+
+    // Next period
+    const nextPeriodStart = new Date(currentPeriodEnd);
+    nextPeriodStart.setDate(nextPeriodStart.getDate() + 1);
+    const nextPeriodEnd = new Date(nextPeriodStart);
+    nextPeriodEnd.setDate(nextPeriodEnd.getDate() + 30);
+
+    const invoice = await this.createInvoice(subscription.id, nextPeriodStart, nextPeriodEnd);
+    if (invoice) {
+      this.logger.log(`📄 Force-created renewal invoice ${invoice.invoiceNumber} for subscription ${subscriptionId}`);
+      await this.sendNewInvoiceEmail(invoice, subscription);
+    }
+    return invoice;
+  }
+
+  /**
+   * Mark multiple invoices as paid by their IDs
+   */
+  async markMultipleAsPaid(
+    invoiceIds: string[],
+    paymentMethod: string,
+    paymentReference: string,
+  ): Promise<Invoice[]> {
+    const results: Invoice[] = [];
+    for (const invoiceId of invoiceIds) {
+      try {
+        const invoice = await this.markAsPaid(invoiceId, paymentMethod, paymentReference);
+        results.push(invoice);
+      } catch (error) {
+        this.logger.error(`Failed to mark invoice ${invoiceId} as paid: ${error.message}`);
+      }
+    }
+    return results;
   }
 
   /**

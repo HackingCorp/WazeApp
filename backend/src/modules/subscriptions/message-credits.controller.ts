@@ -88,7 +88,7 @@ export class MessageCreditsController {
   @Get('summary')
   @ApiOperation({ summary: 'Get credits summary for current organization' })
   async getCreditsSummary(@Request() req: any) {
-    const organizationId = req.user.currentOrganizationId;
+    const organizationId = req.user.organizationId || req.user.currentOrganizationId;
 
     if (!organizationId) {
       return {
@@ -119,7 +119,7 @@ export class MessageCreditsController {
     @Query('limit') limitStr?: string,
     @Query('offset') offsetStr?: string
   ) {
-    const organizationId = req.user.currentOrganizationId;
+    const organizationId = req.user.organizationId || req.user.currentOrganizationId;
 
     if (!organizationId) {
       return {
@@ -143,7 +143,7 @@ export class MessageCreditsController {
   @ApiOperation({ summary: 'Record a completed credit purchase (after payment verification)' })
   @ApiBody({ type: PurchaseCreditsDto })
   async purchaseCredits(@Request() req: any, @Body() dto: PurchaseCreditsDto) {
-    const organizationId = req.user.currentOrganizationId;
+    const organizationId = req.user.organizationId || req.user.currentOrganizationId;
 
     if (!organizationId) {
       throw new BadRequestException('Organization ID is required');
@@ -179,7 +179,7 @@ export class MessageCreditsController {
   @ApiOperation({ summary: 'Initiate a credit purchase with Mobile Money' })
   @ApiBody({ type: InitiatePurchaseDto })
   async initiatePurchase(@Request() req: any, @Body() dto: InitiatePurchaseDto) {
-    const organizationId = req.user.currentOrganizationId;
+    const organizationId = req.user.organizationId || req.user.currentOrganizationId;
 
     if (!organizationId) {
       throw new BadRequestException('Organization ID is required');

@@ -1078,6 +1078,13 @@ export class EmailService {
       disconnectedAt: Date;
     },
   ): Promise<void> {
+    this.logger.log(`📧 Attempting to send WhatsApp disconnection alert to ${email} for session ${details.sessionName}`);
+
+    if (!this.transporter) {
+      this.logger.error(`❌ Cannot send WhatsApp disconnection alert: SMTP transporter not configured. Please set SMTP_HOST environment variable.`);
+      return;
+    }
+
     const dashboardUrl = this.getDashboardUrl();
     const whatsappUrl = `${dashboardUrl}/dashboard/whatsapp`;
 
@@ -1112,6 +1119,13 @@ export class EmailService {
       downtimeMinutes: number;
     },
   ): Promise<void> {
+    this.logger.log(`📧 Attempting to send WhatsApp reconnection alert to ${email} for session ${details.sessionName}`);
+
+    if (!this.transporter) {
+      this.logger.error(`❌ Cannot send WhatsApp reconnection alert: SMTP transporter not configured. Please set SMTP_HOST environment variable.`);
+      return;
+    }
+
     const dashboardUrl = this.getDashboardUrl();
     const whatsappUrl = `${dashboardUrl}/dashboard/whatsapp`;
 

@@ -4,7 +4,7 @@ import { Repository, In } from 'typeorm';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { OnEvent } from '@nestjs/event-emitter';
 import { WhatsAppSession, User, OrganizationMember } from '../../common/entities';
-import { WhatsAppSessionStatus } from '../../common/enums';
+import { WhatsAppSessionStatus, UserRole } from '../../common/enums';
 import { EmailService } from '../email/email.service';
 import { BaileysService } from './baileys.service';
 
@@ -184,15 +184,23 @@ export class WhatsAppSessionMonitorService {
    * Send disconnection alert email to organization admins/owners
    */
   async sendDisconnectionAlert(session: WhatsAppSession): Promise<void> {
+    this.logger.log(`🔔 Preparing disconnection alert for session ${session.id} (${session.phoneNumber})`);
+    this.logger.log(`   Organization ID: ${session.organizationId}`);
+    this.logger.log(`   Session name: ${session.name}`);
+
     try {
       const recipients = await this.getSessionRecipients(session.organizationId);
 
+      this.logger.log(`   Found ${recipients.length} recipient(s) for notification`);
+
       if (recipients.length === 0) {
-        this.logger.warn(`No recipients found for session ${session.id} disconnection alert`);
+        this.logger.warn(`❌ No recipients found for session ${session.id} disconnection alert - organizationId: ${session.organizationId}`);
         return;
       }
 
       for (const recipient of recipients) {
+        this.logger.log(`   Sending alert to: ${recipient.email} (${recipient.firstName})`);
+
         await this.emailService.sendWhatsAppDisconnectionAlert(
           recipient.email,
           recipient.firstName || recipient.email.split('@')[0],
@@ -208,7 +216,7 @@ export class WhatsAppSessionMonitorService {
       }
 
     } catch (error) {
-      this.logger.error(`Failed to send disconnection alert: ${error.message}`);
+      this.logger.error(`Failed to send disconnection alert: ${error.message}`, error.stack);
     }
   }
 
@@ -255,14 +263,21 @@ export class WhatsAppSessionMonitorService {
    * Get organization admins/owners to notify
    */
   private async getSessionRecipients(organizationId: string): Promise<User[]> {
+    this.logger.log(`🔍 Looking for recipients for organizationId: ${organizationId}`);
+
     try {
       // Get admin and owner members of the organization
       const members = await this.orgMemberRepository.find({
         where: {
           organizationId,
-          role: In(['owner', 'admin']),
+          role: In([UserRole.OWNER, UserRole.ADMIN]),
         },
         relations: ['user'],
+      });
+
+      this.logger.log(`   Found ${members.length} admin/owner members`);
+      members.forEach((m, i) => {
+        this.logger.log(`   Member ${i + 1}: role=${m.role}, userId=${m.userId}, email=${m.user?.email || 'N/A'}`);
       });
 
       const users = members
@@ -271,19 +286,22 @@ export class WhatsAppSessionMonitorService {
 
       // If no admins/owners, get any user from the organization
       if (users.length === 0) {
+        this.logger.log(`   No admin/owner found, looking for any member...`);
         const anyMember = await this.orgMemberRepository.findOne({
           where: { organizationId },
           relations: ['user'],
         });
+        this.logger.log(`   Any member found: ${anyMember ? `userId=${anyMember.userId}, email=${anyMember.user?.email}` : 'No'}`);
         if (anyMember?.user?.email) {
           return [anyMember.user];
         }
       }
 
+      this.logger.log(`   Returning ${users.length} user(s) as recipients`);
       return users;
 
     } catch (error) {
-      this.logger.error(`Error getting session recipients: ${error.message}`);
+      this.logger.error(`Error getting session recipients: ${error.message}`, error.stack);
       return [];
     }
   }

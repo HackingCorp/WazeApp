@@ -252,9 +252,11 @@ export class EmailService {
       currency: string;
       dueDate: Date;
       daysUntilDue: number;
+      daysOverdue: number;
       planName: string;
       organizationName: string;
       isOverdue: boolean;
+      reminderCount: number;
     },
   ): Promise<void> {
     const dashboardUrl = this.getDashboardUrl();

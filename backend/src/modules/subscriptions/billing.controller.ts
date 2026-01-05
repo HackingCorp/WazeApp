@@ -16,6 +16,7 @@ import {
   ApiParam,
   ApiBody,
 } from '@nestjs/swagger';
+import { IsString, IsArray, IsOptional } from 'class-validator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { CurrentUser, AuthenticatedRequest } from '../../common/decorators/current-user.decorator';
@@ -25,14 +26,25 @@ import { InvoiceService } from './invoice.service';
 import { Invoice } from '../../common/entities';
 
 class PayInvoiceDto {
+  @IsString()
   paymentMethod: string;
-  paymentReference: string;
+
+  @IsString()
+  @IsOptional()
+  paymentReference?: string;
 }
 
 class PayMultipleInvoicesDto {
+  @IsArray()
+  @IsString({ each: true })
   invoiceIds: string[];
+
+  @IsString()
   paymentMethod: string;
-  paymentReference: string;
+
+  @IsString()
+  @IsOptional()
+  paymentReference?: string;
 }
 
 @ApiTags('Billing')
@@ -112,7 +124,7 @@ export class BillingController {
     return this.invoiceService.markAsPaid(
       invoiceId,
       body.paymentMethod,
-      body.paymentReference,
+      body.paymentReference || '',
     );
   }
 

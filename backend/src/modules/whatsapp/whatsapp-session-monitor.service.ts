@@ -15,6 +15,9 @@ interface SessionStatusCache {
   disconnectAlertSent: boolean;
   reconnectAlertSent: boolean;
   disconnectedAt: Date | null;
+  // Track reconnection loop attempts
+  reconnectAttempts: number;
+  firstDisconnectAt: Date | null;
 }
 
 @Injectable()
@@ -88,6 +91,8 @@ export class WhatsAppSessionMonitorService {
           disconnectAlertSent: !dbSaysConnected, // If already disconnected in DB, assume alert was sent
           reconnectAlertSent: true, // Don't send reconnect alert on first check
           disconnectedAt: dbSaysConnected ? null : new Date(),
+          reconnectAttempts: 0,
+          firstDisconnectAt: dbSaysConnected ? null : new Date(),
         };
         this.sessionStatusCache.set(session.id, cache);
 
@@ -117,6 +122,8 @@ export class WhatsAppSessionMonitorService {
         this.logger.warn(`📵 Session ${session.id} (${session.phoneNumber}) DISCONNECTED`);
         cache.lastStatus = 'disconnected';
         cache.disconnectedAt = new Date();
+        cache.firstDisconnectAt = new Date();
+        cache.reconnectAttempts = 0;
         cache.disconnectAlertSent = false;
         cache.reconnectAlertSent = false;
 
@@ -141,6 +148,8 @@ export class WhatsAppSessionMonitorService {
         }
 
         cache.disconnectedAt = null;
+        cache.firstDisconnectAt = null;
+        cache.reconnectAttempts = 0;
 
         // Update session status in database
         await this.sessionRepository.update(session.id, {
@@ -348,6 +357,9 @@ export class WhatsAppSessionMonitorService {
       // Status codes: 401 = logged out, 403 = conflict (same session on another device), 515 = restart required
       const isPermanentDisconnect = statusCode === 401 || statusCode === 403;
 
+      // Check if this is a temporary disconnect that will auto-reconnect (428 = Connection Terminated by Server)
+      const isTemporaryDisconnect = statusCode === 428;
+
       try {
         // Get the session from database
         const session = await this.sessionRepository.findOne({
@@ -363,30 +375,73 @@ export class WhatsAppSessionMonitorService {
         // Get or create cache entry
         let cache = this.sessionStatusCache.get(sessionId);
 
-        // Only send alert if:
-        // 1. Cache doesn't exist (first time seeing this session) and session was previously connected
-        // 2. OR Cache exists and last status was 'connected' and we haven't sent disconnect alert yet
+        if (!cache) {
+          // First time seeing this session - initialize cache
+          cache = {
+            sessionId,
+            lastStatus: session.status === WhatsAppSessionStatus.CONNECTED ? 'connected' : 'disconnected',
+            lastChecked: new Date(),
+            disconnectAlertSent: false,
+            reconnectAlertSent: false,
+            disconnectedAt: null,
+            reconnectAttempts: 0,
+            firstDisconnectAt: null,
+          };
+        }
+
+        // Track reconnection attempts for temporary disconnects (428)
+        if (isTemporaryDisconnect) {
+          cache.reconnectAttempts++;
+          if (!cache.firstDisconnectAt) {
+            cache.firstDisconnectAt = new Date();
+          }
+
+          // Calculate time since first disconnect
+          const timeSinceFirstDisconnect = Date.now() - cache.firstDisconnectAt.getTime();
+          const minutesSinceDisconnect = Math.floor(timeSinceFirstDisconnect / (1000 * 60));
+
+          this.logger.log(`Session ${sessionId} reconnect attempt #${cache.reconnectAttempts}, ${minutesSinceDisconnect} minutes since first disconnect`);
+
+          // Send alert if:
+          // - More than 3 reconnect attempts AND more than 2 minutes have passed
+          // - OR more than 5 minutes have passed regardless of attempts
+          // - AND we haven't sent an alert yet
+          const shouldSendAlertForReconnectLoop =
+            !cache.disconnectAlertSent &&
+            ((cache.reconnectAttempts >= 3 && minutesSinceDisconnect >= 2) || minutesSinceDisconnect >= 5);
+
+          if (shouldSendAlertForReconnectLoop) {
+            this.logger.log(`📧 Sending disconnection alert for session ${sessionId} after ${cache.reconnectAttempts} reconnect attempts over ${minutesSinceDisconnect} minutes`);
+
+            cache.lastStatus = 'disconnected';
+            cache.disconnectedAt = cache.firstDisconnectAt;
+
+            await this.sendDisconnectionAlert(session);
+            cache.disconnectAlertSent = true;
+            cache.reconnectAlertSent = false;
+
+            // Update session status in database
+            await this.sessionRepository.update(sessionId, {
+              status: WhatsAppSessionStatus.DISCONNECTED,
+            });
+          }
+
+          this.sessionStatusCache.set(sessionId, cache);
+          return;
+        }
+
+        // For permanent disconnects or first-time disconnects, use original logic
         const shouldSendAlert =
-          (!cache && session.status === WhatsAppSessionStatus.CONNECTED) ||
-          (cache && cache.lastStatus === 'connected' && !cache.disconnectAlertSent);
+          !cache.disconnectAlertSent &&
+          (cache.lastStatus === 'connected' || session.status === WhatsAppSessionStatus.CONNECTED);
 
         if (shouldSendAlert) {
           this.logger.log(`📧 Sending disconnection alert for session ${sessionId}`);
 
-          // Update or create cache
-          if (!cache) {
-            cache = {
-              sessionId,
-              lastStatus: 'disconnected',
-              lastChecked: new Date(),
-              disconnectAlertSent: false,
-              reconnectAlertSent: false,
-              disconnectedAt: new Date(),
-            };
-          } else {
-            cache.lastStatus = 'disconnected';
-            cache.disconnectedAt = new Date();
-          }
+          cache.lastStatus = 'disconnected';
+          cache.disconnectedAt = new Date();
+          cache.firstDisconnectAt = new Date();
+          cache.reconnectAttempts = 0;
 
           // Send the alert
           await this.sendDisconnectionAlert(session);
@@ -430,10 +485,12 @@ export class WhatsAppSessionMonitorService {
           cache.reconnectAlertSent = true;
         }
 
-        // Update cache
+        // Update cache - reset reconnect tracking
         if (cache) {
           cache.lastStatus = 'connected';
           cache.disconnectedAt = null;
+          cache.reconnectAttempts = 0;
+          cache.firstDisconnectAt = null;
           this.sessionStatusCache.set(sessionId, cache);
         } else {
           this.sessionStatusCache.set(sessionId, {
@@ -443,6 +500,8 @@ export class WhatsAppSessionMonitorService {
             disconnectAlertSent: false,
             reconnectAlertSent: true,
             disconnectedAt: null,
+            reconnectAttempts: 0,
+            firstDisconnectAt: null,
           });
         }
 

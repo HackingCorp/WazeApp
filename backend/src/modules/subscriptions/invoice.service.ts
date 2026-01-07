@@ -2,8 +2,8 @@ import { Injectable, Logger, NotFoundException, BadRequestException, Inject, for
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, LessThanOrEqual, In } from 'typeorm';
 import { Cron, CronExpression } from '@nestjs/schedule';
-import { Invoice, InvoiceStatus, Subscription, Organization, User } from '../../common/entities';
-import { SubscriptionStatus } from '../../common/enums';
+import { Invoice, InvoiceStatus, Subscription, Organization, User, OrganizationMember } from '../../common/entities';
+import { SubscriptionStatus, UserRole } from '../../common/enums';
 import { PlanService } from './plan.service';
 import { EmailService } from '../email/email.service';
 
@@ -20,6 +20,8 @@ export class InvoiceService {
     private readonly organizationRepository: Repository<Organization>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    @InjectRepository(OrganizationMember)
+    private readonly memberRepository: Repository<OrganizationMember>,
     @Inject(forwardRef(() => PlanService))
     private readonly planService: PlanService,
     private readonly emailService: EmailService,
@@ -499,27 +501,11 @@ export class InvoiceService {
    */
   private async sendNewInvoiceEmail(invoice: Invoice, subscription: Subscription): Promise<void> {
     try {
-      const orgAdmins = await this.userRepository.find({
-        where: {
-          organizationMemberships: {
-            organizationId: invoice.organizationId,
-            role: In(['owner', 'admin']),
-          },
-        },
-        relations: ['organizationMemberships'],
-      });
+      const recipients = await this.getOrganizationEmailRecipients(invoice.organizationId);
 
-      let recipients = orgAdmins;
       if (recipients.length === 0) {
-        recipients = await this.userRepository.find({
-          where: {
-            organizationMemberships: {
-              organizationId: invoice.organizationId,
-            },
-          },
-          relations: ['organizationMemberships'],
-          take: 1,
-        });
+        this.logger.warn(`No email recipients found for organization ${invoice.organizationId}`);
+        return;
       }
 
       const organization = await this.organizationRepository.findOne({
@@ -545,7 +531,7 @@ export class InvoiceService {
         }
       }
 
-      this.logger.log(`📧 New invoice email sent for ${invoice.invoiceNumber}`);
+      this.logger.log(`📧 New invoice email sent for ${invoice.invoiceNumber} to ${recipients.length} recipient(s)`);
     } catch (error) {
       this.logger.error(`Failed to send new invoice email: ${error.message}`);
     }
@@ -604,29 +590,12 @@ export class InvoiceService {
 
       if (shouldSendReminder) {
         try {
-          // Get organization owner/admin to send email
-          const orgAdmins = await this.userRepository.find({
-            where: {
-              organizationMemberships: {
-                organizationId: invoice.organizationId,
-                role: In(['owner', 'admin']),
-              },
-            },
-            relations: ['organizationMemberships'],
-          });
+          // Get organization owners/admins to send email
+          const recipients = await this.getOrganizationEmailRecipients(invoice.organizationId);
 
-          // Fallback: get any user from the organization if no admin found
-          let recipients = orgAdmins;
           if (recipients.length === 0) {
-            recipients = await this.userRepository.find({
-              where: {
-                organizationMemberships: {
-                  organizationId: invoice.organizationId,
-                },
-              },
-              relations: ['organizationMemberships'],
-              take: 1,
-            });
+            this.logger.warn(`No email recipients found for organization ${invoice.organizationId}, skipping reminder`);
+            continue;
           }
 
           // Send email to each admin/owner
@@ -679,5 +648,42 @@ export class InvoiceService {
   private formatDateRange(start: Date, end: Date): string {
     const options: Intl.DateTimeFormatOptions = { day: '2-digit', month: 'short', year: 'numeric' };
     return `${start.toLocaleDateString('fr-FR', options)} - ${end.toLocaleDateString('fr-FR', options)}`;
+  }
+
+  /**
+   * Get organization admins (owners and admins) who should receive billing emails
+   */
+  private async getOrganizationEmailRecipients(organizationId: string): Promise<User[]> {
+    // First try to get owners and admins
+    const adminMembers = await this.memberRepository.find({
+      where: {
+        organizationId,
+        role: In([UserRole.OWNER, UserRole.ADMIN]),
+        isActive: true,
+      },
+      relations: ['user'],
+    });
+
+    let recipients = adminMembers
+      .filter(m => m.user && m.user.email)
+      .map(m => m.user);
+
+    // Fallback: if no admins found, get any active member
+    if (recipients.length === 0) {
+      const anyMember = await this.memberRepository.findOne({
+        where: {
+          organizationId,
+          isActive: true,
+        },
+        relations: ['user'],
+      });
+
+      if (anyMember?.user?.email) {
+        recipients = [anyMember.user];
+      }
+    }
+
+    this.logger.debug(`Found ${recipients.length} email recipient(s) for organization ${organizationId}`);
+    return recipients;
   }
 }

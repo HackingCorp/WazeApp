@@ -667,6 +667,8 @@ Always respond directly in the user's language without any formatting.`,
         status: ConversationStatus.ACTIVE,
         agentId: agent.id,
         userId: session.userId,
+        sessionId: session.id, // Set sessionId column for quota counting
+        clientPhoneNumber: fromNumber, // Set clientPhoneNumber column
         context: {
           sessionId: session.id,
           userProfile: {

@@ -1207,6 +1207,8 @@ Always respond directly in the user's language without any formatting.`,
           id: conversationData.id,
           userId: conversationData.userId,
           agentId: agent.id, // Required field - assign agent
+          sessionId: conversationData.sessionId, // Set sessionId column for quota counting
+          clientPhoneNumber: normalizedPhone, // Set clientPhoneNumber column
           externalId: normalizedPhone, // Use normalized phone number
           channel: ConversationChannel.WHATSAPP,
           status: ConversationStatus.ACTIVE,

@@ -362,8 +362,8 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
         version,
         printQRInTerminal: false,
 
-        // Use Windows Chrome browser - more common and less likely to be flagged
-        browser: ["WazeApp", "Chrome", "120.0.0"],
+        // Use standard WhatsApp Web browser fingerprint to avoid detection
+        browser: Browsers.windows("Chrome"),
         syncFullHistory: false,
 
         auth: {
@@ -371,12 +371,15 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
           keys: makeCacheableSignalKeyStore(authState.state.keys, undefined),
         },
 
-        // Simplified configuration for better stability
+        // Configuration for better connection stability
         generateHighQualityLinkPreview: false,
         markOnlineOnConnect: false, // Don't appear online immediately
-        defaultQueryTimeoutMs: 60000,
-        connectTimeoutMs: 60000,
+        defaultQueryTimeoutMs: 120000, // 2 minutes timeout for queries
+        connectTimeoutMs: 120000, // 2 minutes connection timeout
         qrTimeout: 60000,
+        keepAliveIntervalMs: 30000, // Built-in keep-alive every 30 seconds
+        retryRequestDelayMs: 500, // Small delay between retries
+        emitOwnEvents: true,
 
         // Message retrieval for context
         getMessage: async (key) => {
@@ -458,24 +461,35 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
             this.authStates.delete(sessionId);
             this.connectionStates.delete(sessionId);
           } else {
-            // Temporary disconnect - try to reconnect with exponential backoff
+            // Temporary disconnect - try to reconnect with exponential backoff + jitter
             // Update connection state to reconnecting
             this.connectionStates.set(sessionId, 'reconnecting');
-            this.logger.log(`🔄 Session ${sessionId} temporarily disconnected (code: ${statusCode}) - attempting reconnection...`);
+            this.logger.log(`🔄 Session ${sessionId} temporarily disconnected (code: ${statusCode}) - scheduling reconnection...`);
 
-            const maxRetries = 5; // Reduced retries for faster failure
-            const baseDelay = 5000; // 5 second initial delay
+            const maxRetries = 3; // Fewer retries to avoid rate limiting
+            const baseDelay = 10000; // 10 second initial delay (longer to avoid immediate reconnect storms)
             let retryCount = 0;
 
             const attemptReconnect = () => {
               if (retryCount < maxRetries) {
-                const delay = Math.min(baseDelay * Math.pow(2, retryCount), 60000); // Max 60s delay
+                // Exponential backoff with random jitter (±25%) to prevent reconnection storms
+                const exponentialDelay = baseDelay * Math.pow(2, retryCount);
+                const jitter = exponentialDelay * 0.25 * (Math.random() * 2 - 1); // ±25% jitter
+                const delay = Math.min(Math.max(exponentialDelay + jitter, 5000), 120000); // Between 5s and 2min
+
                 this.logger.log(
-                  `🔄 Attempting reconnection ${retryCount + 1}/${maxRetries} for session ${sessionId} in ${delay}ms`,
+                  `🔄 Scheduling reconnection ${retryCount + 1}/${maxRetries} for session ${sessionId} in ${Math.round(delay / 1000)}s`,
                 );
 
                 setTimeout(async () => {
                   try {
+                    // Check if session was already reconnected or manually disconnected
+                    const currentState = this.connectionStates.get(sessionId);
+                    if (currentState === 'connected') {
+                      this.logger.log(`✅ Session ${sessionId} already reconnected, skipping retry`);
+                      return;
+                    }
+
                     // Try to reconnect using existing auth state
                     const result = await this.connectSession(sessionId, false);
 
@@ -483,6 +497,7 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
                       this.logger.warn(
                         `⚠️ Session ${sessionId} needs QR code - stopping auto-reconnect`,
                       );
+                      this.connectionStates.set(sessionId, 'disconnected');
                       this.eventEmitter.emit("whatsapp.reconnect.needs.qr", {
                         sessionId,
                         message: "Session requires QR code authentication",
@@ -498,8 +513,7 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
                     }
                   } catch (error) {
                     this.logger.error(
-                      `❌ Reconnection attempt ${retryCount + 1} failed for session ${sessionId}:`,
-                      error,
+                      `❌ Reconnection attempt ${retryCount + 1} failed for session ${sessionId}: ${error.message}`,
                     );
                     retryCount++;
                     if (retryCount < maxRetries) {
@@ -508,6 +522,7 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
                       this.logger.error(
                         `❌ All reconnection attempts exhausted for session ${sessionId}`,
                       );
+                      this.connectionStates.set(sessionId, 'disconnected');
                       this.eventEmitter.emit("whatsapp.reconnect.failed", {
                         sessionId,
                         totalAttempts: maxRetries,
@@ -518,7 +533,8 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
               }
             };
 
-            attemptReconnect();
+            // Add initial delay before first reconnection attempt to let WhatsApp settle
+            setTimeout(() => attemptReconnect(), 3000);
           }
         } else if (connection === "open") {
           this.logger.log(`✅ Session ${sessionId} connected successfully`);
@@ -818,7 +834,7 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
       const sock = makeWASocket({
         version,
         printQRInTerminal: false,
-        browser: ["WazeApp", "Chrome", "120.0.0"],
+        browser: Browsers.windows("Chrome"),
         auth: {
           creds: authState.state.creds,
           keys: makeCacheableSignalKeyStore(authState.state.keys, undefined),
@@ -826,8 +842,10 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
         generateHighQualityLinkPreview: false,
         markOnlineOnConnect: false,
         syncFullHistory: false,
-        defaultQueryTimeoutMs: 60000,
-        connectTimeoutMs: 60000,
+        defaultQueryTimeoutMs: 120000,
+        connectTimeoutMs: 120000,
+        keepAliveIntervalMs: 30000,
+        retryRequestDelayMs: 500,
       });
 
       this.sessions.set(sessionId, sock);
@@ -1701,34 +1719,35 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
   }
 
   // Start keep-alive system for a session
+  // Note: Baileys has built-in keepAliveIntervalMs, this is a supplementary check
   private startKeepAlive(sessionId: string): void {
     // Clear existing timer if any
     this.stopKeepAlive(sessionId);
 
+    // Use a longer interval since Baileys handles its own keep-alive
+    // This serves as a fallback health check, not primary keep-alive
     const keepAliveInterval = setInterval(async () => {
       try {
         const sock = this.sessions.get(sessionId);
         if (sock && sock.ws && sock.ws.readyState === 1) {
-          // Send a simple presence update to keep connection alive
-          await sock.sendPresenceUpdate("available");
-          this.logger.debug(`🏓 Keep-alive ping sent for session ${sessionId}`);
+          // Just log status, don't send presence updates to avoid rate limiting
+          this.logger.debug(`🏓 Session ${sessionId} health check: WebSocket connected`);
         } else {
           this.logger.warn(
-            `⚠️ Session ${sessionId} is not ready for keep-alive`,
+            `⚠️ Session ${sessionId} WebSocket not ready (readyState: ${sock?.ws?.readyState})`,
           );
-          this.stopKeepAlive(sessionId);
+          // Don't stop immediately, let Baileys handle reconnection
         }
       } catch (error) {
         this.logger.error(
-          `❌ Keep-alive failed for session ${sessionId}:`,
+          `❌ Health check failed for session ${sessionId}:`,
           error,
         );
-        this.stopKeepAlive(sessionId);
       }
-    }, 15000); // Every 15 seconds (more frequent)
+    }, 60000); // Every 60 seconds - just for monitoring, not active keep-alive
 
     this.keepAliveTimers.set(sessionId, keepAliveInterval);
-    this.logger.log(`⏰ Keep-alive timer started for session ${sessionId} (15s interval)`);
+    this.logger.log(`⏰ Health check timer started for session ${sessionId} (60s interval)`);
   }
 
   // Stop keep-alive system for a session

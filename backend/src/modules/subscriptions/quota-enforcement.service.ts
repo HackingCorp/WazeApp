@@ -242,33 +242,24 @@ export class QuotaEnforcementService {
     const subscription = await this.getActiveSubscription(organizationId);
     const planLimit = subscription.limits.maxRequestsPerMonth; // Using requests limit for messages
 
-    // Get bonus credits info
+    // Get bonus credits info (available credits from database)
     const bonusCreditsInfo = await this.getBonusCreditsInfo(organizationId);
     const totalBonusAvailable = bonusCreditsInfo.available;
-    const totalBonusUsed = bonusCreditsInfo.used;
 
-    // Get actual message count
+    // Get actual message count for this billing period
     const totalMessagesUsed = await this.getActualWhatsAppMessageCount(organizationId);
 
-    // Priority: Bonus credits are consumed FIRST
-    // Calculate how many messages are counted against subscription quota
-    // If totalMessagesUsed <= totalBonusUsed (bonus credits covered all messages), subscription usage = 0
-    // Otherwise, subscription usage = totalMessagesUsed - bonus credits originally purchased + remaining
+    // Calculate bonus credits used based on actual messages
+    // Bonus credits are consumed FIRST, so:
+    // - If totalMessagesUsed >= totalBonusAvailable, all bonus credits are used
+    // - Otherwise, only totalMessagesUsed bonus credits are used
+    const bonusCreditsUsed = Math.min(totalMessagesUsed, totalBonusAvailable);
 
-    // Simpler approach: Effective limit = planLimit + bonusAvailable
-    // Messages are consumed from bonus first, so:
-    // - If messagesUsed <= totalBonusCreditsEverPurchased, all from bonus
-    // - Subscription usage = max(0, messagesUsed - totalBonusCreditsEverPurchased)
+    // Messages from subscription = total messages - bonus credits available
+    // (If more messages than bonus, the excess comes from subscription)
+    const messagesFromSubscription = Math.max(0, totalMessagesUsed - totalBonusAvailable);
 
-    // For display purposes, we show:
-    // - current: messages consumed from subscription quota only
-    // - limit: subscription plan limit
-    // - bonusCredits: separate info about bonus
-
-    // Calculate messages consumed from subscription (after bonus is exhausted)
-    // Total bonus credits ever purchased for this period = used + available
-    const totalBonusCredits = totalBonusUsed + totalBonusAvailable;
-    const messagesFromSubscription = Math.max(0, totalMessagesUsed - totalBonusCredits);
+    this.logger.log(`[QUOTA] Org ${organizationId}: ${totalMessagesUsed} total messages, ${totalBonusAvailable} bonus available, ${bonusCreditsUsed} bonus used, ${messagesFromSubscription} from subscription`);
 
     // Build quota check based on subscription usage only
     const quotaCheck = this.buildQuotaCheck(messagesFromSubscription, planLimit, "monthly WhatsApp messages");
@@ -282,17 +273,20 @@ export class QuotaEnforcementService {
 
     // Add bonus credits info
     quotaCheck.bonusCredits = {
-      available: totalBonusAvailable,
-      used: Math.min(totalBonusUsed, totalMessagesUsed), // Can't use more than total messages
+      available: Math.max(0, totalBonusAvailable - bonusCreditsUsed), // Remaining bonus after usage
+      used: bonusCreditsUsed,
       nextExpiration: bonusCreditsInfo.nextExpiration,
     };
 
-    // Recalculate allowed status considering bonus credits
-    // User can send messages if: bonusAvailable > 0 OR messagesFromSubscription < planLimit
-    quotaCheck.allowed = totalBonusAvailable > 0 || messagesFromSubscription < planLimit;
+    // Remaining bonus after usage
+    const remainingBonus = Math.max(0, totalBonusAvailable - bonusCreditsUsed);
 
-    // Update remaining to include bonus
-    quotaCheck.remaining = totalBonusAvailable + Math.max(0, planLimit - messagesFromSubscription);
+    // Recalculate allowed status considering bonus credits
+    // User can send messages if: remainingBonus > 0 OR messagesFromSubscription < planLimit
+    quotaCheck.allowed = remainingBonus > 0 || messagesFromSubscription < planLimit;
+
+    // Update remaining to include remaining bonus
+    quotaCheck.remaining = remainingBonus + Math.max(0, planLimit - messagesFromSubscription);
 
     return quotaCheck;
   }
@@ -976,25 +970,36 @@ export class QuotaEnforcementService {
   }
 
   /**
-   * Get the current billing period based on subscription start date
-   * Returns { start, end } dates for the current 30-day cycle
+   * Get the current billing period based on nextBillingDate
+   * Returns { start, end } dates for the current billing cycle
    */
   private getBillingPeriod(subscription: Subscription): { start: Date; end: Date } {
     const now = new Date();
-    const subscriptionStart = new Date(subscription.startsAt);
 
-    // Calculate how many complete 30-day cycles have passed
+    // Use nextBillingDate if available, otherwise fall back to calculation
+    if (subscription.nextBillingDate) {
+      const periodEnd = new Date(subscription.nextBillingDate);
+      periodEnd.setHours(23, 59, 59, 999);
+
+      // Period start is 30 days before nextBillingDate
+      const periodStart = new Date(periodEnd);
+      periodStart.setDate(periodStart.getDate() - 30);
+      periodStart.setHours(0, 0, 0, 0);
+
+      return { start: periodStart, end: periodEnd };
+    }
+
+    // Fallback: calculate based on subscription start date
+    const subscriptionStart = new Date(subscription.startsAt);
     const daysSinceStart = Math.floor(
       (now.getTime() - subscriptionStart.getTime()) / (1000 * 60 * 60 * 24)
     );
     const completeCycles = Math.floor(daysSinceStart / 30);
 
-    // Current period start is subscriptionStart + (completeCycles * 30 days)
     const periodStart = new Date(subscriptionStart);
     periodStart.setDate(periodStart.getDate() + (completeCycles * 30));
     periodStart.setHours(0, 0, 0, 0);
 
-    // Period end is 30 days after period start
     const periodEnd = new Date(periodStart);
     periodEnd.setDate(periodEnd.getDate() + 30);
     periodEnd.setHours(23, 59, 59, 999);

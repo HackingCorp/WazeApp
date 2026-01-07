@@ -242,24 +242,27 @@ export class QuotaEnforcementService {
     const subscription = await this.getActiveSubscription(organizationId);
     const planLimit = subscription.limits.maxRequestsPerMonth; // Using requests limit for messages
 
-    // Get bonus credits info (available credits from database)
+    // Get bonus credits info from database (includes both active and exhausted credits)
     const bonusCreditsInfo = await this.getBonusCreditsInfo(organizationId);
-    const totalBonusAvailable = bonusCreditsInfo.available;
 
     // Get actual message count for this billing period
     const totalMessagesUsed = await this.getActualWhatsAppMessageCount(organizationId);
 
-    // Calculate bonus credits used based on actual messages
-    // Bonus credits are consumed FIRST, so:
-    // - If totalMessagesUsed >= totalBonusAvailable, all bonus credits are used
-    // - Otherwise, only totalMessagesUsed bonus credits are used
-    const bonusCreditsUsed = Math.min(totalMessagesUsed, totalBonusAvailable);
+    // Bonus credits used comes from the database (actual consumed credits)
+    // This includes credits from exhausted packs
+    const bonusCreditsUsed = bonusCreditsInfo.used;
 
-    // Messages from subscription = total messages - bonus credits available
-    // (If more messages than bonus, the excess comes from subscription)
-    const messagesFromSubscription = Math.max(0, totalMessagesUsed - totalBonusAvailable);
+    // Bonus credits available is what's remaining in active credit packs
+    const bonusCreditsAvailable = bonusCreditsInfo.available;
 
-    this.logger.log(`[QUOTA] Org ${organizationId}: ${totalMessagesUsed} total messages, ${totalBonusAvailable} bonus available, ${bonusCreditsUsed} bonus used, ${messagesFromSubscription} from subscription`);
+    // Total bonus capacity = available + already used
+    const totalBonusCapacity = bonusCreditsAvailable + bonusCreditsUsed;
+
+    // Messages from subscription = total messages - bonus credits used
+    // (Bonus credits are consumed FIRST, so subscription is only used for messages beyond bonus)
+    const messagesFromSubscription = Math.max(0, totalMessagesUsed - totalBonusCapacity);
+
+    this.logger.log(`[QUOTA] Org ${organizationId}: ${totalMessagesUsed} total messages, ${bonusCreditsAvailable} bonus available, ${bonusCreditsUsed} bonus used, ${messagesFromSubscription} from subscription`);
 
     // Build quota check based on subscription usage only
     const quotaCheck = this.buildQuotaCheck(messagesFromSubscription, planLimit, "monthly WhatsApp messages");
@@ -273,20 +276,17 @@ export class QuotaEnforcementService {
 
     // Add bonus credits info
     quotaCheck.bonusCredits = {
-      available: Math.max(0, totalBonusAvailable - bonusCreditsUsed), // Remaining bonus after usage
+      available: bonusCreditsAvailable,
       used: bonusCreditsUsed,
       nextExpiration: bonusCreditsInfo.nextExpiration,
     };
 
-    // Remaining bonus after usage
-    const remainingBonus = Math.max(0, totalBonusAvailable - bonusCreditsUsed);
-
     // Recalculate allowed status considering bonus credits
-    // User can send messages if: remainingBonus > 0 OR messagesFromSubscription < planLimit
-    quotaCheck.allowed = remainingBonus > 0 || messagesFromSubscription < planLimit;
+    // User can send messages if: bonusCreditsAvailable > 0 OR messagesFromSubscription < planLimit
+    quotaCheck.allowed = bonusCreditsAvailable > 0 || messagesFromSubscription < planLimit;
 
     // Update remaining to include remaining bonus
-    quotaCheck.remaining = remainingBonus + Math.max(0, planLimit - messagesFromSubscription);
+    quotaCheck.remaining = bonusCreditsAvailable + Math.max(0, planLimit - messagesFromSubscription);
 
     return quotaCheck;
   }

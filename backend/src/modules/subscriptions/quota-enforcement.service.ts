@@ -14,6 +14,7 @@ import {
   AgentMessage,
   MessageCredit,
   MessageCreditStatus,
+  OrganizationMember,
 } from "../../common/entities";
 import { MessageRole } from "../../common/enums";
 import { SubscriptionPlan, UsageMetricType } from "../../common/enums";
@@ -78,6 +79,9 @@ export class QuotaEnforcementService {
 
     @InjectRepository(MessageCredit)
     private readonly messageCreditRepository: Repository<MessageCredit>,
+
+    @InjectRepository(OrganizationMember)
+    private readonly memberRepository: Repository<OrganizationMember>,
 
     private readonly planService: PlanService,
   ) {}
@@ -399,33 +403,30 @@ export class QuotaEnforcementService {
 
     this.logger.debug(`[QUOTA DEBUG] Org ${organizationId}: Billing period ${periodStart.toISOString()} to ${periodEnd.toISOString()}`);
 
-    // Get all sessions for this organization
+    // Get all sessions for this organization (don't use select to ensure relations load)
     const sessions = await this.sessionRepository.find({
       where: { organizationId },
-      select: ['id'],
       relations: ['agent'],
     });
     const sessionIds = sessions.map(s => s.id);
-    const agentIds = sessions
+    const agentIdsFromSessions = sessions
       .filter(s => s.agent?.id)
       .map(s => s.agent.id);
 
-    this.logger.debug(`[QUOTA DEBUG] Org ${organizationId}: Found ${sessions.length} sessions, sessionIds: ${JSON.stringify(sessionIds)}`);
-    this.logger.debug(`[QUOTA DEBUG] Agents from sessions: ${JSON.stringify(agentIds)}`);
+    this.logger.log(`[QUOTA] Org ${organizationId}: Found ${sessions.length} sessions`);
 
     // Also get agents directly assigned to this organization
     const orgAgents = await this.aiAgentRepository.find({
       where: { organizationId },
-      select: ['id'],
     });
     const orgAgentIds = orgAgents.map(a => a.id);
 
-    this.logger.debug(`[QUOTA DEBUG] Agents directly in org: ${JSON.stringify(orgAgentIds)}`);
+    this.logger.log(`[QUOTA] Org ${organizationId}: Found ${orgAgents.length} agents directly in org: ${JSON.stringify(orgAgentIds)}`);
 
     // Combine all agent IDs
-    const allAgentIds = [...new Set([...agentIds, ...orgAgentIds])];
+    const allAgentIds = [...new Set([...agentIdsFromSessions, ...orgAgentIds])];
 
-    this.logger.debug(`[QUOTA DEBUG] All agent IDs: ${JSON.stringify(allAgentIds)}`);
+    this.logger.log(`[QUOTA] Org ${organizationId}: Combined ${allAgentIds.length} unique agent IDs: ${JSON.stringify(allAgentIds)}`);
 
     if (sessionIds.length === 0 && allAgentIds.length === 0) {
       this.logger.warn(`[QUOTA DEBUG] No sessions or agents found for org ${organizationId}`);
@@ -457,17 +458,10 @@ export class QuotaEnforcementService {
     const conversations = await conversationQuery.getMany();
     const conversationIds = conversations.map(c => c.id);
 
-    this.logger.debug(`[QUOTA DEBUG] Found ${conversations.length} conversations for org ${organizationId}`);
+    this.logger.log(`[QUOTA] Org ${organizationId}: Found ${conversations.length} conversations`);
 
     if (conversationIds.length === 0) {
-      // Debug: Check if there are any conversations with these agents but NULL sessionId
-      if (allAgentIds.length > 0) {
-        const anyConversations = await this.conversationRepository
-          .createQueryBuilder('conv')
-          .where('conv.agentId IN (:...agentIds)', { agentIds: allAgentIds })
-          .getCount();
-        this.logger.debug(`[QUOTA DEBUG] Total conversations with these agents (ignoring sessionId): ${anyConversations}`);
-      }
+      this.logger.warn(`[QUOTA] Org ${organizationId}: No conversations found, returning 0`);
       return 0;
     }
 
@@ -479,7 +473,7 @@ export class QuotaEnforcementService {
       .andWhere('msg.createdAt >= :periodStart', { periodStart })
       .getCount();
 
-    this.logger.debug(`[QUOTA DEBUG] Final message count for org ${organizationId}: ${count} (period: ${periodStart.toISOString()})`);
+    this.logger.log(`[QUOTA] Org ${organizationId}: Final message count = ${count} (period starts: ${periodStart.toISOString()})`);
 
     return count;
   }

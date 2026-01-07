@@ -175,7 +175,7 @@ export class MessageCreditsController {
         const actualTotalUsed = quotaCheck.bonusCredits?.used || 0;
         const actualTotalAvailable = Math.max(0, totalBonusPurchased - actualTotalUsed);
 
-        this.logger.debug(`getCreditsSummary: Actual usage - totalMessages=${quotaCheck.messagesUsedThisPeriod}, bonusUsed=${actualTotalUsed}, bonusAvailable=${actualTotalAvailable}`);
+        this.logger.debug(`getCreditsSummary: Actual usage - totalMessages=${quotaCheck.current}, bonusUsed=${actualTotalUsed}, bonusAvailable=${actualTotalAvailable}`);
 
         return {
           ...baseSummary,

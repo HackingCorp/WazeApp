@@ -16,6 +16,8 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser, AuthenticatedRequest } from '../../common/decorators/current-user.decorator';
 import { OrganizationMember } from '../../common/entities';
 import { MessageCreditsService, MESSAGE_CREDIT_CONFIG } from './message-credits.service';
+import { QuotaEnforcementService } from './quota-enforcement.service';
+import { Subscription } from '../../common/entities';
 
 class CalculatePriceDto {
   @IsNumber()
@@ -68,8 +70,11 @@ export class MessageCreditsController {
 
   constructor(
     private readonly creditsService: MessageCreditsService,
+    private readonly quotaService: QuotaEnforcementService,
     @InjectRepository(OrganizationMember)
     private readonly memberRepository: Repository<OrganizationMember>,
+    @InjectRepository(Subscription)
+    private readonly subscriptionRepository: Repository<Subscription>,
   ) {}
 
   /**
@@ -150,7 +155,39 @@ export class MessageCreditsController {
     }
 
     this.logger.debug(`getCreditsSummary: Fetching credits for org ${organizationId}`);
-    return this.creditsService.getCreditsSummary(organizationId);
+
+    // Get base summary from service (for credit details)
+    const baseSummary = await this.creditsService.getCreditsSummary(organizationId);
+
+    // Get actual message usage from quota service
+    try {
+      const subscription = await this.subscriptionRepository.findOne({
+        where: { organizationId, isActive: true },
+      });
+
+      if (subscription) {
+        // Get actual message count for this billing period
+        const quotaCheck = await this.quotaService.checkWhatsAppMessageQuota(organizationId);
+
+        // Calculate actual bonus credits used
+        // Total bonus available = sum of all credit amounts (not remaining)
+        const totalBonusPurchased = baseSummary.activeCredits.reduce((sum, c) => sum + c.remaining, 0) + baseSummary.totalUsed;
+        const actualTotalUsed = quotaCheck.bonusCredits?.used || 0;
+        const actualTotalAvailable = Math.max(0, totalBonusPurchased - actualTotalUsed);
+
+        this.logger.debug(`getCreditsSummary: Actual usage - totalMessages=${quotaCheck.messagesUsedThisPeriod}, bonusUsed=${actualTotalUsed}, bonusAvailable=${actualTotalAvailable}`);
+
+        return {
+          ...baseSummary,
+          totalAvailable: actualTotalAvailable,
+          totalUsed: actualTotalUsed,
+        };
+      }
+    } catch (error) {
+      this.logger.error(`getCreditsSummary: Error calculating actual usage: ${error.message}`);
+    }
+
+    return baseSummary;
   }
 
   @Get('history')

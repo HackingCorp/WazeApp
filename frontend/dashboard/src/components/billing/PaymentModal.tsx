@@ -180,7 +180,7 @@ export function PaymentModal({
 
   const pollMobilePaymentStatus = async (paymentPtn: string, transId: string, paymentAmount: number) => {
     let attempts = 0;
-    const maxAttempts = 12;
+    const maxAttempts = 30; // 5 minutes total (30 x 10 seconds)
 
     const checkStatus = async () => {
       attempts++;
@@ -189,9 +189,9 @@ export function PaymentModal({
         const response = await api.verifyPayment({
           ptn: paymentPtn,
           transactionId: transId,
-          plan: plan?.id.toUpperCase() as 'STANDARD' | 'PRO' | 'ENTERPRISE',
+          plan: plan?.id.toUpperCase(), // Can be STANDARD, PRO, ENTERPRISE, or INVOICE-{id}
           userId,
-          organizationId, // Pass organization ID for organization subscription upgrade
+          organizationId,
           amount: paymentAmount,
           billingPeriod,
         });
@@ -199,6 +199,7 @@ export function PaymentModal({
         if (response.success && response.data) {
           const s3pStatus = response.data.status;
 
+          // Check for success
           if (s3pStatus === 'SUCCESS' || s3pStatus === 'SUCCESSFUL') {
             setStatus('success');
             setTimeout(() => {
@@ -206,9 +207,20 @@ export function PaymentModal({
               onClose();
             }, 2000);
             return;
-          } else if (s3pStatus === 'FAILED' || s3pStatus === 'CANCELLED') {
+          }
+          // Check for failure
+          else if (s3pStatus === 'FAILED' || s3pStatus === 'CANCELLED' || s3pStatus === 'ERRORED') {
             setStatus('failed');
-            setError('Le paiement a ete refuse ou annule');
+            setError(response.data.message || 'Le paiement a ete refuse ou annule');
+            return;
+          }
+          // Check if invoice was already paid (backend marks it as paid)
+          else if (response.data.invoicePaid) {
+            setStatus('success');
+            setTimeout(() => {
+              onSuccess();
+              onClose();
+            }, 2000);
             return;
           }
         }
@@ -216,17 +228,20 @@ export function PaymentModal({
         if (attempts < maxAttempts) {
           setTimeout(checkStatus, 10000);
         } else {
+          // After 5 minutes, show a message but don't fail
           setStatus('pending');
-          setError('Le paiement est toujours en attente. Verifiez votre telephone.');
+          setError('La verification prend plus de temps que prevu. Si vous avez confirme le paiement, fermez cette fenetre et verifiez votre facture.');
         }
       } catch (err) {
+        console.error('Payment verification error:', err);
         if (attempts < maxAttempts) {
           setTimeout(checkStatus, 10000);
         }
       }
     };
 
-    setTimeout(checkStatus, 10000);
+    // Start first check after 15 seconds (give time for payment to process)
+    setTimeout(checkStatus, 15000);
   };
 
   // ============================================

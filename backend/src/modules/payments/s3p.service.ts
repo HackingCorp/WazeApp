@@ -255,18 +255,21 @@ export class S3PService {
   /**
    * Vérifie le statut d'un paiement
    * Selon la doc S3P, le PTN commence par 99999 et le statut peut être dans différents champs
+   * IMPORTANT: On utilise TRID en priorité car c'est notre référence de transaction
+   * et S3P peut mettre à jour ce statut plus rapidement que le PTN
    */
   async verifyPayment(ptn?: string, trid?: string): Promise<any> {
     const url = `${this.baseUrl}/verifytx`;
 
-    // S3P accepte soit ptn soit trid - PTN commence par 99999
+    // Priorité: TRID d'abord (notre référence), puis PTN (référence S3P)
+    // Le TRID est plus fiable car c'est notre identifiant de transaction
     let params: any = {};
-    if (ptn) {
+    if (trid) {
+      params = { trid };
+    } else if (ptn) {
       // Nettoyer le PTN (enlever les underscores ou suffixes)
       const cleanPtn = ptn.split('_')[0];
       params = { ptn: cleanPtn };
-    } else if (trid) {
-      params = { trid };
     }
 
     const authHeader = this.generateAuthHeader('GET', url, params);
@@ -375,9 +378,12 @@ export class S3PService {
    */
   async verifyTransaction(transactionRef: string): Promise<any> {
     // Déterminer si c'est un PTN ou un TRID
+    // PTN commence par 99999, TRID est notre référence (WAZEAPP-xxx)
     if (transactionRef.startsWith('99999')) {
+      // C'est un PTN - on passe quand même comme TRID car verifyPayment priorise TRID
       return this.verifyPayment(transactionRef, undefined);
     } else {
+      // C'est un TRID - utiliser comme TRID (prioritaire)
       return this.verifyPayment(undefined, transactionRef);
     }
   }

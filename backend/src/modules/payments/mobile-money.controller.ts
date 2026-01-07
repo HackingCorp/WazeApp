@@ -25,6 +25,7 @@ import { S3PService, S3PPaymentRequest, S3PPaymentResponse } from './s3p.service
 import { EnkapService } from './enkap.service';
 import { CurrencyService } from './currency.service';
 import { SubscriptionUpgradeService, PaymentDetails } from './subscription-upgrade.service';
+import { InvoiceService } from '../subscriptions/invoice.service';
 import { User } from '../../common/entities';
 import {
   S3PPaymentDto,
@@ -102,6 +103,7 @@ export class MobileMoneyController {
     private readonly enkapService: EnkapService,
     private readonly currencyService: CurrencyService,
     private readonly subscriptionUpgradeService: SubscriptionUpgradeService,
+    private readonly invoiceService: InvoiceService,
   ) {}
 
   @Post('initiate')
@@ -189,8 +191,34 @@ export class MobileMoneyController {
 
       this.logger.log(`Payment verified successfully for user ${userId}, org: ${organizationId}, plan: ${plan}, amount: ${amount}`);
 
-      // Only upgrade subscription for actual plan upgrades, not for MESSAGE_CREDITS
-      if (plan && ['STANDARD', 'PRO', 'ENTERPRISE'].includes(plan.toUpperCase())) {
+      // Handle invoice payments (plan starts with 'INVOICE-')
+      if (plan && plan.toUpperCase().startsWith('INVOICE-')) {
+        try {
+          const invoiceId = plan.substring(8); // Remove 'INVOICE-' prefix
+          this.logger.log(`Processing invoice payment for invoice ${invoiceId}`);
+
+          const paidInvoice = await this.invoiceService.markAsPaid(
+            invoiceId,
+            'mobile_money',
+            verificationDto.transactionId || paymentStatus.ptn || '',
+          );
+
+          this.logger.log(`Invoice ${invoiceId} marked as paid`);
+
+          return {
+            ...paymentStatus,
+            invoicePaid: paidInvoice,
+          };
+        } catch (invoiceError) {
+          this.logger.error(`Failed to mark invoice as paid: ${invoiceError.message}`);
+          return {
+            ...paymentStatus,
+            invoicePaymentError: invoiceError.message,
+          };
+        }
+      }
+      // Handle subscription upgrades
+      else if (plan && ['STANDARD', 'PRO', 'ENTERPRISE'].includes(plan.toUpperCase())) {
         try {
           let upgradeResult;
 
@@ -247,7 +275,7 @@ export class MobileMoneyController {
           };
         }
       } else {
-        this.logger.warn(`Cannot upgrade subscription: no plan specified`);
+        this.logger.warn(`Cannot process payment: unrecognized plan type: ${plan}`);
       }
     }
 
@@ -527,17 +555,49 @@ export class MobileMoneyController {
 
       if (merchantRef) {
         const parts = merchantRef.split('-');
+        // Format: WAZEAPP-{userId}-{plan/INVOICE}-{invoiceId?/timestamp}
         if (parts.length >= 3 && parts[0] === 'WAZEAPP') {
           const userId = parts[1];
-          const plan = parts[2].toUpperCase();
+          const planOrInvoice = parts[2].toUpperCase();
 
-          if (['STANDARD', 'PRO', 'ENTERPRISE'].includes(plan)) {
+          // Handle invoice payments: WAZEAPP-{userId}-INVOICE-{invoiceId}-{timestamp}
+          if (planOrInvoice === 'INVOICE' && parts.length >= 4) {
+            const invoiceId = parts[3];
+            this.logger.log(`Processing invoice payment for invoice ${invoiceId}`);
+
+            try {
+              const paidInvoice = await this.invoiceService.markAsPaid(
+                invoiceId,
+                'card',
+                webhookData.transactionId || webhookData.txid || merchantRef,
+              );
+
+              this.logger.log(`Invoice ${invoiceId} marked as paid via E-nkap`);
+
+              return {
+                status: 'success',
+                message: 'Payment processed and invoice marked as paid',
+                webhookResult: result,
+                invoicePaid: paidInvoice,
+              };
+            } catch (invoiceError) {
+              this.logger.error(`Failed to mark invoice as paid: ${invoiceError.message}`);
+              return {
+                status: 'error',
+                message: 'Payment successful but failed to mark invoice as paid',
+                webhookResult: result,
+                error: invoiceError.message,
+              };
+            }
+          }
+          // Handle subscription upgrades: WAZEAPP-{userId}-{plan}-{timestamp}
+          else if (['STANDARD', 'PRO', 'ENTERPRISE'].includes(planOrInvoice)) {
             const upgradeResult = await this.subscriptionUpgradeService.upgradeUserSubscription(
               userId,
               {
                 transactionId: webhookData.transactionId || merchantRef,
                 ptn: webhookData.txid || result.txid,
-                plan: plan as 'STANDARD' | 'PRO' | 'ENTERPRISE',
+                plan: planOrInvoice as 'STANDARD' | 'PRO' | 'ENTERPRISE',
                 amount: webhookData.amount || webhookData.totalAmount || 0,
                 currency: webhookData.currency || 'XAF',
                 billingPeriod: 'monthly',

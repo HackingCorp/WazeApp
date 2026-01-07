@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { BonusCreditsWidget } from '@/components/billing/BonusCreditsWidget';
 import { MessageCreditsPurchaseModal } from '@/components/billing/MessageCreditsPurchaseModal';
+import { PaymentModal } from '@/components/billing/PaymentModal';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
@@ -66,7 +67,8 @@ export default function BillingPage() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [summary, setSummary] = useState<BillingSummary | null>(null);
   const [loadingInvoices, setLoadingInvoices] = useState(false);
-  const [payingInvoice, setPayingInvoice] = useState<string | null>(null);
+  const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
+  const [showInvoicePaymentModal, setShowInvoicePaymentModal] = useState(false);
   const searchParams = useSearchParams();
 
   // Handle E-nkap payment return
@@ -149,28 +151,19 @@ export default function BillingPage() {
     console.log('Billing cycle changed to:', cycle);
   };
 
-  const handlePayInvoice = async (invoiceId: string) => {
-    setPayingInvoice(invoiceId);
-    try {
-      // For now, simulate payment - in production, this would open the payment modal
-      const response = await api.payInvoice(invoiceId, {
-        paymentMethod: 'mobile_money',
-        paymentReference: `PAY-${Date.now()}`,
-      });
+  const handlePayInvoice = (invoice: Invoice) => {
+    // Open payment modal with invoice details
+    setSelectedInvoice(invoice);
+    setShowInvoicePaymentModal(true);
+  };
 
-      if (response.success) {
-        toast.success('Facture payee avec succes !');
-        fetchInvoices();
-        refreshAuth();
-      } else {
-        throw new Error(response.error || 'Payment failed');
-      }
-    } catch (error) {
-      console.error('Failed to pay invoice:', error);
-      toast.error('Echec du paiement. Veuillez reessayer.');
-    } finally {
-      setPayingInvoice(null);
-    }
+  const handleInvoicePaymentSuccess = async () => {
+    // Payment was successful - refresh invoices and auth
+    toast.success('Facture payee avec succes !');
+    setShowInvoicePaymentModal(false);
+    setSelectedInvoice(null);
+    fetchInvoices();
+    refreshAuth();
   };
 
   const formatAmount = (amountInCents: number, currency: string) => {
@@ -420,21 +413,11 @@ export default function BillingPage() {
                             <div className="flex items-center justify-end space-x-2">
                               {isPending && (
                                 <button
-                                  onClick={() => handlePayInvoice(invoice.id)}
-                                  disabled={payingInvoice === invoice.id}
-                                  className="inline-flex items-center px-3 py-1.5 bg-primary-600 text-white text-xs font-medium rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                  onClick={() => handlePayInvoice(invoice)}
+                                  className="inline-flex items-center px-3 py-1.5 bg-primary-600 text-white text-xs font-medium rounded-lg hover:bg-primary-700 transition-colors"
                                 >
-                                  {payingInvoice === invoice.id ? (
-                                    <>
-                                      <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-                                      Paiement...
-                                    </>
-                                  ) : (
-                                    <>
-                                      <CreditCard className="w-3 h-3 mr-1" />
-                                      Payer
-                                    </>
-                                  )}
+                                  <CreditCard className="w-3 h-3 mr-1" />
+                                  Payer
                                 </button>
                               )}
                               <button
@@ -474,6 +457,28 @@ export default function BillingPage() {
             </div>
           )}
         </div>
+      )}
+
+      {/* Invoice Payment Modal */}
+      {selectedInvoice && (
+        <PaymentModal
+          isOpen={showInvoicePaymentModal}
+          onClose={() => {
+            setShowInvoicePaymentModal(false);
+            setSelectedInvoice(null);
+          }}
+          plan={{
+            id: `invoice-${selectedInvoice.id}`,
+            name: selectedInvoice.description || `Facture ${selectedInvoice.invoiceNumber}`,
+          }}
+          onSuccess={handleInvoicePaymentSuccess}
+          customerName={user?.name || user?.email || 'Client'}
+          customerEmail={user?.email || ''}
+          dynamicPrice={selectedInvoice.totalAmountInCents / 100}
+          currency={selectedInvoice.currency || 'XAF'}
+          userId={user?.id}
+          organizationId={user?.organization?.id}
+        />
       )}
     </div>
   );

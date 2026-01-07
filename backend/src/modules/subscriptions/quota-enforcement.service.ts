@@ -973,22 +973,39 @@ export class QuotaEnforcementService {
    * Get the current billing period based on nextBillingDate
    * Returns { start, end } dates for the current billing cycle
    * Uses monthly intervals (not 30 days) for accurate billing period calculation
+   *
+   * IMPORTANT: If the user paid their renewal invoice early (before the current period ends),
+   * nextBillingDate will be advanced but we should still count messages from the previous period
+   * if we haven't reached the period start date yet.
    */
   private getBillingPeriod(subscription: Subscription): { start: Date; end: Date } {
     const now = new Date();
+    now.setHours(0, 0, 0, 0); // Normalize to start of day for comparison
 
     // Use nextBillingDate if available, otherwise fall back to calculation
     if (subscription.nextBillingDate) {
-      const periodEnd = new Date(subscription.nextBillingDate);
+      let periodEnd = new Date(subscription.nextBillingDate);
       periodEnd.setHours(23, 59, 59, 999);
 
       // Period start is 1 MONTH before nextBillingDate (not 30 days)
       // This handles varying month lengths correctly
-      const periodStart = new Date(periodEnd);
+      let periodStart = new Date(periodEnd);
       periodStart.setMonth(periodStart.getMonth() - 1);
       periodStart.setHours(0, 0, 0, 0);
 
-      this.logger.debug(`[BILLING PERIOD] nextBillingDate=${periodEnd.toISOString()}, periodStart=${periodStart.toISOString()}`);
+      // If today is BEFORE the calculated period start, it means the user paid early
+      // We need to use the PREVIOUS period instead
+      if (now < periodStart) {
+        this.logger.debug(`[BILLING PERIOD] Today (${now.toISOString()}) is before calculated periodStart (${periodStart.toISOString()}), using previous period`);
+        // Go back one more month
+        periodEnd = new Date(periodStart);
+        periodEnd.setHours(23, 59, 59, 999);
+        periodStart = new Date(periodEnd);
+        periodStart.setMonth(periodStart.getMonth() - 1);
+        periodStart.setHours(0, 0, 0, 0);
+      }
+
+      this.logger.debug(`[BILLING PERIOD] nextBillingDate=${subscription.nextBillingDate.toISOString()}, periodStart=${periodStart.toISOString()}, periodEnd=${periodEnd.toISOString()}`);
 
       return { start: periodStart, end: periodEnd };
     }

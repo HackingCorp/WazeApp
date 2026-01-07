@@ -972,6 +972,7 @@ export class QuotaEnforcementService {
   /**
    * Get the current billing period based on nextBillingDate
    * Returns { start, end } dates for the current billing cycle
+   * Uses monthly intervals (not 30 days) for accurate billing period calculation
    */
   private getBillingPeriod(subscription: Subscription): { start: Date; end: Date } {
     const now = new Date();
@@ -981,28 +982,38 @@ export class QuotaEnforcementService {
       const periodEnd = new Date(subscription.nextBillingDate);
       periodEnd.setHours(23, 59, 59, 999);
 
-      // Period start is 30 days before nextBillingDate
+      // Period start is 1 MONTH before nextBillingDate (not 30 days)
+      // This handles varying month lengths correctly
       const periodStart = new Date(periodEnd);
-      periodStart.setDate(periodStart.getDate() - 30);
+      periodStart.setMonth(periodStart.getMonth() - 1);
       periodStart.setHours(0, 0, 0, 0);
+
+      this.logger.debug(`[BILLING PERIOD] nextBillingDate=${periodEnd.toISOString()}, periodStart=${periodStart.toISOString()}`);
 
       return { start: periodStart, end: periodEnd };
     }
 
-    // Fallback: calculate based on subscription start date
+    // Fallback: calculate based on subscription start date using monthly intervals
     const subscriptionStart = new Date(subscription.startsAt);
-    const daysSinceStart = Math.floor(
-      (now.getTime() - subscriptionStart.getTime()) / (1000 * 60 * 60 * 24)
-    );
-    const completeCycles = Math.floor(daysSinceStart / 30);
+
+    // Calculate how many complete months since subscription start
+    let monthsDiff = (now.getFullYear() - subscriptionStart.getFullYear()) * 12 +
+                     (now.getMonth() - subscriptionStart.getMonth());
+
+    // If we haven't passed the billing day this month, we're still in the previous period
+    if (now.getDate() < subscriptionStart.getDate()) {
+      monthsDiff--;
+    }
 
     const periodStart = new Date(subscriptionStart);
-    periodStart.setDate(periodStart.getDate() + (completeCycles * 30));
+    periodStart.setMonth(periodStart.getMonth() + monthsDiff);
     periodStart.setHours(0, 0, 0, 0);
 
     const periodEnd = new Date(periodStart);
-    periodEnd.setDate(periodEnd.getDate() + 30);
+    periodEnd.setMonth(periodEnd.getMonth() + 1);
     periodEnd.setHours(23, 59, 59, 999);
+
+    this.logger.debug(`[BILLING PERIOD FALLBACK] start=${periodStart.toISOString()}, end=${periodEnd.toISOString()}`);
 
     return { start: periodStart, end: periodEnd };
   }

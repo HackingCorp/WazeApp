@@ -11,13 +11,14 @@ import {
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiBody, ApiQuery } from '@nestjs/swagger';
 import { IsNumber, IsString, IsOptional, Min } from 'class-validator';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser, AuthenticatedRequest } from '../../common/decorators/current-user.decorator';
 import { OrganizationMember } from '../../common/entities';
 import { MessageCreditsService, MESSAGE_CREDIT_CONFIG } from './message-credits.service';
 import { QuotaEnforcementService } from './quota-enforcement.service';
 import { Subscription } from '../../common/entities';
+import { SubscriptionStatus } from '../../common/enums';
 
 class CalculatePriceDto {
   @IsNumber()
@@ -162,7 +163,7 @@ export class MessageCreditsController {
     // Get actual message usage from quota service
     try {
       const subscription = await this.subscriptionRepository.findOne({
-        where: { organizationId, isActive: true },
+        where: { organizationId, status: In([SubscriptionStatus.ACTIVE, SubscriptionStatus.TRIALING]) },
       });
 
       if (subscription) {

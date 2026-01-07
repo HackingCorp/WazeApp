@@ -395,7 +395,9 @@ export class QuotaEnforcementService {
   private async getActualWhatsAppMessageCount(organizationId: string): Promise<number> {
     // Get subscription to determine billing period
     const subscription = await this.getActiveSubscription(organizationId);
-    const { start: periodStart } = this.getBillingPeriod(subscription);
+    const { start: periodStart, end: periodEnd } = this.getBillingPeriod(subscription);
+
+    this.logger.debug(`[QUOTA DEBUG] Org ${organizationId}: Billing period ${periodStart.toISOString()} to ${periodEnd.toISOString()}`);
 
     // Get all sessions for this organization
     const sessions = await this.sessionRepository.find({
@@ -408,6 +410,9 @@ export class QuotaEnforcementService {
       .filter(s => s.agent?.id)
       .map(s => s.agent.id);
 
+    this.logger.debug(`[QUOTA DEBUG] Org ${organizationId}: Found ${sessions.length} sessions, sessionIds: ${JSON.stringify(sessionIds)}`);
+    this.logger.debug(`[QUOTA DEBUG] Agents from sessions: ${JSON.stringify(agentIds)}`);
+
     // Also get agents directly assigned to this organization
     const orgAgents = await this.aiAgentRepository.find({
       where: { organizationId },
@@ -415,10 +420,15 @@ export class QuotaEnforcementService {
     });
     const orgAgentIds = orgAgents.map(a => a.id);
 
+    this.logger.debug(`[QUOTA DEBUG] Agents directly in org: ${JSON.stringify(orgAgentIds)}`);
+
     // Combine all agent IDs
     const allAgentIds = [...new Set([...agentIds, ...orgAgentIds])];
 
+    this.logger.debug(`[QUOTA DEBUG] All agent IDs: ${JSON.stringify(allAgentIds)}`);
+
     if (sessionIds.length === 0 && allAgentIds.length === 0) {
+      this.logger.warn(`[QUOTA DEBUG] No sessions or agents found for org ${organizationId}`);
       return 0;
     }
 
@@ -447,7 +457,17 @@ export class QuotaEnforcementService {
     const conversations = await conversationQuery.getMany();
     const conversationIds = conversations.map(c => c.id);
 
+    this.logger.debug(`[QUOTA DEBUG] Found ${conversations.length} conversations for org ${organizationId}`);
+
     if (conversationIds.length === 0) {
+      // Debug: Check if there are any conversations with these agents but NULL sessionId
+      if (allAgentIds.length > 0) {
+        const anyConversations = await this.conversationRepository
+          .createQueryBuilder('conv')
+          .where('conv.agentId IN (:...agentIds)', { agentIds: allAgentIds })
+          .getCount();
+        this.logger.debug(`[QUOTA DEBUG] Total conversations with these agents (ignoring sessionId): ${anyConversations}`);
+      }
       return 0;
     }
 
@@ -458,6 +478,8 @@ export class QuotaEnforcementService {
       .andWhere('msg.role = :role', { role: MessageRole.USER })
       .andWhere('msg.createdAt >= :periodStart', { periodStart })
       .getCount();
+
+    this.logger.debug(`[QUOTA DEBUG] Final message count for org ${organizationId}: ${count} (period: ${periodStart.toISOString()})`);
 
     return count;
   }

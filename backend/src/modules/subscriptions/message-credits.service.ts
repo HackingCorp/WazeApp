@@ -77,12 +77,16 @@ export class MessageCreditsService {
   /**
    * Create a new message credit purchase
    */
-  async purchaseCredits(dto: PurchaseCreditsDto): Promise<MessageCredit> {
-    this.validatePurchaseAmount(dto.amount);
+  async purchaseCredits(dto: PurchaseCreditsDto, skipValidation = false): Promise<MessageCredit> {
+    if (!skipValidation) {
+      this.validatePurchaseAmount(dto.amount);
+    }
 
     const price = this.calculatePrice(dto.amount);
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + MESSAGE_CREDIT_CONFIG.expirationDays);
+
+    const isAdminGrant = dto.paymentMethod === 'admin_grant';
 
     const credit = this.creditRepository.create({
       organizationId: dto.organizationId,
@@ -91,28 +95,30 @@ export class MessageCreditsService {
       used: 0,
       status: MessageCreditStatus.ACTIVE,
       expiresAt,
-      pricePerMessageXAF: MESSAGE_CREDIT_CONFIG.pricePerMessageXAF,
-      totalAmountXAF: price.xaf,
+      pricePerMessageXAF: isAdminGrant ? 0 : MESSAGE_CREDIT_CONFIG.pricePerMessageXAF,
+      totalAmountXAF: isAdminGrant ? 0 : price.xaf,
       transactionId: dto.transactionId,
       ptn: dto.ptn,
       paymentMethod: dto.paymentMethod,
       metadata: {
-        paymentProvider: 's3p',
+        paymentProvider: isAdminGrant ? 'admin' : 's3p',
         phoneNumber: dto.phoneNumber,
       },
     });
 
     const savedCredit = await this.creditRepository.save(credit);
 
-    // Create invoice for this purchase
-    try {
-      await this.createCreditPurchaseInvoice(savedCredit);
-    } catch (error) {
-      this.logger.error(`Failed to create invoice for credit purchase: ${error.message}`);
+    // Don't create invoice for admin grants
+    if (!isAdminGrant) {
+      try {
+        await this.createCreditPurchaseInvoice(savedCredit);
+      } catch (error) {
+        this.logger.error(`Failed to create invoice for credit purchase: ${error.message}`);
+      }
     }
 
     this.logger.log(
-      `Purchased ${dto.amount} message credits for org ${dto.organizationId}, expires ${expiresAt.toISOString()}`
+      `${isAdminGrant ? 'Admin added' : 'Purchased'} ${dto.amount} message credits for org ${dto.organizationId}, expires ${expiresAt.toISOString()}`
     );
 
     return savedCredit;

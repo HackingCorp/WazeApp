@@ -958,6 +958,7 @@ class ApiClient {
 
   async createBroadcastApiKey(data: {
     name: string;
+    sessionId: string;
     permissions: string[];
     expiresAt?: string;
     allowedIps?: string[];

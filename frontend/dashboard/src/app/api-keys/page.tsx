@@ -20,8 +20,17 @@ import {
   Lock,
   Unlock,
   BookOpen,
+  Edit3,
+  Smartphone,
 } from 'lucide-react';
 import Link from 'next/link';
+
+interface WhatsAppSession {
+  id: string;
+  name: string;
+  phoneNumber?: string;
+  status: string;
+}
 
 interface ApiKey {
   id: string;
@@ -38,6 +47,8 @@ interface ApiKey {
   totalRequests: number;
   allowedIps?: string[];
   createdAt: string;
+  sessionId?: string;
+  session?: WhatsAppSession;
 }
 
 const PERMISSIONS = [
@@ -57,12 +68,16 @@ export default function ApiKeysPage() {
   const { t } = useI18n();
   const { user } = useAuth();
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
+  const [sessions, setSessions] = useState<WhatsAppSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [canUseApi, setCanUseApi] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingKey, setEditingKey] = useState<ApiKey | null>(null);
   const [newKeyData, setNewKeyData] = useState({
     name: '',
     description: '',
+    sessionId: '',
     permissions: [] as string[],
     expiresAt: '',
     allowedIps: '',
@@ -86,6 +101,7 @@ export default function ApiKeysPage() {
       if (response.success && response.data?.canUseApi === true) {
         setCanUseApi(true);
         fetchApiKeys();
+        fetchSessions();
       } else {
         setCanUseApi(false);
         setLoading(false);
@@ -94,6 +110,17 @@ export default function ApiKeysPage() {
       console.error('Error checking API access:', error);
       setCanUseApi(false);
       setLoading(false);
+    }
+  };
+
+  const fetchSessions = async () => {
+    try {
+      const response = await api.getWhatsAppSessions();
+      if (response.success) {
+        setSessions(response.data || []);
+      }
+    } catch (error) {
+      console.error('Error fetching sessions:', error);
     }
   };
 
@@ -116,6 +143,7 @@ export default function ApiKeysPage() {
       console.log('Creating API key with data:', newKeyData);
       const response = await api.createBroadcastApiKey({
         name: newKeyData.name,
+        sessionId: newKeyData.sessionId,
         description: newKeyData.description || undefined,
         permissions: newKeyData.permissions,
         expiresAt: newKeyData.expiresAt || undefined,
@@ -136,6 +164,32 @@ export default function ApiKeysPage() {
     } catch (error) {
       console.error('Error creating API key:', error);
       alert('Erreur lors de la création de la clé API');
+    }
+  };
+
+  const handleEditKey = (key: ApiKey) => {
+    setEditingKey(key);
+    setShowEditModal(true);
+  };
+
+  const handleUpdateSession = async () => {
+    if (!editingKey) return;
+
+    try {
+      const response = await api.updateBroadcastApiKey(editingKey.id, {
+        sessionId: editingKey.sessionId,
+      });
+
+      if (response.success) {
+        setShowEditModal(false);
+        setEditingKey(null);
+        fetchApiKeys();
+      } else {
+        alert('Erreur lors de la mise à jour: ' + (response.error || 'Erreur inconnue'));
+      }
+    } catch (error) {
+      console.error('Error updating API key:', error);
+      alert('Erreur lors de la mise à jour de la clé API');
     }
   };
 
@@ -238,7 +292,7 @@ export default function ApiKeysPage() {
           </Link>
           <button
             onClick={() => {
-              setNewKeyData({ name: '', description: '', permissions: [], expiresAt: '', allowedIps: '', rateLimitPerMinute: 60 });
+              setNewKeyData({ name: '', description: '', sessionId: '', permissions: [], expiresAt: '', allowedIps: '', rateLimitPerMinute: 60 });
               setCreatedKey(null);
               setShowCreateModal(true);
             }}
@@ -309,6 +363,30 @@ export default function ApiKeysPage() {
                     {key.description && (
                       <span className="ml-2">{key.description}</span>
                     )}
+                  </div>
+
+                  {/* Session liée */}
+                  <div className="flex items-center gap-2 mb-3">
+                    <Smartphone className="w-4 h-4 text-gray-400" />
+                    <span className="text-sm text-gray-600 dark:text-gray-400">
+                      Session WhatsApp:{' '}
+                      {key.sessionId ? (
+                        <span className="font-medium text-green-600 dark:text-green-400">
+                          {sessions.find(s => s.id === key.sessionId)?.name || key.sessionId.slice(0, 8) + '...'}
+                        </span>
+                      ) : (
+                        <span className="text-amber-600 dark:text-amber-400 font-medium">
+                          Non assignée
+                        </span>
+                      )}
+                    </span>
+                    <button
+                      onClick={() => handleEditKey(key)}
+                      className="ml-2 p-1 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors"
+                      title="Modifier la session"
+                    >
+                      <Edit3 className="w-4 h-4" />
+                    </button>
                   </div>
 
                   {/* Permissions */}
@@ -479,6 +557,35 @@ export default function ApiKeysPage() {
                     </div>
 
                     <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Session WhatsApp *
+                      </label>
+                      <select
+                        value={newKeyData.sessionId}
+                        onChange={(e) => setNewKeyData({ ...newKeyData, sessionId: e.target.value })}
+                        className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      >
+                        <option value="">Sélectionner une session</option>
+                        {sessions.map((session) => (
+                          <option key={session.id} value={session.id}>
+                            {session.name} {session.phoneNumber ? `(${session.phoneNumber})` : ''} - {session.status}
+                          </option>
+                        ))}
+                      </select>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Chaque clé API est liée à une seule session WhatsApp
+                      </p>
+                      {sessions.length === 0 && (
+                        <p className="text-xs text-amber-600 mt-1">
+                          Aucune session WhatsApp disponible.{' '}
+                          <Link href="/dashboard/whatsapp" className="underline">
+                            Créer une session
+                          </Link>
+                        </p>
+                      )}
+                    </div>
+
+                    <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                         Permissions *
                       </label>
@@ -569,7 +676,7 @@ export default function ApiKeysPage() {
                     </button>
                     <button
                       onClick={handleCreateKey}
-                      disabled={!newKeyData.name || newKeyData.permissions.length === 0}
+                      disabled={!newKeyData.name || !newKeyData.sessionId || newKeyData.permissions.length === 0}
                       className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       Créer
@@ -577,6 +684,61 @@ export default function ApiKeysPage() {
                   </div>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Session Modal */}
+      {showEditModal && editingKey && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-xl max-w-md w-full">
+            <div className="p-6">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
+                Modifier la session WhatsApp
+              </h2>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                Clé API: <span className="font-medium">{editingKey.name}</span>
+              </p>
+
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Session WhatsApp
+                </label>
+                <select
+                  value={editingKey.sessionId || ''}
+                  onChange={(e) => setEditingKey({ ...editingKey, sessionId: e.target.value || undefined })}
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                >
+                  <option value="">Non assignée</option>
+                  {sessions.map((session) => (
+                    <option key={session.id} value={session.id}>
+                      {session.name} {session.phoneNumber ? `(${session.phoneNumber})` : ''} - {session.status}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-gray-500 mt-1">
+                  Chaque clé API est liée à une seule session WhatsApp
+                </p>
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    setShowEditModal(false);
+                    setEditingKey(null);
+                  }}
+                  className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                >
+                  Annuler
+                </button>
+                <button
+                  onClick={handleUpdateSession}
+                  className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                >
+                  Enregistrer
+                </button>
+              </div>
             </div>
           </div>
         </div>

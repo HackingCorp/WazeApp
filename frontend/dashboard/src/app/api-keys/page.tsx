@@ -117,7 +117,8 @@ export default function ApiKeysPage() {
     try {
       const response = await api.getWhatsAppSessions();
       if (response.success) {
-        setSessions(response.data || []);
+        const data = response.data;
+        setSessions(Array.isArray(data) ? data : []);
       }
     } catch (error) {
       console.error('Error fetching sessions:', error);
@@ -128,8 +129,10 @@ export default function ApiKeysPage() {
     setLoading(true);
     try {
       const response = await api.getBroadcastApiKeys();
+      console.log('API Keys response:', response);
       if (response.success) {
-        setApiKeys(response.data || []);
+        const data = response.data;
+        setApiKeys(Array.isArray(data) ? data : []);
       }
     } catch (error) {
       console.error('Error fetching API keys:', error);

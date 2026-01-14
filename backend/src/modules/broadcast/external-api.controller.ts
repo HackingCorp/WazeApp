@@ -84,34 +84,38 @@ export class ExternalApiController {
   // ==========================================
 
   @Get('sessions')
-  @ApiOperation({ summary: 'Get available WhatsApp sessions' })
+  @ApiOperation({ summary: 'Get the WhatsApp session linked to this API key' })
   @ApiHeader({ name: 'X-API-Key', required: true })
   async getSessions(
     @Headers('x-api-key') apiKey: string,
     @Ip() clientIp: string,
   ) {
-    const { organizationId } = await this.apiKeyService.validateApiKey(
+    const { sessionId } = await this.apiKeyService.validateApiKey(
       apiKey,
       ApiKeyPermission.SEND_MESSAGE,
       clientIp,
     );
 
-    const sessions = await this.sessionRepository.find({
-      where: { organizationId },
+    // Each API key is linked to exactly one session
+    const session = await this.sessionRepository.findOne({
+      where: { id: sessionId },
       select: ['id', 'name', 'phoneNumber', 'status', 'isActive', 'lastSeenAt', 'createdAt'],
-      order: { createdAt: 'DESC' },
     });
 
-    // Return data directly - TransformInterceptor will wrap it
-    return sessions.map(s => ({
-      id: s.id,
-      name: s.name,
-      phoneNumber: s.phoneNumber,
-      status: s.status,
-      isConnected: s.status === WhatsAppSessionStatus.CONNECTED,
-      isActive: s.isActive,
-      lastSeenAt: s.lastSeenAt,
-    }));
+    if (!session) {
+      throw new NotFoundException('WhatsApp session not found');
+    }
+
+    // Return single session (wrapped in array for backward compatibility)
+    return [{
+      id: session.id,
+      name: session.name,
+      phoneNumber: session.phoneNumber,
+      status: session.status,
+      isConnected: session.status === WhatsAppSessionStatus.CONNECTED,
+      isActive: session.isActive,
+      lastSeenAt: session.lastSeenAt,
+    }];
   }
 
   // ==========================================
@@ -130,11 +134,14 @@ export class ExternalApiController {
     @Body() dto: ExternalSendMessageDto,
   ) {
     // Validate API key
-    const { organizationId } = await this.apiKeyService.validateApiKey(
+    const { organizationId, sessionId: apiKeySessionId } = await this.apiKeyService.validateApiKey(
       apiKey,
       ApiKeyPermission.SEND_MESSAGE,
       clientIp,
     );
+
+    // Verify the API key has access to the requested session
+    this.apiKeyService.validateSessionAccess(apiKeySessionId, dto.sessionId);
 
     // Verify the session belongs to the organization and is connected
     await this.verifySession(dto.sessionId, organizationId);
@@ -241,11 +248,14 @@ export class ExternalApiController {
       caption?: string;
     },
   ) {
-    const { organizationId } = await this.apiKeyService.validateApiKey(
+    const { organizationId, sessionId: apiKeySessionId } = await this.apiKeyService.validateApiKey(
       apiKey,
       ApiKeyPermission.SEND_MESSAGE,
       clientIp,
     );
+
+    // Verify the API key has access to the requested session
+    this.apiKeyService.validateSessionAccess(apiKeySessionId, dto.sessionId);
 
     // Verify the session belongs to the organization and is connected
     await this.verifySession(dto.sessionId, organizationId);
@@ -282,11 +292,14 @@ export class ExternalApiController {
     @Ip() clientIp: string,
     @Body() dto: { sessionId: string; phoneNumbers: string[] },
   ) {
-    const { organizationId } = await this.apiKeyService.validateApiKey(
+    const { organizationId, sessionId: apiKeySessionId } = await this.apiKeyService.validateApiKey(
       apiKey,
       ApiKeyPermission.SEND_MESSAGE,
       clientIp,
     );
+
+    // Verify the API key has access to the requested session
+    this.apiKeyService.validateSessionAccess(apiKeySessionId, dto.sessionId);
 
     // Verify the session belongs to the organization and is connected
     await this.verifySession(dto.sessionId, organizationId);
@@ -566,12 +579,13 @@ export class ExternalApiController {
     @Headers('x-api-key') apiKey: string,
     @Ip() clientIp: string,
   ) {
-    const { organizationId, permissions } =
+    const { organizationId, sessionId, permissions } =
       await this.apiKeyService.validateApiKey(apiKey, undefined, clientIp);
 
     return {
       status: 'healthy',
       organizationId,
+      sessionId,
       permissions,
     };
   }

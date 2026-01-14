@@ -9,6 +9,7 @@ import {
   Index,
 } from 'typeorm';
 import { Organization } from './organization.entity';
+import { WhatsAppSession } from './whatsapp-session.entity';
 
 export enum ApiKeyPermission {
   BROADCAST_READ = 'broadcast:read',
@@ -35,6 +36,14 @@ export class ApiKey {
   @ManyToOne(() => Organization, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'organization_id' })
   organization: Organization;
+
+  // Each API key is linked to exactly ONE WhatsApp session
+  @Column({ name: 'session_id' })
+  sessionId: string;
+
+  @ManyToOne(() => WhatsAppSession, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'session_id' })
+  session: WhatsAppSession;
 
   @Column()
   name: string;

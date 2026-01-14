@@ -9,7 +9,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as crypto from 'crypto';
-import { ApiKey, ApiKeyPermission, Subscription } from '../../common/entities';
+import { ApiKey, ApiKeyPermission, Subscription, WhatsAppSession } from '../../common/entities';
 import { SubscriptionPlan } from '../../common/enums';
 import { CreateApiKeyDto } from './dto/broadcast.dto';
 
@@ -24,6 +24,8 @@ export class ApiKeyService {
     private apiKeyRepository: Repository<ApiKey>,
     @InjectRepository(Subscription)
     private subscriptionRepository: Repository<Subscription>,
+    @InjectRepository(WhatsAppSession)
+    private sessionRepository: Repository<WhatsAppSession>,
   ) {}
 
   /**
@@ -64,6 +66,7 @@ export class ApiKeyService {
 
   /**
    * Create a new API key
+   * Each API key is linked to exactly ONE WhatsApp session
    */
   async createApiKey(
     organizationId: string,
@@ -75,6 +78,16 @@ export class ApiKeyService {
     if (!canUse) {
       throw new ForbiddenException(
         'External API access requires Pro or Enterprise plan',
+      );
+    }
+
+    // Verify the session exists and belongs to this organization
+    const session = await this.sessionRepository.findOne({
+      where: { id: dto.sessionId, organizationId },
+    });
+    if (!session) {
+      throw new BadRequestException(
+        'Session not found or does not belong to this organization',
       );
     }
 
@@ -93,6 +106,7 @@ export class ApiKeyService {
 
     const apiKey = this.apiKeyRepository.create({
       organizationId,
+      sessionId: dto.sessionId,
       name: dto.name,
       description: dto.description,
       keyHash,
@@ -190,13 +204,14 @@ export class ApiKeyService {
   }
 
   /**
-   * Validate API key and return organization info
+   * Validate API key and return organization/session info
+   * Each API key is linked to exactly ONE WhatsApp session
    */
   async validateApiKey(
     key: string,
     requiredPermission?: ApiKeyPermission,
     clientIp?: string,
-  ): Promise<{ organizationId: string; permissions: ApiKeyPermission[] }> {
+  ): Promise<{ organizationId: string; sessionId: string; permissions: ApiKeyPermission[] }> {
     if (!key) {
       throw new UnauthorizedException('API key is required. Please provide X-API-Key header.');
     }
@@ -257,8 +272,20 @@ export class ApiKeyService {
 
     return {
       organizationId: apiKey.organizationId,
+      sessionId: apiKey.sessionId,
       permissions: apiKey.permissions,
     };
+  }
+
+  /**
+   * Validate that the API key has access to the requested session
+   */
+  validateSessionAccess(apiKeySessionId: string, requestedSessionId: string): void {
+    if (apiKeySessionId !== requestedSessionId) {
+      throw new ForbiddenException(
+        'This API key does not have access to the requested session. Each API key is linked to a specific WhatsApp session.',
+      );
+    }
   }
 
   /**

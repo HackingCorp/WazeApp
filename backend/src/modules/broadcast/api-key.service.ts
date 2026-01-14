@@ -81,6 +81,13 @@ export class ApiKeyService {
       );
     }
 
+    // SessionId is required for new API keys
+    if (!dto.sessionId) {
+      throw new BadRequestException(
+        'sessionId is required when creating a new API key',
+      );
+    }
+
     // Verify the session exists and belongs to this organization
     const session = await this.sessionRepository.findOne({
       where: { id: dto.sessionId, organizationId },
@@ -162,6 +169,20 @@ export class ApiKeyService {
     updates: Partial<CreateApiKeyDto>,
   ): Promise<ApiKey> {
     const apiKey = await this.getApiKey(organizationId, keyId);
+
+    // Update sessionId if provided
+    if (updates.sessionId) {
+      // Verify the session exists and belongs to this organization
+      const session = await this.sessionRepository.findOne({
+        where: { id: updates.sessionId, organizationId },
+      });
+      if (!session) {
+        throw new BadRequestException(
+          'Session not found or does not belong to this organization',
+        );
+      }
+      apiKey.sessionId = updates.sessionId;
+    }
 
     if (updates.permissions) {
       const validPermissions = Object.values(ApiKeyPermission);
@@ -260,6 +281,13 @@ export class ApiKeyService {
     if (!canUse) {
       throw new ForbiddenException(
         'External API access requires Pro or Enterprise plan. Please upgrade your subscription.',
+      );
+    }
+
+    // Check if API key has a session assigned
+    if (!apiKey.sessionId) {
+      throw new ForbiddenException(
+        'This API key has no WhatsApp session assigned. Please update the API key to assign a session before using it.',
       );
     }
 

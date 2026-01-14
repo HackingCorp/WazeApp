@@ -331,9 +331,10 @@ export class CreateApiKeyDto {
   @MaxLength(100)
   name: string;
 
-  @ApiProperty({ description: 'WhatsApp session ID to link this key to' })
+  @ApiPropertyOptional({ description: 'WhatsApp session ID to link this key to (required for new keys, optional for updates)' })
+  @IsOptional()
   @IsUUID()
-  sessionId: string;
+  sessionId?: string;
 
   @ApiPropertyOptional({ description: 'Description' })
   @IsOptional()

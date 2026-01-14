@@ -38,12 +38,13 @@ export class ApiKey {
   organization: Organization;
 
   // Each API key is linked to exactly ONE WhatsApp session
-  @Column({ name: 'session_id' })
-  sessionId: string;
+  // Nullable for existing keys that need to be assigned a session
+  @Column({ name: 'session_id', nullable: true })
+  sessionId?: string;
 
-  @ManyToOne(() => WhatsAppSession, { onDelete: 'CASCADE' })
+  @ManyToOne(() => WhatsAppSession, { onDelete: 'CASCADE', nullable: true })
   @JoinColumn({ name: 'session_id' })
-  session: WhatsAppSession;
+  session?: WhatsAppSession;
 
   @Column()
   name: string;

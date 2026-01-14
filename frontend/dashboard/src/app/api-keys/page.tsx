@@ -117,8 +117,9 @@ export default function ApiKeysPage() {
     try {
       const response = await api.getWhatsAppSessions();
       if (response.success) {
-        const data = response.data;
-        setSessions(Array.isArray(data) ? data : []);
+        // API returns paginated result: { data: [...sessions], total, page, limit }
+        const sessions = response.data?.data || response.data || [];
+        setSessions(Array.isArray(sessions) ? sessions : []);
       }
     } catch (error) {
       console.error('Error fetching sessions:', error);

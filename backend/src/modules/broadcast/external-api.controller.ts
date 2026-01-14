@@ -140,11 +140,16 @@ export class ExternalApiController {
       clientIp,
     );
 
-    // Verify the API key has access to the requested session
-    this.apiKeyService.validateSessionAccess(apiKeySessionId, dto.sessionId);
+    // Use API key's session if not provided in request
+    const sessionId = dto.sessionId || apiKeySessionId;
+
+    // If sessionId was explicitly provided, verify it matches the API key's session
+    if (dto.sessionId) {
+      this.apiKeyService.validateSessionAccess(apiKeySessionId, dto.sessionId);
+    }
 
     // Verify the session belongs to the organization and is connected
-    await this.verifySession(dto.sessionId, organizationId);
+    await this.verifySession(sessionId, organizationId);
 
     // Get template if provided
     let template = null;
@@ -199,7 +204,7 @@ export class ExternalApiController {
         await this.broadcastQueue.add(
           'send-external',
           {
-            sessionId: dto.sessionId,
+            sessionId,
             organizationId,
             messageContent,
           },
@@ -240,7 +245,7 @@ export class ExternalApiController {
     @Ip() clientIp: string,
     @Body()
     dto: {
-      sessionId: string;
+      sessionId?: string; // Optional - uses API key's session if not provided
       to: string;
       message: string;
       type?: string;
@@ -254,13 +259,18 @@ export class ExternalApiController {
       clientIp,
     );
 
-    // Verify the API key has access to the requested session
-    this.apiKeyService.validateSessionAccess(apiKeySessionId, dto.sessionId);
+    // Use API key's session if not provided in request
+    const sessionId = dto.sessionId || apiKeySessionId;
+
+    // If sessionId was explicitly provided, verify it matches the API key's session
+    if (dto.sessionId) {
+      this.apiKeyService.validateSessionAccess(apiKeySessionId, dto.sessionId);
+    }
 
     // Verify the session belongs to the organization and is connected
-    await this.verifySession(dto.sessionId, organizationId);
+    await this.verifySession(sessionId, organizationId);
 
-    const result = await this.baileysService.sendMessage(dto.sessionId, {
+    const result = await this.baileysService.sendMessage(sessionId, {
       to: dto.to,
       message: dto.message,
       type: (dto.type as any) || 'text',
@@ -290,7 +300,7 @@ export class ExternalApiController {
   async validateNumbers(
     @Headers('x-api-key') apiKey: string,
     @Ip() clientIp: string,
-    @Body() dto: { sessionId: string; phoneNumbers: string[] },
+    @Body() dto: { sessionId?: string; phoneNumbers: string[] },
   ) {
     const { organizationId, sessionId: apiKeySessionId } = await this.apiKeyService.validateApiKey(
       apiKey,
@@ -298,11 +308,16 @@ export class ExternalApiController {
       clientIp,
     );
 
-    // Verify the API key has access to the requested session
-    this.apiKeyService.validateSessionAccess(apiKeySessionId, dto.sessionId);
+    // Use API key's session if not provided in request
+    const sessionId = dto.sessionId || apiKeySessionId;
+
+    // If sessionId was explicitly provided, verify it matches the API key's session
+    if (dto.sessionId) {
+      this.apiKeyService.validateSessionAccess(apiKeySessionId, dto.sessionId);
+    }
 
     // Verify the session belongs to the organization and is connected
-    await this.verifySession(dto.sessionId, organizationId);
+    await this.verifySession(sessionId, organizationId);
 
     // Limit to 100 numbers per request to avoid abuse
     if (dto.phoneNumbers.length > 100) {
@@ -313,7 +328,7 @@ export class ExternalApiController {
     }
 
     const results = await this.baileysService.validatePhoneNumbers(
-      dto.sessionId,
+      sessionId,
       dto.phoneNumbers,
     );
 

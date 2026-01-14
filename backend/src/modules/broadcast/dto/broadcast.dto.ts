@@ -364,9 +364,10 @@ export class CreateApiKeyDto {
 }
 
 export class ExternalSendMessageDto {
-  @ApiProperty({ description: 'WhatsApp session ID' })
+  @ApiPropertyOptional({ description: 'WhatsApp session ID (optional - uses API key session if not provided)' })
+  @IsOptional()
   @IsUUID()
-  sessionId: string;
+  sessionId?: string;
 
   @ApiProperty({ description: 'Recipient phone number(s)' })
   @IsArray()

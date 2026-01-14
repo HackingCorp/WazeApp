@@ -76,6 +76,32 @@ export default function ApiDocumentationPage() {
           />
         </section>
 
+        {/* API Key = Session */}
+        <section className="bg-green-50 dark:bg-green-900/20 rounded-xl border border-green-200 dark:border-green-800 p-6">
+          <h2 className="text-xl font-semibold text-green-800 dark:text-green-200 mb-4">🔐 Clé API = Session WhatsApp</h2>
+          <p className="text-green-700 dark:text-green-300 mb-4">
+            <strong>Important:</strong> Chaque clé API est liée à <strong>une seule session WhatsApp</strong>.
+            Cela signifie que:
+          </p>
+          <ul className="space-y-2 text-green-700 dark:text-green-300 mb-4">
+            <li className="flex items-start gap-2">
+              <span>•</span>
+              <span>Vous n'avez <strong>plus besoin</strong> de spécifier le <code className="bg-green-100 dark:bg-green-800 px-1 rounded">sessionId</code> dans vos requêtes - il est déterminé automatiquement par votre clé API</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span>•</span>
+              <span>Une clé API ne peut envoyer des messages que via sa session WhatsApp assignée</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span>•</span>
+              <span>Pour utiliser plusieurs sessions, créez plusieurs clés API (une par session)</span>
+            </li>
+          </ul>
+          <p className="text-sm text-green-600 dark:text-green-400">
+            Vous pouvez assigner ou modifier la session liée à une clé API depuis le <a href="/api-keys" className="underline">tableau de bord des clés API</a>.
+          </p>
+        </section>
+
         {/* Permissions */}
         <section className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">Permissions</h2>
@@ -155,36 +181,25 @@ export default function ApiDocumentationPage() {
               <span className="px-2 py-1 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 text-xs font-bold rounded">GET</span>
               /sessions
             </h3>
-            <p className="text-gray-600 dark:text-gray-300 mb-1">Lister vos sessions WhatsApp disponibles.</p>
+            <p className="text-gray-600 dark:text-gray-300 mb-1">Obtenir les informations de la session WhatsApp liée à votre clé API.</p>
             <p className="text-sm text-amber-600 dark:text-amber-400 mb-3">Permission requise: <code>send:message</code></p>
             <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">
-              Utilisez cet endpoint pour obtenir les IDs des sessions WhatsApp connectées à votre organisation.
-              Vous aurez besoin du <code className="bg-gray-100 dark:bg-gray-700 px-1 rounded">sessionId</code> pour envoyer des messages.
+              Cet endpoint retourne uniquement la session WhatsApp assignée à votre clé API.
+              Vous n'avez <strong>pas besoin de spécifier le sessionId</strong> dans vos requêtes d'envoi.
             </p>
             <CodeBlock
               code={`// Réponse
 {
   "success": true,
-  "data": [
-    {
-      "id": "uuid-session-1",
-      "name": "Support Client",
-      "phoneNumber": "+237612345678",
-      "status": "connected",
-      "isConnected": true,
-      "isActive": true,
-      "lastSeenAt": "2025-01-15T12:00:00.000Z"
-    },
-    {
-      "id": "uuid-session-2",
-      "name": "Marketing",
-      "phoneNumber": "+237698765432",
-      "status": "disconnected",
-      "isConnected": false,
-      "isActive": true,
-      "lastSeenAt": "2025-01-14T10:30:00.000Z"
-    }
-  ],
+  "data": {
+    "id": "uuid-session",
+    "name": "Support Client",
+    "phoneNumber": "+237612345678",
+    "status": "connected",
+    "isConnected": true,
+    "isActive": true,
+    "lastSeenAt": "2025-01-15T12:00:00.000Z"
+  },
   "timestamp": "2025-01-15T12:00:00.000Z",
   "path": "/api/v1/external/sessions"
 }`}
@@ -204,7 +219,6 @@ export default function ApiDocumentationPage() {
             <CodeBlock
               code={`// Avec template
 {
-  "sessionId": "uuid-session-whatsapp",
   "recipients": ["+237612345678", "+237698765432"],
   "templateId": "uuid-template",
   "variables": {
@@ -216,13 +230,15 @@ export default function ApiDocumentationPage() {
 
 // Avec message personnalisé
 {
-  "sessionId": "uuid",
   "recipients": ["+237612345678"],
   "message": {
     "type": "text",
     "text": "Bonjour! Ceci est un message test."
   }
-}`}
+}
+
+// Note: Le sessionId n'est plus requis - il est déterminé
+// automatiquement par votre clé API`}
               id="send-request"
               language="json"
             />
@@ -238,7 +254,6 @@ export default function ApiDocumentationPage() {
             <p className="text-sm text-amber-600 dark:text-amber-400 mb-3">Permission requise: <code>send:message</code></p>
             <CodeBlock
               code={`{
-  "sessionId": "uuid",
   "to": "+237612345678",
   "message": "Bonjour!",
   "type": "text"
@@ -246,12 +261,13 @@ export default function ApiDocumentationPage() {
 
 // Pour les médias
 {
-  "sessionId": "uuid",
   "to": "+237612345678",
   "type": "image",
   "mediaUrl": "https://example.com/image.jpg",
   "caption": "Regardez cette image!"
-}`}
+}
+
+// Note: Le sessionId n'est plus requis`}
               id="send-immediate"
               language="json"
             />
@@ -270,9 +286,8 @@ export default function ApiDocumentationPage() {
               <strong className="text-gray-700 dark:text-gray-300"> Maximum 100 numéros par requête.</strong>
             </p>
             <CodeBlock
-              code={`// Requête
+              code={`// Requête - sessionId n'est plus requis
 {
-  "sessionId": "uuid-session-whatsapp",
   "phoneNumbers": [
     "237691371922",
     "237670000000",
@@ -410,14 +425,15 @@ export default function ApiDocumentationPage() {
             <CodeBlock
               code={`{
   "name": "Campagne Bienvenue",
-  "sessionId": "uuid",
   "templateId": "uuid",
   "contactFilter": {
     "tags": ["nouveau_client"]
   },
   "delayBetweenMessages": 3000,
   "startImmediately": true
-}`}
+}
+
+// Note: La session utilisée est celle liée à votre clé API`}
               id="create-campaign"
               language="json"
             />
@@ -515,6 +531,16 @@ export default function ApiDocumentationPage() {
                   <td className="py-3 px-4"><code>BAD_REQUEST</code></td>
                   <td className="py-3 px-4">400</td>
                   <td className="py-3 px-4">Données invalides</td>
+                </tr>
+                <tr className="border-b border-gray-100 dark:border-gray-700">
+                  <td className="py-3 px-4"><code>NO_SESSION_ASSIGNED</code></td>
+                  <td className="py-3 px-4">400</td>
+                  <td className="py-3 px-4">Aucune session WhatsApp n'est liée à cette clé API</td>
+                </tr>
+                <tr className="border-b border-gray-100 dark:border-gray-700">
+                  <td className="py-3 px-4"><code>SESSION_NOT_CONNECTED</code></td>
+                  <td className="py-3 px-4">400</td>
+                  <td className="py-3 px-4">La session WhatsApp liée n'est pas connectée</td>
                 </tr>
                 <tr>
                   <td className="py-3 px-4"><code>RATE_LIMITED</code></td>

@@ -79,6 +79,7 @@ import {
         ],
         synchronize:
           configService.get("DATABASE_SYNCHRONIZE", "true") === "true",
+        migrationsRun: true,
         logging: configService.get("NODE_ENV") === "development",
         ssl:
           configService.get("DATABASE_SSL_ENABLED") === "true"

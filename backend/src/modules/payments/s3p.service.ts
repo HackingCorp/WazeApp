@@ -468,9 +468,19 @@ export class S3PService {
       let payItemId: string;
       const services = serviceResponse.data;
 
-      this.logger.log(`S3P /cashin response: ${JSON.stringify(services)}`);
+      this.logger.log(`S3P /cashout response for serviceId ${serviceId}: ${JSON.stringify(services)}`);
 
       if (Array.isArray(services)) {
+        // Log détaillé de tous les services pour debug
+        this.logger.log(`S3P Services disponibles: ${JSON.stringify(services.map(s => ({
+          id: s.id,
+          serviceid: s.serviceid,
+          serviceId: s.serviceId,
+          merchant: s.merchant,
+          name: s.name || s.serviceName,
+          payItemId: s.payItemId || s.payitemid
+        })))}`);
+
         // Chercher le service par serviceid (peut être string ou number)
         const service = services.find((s) =>
           String(s.serviceid) === String(serviceId) ||
@@ -479,17 +489,18 @@ export class S3PService {
         );
         if (!service) {
           // Log tous les services disponibles pour debug
-          this.logger.warn(`Service ${serviceId} non trouvé. Services disponibles: ${JSON.stringify(services.map(s => ({ id: s.id, serviceid: s.serviceid, serviceId: s.serviceId, name: s.name || s.serviceName })))}`);
-          throw new Error(`Service ${serviceId} non trouvé dans la liste des services cashout`);
+          this.logger.error(`Service ${serviceId} (${paymentType}) NON TROUVE dans la liste des services cashout`);
+          throw new Error(`Service ${paymentType.toUpperCase()} (${serviceId}) non disponible`);
         }
         payItemId = service.payItemId || service.payitemid || service.pay_item_id;
+        this.logger.log(`Service ${paymentType} trouvé - payItemId: ${payItemId}`);
       } else if (services.payItemId) {
         payItemId = services.payItemId;
       } else if (services.payitemid) {
         payItemId = services.payitemid;
       } else {
-        this.logger.warn(`Format de réponse inattendu: ${JSON.stringify(services)}`);
-        throw new Error('Format de réponse inattendu');
+        this.logger.warn(`Format de réponse inattendu pour ${paymentType}: ${JSON.stringify(services)}`);
+        throw new Error(`Format de reponse inattendu pour ${paymentType.toUpperCase()}`);
       }
 
       this.logger.log(`PayItemId récupéré: ${payItemId}`);
@@ -593,16 +604,32 @@ export class S3PService {
         },
       };
     } catch (error) {
-      this.logger.error(`Erreur paiement S3P: ${error.message}`, error.stack);
+      this.logger.error(`Erreur paiement S3P (${paymentType}): ${error.message}`, error.stack);
 
-      // Try to provide a user-friendly message
+      // Try to provide a user-friendly message based on error type
       let userMessage = 'Une erreur est survenue lors du paiement';
-      if (error.message?.includes('Service') || error.message?.includes('service')) {
-        userMessage = 'Le service de paiement est temporairement indisponible';
+
+      // Check for specific error patterns
+      if (error.message?.includes('non disponible')) {
+        // Service not found - specific operator issue
+        userMessage = `Le service ${paymentType.toUpperCase()} Mobile Money n'est pas disponible actuellement`;
+      } else if (error.message?.includes('Service') || error.message?.includes('service')) {
+        userMessage = `Le service ${paymentType.toUpperCase()} est temporairement indisponible`;
       } else if (error.message?.includes('Quote') || error.message?.includes('quote')) {
         userMessage = 'Impossible de generer le devis de paiement';
       } else if (error.message?.includes('timeout') || error.message?.includes('Timeout')) {
         userMessage = 'Le service de paiement ne repond pas. Veuillez reessayer';
+      } else if (error.response?.status === 400) {
+        userMessage = `Erreur de parametres pour ${paymentType.toUpperCase()} - verifiez le numero`;
+      } else if (error.response?.status === 401 || error.response?.status === 403) {
+        userMessage = 'Erreur d\'authentification avec le service de paiement';
+      } else if (error.response?.status >= 500) {
+        userMessage = `Le service ${paymentType.toUpperCase()} est en maintenance`;
+      }
+
+      // Log additional details from axios error response
+      if (error.response?.data) {
+        this.logger.error(`S3P API Error Response: ${JSON.stringify(error.response.data)}`);
       }
 
       return {
@@ -611,6 +638,11 @@ export class S3PService {
         error: error.message,
         message: userMessage,
         transactionId: trid,
+        debug: {
+          paymentType,
+          serviceId,
+          errorDetails: error.response?.data || error.message,
+        },
       };
     }
   }

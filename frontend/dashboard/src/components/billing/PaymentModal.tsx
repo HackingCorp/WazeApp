@@ -163,6 +163,14 @@ export function PaymentModal({
 
       if (response.success && response.data) {
         const data = response.data;
+
+        // Check if backend returned success: false (business logic error)
+        if (data.success === false) {
+          setStatus('failed');
+          setError(data.message || data.error || 'Le paiement a echoue');
+          return;
+        }
+
         setTransactionRef(data.transactionId);
         setPtn(data.ptn);
 
@@ -175,9 +183,19 @@ export function PaymentModal({
         } else if (data.status === 'PENDING') {
           setStatus('pending');
           pollMobilePaymentStatus(data.ptn, data.transactionId, amount);
-        } else {
+        } else if (data.status === 'FAILED') {
           setStatus('failed');
-          setError(data.message || 'Le paiement a echoue');
+          setError(data.message || data.error || 'Le paiement a echoue');
+        } else {
+          // Status unknown - check if there's an error
+          if (data.error || data.message) {
+            setStatus('failed');
+            setError(data.message || data.error || 'Le paiement a echoue');
+          } else {
+            // Assume pending if no clear status
+            setStatus('pending');
+            pollMobilePaymentStatus(data.ptn, data.transactionId, amount);
+          }
         }
       } else {
         setStatus('failed');

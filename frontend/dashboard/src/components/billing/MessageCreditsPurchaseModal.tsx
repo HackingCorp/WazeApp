@@ -212,6 +212,14 @@ export function MessageCreditsPurchaseModal({
 
         if (response.success && response.data) {
           const data = response.data;
+
+          // Check if backend returned success: false (business logic error)
+          if (data.success === false) {
+            setStatus('failed');
+            setError(data.message || data.error || 'Le paiement a echoue');
+            return;
+          }
+
           setPtn(data.ptn);
 
           if (data.status === 'SUCCESS') {
@@ -225,9 +233,19 @@ export function MessageCreditsPurchaseModal({
           } else if (data.status === 'PENDING') {
             setStatus('pending');
             pollPaymentStatus(data.ptn, data.transactionId);
-          } else {
+          } else if (data.status === 'FAILED') {
             setStatus('failed');
-            setError(data.message || 'Le paiement a echoue');
+            setError(data.message || data.error || 'Le paiement a echoue');
+          } else {
+            // Status unknown - check if there's an error
+            if (data.error || data.message) {
+              setStatus('failed');
+              setError(data.message || data.error || 'Le paiement a echoue');
+            } else {
+              // Assume pending if no clear status
+              setStatus('pending');
+              pollPaymentStatus(data.ptn, data.transactionId);
+            }
           }
         } else {
           setStatus('failed');

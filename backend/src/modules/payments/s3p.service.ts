@@ -595,9 +595,21 @@ export class S3PService {
     } catch (error) {
       this.logger.error(`Erreur paiement S3P: ${error.message}`, error.stack);
 
+      // Try to provide a user-friendly message
+      let userMessage = 'Une erreur est survenue lors du paiement';
+      if (error.message?.includes('Service') || error.message?.includes('service')) {
+        userMessage = 'Le service de paiement est temporairement indisponible';
+      } else if (error.message?.includes('Quote') || error.message?.includes('quote')) {
+        userMessage = 'Impossible de generer le devis de paiement';
+      } else if (error.message?.includes('timeout') || error.message?.includes('Timeout')) {
+        userMessage = 'Le service de paiement ne repond pas. Veuillez reessayer';
+      }
+
       return {
         success: false,
+        status: 'FAILED',
         error: error.message,
+        message: userMessage,
         transactionId: trid,
       };
     }

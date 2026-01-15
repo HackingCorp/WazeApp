@@ -565,9 +565,10 @@ export class WhatsAppAIResponderService {
     organizationId?: string,
   ): Promise<AiAgent | null> {
     try {
-      // Try to find existing active agent
+      // Try to find existing active agent with knowledgeBases loaded
       let agent = await this.agentRepository.findOne({
         where: { organizationId, status: AgentStatus.ACTIVE },
+        relations: ["knowledgeBases"],
         order: { createdAt: "DESC" },
       });
 
@@ -575,6 +576,8 @@ export class WhatsAppAIResponderService {
         // Create default agent
         agent = await this.createDefaultAgent(organizationId);
       }
+
+      this.logger.log(`🤖 Agent resolved: ${agent.name} (${agent.id}), KBs: ${agent.knowledgeBases?.length || 0}`);
 
       return agent;
     } catch (error) {
@@ -724,31 +727,37 @@ Always respond directly in the user's language without any formatting.`,
   private async searchKnowledgeBase(
     session: WhatsAppSession,
     userMessage: string,
+    agent?: AiAgent,
   ): Promise<string> {
     try {
-      // Log session state for debugging
+      // Log session and agent state for debugging
       this.logger.log(`🔍 KB Search: Session ID = ${session.id}`);
-      this.logger.log(`🔍 KB Search: Session has agent = ${!!session.agent}`);
-      if (session.agent) {
-        this.logger.log(`🔍 KB Search: Agent ID = ${session.agent.id}, Name = ${session.agent.name}`);
-        this.logger.log(`🔍 KB Search: Agent has knowledgeBases array = ${!!session.agent.knowledgeBases}`);
-        this.logger.log(`🔍 KB Search: Agent knowledgeBases count = ${session.agent.knowledgeBases?.length || 0}`);
+      this.logger.log(`🔍 KB Search: Agent param provided = ${!!agent}`);
+      if (agent) {
+        this.logger.log(`🔍 KB Search: Using Agent ID = ${agent.id}, Name = ${agent.name}`);
+        this.logger.log(`🔍 KB Search: Agent knowledgeBases count = ${agent.knowledgeBases?.length || 0}`);
       }
+      this.logger.log(`🔍 KB Search: Session.agent ID = ${session.agent?.id || 'null'}`);
       this.logger.log(`🔍 KB Search: Session has direct knowledgeBase = ${!!session.knowledgeBase}`);
       this.logger.log(`🔍 KB Search: Organization ID = ${session.organizationId}`);
 
-      // Priorité : base de connaissances de l'agent assigné à la session
+      // Priorité :
+      // 1. Agent passé en paramètre (source de vérité)
+      // 2. Agent de la session
+      // 3. Base de connaissances directe de la session (legacy)
+      // 4. Base de connaissances de l'organisation (fallback)
       let knowledgeBase: any = null;
+      const effectiveAgent = agent || session.agent;
 
       if (
-        session.agent &&
-        session.agent.knowledgeBases &&
-        session.agent.knowledgeBases.length > 0
+        effectiveAgent &&
+        effectiveAgent.knowledgeBases &&
+        effectiveAgent.knowledgeBases.length > 0
       ) {
-        // Utiliser la première base de connaissances de l'agent (ou on pourrait avoir une logique plus complexe)
-        knowledgeBase = session.agent.knowledgeBases[0];
+        // Utiliser la première base de connaissances de l'agent effectif
+        knowledgeBase = effectiveAgent.knowledgeBases[0];
         this.logger.log(
-          `✅ Using agent's knowledge base: ${knowledgeBase.name} (${knowledgeBase.id})`,
+          `✅ Using agent's knowledge base: ${knowledgeBase.name} (${knowledgeBase.id}) from agent ${effectiveAgent.name}`,
         );
       } else if (session.knowledgeBase) {
         // Fallback: base de connaissances directement associée à la session (legacy)
@@ -1070,9 +1079,11 @@ Always respond directly in the user's language without any formatting.`,
       });
 
       // Search knowledge base for relevant information
+      // Pass the agent to ensure we use the correct KB (not just session.agent)
       const knowledgeContext = await this.searchKnowledgeBase(
         session,
         userMessage,
+        agent,
       );
 
       // Search web if needed and knowledge base doesn't have enough info

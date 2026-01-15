@@ -465,7 +465,7 @@ export class QuotaEnforcementService {
     const aiMessageCount = await this.messageRepository
       .createQueryBuilder('msg')
       .where('msg.conversationId IN (:...conversationIds)', { conversationIds })
-      .andWhere('msg.role = :role', { role: MessageRole.ASSISTANT })
+      .andWhere('msg.role = :role', { role: MessageRole.AGENT })
       .andWhere('msg.createdAt >= :periodStart', { periodStart })
       .getCount();
 
@@ -543,7 +543,7 @@ export class QuotaEnforcementService {
     const count = await this.messageRepository
       .createQueryBuilder('msg')
       .where('msg.conversationId IN (:...conversationIds)', { conversationIds })
-      .andWhere('msg.role = :role', { role: MessageRole.ASSISTANT })
+      .andWhere('msg.role = :role', { role: MessageRole.AGENT })
       .andWhere('msg.createdAt >= :periodStart', { periodStart })
       .getCount();
 

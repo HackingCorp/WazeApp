@@ -1608,25 +1608,45 @@ EXEMPLE DE BONNE RÉPONSE AUTOMATIQUE:
       // Extract keywords from user message for search
       const keywords = this.extractKeywordsFromMessage(userMessage);
 
-      this.logger.log(`Searching for media with keywords: ${keywords.join(', ')}`);
+      this.logger.log(`🔍 Searching media in KB ${knowledgeBaseId} with keywords: ${keywords.join(', ')}`);
+
+      // First, let's see all media documents in this KB for debugging
+      const allMedia = await this.knowledgeDocumentRepository
+        .createQueryBuilder('doc')
+        .where('doc.knowledgeBaseId = :knowledgeBaseId', { knowledgeBaseId })
+        .andWhere('doc.type IN (:...mediaTypes)', {
+          mediaTypes: ['image', 'video']
+        })
+        .getMany();
+
+      this.logger.log(`📸 Total media in KB: ${allMedia.length}`);
+      allMedia.forEach((m, i) => {
+        this.logger.log(`   Media ${i + 1}: ${m.title} | type=${m.type} | status=${m.status} | path=${m.filePath?.substring(0, 50)}...`);
+      });
 
       if (keywords.length === 0) {
-        this.logger.log('No keywords extracted, skipping media search');
-        return [];
+        // If no keywords, return all available media (up to 3)
+        this.logger.log('No keywords extracted, returning all available media');
+        const availableMedia = allMedia
+          .filter(m => m.status === 'processed' || m.status === 'uploaded')
+          .slice(0, 3);
+        return availableMedia;
       }
 
-      // Build OR conditions for each keyword
+      // Build OR conditions for each keyword - include both 'processed' and 'uploaded' status
       const queryBuilder = this.knowledgeDocumentRepository
         .createQueryBuilder('doc')
         .where('doc.knowledgeBaseId = :knowledgeBaseId', { knowledgeBaseId })
         .andWhere('doc.type IN (:...mediaTypes)', {
           mediaTypes: ['image', 'video']
         })
-        .andWhere('doc.status = :status', { status: 'processed' });
+        .andWhere('doc.status IN (:...statuses)', {
+          statuses: ['processed', 'uploaded']
+        });
 
       // Build dynamic OR conditions for keywords
       const keywordConditions = keywords.map((_, index) =>
-        `(LOWER(doc.title) LIKE :kw${index} OR LOWER(doc.filename) LIKE :kw${index} OR LOWER(doc.content) LIKE :kw${index})`
+        `(LOWER(doc.title) LIKE :kw${index} OR LOWER(doc.filename) LIKE :kw${index} OR LOWER(COALESCE(doc.content, \'\')) LIKE :kw${index})`
       ).join(' OR ');
 
       const keywordParams = {};
@@ -1641,7 +1661,15 @@ EXEMPLE DE BONNE RÉPONSE AUTOMATIQUE:
         .limit(5)
         .getMany();
 
-      this.logger.log(`Found ${mediaDocuments.length} media documents`);
+      this.logger.log(`🎯 Found ${mediaDocuments.length} matching media documents`);
+
+      // If no matching keywords but we have media, return first available
+      if (mediaDocuments.length === 0 && allMedia.length > 0) {
+        this.logger.log(`No keyword match, but KB has media - returning first available`);
+        const firstMedia = allMedia.find(m => m.status === 'processed' || m.status === 'uploaded');
+        return firstMedia ? [firstMedia] : [];
+      }
+
       return mediaDocuments;
 
     } catch (error) {
@@ -1677,6 +1705,34 @@ EXEMPLE DE BONNE RÉPONSE AUTOMATIQUE:
   ): Promise<void> {
     try {
       this.logger.log(`Sending media from knowledge base: ${mediaDocument.title}`);
+      this.logger.log(`Media filePath: ${mediaDocument.filePath}`);
+
+      // Convert local file path to public URL
+      let mediaUrl = mediaDocument.filePath;
+
+      // If it's a local path (starts with / or contains uploads/), convert to public URL
+      if (mediaUrl && !mediaUrl.startsWith('http')) {
+        const apiUrl = this.configService.get('API_URL', 'https://api.wazeapp.xyz');
+
+        // Extract the relative path from the absolute path
+        // e.g., /app/uploads/documents/file.jpg -> uploads/documents/file.jpg
+        let relativePath = mediaUrl;
+
+        // Handle different path formats
+        if (mediaUrl.includes('/uploads/')) {
+          relativePath = mediaUrl.substring(mediaUrl.indexOf('/uploads/') + 1);
+        } else if (mediaUrl.startsWith('./uploads/')) {
+          relativePath = mediaUrl.substring(2); // Remove ./
+        } else if (mediaUrl.startsWith('uploads/')) {
+          relativePath = mediaUrl;
+        }
+
+        mediaUrl = `${apiUrl}/${relativePath}`;
+        this.logger.log(`Converted to public URL: ${mediaUrl}`);
+      }
+
+      // Determine media type based on document type or mime type
+      const mediaType = mediaDocument.type === 'video' ? 'video' : 'image';
 
       // Use only the title for caption (content often contains unreadable OCR text)
       const caption = `📁 ${mediaDocument.title}`;
@@ -1684,8 +1740,8 @@ EXEMPLE DE BONNE RÉPONSE AUTOMATIQUE:
       await this.baileysService.sendMessage(session.id, {
         to: fromNumber,
         message: caption,
-        type: "image",
-        mediaUrl: mediaDocument.filePath,
+        type: mediaType,
+        mediaUrl: mediaUrl,
         caption: caption
       });
 
@@ -1696,6 +1752,7 @@ EXEMPLE DE BONNE RÉPONSE AUTOMATIQUE:
 
     } catch (error) {
       this.logger.error(`Failed to send knowledge base media: ${error.message}`);
+      this.logger.error(`Media URL attempted: ${mediaDocument.filePath}`);
       throw error;
     }
   }

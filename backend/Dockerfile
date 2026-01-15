@@ -43,7 +43,7 @@ RUN npm ci --only=production --legacy-peer-deps && \
 COPY --from=builder /app/dist ./dist
 
 # Create necessary directories and set permissions
-RUN mkdir -p whatsapp-sessions uploads temp logs models && \
+RUN mkdir -p whatsapp-sessions uploads uploads/templates uploads/broadcasts temp logs models && \
     chown -R nestjs:nodejs /app
 
 # Switch to non-root user

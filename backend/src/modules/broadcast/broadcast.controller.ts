@@ -18,6 +18,19 @@ import {
 import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname, join } from 'path';
+import { mkdirSync, existsSync } from 'fs';
+
+// Ensure upload directories exist at module load time
+const uploadDirs = ['./uploads', './uploads/templates', './uploads/broadcasts'];
+uploadDirs.forEach(dir => {
+  if (!existsSync(dir)) {
+    try {
+      mkdirSync(dir, { recursive: true, mode: 0o777 });
+    } catch (err) {
+      console.warn(`Could not create directory ${dir}:`, err.message);
+    }
+  }
+});
 import { v4 as uuidv4 } from 'uuid';
 import {
   ApiTags,

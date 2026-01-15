@@ -65,16 +65,28 @@ export function PaymentModal({
   }, [isOpen]);
 
   // Detect provider from phone number
+  // MTN: 67x (all), 680, 650-654
+  // Orange: 640, 655-659, 686-689, 69x (all)
   const detectProvider = (phone: string): MobileProvider | null => {
     const cleanPhone = phone.replace(/\D/g, '');
-    if (cleanPhone.length >= 2) {
-      const prefix = cleanPhone.startsWith('237') ? cleanPhone.substring(3, 5) : cleanPhone.substring(0, 2);
-      // MTN prefixes: 67, 68, 650-654
-      if (['67', '68'].includes(prefix) || (prefix.startsWith('65') && parseInt(prefix) <= 54)) {
+    if (cleanPhone.length >= 3) {
+      const basePhone = cleanPhone.startsWith('237') ? cleanPhone.substring(3) : cleanPhone;
+      if (basePhone.length < 3) return null;
+
+      const prefix3 = basePhone.substring(0, 3);
+      const prefix3Num = parseInt(prefix3);
+
+      // MTN: 670-679, 680, 650-654
+      if ((prefix3Num >= 670 && prefix3Num <= 679) ||
+          prefix3Num === 680 ||
+          (prefix3Num >= 650 && prefix3Num <= 654)) {
         return 'mtn';
       }
-      // Orange prefixes: 69, 655-659, 55-59
-      else if (['69'].includes(prefix) || (prefix.startsWith('65') && parseInt(prefix) >= 55) || ['55', '56', '57', '58', '59'].includes(prefix)) {
+      // Orange: 640, 655-659, 686-689, 690-699
+      if (prefix3Num === 640 ||
+          (prefix3Num >= 655 && prefix3Num <= 659) ||
+          (prefix3Num >= 686 && prefix3Num <= 689) ||
+          (prefix3Num >= 690 && prefix3Num <= 699)) {
         return 'orange';
       }
     }
@@ -581,7 +593,7 @@ export function PaymentModal({
                 <div className="flex items-start gap-3 p-3 bg-red-50 dark:bg-red-900/20 rounded-xl mb-4">
                   <XCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
                   <p className="text-sm text-red-700 dark:text-red-300">
-                    Le numero commence par {detectedProvider === 'orange' ? '69 (Orange)' : '67/68 (MTN)'}.
+                    Ce numero est {detectedProvider === 'orange' ? 'Orange' : 'MTN'}.
                     Veuillez selectionner le bon operateur.
                   </p>
                 </div>

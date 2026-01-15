@@ -435,13 +435,29 @@ export class WhatsAppAIResponderService {
 
       // Get or create agent
       let agent = session.agent;
+
+      // === DEBUG: Log session-agent linkage ===
+      this.logger.log(`🔗 SESSION-AGENT DEBUG:`);
+      this.logger.log(`   Session ID: ${session.id}`);
+      this.logger.log(`   Session Name: ${session.name || 'N/A'}`);
+      this.logger.log(`   Session.agentId (DB column): ${session.agentId || 'NULL'}`);
+      this.logger.log(`   Session.agent (relation loaded): ${session.agent ? `${session.agent.id} - ${session.agent.name}` : 'NULL'}`);
+
       if (!agent) {
+        this.logger.warn(`⚠️ Session ${session.id} has NO linked agent - will find/create one for org`);
         let targetOrganizationId = session.organizationId || session.user?.currentOrganizationId;
         agent = await this.getOrCreateAgent(targetOrganizationId);
         if (!agent) {
+          this.logger.error(`❌ Could not find or create agent for org ${targetOrganizationId}`);
           return;
         }
+        this.logger.warn(`⚠️ Using fallback agent: ${agent.id} - ${agent.name}`);
+      } else {
+        this.logger.log(`✅ Using session's linked agent: ${agent.id} - ${agent.name}`);
       }
+
+      // Log the system prompt being used (first 200 chars)
+      this.logger.log(`📝 Agent System Prompt (first 200 chars): ${agent.systemPrompt?.substring(0, 200) || 'NO PROMPT'}...`);
 
       // Get or create conversation
       const conversation = await this.getOrCreateConversation(fromNumber, session, agent);

@@ -235,7 +235,8 @@ export class QuotaEnforcementService {
 
   /**
    * Check WhatsApp message quota for an organization
-   * Counts actual messages from AgentMessage table
+   * Counts AI responses (ASSISTANT role) from AgentMessage table
+   * Only AI-generated messages count towards the quota limit
    * Bonus credits are consumed FIRST, then subscription quota is used
    */
   async checkWhatsAppMessageQuota(organizationId: string): Promise<QuotaCheck> {
@@ -386,9 +387,10 @@ export class QuotaEnforcementService {
   }
 
   /**
-   * Get actual WhatsApp message count for organization from AgentMessage table
-   * Counts messages from conversations linked to sessions OR agents of this organization
-   * Uses billing cycle based on subscription start date (30-day periods)
+   * Get actual WhatsApp AI response count for organization from AgentMessage table
+   * Counts only ASSISTANT messages (AI responses) - these are what count towards quota
+   * Messages from conversations linked to sessions OR agents of this organization
+   * Uses billing cycle based on subscription's nextBillingDate
    */
   private async getActualWhatsAppMessageCount(organizationId: string): Promise<number> {
     // Get subscription to determine billing period
@@ -459,23 +461,24 @@ export class QuotaEnforcementService {
       return 0;
     }
 
-    // Count user messages in current billing period
-    const count = await this.messageRepository
+    // Count AI responses (ASSISTANT) for quota - only AI-generated messages count towards the limit
+    const aiMessageCount = await this.messageRepository
       .createQueryBuilder('msg')
       .where('msg.conversationId IN (:...conversationIds)', { conversationIds })
-      .andWhere('msg.role = :role', { role: MessageRole.USER })
+      .andWhere('msg.role = :role', { role: MessageRole.ASSISTANT })
       .andWhere('msg.createdAt >= :periodStart', { periodStart })
       .getCount();
 
-    this.logger.log(`[QUOTA] Org ${organizationId}: Final message count = ${count} (period starts: ${periodStart.toISOString()})`);
+    this.logger.log(`[QUOTA] Org ${organizationId}: AI responses count = ${aiMessageCount} (period starts: ${periodStart.toISOString()})`);
 
-    return count;
+    return aiMessageCount;
   }
 
   /**
-   * Get actual WhatsApp message count for user from AgentMessage table
-   * Counts messages from conversations linked to user's sessions OR agents
-   * Uses billing cycle based on subscription start date (30-day periods)
+   * Get actual WhatsApp AI response count for user from AgentMessage table
+   * Counts only ASSISTANT messages (AI responses) - these are what count towards quota
+   * Messages from conversations linked to user's sessions OR agents
+   * Uses billing cycle based on subscription's nextBillingDate
    */
   private async getUserActualWhatsAppMessageCount(userId: string): Promise<number> {
     // Get subscription to determine billing period
@@ -536,11 +539,11 @@ export class QuotaEnforcementService {
       return 0;
     }
 
-    // Count user messages in current billing period
+    // Count AI responses (ASSISTANT) for quota - only AI-generated messages count towards the limit
     const count = await this.messageRepository
       .createQueryBuilder('msg')
       .where('msg.conversationId IN (:...conversationIds)', { conversationIds })
-      .andWhere('msg.role = :role', { role: MessageRole.USER })
+      .andWhere('msg.role = :role', { role: MessageRole.ASSISTANT })
       .andWhere('msg.createdAt >= :periodStart', { periodStart })
       .getCount();
 

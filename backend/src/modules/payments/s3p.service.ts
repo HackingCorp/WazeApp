@@ -46,6 +46,12 @@ const S3P_ERROR_CODES: Record<number, { userMessage: string; technicalMessage: s
   // Erreurs de service (50xxx)
   50001: { userMessage: 'Le service de paiement est temporairement indisponible', technicalMessage: 'SERVICE_UNAVAILABLE' },
   50002: { userMessage: 'Le service de paiement est en maintenance', technicalMessage: 'SERVICE_MAINTENANCE' },
+  // Codes S3P operateurs - Orange Money & MTN (70xxxx)
+  703000: { userMessage: 'La transaction a echoue. Veuillez reessayer', technicalMessage: 'TRANSACTION_FAILED' },
+  703108: { userMessage: 'Solde insuffisant sur votre compte Mobile Money', technicalMessage: 'LOW_BALANCE' },
+  703201: { userMessage: 'Transaction non confirmee - vous n\'avez pas valide a temps avec votre code PIN', technicalMessage: 'NOT_CONFIRMED' },
+  703202: { userMessage: 'Transaction rejetee par le client', technicalMessage: 'CUSTOMER_REJECTED' },
+  704005: { userMessage: 'La transaction MTN a echoue. Veuillez reessayer', technicalMessage: 'MTN_TRANSACTION_FAILED' },
 };
 
 @Injectable()

@@ -25,7 +25,13 @@ export interface S3PPaymentResponse {
 }
 
 // Mapping des codes d'erreur S3P vers des messages utilisateur
+// Documentation: https://s3pv2cm.smobilpay.com/docs
 const S3P_ERROR_CODES: Record<number, { userMessage: string; technicalMessage: string }> = {
+  // Erreurs d'authentification et validation (40xxx)
+  40001: { userMessage: 'Erreur de configuration du paiement', technicalMessage: 'AUTH_FAILED' },
+  40010: { userMessage: 'Le numero de telephone fourni est invalide', technicalMessage: 'INVALID_PHONE_FORMAT' },
+  40030: { userMessage: 'Solde insuffisant sur votre compte Mobile Money', technicalMessage: 'INSUFFICIENT_BALANCE' },
+  40031: { userMessage: 'Le montant depasse la limite autorisee', technicalMessage: 'AMOUNT_LIMIT_EXCEEDED' },
   // Erreurs de transaction operateur (41xxx)
   41001: { userMessage: 'Le numero de telephone est invalide ou non enregistre Mobile Money', technicalMessage: 'INVALID_PHONE_NUMBER' },
   41002: { userMessage: 'Le compte Mobile Money est bloque ou suspendu', technicalMessage: 'ACCOUNT_BLOCKED' },
@@ -40,9 +46,6 @@ const S3P_ERROR_CODES: Record<number, { userMessage: string; technicalMessage: s
   // Erreurs de service (50xxx)
   50001: { userMessage: 'Le service de paiement est temporairement indisponible', technicalMessage: 'SERVICE_UNAVAILABLE' },
   50002: { userMessage: 'Le service de paiement est en maintenance', technicalMessage: 'SERVICE_MAINTENANCE' },
-  // Erreurs d'authentification (40xxx)
-  40001: { userMessage: 'Erreur de configuration du paiement', technicalMessage: 'AUTH_FAILED' },
-  40010: { userMessage: 'Le numero de telephone fourni est invalide', technicalMessage: 'INVALID_PHONE_FORMAT' },
 };
 
 @Injectable()
@@ -66,6 +69,41 @@ export class S3PService {
     return S3P_ERROR_CODES[errorCode] || {
       userMessage: 'Une erreur est survenue lors du paiement',
       technicalMessage: `S3P_ERROR_${errorCode}`
+    };
+  }
+
+  /**
+   * Extrait et mappe les erreurs S3P à partir d'une réponse d'erreur Axios
+   * Selon la documentation S3P, les erreurs contiennent respCode et devMsg
+   */
+  private extractS3PError(error: any): { userMessage: string; technicalMessage: string; respCode?: number } {
+    const errorData = error.response?.data;
+
+    if (errorData) {
+      // Format S3P: { respCode: number, devMsg: string }
+      const respCode = errorData.respCode || errorData.code || errorData.errorCode;
+      const devMsg = errorData.devMsg || errorData.message || errorData.error || '';
+
+      this.logger.error(`S3P Error Response - respCode: ${respCode}, devMsg: ${devMsg}, full: ${JSON.stringify(errorData)}`);
+
+      if (respCode) {
+        const mapped = this.mapErrorCode(respCode);
+        return { ...mapped, respCode };
+      }
+
+      // Si pas de respCode mais un message d'erreur
+      if (devMsg) {
+        return {
+          userMessage: devMsg,
+          technicalMessage: devMsg,
+        };
+      }
+    }
+
+    // Erreur réseau ou autre
+    return {
+      userMessage: 'Une erreur de connexion est survenue',
+      technicalMessage: error.message || 'NETWORK_ERROR',
     };
   }
 
@@ -181,8 +219,9 @@ export class S3PService {
 
       return response.data;
     } catch (error) {
-      this.logger.error('Failed to request quote', error.response?.data);
-      throw new HttpException('Quote request failed', HttpStatus.BAD_REQUEST);
+      const s3pError = this.extractS3PError(error);
+      this.logger.error(`Failed to request quote: ${s3pError.technicalMessage}`);
+      throw new HttpException(s3pError.userMessage, HttpStatus.BAD_REQUEST);
     }
   }
 
@@ -606,30 +645,28 @@ export class S3PService {
     } catch (error) {
       this.logger.error(`Erreur paiement S3P (${paymentType}): ${error.message}`, error.stack);
 
-      // Try to provide a user-friendly message based on error type
-      let userMessage = 'Une erreur est survenue lors du paiement';
+      // Extraire l'erreur S3P si disponible (respCode, devMsg)
+      const s3pError = this.extractS3PError(error);
+      let userMessage = s3pError.userMessage;
+      const respCode = s3pError.respCode;
 
-      // Check for specific error patterns
-      if (error.message?.includes('non disponible')) {
-        // Service not found - specific operator issue
-        userMessage = `Le service ${paymentType.toUpperCase()} Mobile Money n'est pas disponible actuellement`;
-      } else if (error.message?.includes('Service') || error.message?.includes('service')) {
-        userMessage = `Le service ${paymentType.toUpperCase()} est temporairement indisponible`;
-      } else if (error.message?.includes('Quote') || error.message?.includes('quote')) {
-        userMessage = 'Impossible de generer le devis de paiement';
-      } else if (error.message?.includes('timeout') || error.message?.includes('Timeout')) {
-        userMessage = 'Le service de paiement ne repond pas. Veuillez reessayer';
-      } else if (error.response?.status === 400) {
-        userMessage = `Erreur de parametres pour ${paymentType.toUpperCase()} - verifiez le numero`;
-      } else if (error.response?.status === 401 || error.response?.status === 403) {
-        userMessage = 'Erreur d\'authentification avec le service de paiement';
-      } else if (error.response?.status >= 500) {
-        userMessage = `Le service ${paymentType.toUpperCase()} est en maintenance`;
-      }
-
-      // Log additional details from axios error response
-      if (error.response?.data) {
-        this.logger.error(`S3P API Error Response: ${JSON.stringify(error.response.data)}`);
+      // Si pas de respCode S3P, fallback sur la détection par pattern
+      if (!respCode) {
+        if (error.message?.includes('non disponible')) {
+          userMessage = `Le service ${paymentType.toUpperCase()} Mobile Money n'est pas disponible actuellement`;
+        } else if (error.message?.includes('Service') || error.message?.includes('service')) {
+          userMessage = `Le service ${paymentType.toUpperCase()} est temporairement indisponible`;
+        } else if (error.message?.includes('Quote') || error.message?.includes('quote')) {
+          userMessage = 'Impossible de generer le devis de paiement';
+        } else if (error.message?.includes('timeout') || error.message?.includes('Timeout')) {
+          userMessage = 'Le service de paiement ne repond pas. Veuillez reessayer';
+        } else if (error.response?.status === 400) {
+          userMessage = `Erreur de parametres pour ${paymentType.toUpperCase()} - verifiez le numero`;
+        } else if (error.response?.status === 401 || error.response?.status === 403) {
+          userMessage = 'Erreur d\'authentification avec le service de paiement';
+        } else if (error.response?.status >= 500) {
+          userMessage = `Le service ${paymentType.toUpperCase()} est en maintenance`;
+        }
       }
 
       return {
@@ -638,9 +675,12 @@ export class S3PService {
         error: error.message,
         message: userMessage,
         transactionId: trid,
+        respCode,
         debug: {
           paymentType,
           serviceId,
+          respCode,
+          technicalMessage: s3pError.technicalMessage,
           errorDetails: error.response?.data || error.message,
         },
       };

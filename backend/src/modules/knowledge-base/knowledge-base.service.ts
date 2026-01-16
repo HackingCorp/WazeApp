@@ -348,9 +348,18 @@ export class KnowledgeBaseService {
       .andWhere("doc.status = :status", { status: DocumentStatus.PROCESSED })
       .getRawOne();
 
+    const documentCount = parseInt(allDocsStats?.documentCount) || 0;
+    const totalCharacters = parseInt(charStats?.totalCharacters) || 0;
+
+    console.log(`📊 UPDATE STATS for KB ${knowledgeBaseId}:`);
+    console.log(`   - Raw documentCount: ${allDocsStats?.documentCount}`);
+    console.log(`   - Raw totalCharacters: ${charStats?.totalCharacters}`);
+    console.log(`   - Parsed documentCount: ${documentCount}`);
+    console.log(`   - Parsed totalCharacters: ${totalCharacters}`);
+
     await this.knowledgeBaseRepository.update(knowledgeBaseId, {
-      documentCount: parseInt(allDocsStats.documentCount) || 0,
-      totalCharacters: parseInt(charStats.totalCharacters) || 0,
+      documentCount,
+      totalCharacters,
     });
   }
 
@@ -367,6 +376,26 @@ export class KnowledgeBaseService {
     }
 
     return { updated: knowledgeBases.length };
+  }
+
+  /**
+   * Debug method to list all documents in the database
+   */
+  async debugListAllDocuments(): Promise<any[]> {
+    const docs = await this.documentRepository.find({
+      select: ['id', 'title', 'status', 'characterCount', 'knowledgeBaseId', 'createdAt'],
+      order: { createdAt: 'DESC' },
+      take: 100, // Limit to 100 documents
+    });
+
+    return docs.map(doc => ({
+      id: doc.id,
+      title: doc.title,
+      status: doc.status,
+      characterCount: doc.characterCount,
+      knowledgeBaseId: doc.knowledgeBaseId,
+      createdAt: doc.createdAt,
+    }));
   }
 
   private async checkKnowledgeBaseLimit(organizationId: string): Promise<void> {

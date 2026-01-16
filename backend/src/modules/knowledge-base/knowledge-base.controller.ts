@@ -217,13 +217,30 @@ export class KnowledgeBaseController {
     };
   }
 
+  @Get("debug-all-docs")
+  @Public()
+  @ApiOperation({ summary: "Debug endpoint to list all documents" })
+  async debugAllDocs() {
+    try {
+      // Direct database query to list all documents
+      const { getRepository } = await import('typeorm');
+      const docs = await this.knowledgeBaseService.debugListAllDocuments();
+      return {
+        totalDocuments: docs.length,
+        documents: docs
+      };
+    } catch (error) {
+      return { error: error.message };
+    }
+  }
+
   @Get("debug/:id")
   @Public()
   @ApiOperation({ summary: "Debug endpoint to check KB data" })
   async debugKB(@Param("id") id: string) {
     try {
       const kb = await this.knowledgeBaseService.findOne(null, id);
-      return { 
+      return {
         id: kb.id,
         name: kb.name,
         totalCharacters: kb.totalCharacters,

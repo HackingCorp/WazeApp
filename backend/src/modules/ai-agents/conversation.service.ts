@@ -300,25 +300,27 @@ export class ConversationService {
     organizationId: string,
     agentId?: string,
   ): Promise<ConversationStatsDto> {
-    let queryBuilder = this.conversationRepository
-      .createQueryBuilder("conv")
-      .leftJoin("conv.agent", "agent")
-      .where("agent.organizationId = :organizationId", { organizationId });
+    // Build base query - if agentId is provided, filter directly by it
+    // Otherwise, filter by organizationId via agent join
+    let queryBuilder = this.conversationRepository.createQueryBuilder("conv");
 
     if (agentId) {
-      queryBuilder = queryBuilder.andWhere("conv.agentId = :agentId", {
-        agentId,
-      });
+      // Direct filter by agentId for better performance
+      queryBuilder = queryBuilder.where("conv.agentId = :agentId", { agentId });
+    } else {
+      queryBuilder = queryBuilder
+        .leftJoin("conv.agent", "agent")
+        .where("agent.organizationId = :organizationId", { organizationId });
     }
 
     const conversationStats = await queryBuilder
       .select([
         "COUNT(*) as total",
         "AVG(EXTRACT(epoch FROM (conv.endedAt - conv.startedAt))/60) as avgDuration",
-        "AVG(conv.metrics->'messageCount') as avgMessages",
-        "AVG(conv.metrics->'averageResponseTime') as avgResponseTime",
-        "AVG(conv.metrics->'satisfactionScore') as satisfactionScore",
-        "COUNT(CASE WHEN conv.status = :completed THEN 1 END)::float / COUNT(*) as resolutionRate",
+        "AVG((conv.metrics->>'messageCount')::numeric) as avgMessages",
+        "AVG((conv.metrics->>'averageResponseTime')::numeric) as avgResponseTime",
+        "AVG((conv.metrics->>'satisfactionScore')::numeric) as satisfactionScore",
+        "COUNT(CASE WHEN conv.status = :completed THEN 1 END)::float / NULLIF(COUNT(*), 0) as resolutionRate",
       ])
       .setParameter("completed", ConversationStatus.COMPLETED)
       .getRawOne();
@@ -337,12 +339,20 @@ export class ConversationService {
       .groupBy("conv.channel")
       .getRawMany();
 
-    const messageCount = await this.messageRepository
+    // Count messages
+    let messageQueryBuilder = this.messageRepository
       .createQueryBuilder("msg")
-      .leftJoin("msg.conversation", "conv")
-      .leftJoin("conv.agent", "agent")
-      .where("agent.organizationId = :organizationId", { organizationId })
-      .getCount();
+      .leftJoin("msg.conversation", "conv");
+
+    if (agentId) {
+      messageQueryBuilder = messageQueryBuilder.where("conv.agentId = :agentId", { agentId });
+    } else {
+      messageQueryBuilder = messageQueryBuilder
+        .leftJoin("conv.agent", "agent")
+        .where("agent.organizationId = :organizationId", { organizationId });
+    }
+
+    const messageCount = await messageQueryBuilder.getCount();
 
     const byStatus = Object.values(ConversationStatus).reduce(
       (acc, status) => {

@@ -285,6 +285,18 @@ export class KnowledgeBaseController {
     }
   }
 
+  @Get("debug-raw-count/:kbId")
+  @Public()
+  @ApiOperation({ summary: "Debug raw count for a KB" })
+  async debugRawCount(@Param("kbId") kbId: string) {
+    try {
+      const result = await this.knowledgeBaseService.debugRawDocCount(kbId);
+      return { success: true, ...result };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
   @Post("test-search")
   @Public()
   @ApiOperation({ summary: "Test KB search like AI does" })

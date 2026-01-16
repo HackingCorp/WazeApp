@@ -399,6 +399,41 @@ export class KnowledgeBaseService {
   }
 
   /**
+   * Debug raw document count for a KB
+   */
+  async debugRawDocCount(knowledgeBaseId: string): Promise<any> {
+    // Raw SQL query
+    const rawResult = await this.documentRepository.query(`
+      SELECT
+        COUNT(*) as total_count,
+        COUNT(CASE WHEN status != 'archived' THEN 1 END) as non_archived_count,
+        COUNT(CASE WHEN status = 'processed' THEN 1 END) as processed_count,
+        SUM(CASE WHEN status = 'processed' THEN "characterCount" ELSE 0 END) as total_chars
+      FROM knowledge_documents
+      WHERE "knowledgeBaseId" = $1
+    `, [knowledgeBaseId]);
+
+    // Also get all documents for this KB
+    const allDocs = await this.documentRepository.query(`
+      SELECT id, title, status, "characterCount", "knowledgeBaseId"
+      FROM knowledge_documents
+      WHERE "knowledgeBaseId" = $1
+    `, [knowledgeBaseId]);
+
+    // And list all KB IDs in the documents table
+    const allKbIds = await this.documentRepository.query(`
+      SELECT DISTINCT "knowledgeBaseId" FROM knowledge_documents
+    `);
+
+    return {
+      knowledgeBaseId,
+      rawResult: rawResult[0],
+      documentsForThisKb: allDocs,
+      allKbIdsInDocuments: allKbIds,
+    };
+  }
+
+  /**
    * Add slug column to knowledge_documents if missing
    */
   async addSlugColumnIfMissing(): Promise<{ message: string }> {

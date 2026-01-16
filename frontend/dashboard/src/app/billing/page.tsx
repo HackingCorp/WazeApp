@@ -472,7 +472,7 @@ export default function BillingPage() {
             name: selectedInvoice.description || `Facture ${selectedInvoice.invoiceNumber}`,
           }}
           onSuccess={handleInvoicePaymentSuccess}
-          customerName={user?.name || user?.email || 'Client'}
+          customerName={user?.firstName && user?.lastName ? `${user.firstName} ${user.lastName}` : user?.email || 'Client'}
           customerEmail={user?.email || ''}
           dynamicPrice={selectedInvoice.totalAmountInCents / 100}
           currency={selectedInvoice.currency || 'XAF'}

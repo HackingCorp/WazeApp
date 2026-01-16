@@ -323,11 +323,25 @@ export function ConversationInterface({
     >
       {/* Avatar */}
       <div className="relative flex-shrink-0">
+        {contact.avatar ? (
+          <img
+            src={contact.avatar}
+            alt={contact.name}
+            className="w-12 h-12 rounded-full object-cover"
+            onError={(e) => {
+              // Fallback to initials on error
+              const target = e.target as HTMLImageElement;
+              target.style.display = 'none';
+              target.nextElementSibling?.classList.remove('hidden');
+            }}
+          />
+        ) : null}
         <div className={clsx(
           "w-12 h-12 rounded-full flex items-center justify-center text-white font-semibold text-sm",
           contact.isGroup
             ? "bg-gradient-to-br from-blue-400 to-purple-500"
-            : "bg-gradient-to-br from-emerald-400 to-teal-500"
+            : "bg-gradient-to-br from-emerald-400 to-teal-500",
+          contact.avatar && "hidden" // Hide if avatar is available
         )}>
           {contact.isGroup ? '👥' : contact.name.substring(0, 2).toUpperCase()}
         </div>
@@ -432,11 +446,24 @@ export function ConversationInterface({
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="relative">
+                    {selectedContact.avatar ? (
+                      <img
+                        src={selectedContact.avatar}
+                        alt={selectedContact.name}
+                        className="w-10 h-10 rounded-full object-cover"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.style.display = 'none';
+                          target.nextElementSibling?.classList.remove('hidden');
+                        }}
+                      />
+                    ) : null}
                     <div className={clsx(
                       "w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold text-sm",
                       selectedContact.isGroup
                         ? "bg-gradient-to-br from-blue-400 to-purple-500"
-                        : "bg-gradient-to-br from-emerald-400 to-teal-500"
+                        : "bg-gradient-to-br from-emerald-400 to-teal-500",
+                      selectedContact.avatar && "hidden"
                     )}>
                       {selectedContact.isGroup ? '👥' : selectedContact.name.substring(0, 2).toUpperCase()}
                     </div>

@@ -112,9 +112,9 @@ export default function ConversationsPage() {
     }
   };
 
-  // Helper function to get contact display name
-  const getContactDisplayName = (phoneNumber: string): string => {
-    if (!phoneNumber) return 'Unknown';
+  // Helper function to get contact from map
+  const getContactFromMap = (phoneNumber: string): any | null => {
+    if (!phoneNumber) return null;
 
     // Clean phone number for lookup
     const cleanPhone = phoneNumber
@@ -124,7 +124,19 @@ export default function ConversationsPage() {
       .replace(/@g\.us$/i, '');
 
     // Try to find contact in our map
-    const contact = contactsMap[cleanPhone] || contactsMap[`+${cleanPhone}`] || contactsMap[cleanPhone.replace(/^\+/, '')];
+    return contactsMap[cleanPhone] || contactsMap[`+${cleanPhone}`] || contactsMap[cleanPhone.replace(/^\+/, '')] || null;
+  };
+
+  // Helper function to get contact display name
+  const getContactDisplayName = (phoneNumber: string): string => {
+    if (!phoneNumber) return 'Unknown';
+
+    const contact = getContactFromMap(phoneNumber);
+    const cleanPhone = phoneNumber
+      .replace(/@s\.whatsapp\.net$/i, '')
+      .replace(/@lid$/i, '')
+      .replace(/@c\.us$/i, '')
+      .replace(/@g\.us$/i, '');
 
     if (contact) {
       return contact.name || contact.pushName || contact.shortName || cleanPhone;
@@ -132,6 +144,12 @@ export default function ConversationsPage() {
 
     // Format phone number nicely if no contact found
     return cleanPhone.startsWith('+') ? cleanPhone : `+${cleanPhone}`;
+  };
+
+  // Helper function to get contact profile picture URL
+  const getContactProfilePicture = (phoneNumber: string): string | undefined => {
+    const contact = getContactFromMap(phoneNumber);
+    return contact?.profilePictureUrl || undefined;
   };
 
   const loadConversations = async () => {
@@ -167,10 +185,22 @@ export default function ConversationsPage() {
         const isValidPhoneNumber = (phone: string): boolean => {
           if (!phone) return false;
           const cleaned = cleanPhoneNumber(phone);
-          // Valid phone numbers: 7-15 digits, may start with +
-          // LID identifiers are typically 15+ digits and don't look like phone numbers
-          const phoneRegex = /^\+?[1-9]\d{6,14}$/;
-          return phoneRegex.test(cleaned) && cleaned.length <= 15;
+
+          // LID identifiers are typically very long (16+ digits) or start with lid_
+          if (cleaned.startsWith('lid_') || cleaned.startsWith('lid')) {
+            return false;
+          }
+
+          // Valid phone numbers: 7-15 digits total (including country code)
+          // Most country codes are 1-3 digits, followed by 6-12 digit subscriber numbers
+          const phoneRegex = /^\+?[1-9]\d{6,13}$/;
+
+          // Extra check: if the number is longer than 15 digits, it's likely a LID
+          if (cleaned.replace(/\D/g, '').length > 15) {
+            return false;
+          }
+
+          return phoneRegex.test(cleaned);
         };
 
         // Format phone number for display, hide invalid/LID numbers
@@ -227,10 +257,14 @@ export default function ConversationsPage() {
             displayPhone = 'Contact WhatsApp';
           }
 
+          // Get profile picture from contacts map
+          const avatar = getContactProfilePicture(conv.phoneNumber);
+
           return {
             id: conv.id,
             name: displayName,
             phone: displayPhone,
+            avatar: avatar, // Profile picture URL from contacts
             cleanedPhone: cleanedPhone, // Used for deduplication
             lastMessage: cleanText(conv.lastMessage || ''),
             lastMessageTime: new Date(conv.lastMessageTime),

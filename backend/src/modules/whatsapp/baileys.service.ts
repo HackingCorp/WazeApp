@@ -1303,6 +1303,27 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
     };
   }
 
+  /**
+   * Get profile picture URL for a contact
+   */
+  async getProfilePictureUrl(sessionId: string, jid: string): Promise<string | null> {
+    try {
+      const sock = this.sessions.get(sessionId);
+      if (!sock) {
+        return null;
+      }
+
+      // Ensure JID has proper format
+      const formattedJid = jid.includes('@') ? jid : `${jid}@s.whatsapp.net`;
+
+      const url = await sock.profilePictureUrl(formattedJid, 'image').catch(() => null);
+      return url || null;
+    } catch (error) {
+      this.logger.debug(`Failed to get profile picture for ${jid}: ${error.message}`);
+      return null;
+    }
+  }
+
   // Debug method to check active sessions
   getActiveSessions(): any {
     const activeSessions = Array.from(this.sessions.keys()).map(

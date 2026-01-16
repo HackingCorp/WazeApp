@@ -1633,14 +1633,55 @@ export class WhatsAppService {
       // Verify session access
       const session = await this.findOne(sessionId, userId, organizationId);
 
-      return this.contactRepository.find({
+      const contacts = await this.contactRepository.find({
         where: { sessionId },
         order: { name: 'ASC', phoneNumber: 'ASC' },
       });
+
+      // Fetch missing profile pictures in background (non-blocking)
+      this.fetchMissingProfilePictures(sessionId, contacts).catch(err => {
+        this.logger.debug(`Background profile picture fetch failed: ${err.message}`);
+      });
+
+      return contacts;
     } catch (error) {
       this.logger.warn(`Failed to get contacts for session ${sessionId}: ${error.message}`);
       // Return empty array instead of throwing to prevent 500 errors
       return [];
+    }
+  }
+
+  // Fetch and update profile pictures for contacts that don't have them
+  private async fetchMissingProfilePictures(sessionId: string, contacts: WhatsAppContact[]): Promise<void> {
+    // Only process contacts without profile pictures, limit to 10 at a time to avoid rate limiting
+    const contactsWithoutPicture = contacts
+      .filter(c => !c.profilePictureUrl && c.phoneNumber && !c.phoneNumber.startsWith('lid_'))
+      .slice(0, 10);
+
+    if (contactsWithoutPicture.length === 0) {
+      return;
+    }
+
+    this.logger.debug(`Fetching profile pictures for ${contactsWithoutPicture.length} contacts`);
+
+    for (const contact of contactsWithoutPicture) {
+      try {
+        const jid = contact.phoneNumber.includes('@')
+          ? contact.phoneNumber
+          : `${contact.phoneNumber}@s.whatsapp.net`;
+
+        const profilePictureUrl = await this.baileysService.getProfilePictureUrl(sessionId, jid);
+
+        if (profilePictureUrl) {
+          await this.contactRepository.update(contact.id, { profilePictureUrl });
+          this.logger.debug(`Updated profile picture for ${contact.phoneNumber}`);
+        }
+      } catch (error) {
+        // Silently ignore individual failures
+      }
+
+      // Small delay to avoid rate limiting
+      await new Promise(resolve => setTimeout(resolve, 100));
     }
   }
 

@@ -219,7 +219,7 @@ export function PaymentModal({
         const response = await api.verifyPayment({
           ptn: paymentPtn,
           transactionId: transId,
-          plan: plan?.id.toUpperCase(), // Can be STANDARD, PRO, ENTERPRISE, or INVOICE-{id}
+          plan: plan?.id.toUpperCase() as "STANDARD" | "PRO" | "ENTERPRISE" | undefined, // Can be STANDARD, PRO, ENTERPRISE, or INVOICE-{id}
           userId,
           organizationId,
           amount: paymentAmount,

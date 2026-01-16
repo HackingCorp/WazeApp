@@ -333,27 +333,27 @@ export class KnowledgeBaseService {
 
   async updateStats(knowledgeBaseId: string): Promise<void> {
     // Count all documents (not just processed) for accurate document count
-    const allDocsStats = await this.documentRepository
-      .createQueryBuilder("doc")
-      .select(["COUNT(*) as documentCount"])
-      .where("doc.knowledgeBaseId = :knowledgeBaseId", { knowledgeBaseId })
-      .andWhere("doc.status != :archived", { archived: DocumentStatus.ARCHIVED })
-      .getRawOne();
+    // Use raw SQL to avoid any TypeORM column name issues
+    const allDocsStats = await this.documentRepository.query(`
+      SELECT COUNT(*) as "documentCount"
+      FROM knowledge_documents
+      WHERE "knowledgeBaseId" = $1
+      AND status != 'archived'
+    `, [knowledgeBaseId]);
 
     // For character count, only include processed documents (they have accurate character counts)
-    const charStats = await this.documentRepository
-      .createQueryBuilder("doc")
-      .select(["SUM(doc.characterCount) as totalCharacters"])
-      .where("doc.knowledgeBaseId = :knowledgeBaseId", { knowledgeBaseId })
-      .andWhere("doc.status = :status", { status: DocumentStatus.PROCESSED })
-      .getRawOne();
+    const charStats = await this.documentRepository.query(`
+      SELECT COALESCE(SUM("characterCount"), 0) as "totalCharacters"
+      FROM knowledge_documents
+      WHERE "knowledgeBaseId" = $1
+      AND status = 'processed'
+    `, [knowledgeBaseId]);
 
-    const documentCount = parseInt(allDocsStats?.documentCount) || 0;
-    const totalCharacters = parseInt(charStats?.totalCharacters) || 0;
+    const documentCount = parseInt(allDocsStats?.[0]?.documentCount) || 0;
+    const totalCharacters = parseInt(charStats?.[0]?.totalCharacters) || 0;
 
     console.log(`📊 UPDATE STATS for KB ${knowledgeBaseId}:`);
-    console.log(`   - Raw documentCount: ${allDocsStats?.documentCount}`);
-    console.log(`   - Raw totalCharacters: ${charStats?.totalCharacters}`);
+    console.log(`   - Raw result:`, allDocsStats, charStats);
     console.log(`   - Parsed documentCount: ${documentCount}`);
     console.log(`   - Parsed totalCharacters: ${totalCharacters}`);
 

@@ -1,12 +1,12 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { 
-  Plus, 
-  Bot, 
-  Settings, 
-  Play, 
-  Pause, 
+import {
+  Plus,
+  Bot,
+  Settings,
+  Play,
+  Pause,
   Trash2,
   Copy,
   Edit,
@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { apiHelpers } from '@/lib/api';
+import { useI18n } from '@/providers/I18nProvider';
 import clsx from 'clsx';
 
 interface Agent {
@@ -47,6 +48,7 @@ export default function AgentsPage() {
   const [selectedAgents, setSelectedAgents] = useState<string[]>([]);
 
   const router = useRouter();
+  const { t } = useI18n();
 
   useEffect(() => {
     loadAgents();
@@ -186,7 +188,7 @@ export default function AgentsPage() {
   };
 
   const deleteAgent = async (agentId: string) => {
-    if (!confirm('Are you sure you want to delete this agent?')) return;
+    if (!confirm(t('agents.confirmDelete'))) return;
 
     try {
       await apiHelpers.agents.delete(agentId);
@@ -238,10 +240,10 @@ export default function AgentsPage() {
       <div className="md:flex md:items-center md:justify-between">
         <div className="min-w-0 flex-1">
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-            Agents
+            {t('agents.title')}
           </h1>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            Manage your AI agents and their configurations
+            {t('agents.subtitle')}
           </p>
         </div>
         <div className="mt-4 flex md:mt-0 md:ml-4">
@@ -250,7 +252,7 @@ export default function AgentsPage() {
             className="inline-flex items-center px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-lg transition-colors duration-200"
           >
             <Plus className="mr-2 h-4 w-4" />
-            Create Agent
+            {t('agents.create')}
           </button>
         </div>
       </div>
@@ -262,7 +264,7 @@ export default function AgentsPage() {
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
           <input
             type="text"
-            placeholder="Search agents..."
+            placeholder={t('agents.searchPlaceholder')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
@@ -276,11 +278,11 @@ export default function AgentsPage() {
             onChange={(e) => setStatusFilter(e.target.value)}
             className="pl-10 pr-8 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500 appearance-none"
           >
-            <option value="all">All Status</option>
-            <option value="active">Active</option>
-            <option value="inactive">Inactive</option>
-            <option value="training">Training</option>
-            <option value="error">Error</option>
+            <option value="all">{t('agents.allStatus')}</option>
+            <option value="active">{t('agents.statusActive')}</option>
+            <option value="inactive">{t('agents.statusInactive')}</option>
+            <option value="training">{t('agents.statusTraining')}</option>
+            <option value="error">{t('agents.statusError')}</option>
           </select>
           <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
         </div>
@@ -335,7 +337,7 @@ export default function AgentsPage() {
                   {agent.conversationsCount}
                 </div>
                 <div className="text-xs text-gray-500 dark:text-gray-400">
-                  Conversations
+                  {t('agents.conversations')}
                 </div>
               </div>
               <div className="text-center">
@@ -343,7 +345,7 @@ export default function AgentsPage() {
                   {agent.averageResponseTime}s
                 </div>
                 <div className="text-xs text-gray-500 dark:text-gray-400">
-                  Response Time
+                  {t('agents.responseTime')}
                 </div>
               </div>
             </div>
@@ -351,7 +353,7 @@ export default function AgentsPage() {
             {/* Satisfaction Rate */}
             <div className="mb-4">
               <div className="flex justify-between text-sm mb-1">
-                <span className="text-gray-600 dark:text-gray-400">Satisfaction</span>
+                <span className="text-gray-600 dark:text-gray-400">{t('agents.satisfaction')}</span>
                 <span className="font-medium text-gray-900 dark:text-white">
                   {agent.satisfactionRate}%
                 </span>
@@ -376,7 +378,7 @@ export default function AgentsPage() {
                       ? 'text-orange-600 hover:bg-orange-100 dark:hover:bg-orange-900/20'
                       : 'text-green-600 hover:bg-green-100 dark:hover:bg-green-900/20'
                   )}
-                  title={agent.status === 'active' ? 'Deactivate' : 'Activate'}
+                  title={agent.status === 'active' ? t('agents.deactivate') : t('agents.activate')}
                 >
                   {agent.status === 'active' ? (
                     <Pause className="w-4 h-4" />
@@ -389,7 +391,7 @@ export default function AgentsPage() {
                 <button
                   onClick={() => router.push(`/agents/${agent.id}/edit`)}
                   className="p-2 text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-gray-400 rounded-lg transition-colors"
-                  title="Edit"
+                  title={t('agents.edit')}
                 >
                   <Edit className="w-4 h-4" />
                 </button>
@@ -398,7 +400,7 @@ export default function AgentsPage() {
                 <button
                   onClick={() => duplicateAgent(agent.id)}
                   className="p-2 text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-gray-400 rounded-lg transition-colors"
-                  title="Duplicate"
+                  title={t('agents.duplicate')}
                 >
                   <Copy className="w-4 h-4" />
                 </button>
@@ -407,7 +409,7 @@ export default function AgentsPage() {
                 <button
                   onClick={() => deleteAgent(agent.id)}
                   className="p-2 text-red-600 hover:bg-red-100 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                  title="Delete"
+                  title={t('agents.delete')}
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>
@@ -419,7 +421,7 @@ export default function AgentsPage() {
                 className="flex items-center space-x-1 text-sm text-primary-600 hover:text-primary-700 dark:text-primary-400 font-medium"
               >
                 <BarChart3 className="w-4 h-4" />
-                <span>Stats</span>
+                <span>{t('agents.stats')}</span>
               </button>
             </div>
           </div>
@@ -431,10 +433,10 @@ export default function AgentsPage() {
         <div className="text-center py-12">
           <Bot className="mx-auto h-12 w-12 text-gray-400" />
           <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">
-            No agents found
+            {t('agents.noAgentsFound')}
           </h3>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            {searchQuery ? 'Try adjusting your search or filters' : 'Get started by creating your first AI agent'}
+            {searchQuery ? t('agents.adjustSearch') : t('agents.getStarted')}
           </p>
           {!searchQuery && (
             <div className="mt-6">
@@ -443,7 +445,7 @@ export default function AgentsPage() {
                 className="inline-flex items-center px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-lg transition-colors duration-200"
               >
                 <Plus className="mr-2 h-4 w-4" />
-                Create Agent
+                {t('agents.create')}
               </button>
             </div>
           )}

@@ -1,6 +1,6 @@
 import { Injectable, Logger, Inject } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
+import { Repository, In } from "typeorm";
 import { OnEvent, EventEmitter2 } from "@nestjs/event-emitter";
 import { ConfigService } from "@nestjs/config";
 import { CACHE_MANAGER } from "@nestjs/cache-manager";
@@ -1125,8 +1125,17 @@ Always respond directly in the user's language without any formatting.`,
         }
       }
 
+      // Get available media with slugs for AI image tags
+      const availableMedia = await this.getAvailableMediaWithSlugs(agent);
+      this.logger.log(`📷 Available media for AI: ${availableMedia.length} items`);
+
       // Create enhanced system prompt with knowledge base, web context, and media context
       let systemPrompt = agent.systemPrompt || "Tu es un assistant IA utile.";
+
+      // Add image sending instructions if media is available
+      if (availableMedia.length > 0) {
+        systemPrompt += this.buildImageInstructions(availableMedia);
+      }
       
       // Add comprehensive media context to system prompt
       if (mediaAnalysis) {
@@ -1319,8 +1328,13 @@ EXEMPLE DE RÉPONSE CORRECTE:
 
       // Send response via WhatsApp
       try {
-        // Convert markdown to WhatsApp format
-        const whatsappMessage = this.convertToWhatsAppFormat(response.content);
+        // Parse image tags from AI response
+        const { cleanText, imageSlugs } = this.parseImageTags(response.content);
+
+        this.logger.log(`📷 Image tags found: ${imageSlugs.length > 0 ? imageSlugs.join(', ') : 'none'}`);
+
+        // Convert markdown to WhatsApp format (use clean text without image tags)
+        const whatsappMessage = this.convertToWhatsAppFormat(cleanText);
 
         await this.baileysService.sendMessage(session.id, {
           to: fromNumber,
@@ -1332,25 +1346,25 @@ EXEMPLE DE RÉPONSE CORRECTE:
         await this.trackSentMessage(session.organizationId);
 
         this.logger.log(
-          `AI response sent successfully to ${fromNumber}: "${response.content.substring(0, 50)}..."`,
+          `AI response sent successfully to ${fromNumber}: "${cleanText.substring(0, 50)}..."`,
         );
 
-        // Check if we should send relevant media from knowledge base
-        await this.sendRelevantMediaIfAvailable(
-          session, 
-          fromNumber, 
-          userMessage,
-          agent
-        );
-
-        // DISABLED: handleImageRequest was sending generic Unsplash images with "Box TV Android" caption
-        // This caused confusing behavior where AI would send unrelated images
-        // TODO: Re-enable only when proper product catalog with real images is implemented
-        // await this.handleImageRequest(
-        //   session,
-        //   fromNumber,
-        //   userMessage
-        // );
+        // Send images based on [IMAGE:slug] tags found in AI response
+        if (imageSlugs.length > 0) {
+          for (const slug of imageSlugs) {
+            try {
+              const mediaDocument = await this.findMediaBySlug(agent, slug);
+              if (mediaDocument) {
+                this.logger.log(`📷 Sending image from tag [IMAGE:${slug}]: ${mediaDocument.title}`);
+                await this.sendMediaFromKnowledgeBase(session, fromNumber, mediaDocument);
+              } else {
+                this.logger.warn(`📷 Image not found for slug: ${slug}`);
+              }
+            } catch (imgError) {
+              this.logger.warn(`📷 Failed to send image [${slug}]: ${imgError.message}`);
+            }
+          }
+        }
       } catch (sendError) {
         this.logger.error(
           `Failed to send WhatsApp message: ${sendError.message}`,
@@ -1795,5 +1809,129 @@ EXEMPLE DE BONNE RÉPONSE AUTOMATIQUE:
     } catch (error) {
       this.logger.warn(`Failed to track sent message: ${error.message}`);
     }
+  }
+
+  /**
+   * Get available media (images/videos) from knowledge base with their slugs
+   * Used to inform the AI about which images it can send
+   */
+  private async getAvailableMediaWithSlugs(agent: AiAgent): Promise<Array<{slug: string, title: string, type: string}>> {
+    try {
+      if (!agent.knowledgeBases || agent.knowledgeBases.length === 0) {
+        return [];
+      }
+
+      const knowledgeBaseId = agent.knowledgeBases[0].id;
+
+      const mediaDocuments = await this.knowledgeDocumentRepository
+        .createQueryBuilder('doc')
+        .select(['doc.slug', 'doc.title', 'doc.type'])
+        .where('doc.knowledgeBaseId = :knowledgeBaseId', { knowledgeBaseId })
+        .andWhere('doc.type IN (:...mediaTypes)', { mediaTypes: ['image', 'video'] })
+        .andWhere('doc.status IN (:...statuses)', { statuses: ['processed', 'uploaded'] })
+        .andWhere('doc.slug IS NOT NULL')
+        .orderBy('doc.title', 'ASC')
+        .getMany();
+
+      return mediaDocuments.map(doc => ({
+        slug: doc.slug,
+        title: doc.title,
+        type: doc.type,
+      }));
+    } catch (error) {
+      this.logger.warn(`Failed to get available media: ${error.message}`);
+      return [];
+    }
+  }
+
+  /**
+   * Find a media document by its slug in the knowledge base
+   */
+  private async findMediaBySlug(
+    agent: AiAgent,
+    slug: string
+  ): Promise<KnowledgeDocument | null> {
+    try {
+      if (!agent.knowledgeBases || agent.knowledgeBases.length === 0) {
+        return null;
+      }
+
+      const knowledgeBaseId = agent.knowledgeBases[0].id;
+
+      const document = await this.knowledgeDocumentRepository.findOne({
+        where: {
+          knowledgeBaseId,
+          slug,
+          type: In(['image', 'video']),
+        },
+      });
+
+      return document;
+    } catch (error) {
+      this.logger.warn(`Failed to find media by slug: ${error.message}`);
+      return null;
+    }
+  }
+
+  /**
+   * Parse [IMAGE:slug] tags from AI response and return clean text + image slugs
+   */
+  private parseImageTags(response: string): { cleanText: string; imageSlugs: string[] } {
+    const imageTagRegex = /\[IMAGE:([^\]]+)\]/gi;
+    const imageSlugs: string[] = [];
+
+    // Extract all image slugs
+    let match;
+    while ((match = imageTagRegex.exec(response)) !== null) {
+      imageSlugs.push(match[1].trim().toLowerCase());
+    }
+
+    // Remove tags from response
+    const cleanText = response
+      .replace(imageTagRegex, '')
+      .replace(/\n{3,}/g, '\n\n') // Clean up extra newlines
+      .trim();
+
+    return { cleanText, imageSlugs };
+  }
+
+  /**
+   * Build image instructions for the system prompt
+   */
+  private buildImageInstructions(availableMedia: Array<{slug: string, title: string, type: string}>): string {
+    if (availableMedia.length === 0) {
+      return '';
+    }
+
+    const imageList = availableMedia
+      .filter(m => m.type === 'image')
+      .map(m => `  - [IMAGE:${m.slug}] → ${m.title}`)
+      .join('\n');
+
+    const videoList = availableMedia
+      .filter(m => m.type === 'video')
+      .map(m => `  - [VIDEO:${m.slug}] → ${m.title}`)
+      .join('\n');
+
+    let instructions = `
+
+📷 ENVOI D'IMAGES/VIDÉOS:
+Tu peux envoyer des images de la base de connaissances en incluant un tag dans ta réponse.
+Le tag sera automatiquement retiré et l'image envoyée après ton message.
+
+IMAGES DISPONIBLES:
+${imageList || '  (aucune image disponible)'}
+${videoList ? `\nVIDÉOS DISPONIBLES:\n${videoList}` : ''}
+
+EXEMPLE D'UTILISATION:
+"Voici notre produit phare ! [IMAGE:box-tv-android]"
+→ Le client recevra ton message PUIS l'image correspondante.
+
+RÈGLES:
+- N'utilise ce tag QUE si c'est pertinent (demande du client, présentation produit)
+- Un seul tag par message maximum
+- Le tag doit correspondre EXACTEMENT à un slug disponible ci-dessus`;
+
+    return instructions;
   }
 }

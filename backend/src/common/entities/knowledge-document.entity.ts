@@ -36,6 +36,7 @@ export enum DocumentStatus {
 @Index("IDX_DOC_KB", ["knowledgeBaseId"])
 @Index("IDX_DOC_TYPE", ["type"])
 @Index("IDX_DOC_STATUS", ["status"])
+@Index("IDX_DOC_SLUG", ["slug"])
 export class KnowledgeDocument extends BaseEntity {
   @ApiProperty({ description: "Document filename" })
   @Column()
@@ -44,6 +45,10 @@ export class KnowledgeDocument extends BaseEntity {
   @ApiProperty({ description: "Document title" })
   @Column()
   title: string;
+
+  @ApiProperty({ description: "Unique slug for AI image tags [IMAGE:slug]" })
+  @Column({ nullable: true })
+  slug?: string;
 
   @ApiProperty({ description: "Document type", enum: DocumentType })
   @Column({ type: "enum", enum: DocumentType })

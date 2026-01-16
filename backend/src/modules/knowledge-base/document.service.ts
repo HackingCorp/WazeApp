@@ -41,6 +41,59 @@ import * as crypto from "crypto";
 
 @Injectable()
 export class DocumentService {
+  /**
+   * Generate a URL-friendly slug from a title
+   * Used for AI image tags [IMAGE:slug]
+   */
+  private generateSlug(title: string): string {
+    return title
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '') // Remove accents
+      .replace(/[^a-z0-9\s-]/g, '') // Remove special characters
+      .replace(/\s+/g, '-') // Replace spaces with hyphens
+      .replace(/-+/g, '-') // Remove consecutive hyphens
+      .replace(/^-|-$/g, '') // Remove leading/trailing hyphens
+      .substring(0, 50); // Limit length
+  }
+
+  /**
+   * Ensure slug is unique within a knowledge base
+   */
+  private async ensureUniqueSlug(
+    slug: string,
+    knowledgeBaseId: string,
+    excludeDocId?: string,
+  ): Promise<string> {
+    let uniqueSlug = slug;
+    let counter = 1;
+
+    while (true) {
+      const existing = await this.documentRepository.findOne({
+        where: {
+          slug: uniqueSlug,
+          knowledgeBaseId,
+        },
+      });
+
+      // If no conflict or it's the same document, we're good
+      if (!existing || (excludeDocId && existing.id === excludeDocId)) {
+        return uniqueSlug;
+      }
+
+      // Add counter suffix
+      uniqueSlug = `${slug}-${counter}`;
+      counter++;
+
+      // Safety limit
+      if (counter > 100) {
+        uniqueSlug = `${slug}-${Date.now()}`;
+        break;
+      }
+    }
+
+    return uniqueSlug;
+  }
   constructor(
     @InjectRepository(KnowledgeDocument)
     private readonly documentRepository: Repository<KnowledgeDocument>,
@@ -105,9 +158,17 @@ export class DocumentService {
     await fs.mkdir(path.dirname(filePath), { recursive: true });
     await fs.writeFile(filePath, file.buffer);
 
+    // Generate or validate slug for images/videos (useful for AI [IMAGE:slug] tags)
+    let documentSlug = uploadDto.slug;
+    if (uploadDto.type === DocumentType.IMAGE || uploadDto.type === DocumentType.VIDEO) {
+      const baseSlug = uploadDto.slug || this.generateSlug(uploadDto.title);
+      documentSlug = await this.ensureUniqueSlug(baseSlug, uploadDto.knowledgeBaseId);
+    }
+
     // Create document record
     const document = this.documentRepository.create({
       ...uploadDto,
+      slug: documentSlug,
       filename: file.originalname,
       fileSize: file.size,
       mimeType: file.mimetype,

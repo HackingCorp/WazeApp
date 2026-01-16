@@ -16,6 +16,11 @@ export class UploadDocumentDto {
   @IsString()
   title: string;
 
+  @ApiPropertyOptional({ description: "Unique slug for AI image tags [IMAGE:slug]. Auto-generated from title if not provided." })
+  @IsOptional()
+  @IsString()
+  slug?: string;
+
   @ApiProperty({ description: "Document type", enum: DocumentType })
   @IsEnum(DocumentType)
   type: DocumentType;
@@ -142,6 +147,11 @@ export class UpdateDocumentDto {
   @IsOptional()
   @IsString()
   title?: string;
+
+  @ApiPropertyOptional({ description: "Unique slug for AI image tags [IMAGE:slug]" })
+  @IsOptional()
+  @IsString()
+  slug?: string;
 
   @ApiPropertyOptional({ description: "Document status" })
   @IsOptional()

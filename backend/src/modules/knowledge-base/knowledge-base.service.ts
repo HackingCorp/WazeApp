@@ -332,20 +332,41 @@ export class KnowledgeBaseService {
   }
 
   async updateStats(knowledgeBaseId: string): Promise<void> {
-    const stats = await this.documentRepository
+    // Count all documents (not just processed) for accurate document count
+    const allDocsStats = await this.documentRepository
       .createQueryBuilder("doc")
-      .select([
-        "COUNT(*) as documentCount",
-        "SUM(doc.characterCount) as totalCharacters",
-      ])
+      .select(["COUNT(*) as documentCount"])
+      .where("doc.knowledgeBaseId = :knowledgeBaseId", { knowledgeBaseId })
+      .andWhere("doc.status != :archived", { archived: DocumentStatus.ARCHIVED })
+      .getRawOne();
+
+    // For character count, only include processed documents (they have accurate character counts)
+    const charStats = await this.documentRepository
+      .createQueryBuilder("doc")
+      .select(["SUM(doc.characterCount) as totalCharacters"])
       .where("doc.knowledgeBaseId = :knowledgeBaseId", { knowledgeBaseId })
       .andWhere("doc.status = :status", { status: DocumentStatus.PROCESSED })
       .getRawOne();
 
     await this.knowledgeBaseRepository.update(knowledgeBaseId, {
-      documentCount: parseInt(stats.documentCount) || 0,
-      totalCharacters: parseInt(stats.totalCharacters) || 0,
+      documentCount: parseInt(allDocsStats.documentCount) || 0,
+      totalCharacters: parseInt(charStats.totalCharacters) || 0,
     });
+  }
+
+  /**
+   * Refresh stats for all knowledge bases
+   */
+  async refreshAllStats(): Promise<{ updated: number }> {
+    const knowledgeBases = await this.knowledgeBaseRepository.find({
+      select: ['id'],
+    });
+
+    for (const kb of knowledgeBases) {
+      await this.updateStats(kb.id);
+    }
+
+    return { updated: knowledgeBases.length };
   }
 
   private async checkKnowledgeBaseLimit(organizationId: string): Promise<void> {

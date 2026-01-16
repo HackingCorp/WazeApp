@@ -202,6 +202,21 @@ export class KnowledgeBaseController {
     return { message: "Knowledge base statistics refreshed successfully" };
   }
 
+  @Post("refresh-all-stats")
+  @Public()
+  @ApiOperation({ summary: "Refresh statistics for all knowledge bases" })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: "All knowledge base statistics refreshed",
+  })
+  async refreshAllStats() {
+    const result = await this.knowledgeBaseService.refreshAllStats();
+    return {
+      message: "All knowledge base statistics refreshed successfully",
+      ...result
+    };
+  }
+
   @Get("debug/:id")
   @Public()
   @ApiOperation({ summary: "Debug endpoint to check KB data" })

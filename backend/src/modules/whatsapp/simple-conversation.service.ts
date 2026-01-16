@@ -928,6 +928,9 @@ export class SimpleConversationService implements OnModuleDestroy {
 
         // Determine message type from mediaType or default to text
         let messageType: "text" | "image" | "audio" | "video" | "file" = "text";
+        let effectiveMediaUrl = msg.mediaUrl;
+        let effectiveMediaType = msg.mediaType;
+
         if (msg.mediaType) {
           if (msg.mediaType.startsWith("image")) {
             messageType = "image";
@@ -940,9 +943,37 @@ export class SimpleConversationService implements OnModuleDestroy {
           }
         }
 
+        // Backward compatibility: detect base64 data URLs in content for messages
+        // that were saved before mediaType was properly set
+        const contentToCheck = msg.mediaUrl || msg.content;
+        if (!msg.mediaType && contentToCheck) {
+          if (contentToCheck.startsWith('data:image/')) {
+            messageType = "image";
+            effectiveMediaUrl = contentToCheck;
+            // Extract mime type from data URL
+            const mimeMatch = contentToCheck.match(/^data:([^;]+);/);
+            effectiveMediaType = mimeMatch ? mimeMatch[1] : "image/jpeg";
+          } else if (contentToCheck.startsWith('data:video/')) {
+            messageType = "video";
+            effectiveMediaUrl = contentToCheck;
+            const mimeMatch = contentToCheck.match(/^data:([^;]+);/);
+            effectiveMediaType = mimeMatch ? mimeMatch[1] : "video/mp4";
+          } else if (contentToCheck.startsWith('data:audio/')) {
+            messageType = "audio";
+            effectiveMediaUrl = contentToCheck;
+            const mimeMatch = contentToCheck.match(/^data:([^;]+);/);
+            effectiveMediaType = mimeMatch ? mimeMatch[1] : "audio/mpeg";
+          }
+        }
+
+        // For media messages, use placeholder text as content
+        const displayContent = (messageType !== "text" && effectiveMediaUrl)
+          ? `[${messageType}]`
+          : (msg.content || '');
+
         return {
           id: msg.id,
-          content: msg.mediaUrl || msg.content, // Use mediaUrl for media messages
+          content: displayContent,
           timestamp: msg.createdAt,
           sender,
           type: messageType,
@@ -951,8 +982,8 @@ export class SimpleConversationService implements OnModuleDestroy {
             | "delivered"
             | "read"
             | "sending",
-          mediaUrl: msg.mediaUrl,
-          mediaType: msg.mediaType,
+          mediaUrl: effectiveMediaUrl,
+          mediaType: effectiveMediaType,
           mediaCaption: msg.mediaCaption,
         };
       });

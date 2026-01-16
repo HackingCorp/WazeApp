@@ -816,19 +816,19 @@ export default function WhatsAppPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div className="flex items-center space-x-3">
-          <div className="p-3 bg-green-100 rounded-full">
-            <Smartphone className="w-8 h-8 text-green-600" />
+          <div className="p-3 bg-green-100 dark:bg-green-900/30 rounded-full">
+            <Smartphone className="w-8 h-8 text-green-600 dark:text-green-400" />
           </div>
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">{t('whatsapp.pageTitle')}</h1>
-            <p className="text-gray-600">{t('whatsapp.pageSubtitle')}</p>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">{t('whatsapp.pageTitle')}</h1>
+            <p className="text-gray-600 dark:text-gray-400">{t('whatsapp.pageSubtitle')}</p>
           </div>
         </div>
 
         <div className="flex items-center space-x-4">
           <div className="text-right">
-            <div className="text-sm text-gray-500">{t('whatsapp.currentPlan')}: {userPlan.charAt(0).toUpperCase() + userPlan.slice(1)}</div>
-            <div className="text-sm font-medium">
+            <div className="text-sm text-gray-500 dark:text-gray-400">{t('whatsapp.currentPlan')}: {userPlan.charAt(0).toUpperCase() + userPlan.slice(1)}</div>
+            <div className="text-sm font-medium text-gray-900 dark:text-white">
               {t('whatsapp.accountsUsed', { current: planLimits.current, max: planLimits.max })}
             </div>
           </div>
@@ -857,14 +857,14 @@ export default function WhatsAppPage() {
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-gradient-to-r from-purple-100 to-emerald-100 border border-purple-200 rounded-lg p-4 mb-6"
+          className="bg-gradient-to-r from-purple-100 to-emerald-100 dark:from-purple-900/30 dark:to-emerald-900/30 border border-purple-200 dark:border-purple-800 rounded-lg p-4 mb-6"
         >
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
-              <Zap className="w-6 h-6 text-purple-600" />
+              <Zap className="w-6 h-6 text-purple-600 dark:text-purple-400" />
               <div>
-                <h3 className="font-semibold text-purple-900">Upgrade to connect more accounts</h3>
-                <p className="text-purple-700 text-sm">
+                <h3 className="font-semibold text-purple-900 dark:text-purple-100">Upgrade to connect more accounts</h3>
+                <p className="text-purple-700 dark:text-purple-300 text-sm">
                   {userPlan === 'free' && 'Upgrade to Standard for 1 account, Pro for 2 accounts, or Enterprise for 5 accounts'}
                   {userPlan === 'standard' && 'Upgrade to Pro for 2 accounts or Enterprise for 5 accounts'}
                   {userPlan === 'pro' && 'Upgrade to Enterprise for up to 5 WhatsApp accounts'}
@@ -898,23 +898,23 @@ export default function WhatsAppPage() {
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-white rounded-2xl p-8 max-w-md w-full max-h-[90vh] overflow-y-auto"
+              className="bg-white dark:bg-gray-800 rounded-2xl p-8 max-w-md w-full max-h-[90vh] overflow-y-auto"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="text-center">
-                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Smartphone className="w-8 h-8 text-green-600" />
+                <div className="w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Smartphone className="w-8 h-8 text-green-600 dark:text-green-400" />
                 </div>
-                <h3 className="text-2xl font-bold text-gray-900 mb-2">Connecter WhatsApp</h3>
+                <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Connecter WhatsApp</h3>
 
                 {/* Method Tabs */}
-                <div className="flex bg-gray-100 rounded-lg p-1 mb-6">
+                <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1 mb-6">
                   <button
                     onClick={() => setConnectionMethod('qr')}
                     className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
                       connectionMethod === 'qr'
-                        ? 'bg-white text-green-600 shadow-sm'
-                        : 'text-gray-600 hover:text-gray-900'
+                        ? 'bg-white dark:bg-gray-600 text-green-600 dark:text-green-400 shadow-sm'
+                        : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white'
                     }`}
                   >
                     QR Code
@@ -923,8 +923,8 @@ export default function WhatsAppPage() {
                     onClick={() => setConnectionMethod('pairing')}
                     className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
                       connectionMethod === 'pairing'
-                        ? 'bg-white text-green-600 shadow-sm'
-                        : 'text-gray-600 hover:text-gray-900'
+                        ? 'bg-white dark:bg-gray-600 text-green-600 dark:text-green-400 shadow-sm'
+                        : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white'
                     }`}
                   >
                     Code d'appairage
@@ -934,9 +934,9 @@ export default function WhatsAppPage() {
                 {/* QR Code Method */}
                 {connectionMethod === 'qr' && qrData && (
                   <>
-                    <p className="text-gray-600 mb-4">Scannez ce QR code avec WhatsApp</p>
+                    <p className="text-gray-600 dark:text-gray-400 mb-4">Scannez ce QR code avec WhatsApp</p>
 
-                    <div className="bg-white p-4 rounded-lg border-2 border-gray-200 mb-4">
+                    <div className="bg-white dark:bg-gray-700 p-4 rounded-lg border-2 border-gray-200 dark:border-gray-600 mb-4">
                       <img
                         src={qrData.qrCode}
                         alt="WhatsApp QR Code"
@@ -945,8 +945,8 @@ export default function WhatsAppPage() {
                     </div>
 
                     <div className="flex items-center justify-center space-x-2 mb-4">
-                      <Clock className="w-4 h-4 text-gray-500" />
-                      <span className="text-sm text-gray-600">
+                      <Clock className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                      <span className="text-sm text-gray-600 dark:text-gray-400">
                         Expire dans {formatTime(timeRemaining)}
                       </span>
                     </div>
@@ -954,28 +954,28 @@ export default function WhatsAppPage() {
                     <div className="text-left space-y-2 mb-4 text-sm">
                       <div className="flex items-center space-x-2">
                         <span className="w-5 h-5 bg-green-600 text-white rounded-full flex items-center justify-center text-xs font-bold">1</span>
-                        <span className="text-gray-700">Ouvrir WhatsApp</span>
+                        <span className="text-gray-700 dark:text-gray-300">Ouvrir WhatsApp</span>
                       </div>
                       <div className="flex items-center space-x-2">
                         <span className="w-5 h-5 bg-green-600 text-white rounded-full flex items-center justify-center text-xs font-bold">2</span>
-                        <span className="text-gray-700">Menu → Appareils liés</span>
+                        <span className="text-gray-700 dark:text-gray-300">Menu → Appareils liés</span>
                       </div>
                       <div className="flex items-center space-x-2">
                         <span className="w-5 h-5 bg-green-600 text-white rounded-full flex items-center justify-center text-xs font-bold">3</span>
-                        <span className="text-gray-700">Scanner le QR code</span>
+                        <span className="text-gray-700 dark:text-gray-300">Scanner le QR code</span>
                       </div>
                     </div>
 
                     <button
                       onClick={() => refreshQR(connecting)}
-                      className="w-full flex items-center justify-center space-x-2 bg-gray-100 text-gray-700 py-3 rounded-lg hover:bg-gray-200 transition-colors mb-3"
+                      className="w-full flex items-center justify-center space-x-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 py-3 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors mb-3"
                     >
                       <RefreshCw className="w-4 h-4" />
                       <span>Rafraîchir le QR</span>
                     </button>
 
-                    <p className="text-xs text-gray-500 mb-4">
-                      Problème de scan sur Android? Essayez le <button onClick={() => setConnectionMethod('pairing')} className="text-green-600 underline">code d'appairage</button>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
+                      Problème de scan sur Android? Essayez le <button onClick={() => setConnectionMethod('pairing')} className="text-green-600 dark:text-green-400 underline">code d'appairage</button>
                     </p>
                   </>
                 )}
@@ -983,7 +983,7 @@ export default function WhatsAppPage() {
                 {/* Pairing Code Method */}
                 {connectionMethod === 'pairing' && (
                   <>
-                    <p className="text-gray-600 mb-4">
+                    <p className="text-gray-600 dark:text-gray-400 mb-4">
                       {pairingCode
                         ? 'Entrez ce code dans WhatsApp'
                         : 'Entrez votre numéro de téléphone WhatsApp'}
@@ -995,7 +995,7 @@ export default function WhatsAppPage() {
                           <select
                             value={countryCode}
                             onChange={(e) => setCountryCode(e.target.value)}
-                            className="px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white text-sm"
+                            className="px-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
                           >
                             {countryCodes.map((c) => (
                               <option key={c.code} value={c.code}>
@@ -1008,7 +1008,7 @@ export default function WhatsAppPage() {
                             placeholder="6XX XXX XXX"
                             value={phoneNumber}
                             onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, ''))}
-                            className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-center text-lg"
+                            className="flex-1 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-center text-lg"
                           />
                         </div>
 
@@ -1022,15 +1022,15 @@ export default function WhatsAppPage() {
                       </>
                     ) : (
                       <>
-                        <div className="bg-green-50 border-2 border-green-200 rounded-xl p-6 mb-4">
-                          <div className="text-4xl font-mono font-bold text-green-700 tracking-widest">
+                        <div className="bg-green-50 dark:bg-green-900/30 border-2 border-green-200 dark:border-green-700 rounded-xl p-6 mb-4">
+                          <div className="text-4xl font-mono font-bold text-green-700 dark:text-green-400 tracking-widest">
                             {pairingCode}
                           </div>
                         </div>
 
                         <div className="flex items-center justify-center space-x-2 mb-4">
-                          <Clock className="w-4 h-4 text-gray-500" />
-                          <span className="text-sm text-gray-600">
+                          <Clock className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                          <span className="text-sm text-gray-600 dark:text-gray-400">
                             Expire dans {formatTime(timeRemaining)}
                           </span>
                         </div>
@@ -1038,19 +1038,19 @@ export default function WhatsAppPage() {
                         <div className="text-left space-y-2 mb-4 text-sm">
                           <div className="flex items-center space-x-2">
                             <span className="w-5 h-5 bg-green-600 text-white rounded-full flex items-center justify-center text-xs font-bold">1</span>
-                            <span className="text-gray-700">Ouvrir WhatsApp</span>
+                            <span className="text-gray-700 dark:text-gray-300">Ouvrir WhatsApp</span>
                           </div>
                           <div className="flex items-center space-x-2">
                             <span className="w-5 h-5 bg-green-600 text-white rounded-full flex items-center justify-center text-xs font-bold">2</span>
-                            <span className="text-gray-700">Menu → Appareils liés</span>
+                            <span className="text-gray-700 dark:text-gray-300">Menu → Appareils liés</span>
                           </div>
                           <div className="flex items-center space-x-2">
                             <span className="w-5 h-5 bg-green-600 text-white rounded-full flex items-center justify-center text-xs font-bold">3</span>
-                            <span className="text-gray-700">Lier avec numéro de téléphone</span>
+                            <span className="text-gray-700 dark:text-gray-300">Lier avec numéro de téléphone</span>
                           </div>
                           <div className="flex items-center space-x-2">
                             <span className="w-5 h-5 bg-green-600 text-white rounded-full flex items-center justify-center text-xs font-bold">4</span>
-                            <span className="text-gray-700">Entrer le code ci-dessus</span>
+                            <span className="text-gray-700 dark:text-gray-300">Entrer le code ci-dessus</span>
                           </div>
                         </div>
 
@@ -1059,7 +1059,7 @@ export default function WhatsAppPage() {
                             setPairingCode(null);
                             setPhoneNumber('');
                           }}
-                          className="w-full flex items-center justify-center space-x-2 bg-gray-100 text-gray-700 py-3 rounded-lg hover:bg-gray-200 transition-colors mb-3"
+                          className="w-full flex items-center justify-center space-x-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 py-3 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors mb-3"
                         >
                           <RefreshCw className="w-4 h-4" />
                           <span>Nouveau code</span>
@@ -1078,7 +1078,7 @@ export default function WhatsAppPage() {
                     setConnectionMethod('qr');
                     setPhoneNumber('');
                   }}
-                  className="w-full bg-gray-200 text-gray-700 py-3 rounded-lg hover:bg-gray-300 transition-colors"
+                  className="w-full bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 py-3 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
                 >
                   Annuler
                 </button>
@@ -1102,18 +1102,18 @@ export default function WhatsAppPage() {
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-white rounded-2xl p-8 max-w-md w-full"
+              className="bg-white dark:bg-gray-800 rounded-2xl p-8 max-w-md w-full"
               onClick={(e) => e.stopPropagation()}
             >
-              <h3 className="text-2xl font-bold text-gray-900 mb-4">{t('whatsapp.createSession')}</h3>
-              <p className="text-gray-600 mb-6">{t('whatsapp.giveSessionName')}</p>
+              <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">{t('whatsapp.createSession')}</h3>
+              <p className="text-gray-600 dark:text-gray-400 mb-6">{t('whatsapp.giveSessionName')}</p>
 
               <input
                 type="text"
                 placeholder={t('whatsapp.sessionNamePlaceholder')}
                 value={newSessionName}
                 onChange={(e) => setNewSessionName(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent mb-6"
+                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white mb-6"
                 autoFocus
                 onKeyPress={(e) => e.key === 'Enter' && createSession()}
               />
@@ -1121,7 +1121,7 @@ export default function WhatsAppPage() {
               <div className="flex space-x-3">
                 <button
                   onClick={() => setShowCreateModal(false)}
-                  className="flex-1 bg-gray-100 text-gray-700 py-3 rounded-lg hover:bg-gray-200 transition-colors"
+                  className="flex-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 py-3 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
                 >
                   {t('whatsapp.cancel')}
                 </button>
@@ -1145,11 +1145,11 @@ export default function WhatsAppPage() {
           animate={{ opacity: 1, y: 0 }}
           className="text-center py-12"
         >
-          <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
-            <Smartphone className="w-12 h-12 text-gray-400" />
+          <div className="w-24 h-24 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-6">
+            <Smartphone className="w-12 h-12 text-gray-400 dark:text-gray-500" />
           </div>
-          <h3 className="text-2xl font-bold text-gray-900 mb-2">{t('whatsapp.noAccountsConnected')}</h3>
-          <p className="text-gray-600 mb-8 max-w-md mx-auto">
+          <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">{t('whatsapp.noAccountsConnected')}</h3>
+          <p className="text-gray-600 dark:text-gray-400 mb-8 max-w-md mx-auto">
             {t('whatsapp.connectYourAccount')}
           </p>
           <button
@@ -1168,18 +1168,18 @@ export default function WhatsAppPage() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.1 }}
-              className="bg-white border border-gray-200 rounded-xl p-6 hover:shadow-lg transition-all"
+              className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-6 hover:shadow-lg transition-all"
             >
               {/* Session Header */}
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center space-x-3">
-                  <div className={`p-3 rounded-full ${session.isActive ? 'bg-green-100' : 'bg-gray-100'}`}>
+                  <div className={`p-3 rounded-full ${session.isActive ? 'bg-green-100 dark:bg-green-900/30' : 'bg-gray-100 dark:bg-gray-700'}`}>
                     {getStatusIcon(session.status, session.isActive)}
                   </div>
                   <div>
-                    <h3 className="text-lg font-semibold text-gray-900">{session.name}</h3>
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{session.name}</h3>
                     {session.phoneNumber && (
-                      <p className="text-sm text-gray-600">{session.phoneNumber}</p>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">{session.phoneNumber}</p>
                     )}
                     <div className="flex items-center space-x-2 mt-1">
                       <div className={`w-2 h-2 rounded-full ${session.isActive ? 'bg-green-500' : 'bg-red-500'}`} />
@@ -1202,18 +1202,18 @@ export default function WhatsAppPage() {
               
               {/* Stats */}
               {stats[session.id] && (
-                <div className="grid grid-cols-2 gap-4 mb-4 p-4 bg-gray-50 rounded-lg">
+                <div className="grid grid-cols-2 gap-4 mb-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
                   <div className="text-center">
-                    <div className="text-2xl font-bold text-green-600">
+                    <div className="text-2xl font-bold text-green-600 dark:text-green-400">
                       {stats[session.id].messagesSentToday}
                     </div>
-                    <div className="text-xs text-gray-600">{t('whatsapp.sentToday')}</div>
+                    <div className="text-xs text-gray-600 dark:text-gray-400">{t('whatsapp.sentToday')}</div>
                   </div>
                   <div className="text-center">
-                    <div className="text-2xl font-bold text-emerald-600">
+                    <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
                       {stats[session.id].messagesReceivedToday}
                     </div>
-                    <div className="text-xs text-gray-600">{t('whatsapp.receivedToday')}</div>
+                    <div className="text-xs text-gray-600 dark:text-gray-400">{t('whatsapp.receivedToday')}</div>
                   </div>
                 </div>
               )}
@@ -1285,7 +1285,7 @@ export default function WhatsAppPage() {
 
               {/* Last Seen */}
               {session.lastSeenAt && (
-                <p className="text-xs text-gray-500 mb-4">
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
                   {t('whatsapp.lastSeen')}: {new Date(session.lastSeenAt).toLocaleString()}
                 </p>
               )}
@@ -1296,7 +1296,7 @@ export default function WhatsAppPage() {
                   <>
                     <button
                       onClick={() => syncMessages(session.id)}
-                      className="bg-emerald-50 text-emerald-600 py-2 px-4 rounded-lg hover:bg-emerald-100 transition-colors text-sm font-medium flex items-center justify-center space-x-1"
+                      className="bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 py-2 px-4 rounded-lg hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition-colors text-sm font-medium flex items-center justify-center space-x-1"
                       title="Sync all message history"
                     >
                       <Download className="w-4 h-4" />
@@ -1304,7 +1304,7 @@ export default function WhatsAppPage() {
                     </button>
                     <button
                       onClick={() => disconnectSession(session.id)}
-                      className="flex-1 bg-red-50 text-red-600 py-2 px-4 rounded-lg hover:bg-red-100 transition-colors text-sm font-medium"
+                      className="flex-1 bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 py-2 px-4 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors text-sm font-medium"
                     >
                       {t('whatsapp.disconnect')}
                     </button>
@@ -1323,8 +1323,8 @@ export default function WhatsAppPage() {
                     <span>{connecting === session.id ? t('whatsapp.connecting') : t('whatsapp.connect')}</span>
                   </button>
                 )}
-                
-                <button className="bg-gray-100 text-gray-600 py-2 px-4 rounded-lg hover:bg-gray-200 transition-colors text-sm font-medium">
+
+                <button className="bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 py-2 px-4 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors text-sm font-medium">
                   <Settings className="w-4 h-4" />
                 </button>
               </div>

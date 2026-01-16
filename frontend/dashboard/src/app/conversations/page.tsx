@@ -163,6 +163,30 @@ export default function ConversationsPage() {
             .replace(/@g\.us$/i, '');
         };
 
+        // Check if phone number is a valid phone (not a LID or internal ID)
+        const isValidPhoneNumber = (phone: string): boolean => {
+          if (!phone) return false;
+          const cleaned = cleanPhoneNumber(phone);
+          // Valid phone numbers: 7-15 digits, may start with +
+          // LID identifiers are typically 15+ digits and don't look like phone numbers
+          const phoneRegex = /^\+?[1-9]\d{6,14}$/;
+          return phoneRegex.test(cleaned) && cleaned.length <= 15;
+        };
+
+        // Format phone number for display, hide invalid/LID numbers
+        const formatPhoneForDisplay = (phone: string): string => {
+          if (!phone) return '';
+          const cleaned = cleanPhoneNumber(phone);
+
+          // If it's a LID or invalid identifier, don't display it as a number
+          if (!isValidPhoneNumber(phone)) {
+            return ''; // Will show name only
+          }
+
+          // Format valid phone with + prefix
+          return cleaned.startsWith('+') ? cleaned : `+${cleaned}`;
+        };
+
         // Clean any text that might contain @lid or other suffixes
         const cleanText = (text: string) => {
           if (!text) return '';
@@ -194,13 +218,13 @@ export default function ConversationsPage() {
               : `📱 Group ${cleanedPhone}`;
           }
 
-          // Format phone number for display
-          let displayPhone = cleanedPhone;
+          // Format phone number for display - hide LID/invalid identifiers
+          let displayPhone = formatPhoneForDisplay(conv.phoneNumber);
           if (isGroup) {
-            displayPhone = `Group: ${cleanedPhone}`;
-          } else if (displayPhone && !displayPhone.startsWith('+')) {
-            // Format as international number if not already
-            displayPhone = `+${displayPhone}`;
+            displayPhone = `Groupe`;
+          } else if (!displayPhone) {
+            // If no valid phone, use a placeholder
+            displayPhone = 'Contact WhatsApp';
           }
 
           return {

@@ -980,12 +980,19 @@ export class WhatsAppService {
         return;
       }
 
-      const remoteJid = message.key.remoteJid;
+      let remoteJid = message.key.remoteJid;
       if (!remoteJid) {
         this.logger.warn(
           `Message has no remoteJid, skipping: ${JSON.stringify(message.key)}`,
         );
         return;
+      }
+
+      // Resolve LID to real phone number if needed
+      const originalJid = remoteJid;
+      remoteJid = await this.resolveRealPhoneNumber(sessionId, remoteJid);
+      if (originalJid !== remoteJid) {
+        this.logger.log(`Resolved LID JID ${originalJid} to real phone JID ${remoteJid}`);
       }
 
       const fromNumber = remoteJid
@@ -1188,7 +1195,7 @@ export class WhatsAppService {
   ) {
     const {
       sessionId,
-      fromNumber,
+      fromNumber: originalFromNumber,
       messageText,
       messageId,
       timestamp,
@@ -1199,6 +1206,16 @@ export class WhatsAppService {
     } = data;
 
     try {
+      // Resolve LID to real phone number if needed
+      let fromNumber = originalFromNumber;
+      if (this.isLidFormat(originalFromNumber)) {
+        const resolvedJid = await this.resolveRealPhoneNumber(sessionId, originalFromNumber);
+        fromNumber = resolvedJid.replace("@s.whatsapp.net", "").replace("@g.us", "");
+        if (fromNumber !== originalFromNumber.replace(/@lid$/i, '')) {
+          this.logger.debug(`Resolved sync message LID ${originalFromNumber} to ${fromNumber}`);
+        }
+      }
+
       // Emit event for conversation handling (same as regular messages but marked as historical)
       this.eventEmitter.emit("whatsapp.conversation.message", {
         sessionId,
@@ -1505,25 +1522,62 @@ export class WhatsAppService {
 
   private async upsertContact(sessionId: string, contact: any): Promise<void> {
     try {
-      // Extract phone number from contact id (remove @s.whatsapp.net, @lid, etc.)
+      // Extract contact identifiers
       const contactId = contact.id || contact.jid || '';
-      const phoneNumber = this.cleanPhoneNumber(contactId);
+      const isLidFormat = contactId.includes('@lid');
 
-      if (!phoneNumber) {
-        return; // Skip contacts without valid phone numbers
+      // Extract LID (remove @lid suffix and store)
+      const lid = isLidFormat ? contactId.replace(/@lid$/i, '') : (contact.lid || undefined);
+
+      // Extract phone number - for LID contacts, the real phone might be in a different field
+      // or we need to skip if we can't get a valid phone number
+      let phoneNumber = '';
+
+      if (isLidFormat) {
+        // For LID contacts, try to get phone from contact.phone or lidPhone field
+        // Baileys v7 may provide the real phone in different ways
+        phoneNumber = this.cleanPhoneNumber(contact.phone || contact.phoneNumber || '');
+
+        if (!phoneNumber && lid) {
+          // If no phone available, use LID as identifier but mark it specially
+          // This allows us to at least store the contact for later resolution
+          phoneNumber = `lid_${lid.substring(0, 20)}`; // Use truncated LID as temporary ID
+          this.logger.debug(`Storing LID contact with temporary phone: ${phoneNumber}`);
+        }
+      } else {
+        phoneNumber = this.cleanPhoneNumber(contactId);
       }
 
-      // Check if contact exists
+      if (!phoneNumber) {
+        return; // Skip contacts without valid identifiers
+      }
+
+      // Check if contact exists - check both by phone and by LID
       let existingContact = await this.contactRepository.findOne({
         where: { sessionId, phoneNumber },
       });
+
+      // Also check by LID if we have one
+      if (!existingContact && lid) {
+        existingContact = await this.contactRepository.findOne({
+          where: { sessionId, lid },
+        });
+
+        if (existingContact && existingContact.phoneNumber !== phoneNumber) {
+          // We found a contact by LID - update its phone number if we have a better one
+          if (!phoneNumber.startsWith('lid_') && existingContact.phoneNumber.startsWith('lid_')) {
+            existingContact.phoneNumber = phoneNumber;
+            this.logger.log(`Updated phone number for LID contact: ${lid} -> ${phoneNumber}`);
+          }
+        }
+      }
 
       if (existingContact) {
         // Update existing contact
         existingContact.name = contact.name || contact.notify || existingContact.name;
         existingContact.pushName = contact.notify || contact.verifiedName || existingContact.pushName;
         existingContact.shortName = contact.shortName || existingContact.shortName;
-        existingContact.lid = contact.lid || contactId.includes('@lid') ? contactId : existingContact.lid;
+        existingContact.lid = lid || existingContact.lid;
         existingContact.isBusiness = contact.isBusiness || existingContact.isBusiness;
         existingContact.profilePictureUrl = contact.imgUrl || existingContact.profilePictureUrl;
         existingContact.lastInteractionAt = new Date();
@@ -1531,6 +1585,7 @@ export class WhatsAppService {
           ...existingContact.metadata,
           verifiedName: contact.verifiedName,
           status: contact.status,
+          rawId: contactId,
         };
 
         await this.contactRepository.save(existingContact);
@@ -1539,7 +1594,7 @@ export class WhatsAppService {
         const newContact = this.contactRepository.create({
           sessionId,
           phoneNumber,
-          lid: contactId.includes('@lid') ? contactId : undefined,
+          lid: lid,
           name: contact.name || contact.notify,
           pushName: contact.notify || contact.verifiedName,
           shortName: contact.shortName,
@@ -1607,5 +1662,64 @@ export class WhatsAppService {
     }
 
     return phoneNumber;
+  }
+
+  /**
+   * Get contact by LID (Linked Identity) - Baileys v7+
+   * LID is an encrypted identifier used instead of real phone numbers
+   */
+  async getContactByLid(sessionId: string, lid: string): Promise<WhatsAppContact | null> {
+    // Clean the LID (remove @lid suffix if present)
+    const cleanLid = lid.replace(/@lid$/i, '');
+
+    return this.contactRepository.findOne({
+      where: { sessionId, lid: cleanLid },
+    });
+  }
+
+  /**
+   * Resolve real phone number from JID
+   * Handles both regular phone JIDs and LID (Linked Identity) format
+   * @param sessionId The session ID to look up contacts
+   * @param jid The JID which could be phone@s.whatsapp.net or lid_value@lid
+   * @returns The real phone number or the original JID if not resolvable
+   */
+  async resolveRealPhoneNumber(sessionId: string, jid: string): Promise<string> {
+    if (!jid) return jid;
+
+    // Check if this is a LID format (contains @lid)
+    if (jid.includes('@lid')) {
+      this.logger.debug(`Resolving LID format JID: ${jid}`);
+
+      const lid = jid.replace(/@lid$/i, '');
+
+      // Look up contact by LID
+      const contact = await this.getContactByLid(sessionId, lid);
+
+      if (contact && contact.phoneNumber) {
+        // Check if we have a real phone number (not a temporary lid_ placeholder)
+        if (!contact.phoneNumber.startsWith('lid_')) {
+          this.logger.log(`Resolved LID ${lid} to phone number ${contact.phoneNumber}`);
+          // Return in full JID format for consistency
+          return `${contact.phoneNumber}@s.whatsapp.net`;
+        } else {
+          this.logger.debug(`Contact found for LID ${lid} but phone number is temporary: ${contact.phoneNumber}`);
+        }
+      }
+
+      this.logger.warn(`Could not resolve LID ${lid} to real phone number - contact not found or no real phone`);
+      // Return the original JID if we can't resolve it
+      return jid;
+    }
+
+    // For regular JIDs, return as-is
+    return jid;
+  }
+
+  /**
+   * Check if a JID is in LID format
+   */
+  isLidFormat(jid: string): boolean {
+    return jid && jid.includes('@lid');
   }
 }

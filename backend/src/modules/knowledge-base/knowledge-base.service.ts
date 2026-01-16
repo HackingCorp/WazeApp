@@ -398,6 +398,39 @@ export class KnowledgeBaseService {
     }));
   }
 
+  /**
+   * Add slug column to knowledge_documents if missing
+   */
+  async addSlugColumnIfMissing(): Promise<{ message: string }> {
+    const queryRunner = this.knowledgeBaseRepository.manager.connection.createQueryRunner();
+
+    try {
+      await queryRunner.connect();
+
+      // Check if column exists
+      const hasColumn = await queryRunner.hasColumn('knowledge_documents', 'slug');
+
+      if (!hasColumn) {
+        // Add the column
+        await queryRunner.query(`
+          ALTER TABLE "knowledge_documents"
+          ADD COLUMN "slug" varchar(100)
+        `);
+
+        // Add index
+        await queryRunner.query(`
+          CREATE INDEX IF NOT EXISTS "IDX_DOC_SLUG" ON "knowledge_documents" ("slug")
+        `);
+
+        return { message: 'Slug column added successfully' };
+      }
+
+      return { message: 'Slug column already exists' };
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
   private async checkKnowledgeBaseLimit(organizationId: string): Promise<void> {
     const organization = await this.organizationRepository.findOne({
       where: { id: organizationId },

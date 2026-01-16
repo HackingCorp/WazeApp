@@ -273,6 +273,18 @@ export class KnowledgeBaseController {
     };
   }
 
+  @Post("fix-slug-column")
+  @Public()
+  @ApiOperation({ summary: "Add slug column to knowledge_documents if missing" })
+  async fixSlugColumn() {
+    try {
+      const result = await this.knowledgeBaseService.addSlugColumnIfMissing();
+      return { success: true, ...result };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
   @Post("test-search")
   @Public()
   @ApiOperation({ summary: "Test KB search like AI does" })

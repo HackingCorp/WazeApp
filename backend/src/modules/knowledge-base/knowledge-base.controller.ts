@@ -92,14 +92,70 @@ export class KnowledgeBaseController {
   async getStats(@CurrentUser() user: User): Promise<KnowledgeBaseStatsDto> {
     console.log("🔍 STATS REQUEST - user.currentOrganizationId:", user.currentOrganizationId);
     console.log("🔍 STATS REQUEST - user.id:", user.id);
-    
+
     const stats = await this.knowledgeBaseService.getStats(user.currentOrganizationId);
-    
+
     console.log("🔍 STATS RESPONSE - totalCharacters:", stats.totalCharacters);
     console.log("🔍 STATS RESPONSE - totalDocuments:", stats.totalDocuments);
     console.log("🔍 STATS RESPONSE - full response:", JSON.stringify(stats, null, 2));
-    
+
     return stats;
+  }
+
+  @Get("debug-all-docs")
+  @Public()
+  @ApiOperation({ summary: "Debug endpoint to list all documents" })
+  async debugAllDocs() {
+    try {
+      const docs = await this.knowledgeBaseService.debugListAllDocuments();
+      return {
+        totalDocuments: docs.length,
+        documents: docs
+      };
+    } catch (error) {
+      return { error: error.message };
+    }
+  }
+
+  @Get("debug/:id")
+  @Public()
+  @ApiOperation({ summary: "Debug endpoint to check KB data" })
+  async debugKB(@Param("id") id: string) {
+    try {
+      const kb = await this.knowledgeBaseService.findOne(null, id);
+      return {
+        id: kb.id,
+        name: kb.name,
+        totalCharacters: kb.totalCharacters,
+        documentCount: kb.documentCount,
+        organizationId: kb.organizationId,
+        documentsLength: kb.documents?.length,
+        documents: kb.documents?.map(doc => ({
+          id: doc.id,
+          characterCount: doc.characterCount,
+          status: doc.status
+        }))
+      };
+    } catch (error) {
+      return { error: error.message };
+    }
+  }
+
+  @Get("debug-stats/:orgId")
+  @Public()
+  @ApiOperation({ summary: "Debug stats endpoint" })
+  async debugStats(@Param("orgId") orgId: string) {
+    try {
+      const stats = await this.knowledgeBaseService.getStats(orgId);
+      console.log("🔍 DEBUG STATS - organizationId:", orgId);
+      console.log("🔍 DEBUG STATS - totalCharacters:", stats.totalCharacters);
+      console.log("🔍 DEBUG STATS - totalDocuments:", stats.totalDocuments);
+      console.log("🔍 DEBUG STATS - full stats:", JSON.stringify(stats, null, 2));
+      return { stats, orgId };
+    } catch (error) {
+      console.log("❌ DEBUG STATS ERROR:", error.message);
+      return { error: error.message };
+    }
   }
 
   @Get(":id")
@@ -215,64 +271,6 @@ export class KnowledgeBaseController {
       message: "All knowledge base statistics refreshed successfully",
       ...result
     };
-  }
-
-  @Get("debug-all-docs")
-  @Public()
-  @ApiOperation({ summary: "Debug endpoint to list all documents" })
-  async debugAllDocs() {
-    try {
-      // Direct database query to list all documents
-      const { getRepository } = await import('typeorm');
-      const docs = await this.knowledgeBaseService.debugListAllDocuments();
-      return {
-        totalDocuments: docs.length,
-        documents: docs
-      };
-    } catch (error) {
-      return { error: error.message };
-    }
-  }
-
-  @Get("debug/:id")
-  @Public()
-  @ApiOperation({ summary: "Debug endpoint to check KB data" })
-  async debugKB(@Param("id") id: string) {
-    try {
-      const kb = await this.knowledgeBaseService.findOne(null, id);
-      return {
-        id: kb.id,
-        name: kb.name,
-        totalCharacters: kb.totalCharacters,
-        documentCount: kb.documentCount,
-        organizationId: kb.organizationId,
-        documentsLength: kb.documents?.length,
-        documents: kb.documents?.map(doc => ({
-          id: doc.id,
-          characterCount: doc.characterCount,
-          status: doc.status
-        }))
-      };
-    } catch (error) {
-      return { error: error.message };
-    }
-  }
-
-  @Get("debug-stats/:orgId")
-  @Public()
-  @ApiOperation({ summary: "Debug stats endpoint" })
-  async debugStats(@Param("orgId") orgId: string) {
-    try {
-      const stats = await this.knowledgeBaseService.getStats(orgId);
-      console.log("🔍 DEBUG STATS - organizationId:", orgId);
-      console.log("🔍 DEBUG STATS - totalCharacters:", stats.totalCharacters);
-      console.log("🔍 DEBUG STATS - totalDocuments:", stats.totalDocuments);
-      console.log("🔍 DEBUG STATS - full stats:", JSON.stringify(stats, null, 2));
-      return { stats, orgId };
-    } catch (error) {
-      console.log("❌ DEBUG STATS ERROR:", error.message);
-      return { error: error.message };
-    }
   }
 
   @Post("test-search")

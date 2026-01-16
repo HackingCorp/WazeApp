@@ -607,13 +607,13 @@ export default function ConversationsPage() {
     <div className="h-screen flex flex-col overflow-hidden">
       {/* WhatsApp Session Selector */}
       {whatsappSessions.length > 1 && (
-        <div className="flex-shrink-0 bg-gray-50 border-b border-gray-200 p-3">
+        <div className="flex-shrink-0 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-3">
           <div className="flex items-center space-x-3">
-            <span className="text-sm font-medium text-gray-700">{t('conversations.whatsappAccount')}:</span>
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('conversations.whatsappAccount')}:</span>
             <select
               value={selectedSessionId}
               onChange={(e) => setSelectedSessionId(e.target.value)}
-              className="text-sm border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
             >
               {whatsappSessions.map((session) => (
                 <option key={session.id} value={session.id}>
@@ -621,7 +621,7 @@ export default function ConversationsPage() {
                 </option>
               ))}
             </select>
-            <span className="text-xs text-gray-500">
+            <span className="text-xs text-gray-500 dark:text-gray-400">
               {t('conversations.accountsConnected', { count: whatsappSessions.length })}
             </span>
           </div>
@@ -630,10 +630,10 @@ export default function ConversationsPage() {
 
       {/* No Sessions Warning */}
       {whatsappSessions.length === 0 && !loadingConversations && (
-        <div className="flex-shrink-0 bg-yellow-50 border-b border-yellow-200 p-3">
-          <div className="text-sm text-yellow-800">
+        <div className="flex-shrink-0 bg-yellow-50 dark:bg-yellow-900/30 border-b border-yellow-200 dark:border-yellow-800 p-3">
+          <div className="text-sm text-yellow-800 dark:text-yellow-200">
             <strong>{t('conversations.noWhatsappConnected')}</strong>{' '}
-            <a href="/whatsapp" className="text-blue-600 hover:underline">
+            <a href="/whatsapp" className="text-blue-600 dark:text-blue-400 hover:underline">
               {t('conversations.connectWhatsapp')}
             </a>{' '}
             {t('conversations.toStartViewing')}

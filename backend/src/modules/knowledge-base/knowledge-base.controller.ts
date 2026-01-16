@@ -146,12 +146,14 @@ export class KnowledgeBaseController {
   @ApiOperation({ summary: "Debug stats endpoint" })
   async debugStats(@Param("orgId") orgId: string) {
     try {
-      const stats = await this.knowledgeBaseService.getStats(orgId);
-      console.log("🔍 DEBUG STATS - organizationId:", orgId);
+      // Handle "null" string as actual null
+      const actualOrgId = orgId === "null" || orgId === "undefined" ? null : orgId;
+      const stats = await this.knowledgeBaseService.getStats(actualOrgId);
+      console.log("🔍 DEBUG STATS - organizationId:", actualOrgId);
       console.log("🔍 DEBUG STATS - totalCharacters:", stats.totalCharacters);
       console.log("🔍 DEBUG STATS - totalDocuments:", stats.totalDocuments);
       console.log("🔍 DEBUG STATS - full stats:", JSON.stringify(stats, null, 2));
-      return { stats, orgId };
+      return { stats, orgId: actualOrgId };
     } catch (error) {
       console.log("❌ DEBUG STATS ERROR:", error.message);
       return { error: error.message };

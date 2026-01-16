@@ -245,10 +245,14 @@ export default function ConversationsPage() {
           const isGroup = conv.phoneNumber?.includes('@g.us') || false;
           const cleanedPhone = cleanPhoneNumber(conv.phoneNumber);
 
-          // Use contact name from our contacts map, or fallback to conversation name, or clean phone
+          // Use the name from backend (already processed to handle LIDs)
+          // or fallback to our local processing
           let displayName = conv.name;
-          if (!displayName || displayName === conv.phoneNumber || displayName.includes('@')) {
-            // Try to get name from contacts map
+          if (!displayName ||
+              displayName === conv.phoneNumber ||
+              displayName.includes('@') ||
+              (displayName.match(/^\+?\d+$/) && displayName.length > 13)) {
+            // If backend name looks like a LID, try our local contact lookup
             displayName = getContactDisplayName(conv.phoneNumber);
           }
           // Also clean the display name if it still has suffixes
@@ -270,14 +274,14 @@ export default function ConversationsPage() {
             displayPhone = 'Contact WhatsApp';
           }
 
-          // Get profile picture from contacts map
-          const avatar = getContactProfilePicture(conv.phoneNumber);
+          // Get profile picture - prefer backend's profilePictureUrl, fallback to contacts map
+          const avatar = conv.profilePictureUrl || getContactProfilePicture(conv.phoneNumber);
 
           return {
             id: conv.id,
             name: displayName,
             phone: displayPhone,
-            avatar: avatar, // Profile picture URL from contacts
+            avatar: avatar, // Profile picture URL
             cleanedPhone: cleanedPhone, // Used for deduplication
             lastMessage: cleanText(conv.lastMessage || ''),
             lastMessageTime: new Date(conv.lastMessageTime),

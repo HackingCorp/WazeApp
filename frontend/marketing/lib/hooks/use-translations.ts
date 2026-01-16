@@ -2,21 +2,16 @@
 
 import { useLanguage } from '@/components/providers/language-provider';
 import { getTranslation, type TranslationKey } from '../translations';
-import { useState, useEffect } from 'react';
+import { useCallback } from 'react';
 
 export function useTranslations() {
-  const { currentLanguage } = useLanguage();
-  const [isClient, setIsClient] = useState(false);
+  const { currentLanguage, isHydrated } = useLanguage();
 
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
-
-  const t = (key: TranslationKey): string => {
-    // Use default language (English) during SSR
-    const language = isClient ? currentLanguage : 'en';
+  const t = useCallback((key: TranslationKey): string => {
+    // Use default language (English) during SSR, then switch to user language after hydration
+    const language = isHydrated ? currentLanguage : 'en';
     return getTranslation(language, key);
-  };
+  }, [currentLanguage, isHydrated]);
 
-  return { t };
+  return { t, isHydrated, currentLanguage };
 }

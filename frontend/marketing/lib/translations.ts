@@ -214,7 +214,53 @@ export const translations = {
     chatInitialMessage: "Hi! I'm WazeApp AI. Ask me anything about our platform!",
     chatTitle: "WazeApp AI Demo",
     chatStatus: "Online • Responds instantly",
-    chatPlaceholder: "Type a message..."
+    chatPlaceholder: "Type a message...",
+
+    // How It Works Page
+    howItWorksTitle: "Get Started in",
+    howItWorksTitleHighlight: "3 Simple Steps",
+    howItWorksSubtitle: "Setting up your WhatsApp AI assistant is incredibly simple. From connection to automation in just minutes.",
+
+    // Step 1
+    step1Number: "01",
+    step1Title: "Connect Your WhatsApp",
+    step1Description: "Scan a QR code to connect your WhatsApp Business account to WazeApp. Takes less than 30 seconds.",
+    step1Detail1: "No phone installation required",
+    step1Detail2: "Works with WhatsApp Business",
+    step1Detail3: "Secure connection via QR code",
+    step1Detail4: "Multi-device support",
+
+    // Step 2
+    step2Number: "02",
+    step2Title: "Configure Your AI Assistant",
+    step2Description: "Set up your bot's personality, responses, and business rules. Upload your knowledge base and customize responses.",
+    step2Detail1: "Custom personality setup",
+    step2Detail2: "Knowledge base integration",
+    step2Detail3: "Business rules configuration",
+    step2Detail4: "Brand voice customization",
+
+    // Step 3
+    step3Number: "03",
+    step3Title: "Start Automating",
+    step3Description: "Your AI assistant is now live! It will handle customer queries 24/7 while learning from every interaction.",
+    step3Detail1: "24/7 automated responses",
+    step3Detail2: "Continuous learning",
+    step3Detail3: "Human handoff when needed",
+    step3Detail4: "Real-time analytics",
+
+    // Why Choose Section
+    whyChooseTitle: "Why Choose WazeApp?",
+    whyChoose1Title: "No Technical Skills Required",
+    whyChoose1Desc: "Simple setup process that anyone can follow. No coding or technical expertise needed.",
+    whyChoose2Title: "Instant Results",
+    whyChoose2Desc: "Start seeing results immediately. Your AI assistant begins working as soon as it's connected.",
+    whyChoose3Title: "Scales with Your Business",
+    whyChoose3Desc: "Whether you're handling 10 or 10,000 conversations, WazeApp grows with your needs.",
+
+    // CTA Section
+    ctaReadyGetStarted: "Ready to Get Started?",
+    ctaJoinThousands: "Join thousands of businesses already using WazeApp to transform their customer communication.",
+    tryDemo: "Try Demo"
   },
   fr: {
     // Navigation
@@ -429,7 +475,53 @@ export const translations = {
     chatInitialMessage: "Salut ! Je suis l'IA de WazeApp. Demandez-moi tout sur notre plateforme !",
     chatTitle: "Démo WazeApp AI",
     chatStatus: "En ligne • Répond instantanément",
-    chatPlaceholder: "Tapez votre message..."
+    chatPlaceholder: "Tapez votre message...",
+
+    // How It Works Page
+    howItWorksTitle: "Commencez en",
+    howItWorksTitleHighlight: "3 Étapes Simples",
+    howItWorksSubtitle: "Configurer votre assistant IA WhatsApp est incroyablement simple. De la connexion à l'automatisation en quelques minutes.",
+
+    // Step 1
+    step1Number: "01",
+    step1Title: "Connectez Votre WhatsApp",
+    step1Description: "Scannez un QR code pour connecter votre compte WhatsApp Business à WazeApp. Prend moins de 30 secondes.",
+    step1Detail1: "Aucune installation sur téléphone requise",
+    step1Detail2: "Fonctionne avec WhatsApp Business",
+    step1Detail3: "Connexion sécurisée via QR code",
+    step1Detail4: "Support multi-appareils",
+
+    // Step 2
+    step2Number: "02",
+    step2Title: "Configurez Votre Assistant IA",
+    step2Description: "Définissez la personnalité de votre bot, ses réponses et vos règles métier. Téléchargez votre base de connaissances et personnalisez les réponses.",
+    step2Detail1: "Configuration de personnalité personnalisée",
+    step2Detail2: "Intégration de base de connaissances",
+    step2Detail3: "Configuration des règles métier",
+    step2Detail4: "Personnalisation de la voix de marque",
+
+    // Step 3
+    step3Number: "03",
+    step3Title: "Commencez à Automatiser",
+    step3Description: "Votre assistant IA est maintenant actif ! Il gérera les demandes clients 24h/7 tout en apprenant de chaque interaction.",
+    step3Detail1: "Réponses automatisées 24h/7",
+    step3Detail2: "Apprentissage continu",
+    step3Detail3: "Transfert humain si nécessaire",
+    step3Detail4: "Analytics en temps réel",
+
+    // Why Choose Section
+    whyChooseTitle: "Pourquoi Choisir WazeApp ?",
+    whyChoose1Title: "Aucune Compétence Technique Requise",
+    whyChoose1Desc: "Processus de configuration simple que tout le monde peut suivre. Aucun codage ou expertise technique nécessaire.",
+    whyChoose2Title: "Résultats Instantanés",
+    whyChoose2Desc: "Voyez des résultats immédiatement. Votre assistant IA commence à travailler dès qu'il est connecté.",
+    whyChoose3Title: "S'adapte à Votre Entreprise",
+    whyChoose3Desc: "Que vous gériez 10 ou 10 000 conversations, WazeApp grandit avec vos besoins.",
+
+    // CTA Section
+    ctaReadyGetStarted: "Prêt à Commencer ?",
+    ctaJoinThousands: "Rejoignez des milliers d'entreprises qui utilisent déjà WazeApp pour transformer leur communication client.",
+    tryDemo: "Essayer la Démo"
   },
   es: {
     // Navigation
@@ -624,11 +716,57 @@ export const translations = {
     chatInitialMessage: "¡Hola! Soy la IA de WazeApp. ¡Pregúntame cualquier cosa sobre nuestra plataforma!",
     chatTitle: "Demo WazeApp AI",
     chatStatus: "En línea • Responde al instante",
-    chatPlaceholder: "Escribe un mensaje..."
+    chatPlaceholder: "Escribe un mensaje...",
+
+    // How It Works Page
+    howItWorksTitle: "Comienza en",
+    howItWorksTitleHighlight: "3 Simples Pasos",
+    howItWorksSubtitle: "Configurar tu asistente IA de WhatsApp es increíblemente simple. De la conexión a la automatización en solo minutos.",
+
+    // Step 1
+    step1Number: "01",
+    step1Title: "Conecta Tu WhatsApp",
+    step1Description: "Escanea un código QR para conectar tu cuenta de WhatsApp Business a WazeApp. Toma menos de 30 segundos.",
+    step1Detail1: "No requiere instalación en el teléfono",
+    step1Detail2: "Funciona con WhatsApp Business",
+    step1Detail3: "Conexión segura via código QR",
+    step1Detail4: "Soporte multi-dispositivo",
+
+    // Step 2
+    step2Number: "02",
+    step2Title: "Configura Tu Asistente IA",
+    step2Description: "Configura la personalidad de tu bot, respuestas y reglas de negocio. Sube tu base de conocimientos y personaliza las respuestas.",
+    step2Detail1: "Configuración de personalidad personalizada",
+    step2Detail2: "Integración de base de conocimientos",
+    step2Detail3: "Configuración de reglas de negocio",
+    step2Detail4: "Personalización de voz de marca",
+
+    // Step 3
+    step3Number: "03",
+    step3Title: "Comienza a Automatizar",
+    step3Description: "¡Tu asistente IA está activo! Manejará las consultas de clientes 24/7 mientras aprende de cada interacción.",
+    step3Detail1: "Respuestas automatizadas 24/7",
+    step3Detail2: "Aprendizaje continuo",
+    step3Detail3: "Transferencia humana cuando sea necesario",
+    step3Detail4: "Analytics en tiempo real",
+
+    // Why Choose Section
+    whyChooseTitle: "¿Por Qué Elegir WazeApp?",
+    whyChoose1Title: "Sin Habilidades Técnicas Requeridas",
+    whyChoose1Desc: "Proceso de configuración simple que cualquiera puede seguir. Sin codificación ni experiencia técnica necesaria.",
+    whyChoose2Title: "Resultados Instantáneos",
+    whyChoose2Desc: "Comienza a ver resultados inmediatamente. Tu asistente IA empieza a trabajar tan pronto como está conectado.",
+    whyChoose3Title: "Escala con Tu Negocio",
+    whyChoose3Desc: "Ya sea que manejes 10 o 10,000 conversaciones, WazeApp crece con tus necesidades.",
+
+    // CTA Section
+    ctaReadyGetStarted: "¿Listo para Comenzar?",
+    ctaJoinThousands: "Únete a miles de empresas que ya usan WazeApp para transformar su comunicación con clientes.",
+    tryDemo: "Probar Demo"
   },
   de: {
     // Navigation
-    features: "Features",
+    features: "Funktionen",
     howItWorks: "Wie es funktioniert",
     useCases: "Anwendungsfälle",
     pricing: "Preise",
@@ -839,7 +977,53 @@ export const translations = {
     chatInitialMessage: "Hallo! Ich bin WazeApp KI. Fragen Sie mich alles über unsere Plattform!",
     chatTitle: "WazeApp KI Demo",
     chatStatus: "Online • Antwortet sofort",
-    chatPlaceholder: "Nachricht eingeben..."
+    chatPlaceholder: "Nachricht eingeben...",
+
+    // How It Works Page
+    howItWorksTitle: "Starte in",
+    howItWorksTitleHighlight: "3 Einfachen Schritten",
+    howItWorksSubtitle: "Die Einrichtung deines WhatsApp KI-Assistenten ist unglaublich einfach. Von der Verbindung zur Automatisierung in nur wenigen Minuten.",
+
+    // Step 1
+    step1Number: "01",
+    step1Title: "Verbinde Dein WhatsApp",
+    step1Description: "Scanne einen QR-Code, um dein WhatsApp Business-Konto mit WazeApp zu verbinden. Dauert weniger als 30 Sekunden.",
+    step1Detail1: "Keine Telefoninstallation erforderlich",
+    step1Detail2: "Funktioniert mit WhatsApp Business",
+    step1Detail3: "Sichere Verbindung via QR-Code",
+    step1Detail4: "Multi-Geräte-Unterstützung",
+
+    // Step 2
+    step2Number: "02",
+    step2Title: "Konfiguriere Deinen KI-Assistenten",
+    step2Description: "Richte die Persönlichkeit deines Bots, Antworten und Geschäftsregeln ein. Lade deine Wissensdatenbank hoch und passe Antworten an.",
+    step2Detail1: "Individuelle Persönlichkeitskonfiguration",
+    step2Detail2: "Wissensdatenbank-Integration",
+    step2Detail3: "Geschäftsregeln-Konfiguration",
+    step2Detail4: "Markenvoice-Anpassung",
+
+    // Step 3
+    step3Number: "03",
+    step3Title: "Beginne mit der Automatisierung",
+    step3Description: "Dein KI-Assistent ist jetzt live! Er bearbeitet Kundenanfragen 24/7 und lernt aus jeder Interaktion.",
+    step3Detail1: "24/7 automatisierte Antworten",
+    step3Detail2: "Kontinuierliches Lernen",
+    step3Detail3: "Menschliche Übergabe bei Bedarf",
+    step3Detail4: "Echtzeit-Analytics",
+
+    // Why Choose Section
+    whyChooseTitle: "Warum WazeApp Wählen?",
+    whyChoose1Title: "Keine Technischen Fähigkeiten Erforderlich",
+    whyChoose1Desc: "Einfacher Einrichtungsprozess, dem jeder folgen kann. Keine Programmierung oder technische Expertise nötig.",
+    whyChoose2Title: "Sofortige Ergebnisse",
+    whyChoose2Desc: "Sieh sofort Ergebnisse. Dein KI-Assistent beginnt zu arbeiten, sobald er verbunden ist.",
+    whyChoose3Title: "Wächst mit Deinem Unternehmen",
+    whyChoose3Desc: "Ob du 10 oder 10.000 Gespräche führst, WazeApp wächst mit deinen Bedürfnissen.",
+
+    // CTA Section
+    ctaReadyGetStarted: "Bereit Loszulegen?",
+    ctaJoinThousands: "Schließe dich Tausenden von Unternehmen an, die WazeApp bereits nutzen, um ihre Kundenkommunikation zu transformieren.",
+    tryDemo: "Demo Testen"
   },
   it: {
     // Navigation
@@ -1054,7 +1238,53 @@ export const translations = {
     chatInitialMessage: "Ciao! Sono l'IA di WazeApp. Chiedimi tutto sulla nostra piattaforma!",
     chatTitle: "Demo WazeApp AI",
     chatStatus: "Online • Risponde istantaneamente",
-    chatPlaceholder: "Scrivi un messaggio..."
+    chatPlaceholder: "Scrivi un messaggio...",
+
+    // How It Works Page
+    howItWorksTitle: "Inizia in",
+    howItWorksTitleHighlight: "3 Semplici Passi",
+    howItWorksSubtitle: "Configurare il tuo assistente IA WhatsApp è incredibilmente semplice. Dalla connessione all'automazione in pochi minuti.",
+
+    // Step 1
+    step1Number: "01",
+    step1Title: "Collega il Tuo WhatsApp",
+    step1Description: "Scansiona un codice QR per collegare il tuo account WhatsApp Business a WazeApp. Richiede meno di 30 secondi.",
+    step1Detail1: "Nessuna installazione sul telefono richiesta",
+    step1Detail2: "Funziona con WhatsApp Business",
+    step1Detail3: "Connessione sicura via codice QR",
+    step1Detail4: "Supporto multi-dispositivo",
+
+    // Step 2
+    step2Number: "02",
+    step2Title: "Configura il Tuo Assistente IA",
+    step2Description: "Imposta la personalità del tuo bot, le risposte e le regole aziendali. Carica la tua knowledge base e personalizza le risposte.",
+    step2Detail1: "Configurazione personalità personalizzata",
+    step2Detail2: "Integrazione knowledge base",
+    step2Detail3: "Configurazione regole aziendali",
+    step2Detail4: "Personalizzazione voce del brand",
+
+    // Step 3
+    step3Number: "03",
+    step3Title: "Inizia ad Automatizzare",
+    step3Description: "Il tuo assistente IA è ora attivo! Gestirà le richieste dei clienti 24/7 imparando da ogni interazione.",
+    step3Detail1: "Risposte automatizzate 24/7",
+    step3Detail2: "Apprendimento continuo",
+    step3Detail3: "Passaggio umano quando necessario",
+    step3Detail4: "Analytics in tempo reale",
+
+    // Why Choose Section
+    whyChooseTitle: "Perché Scegliere WazeApp?",
+    whyChoose1Title: "Nessuna Competenza Tecnica Richiesta",
+    whyChoose1Desc: "Processo di configurazione semplice che chiunque può seguire. Nessuna codifica o competenza tecnica necessaria.",
+    whyChoose2Title: "Risultati Istantanei",
+    whyChoose2Desc: "Inizia a vedere risultati immediatamente. Il tuo assistente IA inizia a lavorare appena connesso.",
+    whyChoose3Title: "Cresce con la Tua Azienda",
+    whyChoose3Desc: "Che tu gestisca 10 o 10.000 conversazioni, WazeApp cresce con le tue esigenze.",
+
+    // CTA Section
+    ctaReadyGetStarted: "Pronto per Iniziare?",
+    ctaJoinThousands: "Unisciti a migliaia di aziende che già usano WazeApp per trasformare la loro comunicazione con i clienti.",
+    tryDemo: "Prova Demo"
   },
   pt: {
     // Navigation
@@ -1269,7 +1499,53 @@ export const translations = {
     chatInitialMessage: "Olá! Eu sou a IA do WazeApp. Pergunte-me qualquer coisa sobre nossa plataforma!",
     chatTitle: "Demo WazeApp AI",
     chatStatus: "Online • Responde instantaneamente",
-    chatPlaceholder: "Digite uma mensagem..."
+    chatPlaceholder: "Digite uma mensagem...",
+
+    // How It Works Page
+    howItWorksTitle: "Comece em",
+    howItWorksTitleHighlight: "3 Passos Simples",
+    howItWorksSubtitle: "Configurar seu assistente IA do WhatsApp é incrivelmente simples. Da conexão à automação em poucos minutos.",
+
+    // Step 1
+    step1Number: "01",
+    step1Title: "Conecte Seu WhatsApp",
+    step1Description: "Escaneie um código QR para conectar sua conta WhatsApp Business ao WazeApp. Leva menos de 30 segundos.",
+    step1Detail1: "Nenhuma instalação no telefone necessária",
+    step1Detail2: "Funciona com WhatsApp Business",
+    step1Detail3: "Conexão segura via código QR",
+    step1Detail4: "Suporte multi-dispositivo",
+
+    // Step 2
+    step2Number: "02",
+    step2Title: "Configure Seu Assistente IA",
+    step2Description: "Configure a personalidade do seu bot, respostas e regras de negócio. Carregue sua base de conhecimento e personalize as respostas.",
+    step2Detail1: "Configuração de personalidade personalizada",
+    step2Detail2: "Integração de base de conhecimento",
+    step2Detail3: "Configuração de regras de negócio",
+    step2Detail4: "Personalização da voz da marca",
+
+    // Step 3
+    step3Number: "03",
+    step3Title: "Comece a Automatizar",
+    step3Description: "Seu assistente IA está ativo! Ele vai lidar com consultas de clientes 24/7 enquanto aprende com cada interação.",
+    step3Detail1: "Respostas automatizadas 24/7",
+    step3Detail2: "Aprendizado contínuo",
+    step3Detail3: "Transferência humana quando necessário",
+    step3Detail4: "Analytics em tempo real",
+
+    // Why Choose Section
+    whyChooseTitle: "Por Que Escolher o WazeApp?",
+    whyChoose1Title: "Sem Habilidades Técnicas Necessárias",
+    whyChoose1Desc: "Processo de configuração simples que qualquer pessoa pode seguir. Sem codificação ou expertise técnica necessária.",
+    whyChoose2Title: "Resultados Instantâneos",
+    whyChoose2Desc: "Comece a ver resultados imediatamente. Seu assistente IA começa a trabalhar assim que conectado.",
+    whyChoose3Title: "Cresce com Seu Negócio",
+    whyChoose3Desc: "Seja você lidando com 10 ou 10.000 conversas, o WazeApp cresce com suas necessidades.",
+
+    // CTA Section
+    ctaReadyGetStarted: "Pronto para Começar?",
+    ctaJoinThousands: "Junte-se a milhares de empresas que já usam o WazeApp para transformar sua comunicação com clientes.",
+    tryDemo: "Experimentar Demo"
   },
   zh: {
     // Navigation  
@@ -1482,7 +1758,53 @@ export const translations = {
     chatInitialMessage: "你好！我是WazeApp AI。问我关于我们平台的任何问题！",
     chatTitle: "WazeApp AI 演示",
     chatStatus: "在线 • 即时回应",
-    chatPlaceholder: "输入消息..."
+    chatPlaceholder: "输入消息...",
+
+    // How It Works Page
+    howItWorksTitle: "只需",
+    howItWorksTitleHighlight: "3个简单步骤",
+    howItWorksSubtitle: "设置您的WhatsApp AI助手非常简单。从连接到自动化只需几分钟。",
+
+    // Step 1
+    step1Number: "01",
+    step1Title: "连接您的WhatsApp",
+    step1Description: "扫描二维码将您的WhatsApp Business账户连接到WazeApp。只需不到30秒。",
+    step1Detail1: "无需在手机上安装",
+    step1Detail2: "兼容WhatsApp Business",
+    step1Detail3: "通过二维码安全连接",
+    step1Detail4: "多设备支持",
+
+    // Step 2
+    step2Number: "02",
+    step2Title: "配置您的AI助手",
+    step2Description: "设置机器人的个性、回复和业务规则。上传您的知识库并自定义回复。",
+    step2Detail1: "自定义个性设置",
+    step2Detail2: "知识库集成",
+    step2Detail3: "业务规则配置",
+    step2Detail4: "品牌语音定制",
+
+    // Step 3
+    step3Number: "03",
+    step3Title: "开始自动化",
+    step3Description: "您的AI助手已上线！它将全天候处理客户查询，同时从每次互动中学习。",
+    step3Detail1: "24/7自动回复",
+    step3Detail2: "持续学习",
+    step3Detail3: "需要时人工接管",
+    step3Detail4: "实时分析",
+
+    // Why Choose Section
+    whyChooseTitle: "为什么选择WazeApp？",
+    whyChoose1Title: "无需技术技能",
+    whyChoose1Desc: "简单的设置流程，任何人都可以操作。无需编码或技术专业知识。",
+    whyChoose2Title: "即时见效",
+    whyChoose2Desc: "立即开始看到效果。您的AI助手一连接就开始工作。",
+    whyChoose3Title: "随业务扩展",
+    whyChoose3Desc: "无论您处理10个还是10,000个对话，WazeApp都能满足您的需求。",
+
+    // CTA Section
+    ctaReadyGetStarted: "准备好开始了吗？",
+    ctaJoinThousands: "加入数千家已使用WazeApp转变客户沟通方式的企业。",
+    tryDemo: "试用演示"
   },
   ja: {
     // Navigation
@@ -1695,7 +2017,53 @@ export const translations = {
     chatInitialMessage: "こんにちは！WazeApp AIです。プラットフォームについて何でもお聞きください！",
     chatTitle: "WazeApp AI デモ",
     chatStatus: "オンライン • 即座に応答",
-    chatPlaceholder: "メッセージを入力..."
+    chatPlaceholder: "メッセージを入力...",
+
+    // How It Works Page
+    howItWorksTitle: "たった",
+    howItWorksTitleHighlight: "3つの簡単ステップ",
+    howItWorksSubtitle: "WhatsApp AIアシスタントの設定は驚くほど簡単です。接続から自動化まで数分で完了します。",
+
+    // Step 1
+    step1Number: "01",
+    step1Title: "WhatsAppを接続",
+    step1Description: "QRコードをスキャンしてWhatsApp BusinessアカウントをWazeAppに接続します。30秒もかかりません。",
+    step1Detail1: "電話へのインストール不要",
+    step1Detail2: "WhatsApp Businessと連携",
+    step1Detail3: "QRコードで安全に接続",
+    step1Detail4: "マルチデバイス対応",
+
+    // Step 2
+    step2Number: "02",
+    step2Title: "AIアシスタントを設定",
+    step2Description: "ボットの性格、応答、ビジネスルールを設定します。ナレッジベースをアップロードし、応答をカスタマイズします。",
+    step2Detail1: "カスタム性格設定",
+    step2Detail2: "ナレッジベース統合",
+    step2Detail3: "ビジネスルール設定",
+    step2Detail4: "ブランドボイスのカスタマイズ",
+
+    // Step 3
+    step3Number: "03",
+    step3Title: "自動化を開始",
+    step3Description: "AIアシスタントが稼働中！24時間年中無休で顧客の問い合わせに対応し、各インタラクションから学習します。",
+    step3Detail1: "24/7自動応答",
+    step3Detail2: "継続的な学習",
+    step3Detail3: "必要に応じて人間に引き継ぎ",
+    step3Detail4: "リアルタイム分析",
+
+    // Why Choose Section
+    whyChooseTitle: "なぜWazeAppを選ぶのか？",
+    whyChoose1Title: "技術スキル不要",
+    whyChoose1Desc: "誰でも簡単に設定できます。コーディングや技術的な専門知識は必要ありません。",
+    whyChoose2Title: "即座に結果を実感",
+    whyChoose2Desc: "すぐに結果が見えます。AIアシスタントは接続後すぐに稼働を開始します。",
+    whyChoose3Title: "ビジネスに合わせて拡張",
+    whyChoose3Desc: "10件でも10,000件の会話でも、WazeAppはあなたのニーズに合わせて成長します。",
+
+    // CTA Section
+    ctaReadyGetStarted: "始める準備はできていますか？",
+    ctaJoinThousands: "すでにWazeAppを使用して顧客コミュニケーションを変革している数千の企業に参加しましょう。",
+    tryDemo: "デモを試す"
   },
   ar: {
     // Navigation
@@ -1908,7 +2276,53 @@ export const translations = {
     chatInitialMessage: "مرحباً! أنا ذكاء WazeApp الاصطناعي. اسألني أي شيء عن منصتنا!",
     chatTitle: "عرض تجريبي WazeApp AI",
     chatStatus: "متصل • يرد فوراً",
-    chatPlaceholder: "اكتب رسالة..."
+    chatPlaceholder: "اكتب رسالة...",
+
+    // How It Works Page
+    howItWorksTitle: "ابدأ في",
+    howItWorksTitleHighlight: "3 خطوات بسيطة",
+    howItWorksSubtitle: "إعداد مساعد الذكاء الاصطناعي على واتساب بسيط للغاية. من الاتصال إلى الأتمتة في دقائق معدودة.",
+
+    // Step 1
+    step1Number: "01",
+    step1Title: "اربط واتساب الخاص بك",
+    step1Description: "امسح رمز QR لربط حساب واتساب للأعمال الخاص بك بـ WazeApp. يستغرق أقل من 30 ثانية.",
+    step1Detail1: "لا حاجة لتثبيت على الهاتف",
+    step1Detail2: "يعمل مع واتساب للأعمال",
+    step1Detail3: "اتصال آمن عبر رمز QR",
+    step1Detail4: "دعم الأجهزة المتعددة",
+
+    // Step 2
+    step2Number: "02",
+    step2Title: "قم بتكوين مساعد الذكاء الاصطناعي",
+    step2Description: "قم بإعداد شخصية البوت والردود وقواعد العمل. حمّل قاعدة المعرفة الخاصة بك وخصص الردود.",
+    step2Detail1: "إعداد شخصية مخصصة",
+    step2Detail2: "تكامل قاعدة المعرفة",
+    step2Detail3: "تكوين قواعد العمل",
+    step2Detail4: "تخصيص صوت العلامة التجارية",
+
+    // Step 3
+    step3Number: "03",
+    step3Title: "ابدأ بالأتمتة",
+    step3Description: "مساعد الذكاء الاصطناعي الخاص بك يعمل الآن! سيتعامل مع استفسارات العملاء على مدار الساعة بينما يتعلم من كل تفاعل.",
+    step3Detail1: "ردود آلية على مدار الساعة",
+    step3Detail2: "تعلم مستمر",
+    step3Detail3: "تسليم بشري عند الحاجة",
+    step3Detail4: "تحليلات في الوقت الفعلي",
+
+    // Why Choose Section
+    whyChooseTitle: "لماذا تختار WazeApp؟",
+    whyChoose1Title: "لا حاجة لمهارات تقنية",
+    whyChoose1Desc: "عملية إعداد بسيطة يمكن لأي شخص اتباعها. لا حاجة للبرمجة أو الخبرة التقنية.",
+    whyChoose2Title: "نتائج فورية",
+    whyChoose2Desc: "ابدأ في رؤية النتائج فوراً. يبدأ مساعد الذكاء الاصطناعي العمل بمجرد الاتصال.",
+    whyChoose3Title: "ينمو مع عملك",
+    whyChoose3Desc: "سواء كنت تتعامل مع 10 أو 10,000 محادثة، WazeApp ينمو مع احتياجاتك.",
+
+    // CTA Section
+    ctaReadyGetStarted: "مستعد للبدء؟",
+    ctaJoinThousands: "انضم إلى آلاف الشركات التي تستخدم WazeApp بالفعل لتحويل تواصلها مع العملاء.",
+    tryDemo: "جرب العرض التوضيحي"
   }
 } as const;
 

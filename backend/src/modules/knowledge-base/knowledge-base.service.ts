@@ -283,25 +283,37 @@ export class KnowledgeBaseService {
     });
   }
 
-  async getStats(organizationId: string): Promise<KnowledgeBaseStatsDto> {
-    const organization = await this.organizationRepository.findOne({
-      where: { id: organizationId },
-      relations: ["subscriptions"],
-    });
+  async getStats(organizationId: string | null): Promise<KnowledgeBaseStatsDto> {
+    // Only fetch organization if organizationId is provided
+    let organization = null;
+    if (organizationId) {
+      organization = await this.organizationRepository.findOne({
+        where: { id: organizationId },
+        relations: ["subscriptions"],
+      });
+    }
 
-    const kbStats = await this.knowledgeBaseRepository
+    // Build query based on whether organizationId is provided
+    const queryBuilder = this.knowledgeBaseRepository
       .createQueryBuilder("kb")
       .select([
         "COUNT(*) as total",
         "SUM(CASE WHEN kb.status = :active THEN 1 ELSE 0 END) as active",
         "SUM(CASE WHEN kb.status = :processing THEN 1 ELSE 0 END) as processing",
-        "SUM(kb.documentCount) as totalDocuments",
-        "SUM(kb.totalCharacters) as totalCharacters",
+        "SUM(kb.\"documentCount\") as \"totalDocuments\"",
+        "SUM(kb.\"totalCharacters\") as \"totalCharacters\"",
       ])
-      .where("(kb.organizationId = :organizationId OR kb.organizationId IS NULL)", { organizationId })
       .setParameter("active", KnowledgeBaseStatus.ACTIVE)
-      .setParameter("processing", KnowledgeBaseStatus.PROCESSING)
-      .getRawOne();
+      .setParameter("processing", KnowledgeBaseStatus.PROCESSING);
+
+    // Handle null organizationId properly - in SQL, NULL = NULL is false, must use IS NULL
+    if (organizationId) {
+      queryBuilder.where("kb.organizationId = :organizationId", { organizationId });
+    } else {
+      queryBuilder.where("kb.organizationId IS NULL");
+    }
+
+    const kbStats = await queryBuilder.getRawOne();
 
     // Get character limits based on subscription
     const subscription = organization?.subscriptions?.[0];

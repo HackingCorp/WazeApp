@@ -260,7 +260,31 @@ export const translations = {
     // CTA Section
     ctaReadyGetStarted: "Ready to Get Started?",
     ctaJoinThousands: "Join thousands of businesses already using WazeApp to transform their customer communication.",
-    tryDemo: "Try Demo"
+    tryDemo: "Try Demo",
+
+    // Blog Page
+    blogTitle: "WazeApp Blog",
+    blogReadMore: "Read more →",
+    blogBackToBlog: "← Back to Blog",
+    blogMinRead: "min read",
+    blogReadyToStart: "Ready to get started?",
+    blogTransformCTA: "Transform your WhatsApp communication with AI-powered automation.",
+    blogStartFreeTrial: "Start Free Trial",
+
+    // Blog Post 1
+    blogPost1Title: "5 Ways WhatsApp AI Can Transform Your Customer Service",
+    blogPost1Excerpt: "Discover how AI-powered WhatsApp automation can reduce response times and improve customer satisfaction.",
+    blogPost1Date: "January 15, 2025",
+
+    // Blog Post 2
+    blogPost2Title: "Getting Started with WhatsApp Business API",
+    blogPost2Excerpt: "A comprehensive guide to setting up and optimizing your WhatsApp Business API for maximum engagement.",
+    blogPost2Date: "January 10, 2025",
+
+    // Blog Post 3
+    blogPost3Title: "The Future of Conversational AI in Business",
+    blogPost3Excerpt: "Explore upcoming trends in conversational AI and how they'll shape business communication in 2025.",
+    blogPost3Date: "January 5, 2025"
   },
   fr: {
     // Navigation
@@ -521,7 +545,31 @@ export const translations = {
     // CTA Section
     ctaReadyGetStarted: "Prêt à Commencer ?",
     ctaJoinThousands: "Rejoignez des milliers d'entreprises qui utilisent déjà WazeApp pour transformer leur communication client.",
-    tryDemo: "Essayer la Démo"
+    tryDemo: "Essayer la Démo",
+
+    // Blog Page
+    blogTitle: "Blog WazeApp",
+    blogReadMore: "Lire la suite →",
+    blogBackToBlog: "← Retour au Blog",
+    blogMinRead: "min de lecture",
+    blogReadyToStart: "Prêt à commencer ?",
+    blogTransformCTA: "Transformez votre communication WhatsApp avec l'automatisation alimentée par IA.",
+    blogStartFreeTrial: "Commencer l'Essai Gratuit",
+
+    // Blog Post 1
+    blogPost1Title: "5 Façons Dont l'IA WhatsApp Peut Transformer Votre Service Client",
+    blogPost1Excerpt: "Découvrez comment l'automatisation WhatsApp alimentée par IA peut réduire les temps de réponse et améliorer la satisfaction client.",
+    blogPost1Date: "15 Janvier 2025",
+
+    // Blog Post 2
+    blogPost2Title: "Débuter avec l'API WhatsApp Business",
+    blogPost2Excerpt: "Un guide complet pour configurer et optimiser votre API WhatsApp Business pour un engagement maximal.",
+    blogPost2Date: "10 Janvier 2025",
+
+    // Blog Post 3
+    blogPost3Title: "L'Avenir de l'IA Conversationnelle en Entreprise",
+    blogPost3Excerpt: "Explorez les tendances à venir de l'IA conversationnelle et comment elles façonneront la communication d'entreprise en 2025.",
+    blogPost3Date: "5 Janvier 2025"
   },
   es: {
     // Navigation
@@ -762,7 +810,31 @@ export const translations = {
     // CTA Section
     ctaReadyGetStarted: "¿Listo para Comenzar?",
     ctaJoinThousands: "Únete a miles de empresas que ya usan WazeApp para transformar su comunicación con clientes.",
-    tryDemo: "Probar Demo"
+    tryDemo: "Probar Demo",
+
+    // Blog Page
+    blogTitle: "Blog WazeApp",
+    blogReadMore: "Leer más →",
+    blogBackToBlog: "← Volver al Blog",
+    blogMinRead: "min de lectura",
+    blogReadyToStart: "¿Listo para empezar?",
+    blogTransformCTA: "Transforma tu comunicación de WhatsApp con automatización impulsada por IA.",
+    blogStartFreeTrial: "Comenzar Prueba Gratuita",
+
+    // Blog Post 1
+    blogPost1Title: "5 Formas en que la IA de WhatsApp Puede Transformar tu Servicio al Cliente",
+    blogPost1Excerpt: "Descubre cómo la automatización de WhatsApp impulsada por IA puede reducir los tiempos de respuesta y mejorar la satisfacción del cliente.",
+    blogPost1Date: "15 de Enero de 2025",
+
+    // Blog Post 2
+    blogPost2Title: "Comenzando con la API de WhatsApp Business",
+    blogPost2Excerpt: "Una guía completa para configurar y optimizar tu API de WhatsApp Business para máximo compromiso.",
+    blogPost2Date: "10 de Enero de 2025",
+
+    // Blog Post 3
+    blogPost3Title: "El Futuro de la IA Conversacional en los Negocios",
+    blogPost3Excerpt: "Explora las tendencias emergentes en IA conversacional y cómo darán forma a la comunicación empresarial en 2025.",
+    blogPost3Date: "5 de Enero de 2025"
   },
   de: {
     // Navigation
@@ -1023,7 +1095,31 @@ export const translations = {
     // CTA Section
     ctaReadyGetStarted: "Bereit Loszulegen?",
     ctaJoinThousands: "Schließe dich Tausenden von Unternehmen an, die WazeApp bereits nutzen, um ihre Kundenkommunikation zu transformieren.",
-    tryDemo: "Demo Testen"
+    tryDemo: "Demo Testen",
+
+    // Blog Page
+    blogTitle: "WazeApp Blog",
+    blogReadMore: "Mehr lesen →",
+    blogBackToBlog: "← Zurück zum Blog",
+    blogMinRead: "Min. Lesezeit",
+    blogReadyToStart: "Bereit loszulegen?",
+    blogTransformCTA: "Transformieren Sie Ihre WhatsApp-Kommunikation mit KI-gestützter Automatisierung.",
+    blogStartFreeTrial: "Kostenlose Testversion starten",
+
+    // Blog Post 1
+    blogPost1Title: "5 Wege, wie WhatsApp KI Ihren Kundenservice transformieren kann",
+    blogPost1Excerpt: "Entdecken Sie, wie KI-gestützte WhatsApp-Automatisierung Antwortzeiten reduzieren und die Kundenzufriedenheit verbessern kann.",
+    blogPost1Date: "15. Januar 2025",
+
+    // Blog Post 2
+    blogPost2Title: "Erste Schritte mit der WhatsApp Business API",
+    blogPost2Excerpt: "Ein umfassender Leitfaden zur Einrichtung und Optimierung Ihrer WhatsApp Business API für maximales Engagement.",
+    blogPost2Date: "10. Januar 2025",
+
+    // Blog Post 3
+    blogPost3Title: "Die Zukunft der Konversations-KI im Geschäftsleben",
+    blogPost3Excerpt: "Erkunden Sie kommende Trends in der Konversations-KI und wie sie die Geschäftskommunikation 2025 prägen werden.",
+    blogPost3Date: "5. Januar 2025"
   },
   it: {
     // Navigation

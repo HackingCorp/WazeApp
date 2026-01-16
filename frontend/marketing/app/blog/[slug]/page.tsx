@@ -1,20 +1,14 @@
-import { Metadata } from "next"
-import Link from "next/link"
-import { notFound } from "next/navigation"
+'use client';
 
-// Blog posts data
-const blogPosts: Record<string, {
-  title: string
-  excerpt: string
-  date: string
-  readTime: string
+import Link from "next/link"
+import { notFound, useParams } from "next/navigation"
+import { useTranslations } from "@/lib/hooks/use-translations"
+
+// Blog posts data - content stays in English as articles
+const blogPostsContent: Record<string, {
   content: string
 }> = {
   "transform-customer-service": {
-    title: "5 Ways WhatsApp AI Can Transform Your Customer Service",
-    excerpt: "Discover how AI-powered WhatsApp automation can reduce response times and improve customer satisfaction.",
-    date: "January 15, 2025",
-    readTime: "5 min read",
     content: `
 ## Introduction
 
@@ -53,10 +47,6 @@ Ready to transform your customer service? [Start your free trial](/register) tod
     `
   },
   "whatsapp-business-api-guide": {
-    title: "Getting Started with WhatsApp Business API",
-    excerpt: "A comprehensive guide to setting up and optimizing your WhatsApp Business API for maximum engagement.",
-    date: "January 10, 2025",
-    readTime: "8 min read",
     content: `
 ## What is WhatsApp Business API?
 
@@ -130,10 +120,6 @@ The WhatsApp Business API is a powerful tool for customer engagement. With the r
     `
   },
   "future-conversational-ai": {
-    title: "The Future of Conversational AI in Business",
-    excerpt: "Explore upcoming trends in conversational AI and how they'll shape business communication in 2025.",
-    date: "January 5, 2025",
-    readTime: "6 min read",
     content: `
 ## The Evolution of Conversational AI
 
@@ -223,32 +209,41 @@ Ready to future-proof your business? [Try WazeApp free](/register) and experienc
   }
 }
 
-type Props = {
-  params: Promise<{ slug: string }>
-}
+export default function BlogPostPage() {
+  const params = useParams();
+  const slug = params?.slug as string;
+  const { t } = useTranslations();
 
-export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const { slug } = await params
-  const post = blogPosts[slug]
+  const postContent = blogPostsContent[slug];
 
-  if (!post) {
-    return {
-      title: "Article Not Found - WazeApp Blog"
-    }
+  if (!postContent) {
+    notFound();
   }
 
-  return {
-    title: `${post.title} - WazeApp Blog`,
-    description: post.excerpt,
-  }
-}
+  // Get translated metadata
+  const postMeta = {
+    "transform-customer-service": {
+      title: t('blogPost1Title'),
+      excerpt: t('blogPost1Excerpt'),
+      date: t('blogPost1Date'),
+      readTime: `5 ${t('blogMinRead')}`,
+    },
+    "whatsapp-business-api-guide": {
+      title: t('blogPost2Title'),
+      excerpt: t('blogPost2Excerpt'),
+      date: t('blogPost2Date'),
+      readTime: `8 ${t('blogMinRead')}`,
+    },
+    "future-conversational-ai": {
+      title: t('blogPost3Title'),
+      excerpt: t('blogPost3Excerpt'),
+      date: t('blogPost3Date'),
+      readTime: `6 ${t('blogMinRead')}`,
+    },
+  }[slug];
 
-export default async function BlogPostPage({ params }: Props) {
-  const { slug } = await params
-  const post = blogPosts[slug]
-
-  if (!post) {
-    notFound()
+  if (!postMeta) {
+    notFound();
   }
 
   return (
@@ -260,24 +255,24 @@ export default async function BlogPostPage({ params }: Props) {
             href="/blog"
             className="text-primary hover:underline mb-8 inline-block"
           >
-            ← Back to Blog
+            {t('blogBackToBlog')}
           </Link>
 
           {/* Article header */}
           <article className="bg-white dark:bg-gray-800 rounded-lg p-8 shadow-sm">
             <h1 className="text-3xl sm:text-4xl font-bold mb-4">
-              {post.title}
+              {postMeta.title}
             </h1>
 
             <div className="flex items-center text-sm text-muted-foreground mb-8 pb-8 border-b">
-              <span>{post.date}</span>
+              <span>{postMeta.date}</span>
               <span className="mx-2">•</span>
-              <span>{post.readTime}</span>
+              <span>{postMeta.readTime}</span>
             </div>
 
             {/* Article content */}
             <div className="prose prose-lg dark:prose-invert max-w-none">
-              {post.content.split('\n').map((paragraph, index) => {
+              {postContent.content.split('\n').map((paragraph, index) => {
                 if (paragraph.startsWith('## ')) {
                   return (
                     <h2 key={index} className="text-2xl font-bold mt-8 mb-4">
@@ -325,7 +320,7 @@ export default async function BlogPostPage({ params }: Props) {
                       {paragraph.replace(linkRegex, (match, text, url) => text)}
                       {paragraph.includes('/register') && (
                         <Link href="/register" className="text-primary hover:underline ml-1">
-                          Start your free trial
+                          {t('blogStartFreeTrial')}
                         </Link>
                       )}
                     </p>
@@ -343,16 +338,16 @@ export default async function BlogPostPage({ params }: Props) {
             <div className="mt-12 pt-8 border-t">
               <div className="bg-primary/5 rounded-lg p-6 text-center">
                 <h3 className="text-xl font-semibold mb-2">
-                  Ready to get started?
+                  {t('blogReadyToStart')}
                 </h3>
                 <p className="text-muted-foreground mb-4">
-                  Transform your WhatsApp communication with AI-powered automation.
+                  {t('blogTransformCTA')}
                 </p>
                 <Link
                   href="/register"
                   className="inline-block bg-primary text-white px-6 py-3 rounded-lg font-medium hover:bg-primary/90 transition-colors"
                 >
-                  Start Free Trial
+                  {t('blogStartFreeTrial')}
                 </Link>
               </div>
             </div>

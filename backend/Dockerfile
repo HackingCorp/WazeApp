@@ -22,8 +22,8 @@ RUN npm run build
 # Production stage
 FROM node:20-alpine AS production
 
-# Install runtime dependencies and security updates
-RUN apk add --no-cache curl dumb-init && \
+# Install runtime dependencies (curl, ffmpeg for audio/video processing)
+RUN apk add --no-cache curl dumb-init ffmpeg && \
     apk upgrade --no-cache
 
 # Create non-root user

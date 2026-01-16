@@ -592,20 +592,54 @@ export class MediaAnalysisService implements OnModuleInit {
         );
       }
 
-      // Vidéo avec analyse de la légende
+      // Vidéo avec transcription audio
       if (message.message?.videoMessage) {
         const videoMsg = message.message.videoMessage;
         let description = "Vidéo reçue";
-        
-        if (videoMsg.caption) {
-          // Analyser la légende pour détecter s'il s'agit d'une vidéo produit
+        let extractedText = videoMsg.caption || "";
+
+        // Télécharger et transcrire l'audio de la vidéo si possible
+        if (sock && this.audioTranscriptionService.isTranscriptionAvailable()) {
+          try {
+            this.logger.log('Downloading video for audio transcription...');
+
+            const downloadedMedia = await downloadMediaMessage(
+              message,
+              'buffer',
+              {},
+              {
+                logger: this.logger as any,
+                reuploadRequest: sock.updateMediaMessage,
+              }
+            );
+
+            const videoBuffer = Buffer.from(downloadedMedia);
+            this.logger.log(`Video downloaded: ${videoBuffer.length} bytes`);
+
+            // Extraire l'audio de la vidéo et transcrire
+            const transcription = await this.extractAndTranscribeVideoAudio(
+              videoBuffer,
+              videoMsg.mimetype
+            );
+
+            if (transcription) {
+              extractedText = transcription + (videoMsg.caption ? `\n[Légende: ${videoMsg.caption}]` : '');
+              description = `Vidéo transcrite: "${transcription.substring(0, 150)}..."`;
+              this.logger.log(`Video audio transcribed: "${transcription.substring(0, 100)}..."`);
+            }
+
+          } catch (downloadError) {
+            this.logger.warn(`Failed to download/transcribe video: ${downloadError.message}`);
+          }
+        }
+
+        // Fallback: analyser seulement la légende
+        if (!extractedText && videoMsg.caption) {
           const caption = videoMsg.caption.toLowerCase();
           const isProductVideo = this.isProductContext(caption);
-          
+
           if (isProductVideo) {
-            // Extraire le prix de la légende si présent
             const priceMatch = videoMsg.caption.match(/(\d+[\d\s,]*)\s*(FCFA|FRC|F|€|EUR|\$|USD|francs?)/gi);
-            
             description = `Vidéo de présentation produit`;
             if (priceMatch) {
               description += ` - Prix mentionné: ${priceMatch[0]}`;
@@ -614,17 +648,19 @@ export class MediaAnalysisService implements OnModuleInit {
           } else {
             description = `Vidéo reçue: ${videoMsg.caption}`;
           }
+          extractedText = videoMsg.caption;
         }
-        
+
         return {
           type: 'video',
           description,
-          extractedText: videoMsg.caption || "",
+          extractedText,
           metadata: {
             mimetype: videoMsg.mimetype,
             seconds: videoMsg.seconds,
             isProductVideo: videoMsg.caption ? this.isProductContext(videoMsg.caption.toLowerCase()) : false,
             duration: videoMsg.seconds ? `${Math.round(videoMsg.seconds)}s` : 'inconnue',
+            hasTranscription: extractedText !== (videoMsg.caption || ""),
           }
         };
       }
@@ -709,6 +745,112 @@ export class MediaAnalysisService implements OnModuleInit {
     } catch (error) {
       this.logger.error(`Error analyzing media: ${error.message}`);
       return null;
+    }
+  }
+
+  /**
+   * Extraire l'audio d'une vidéo et le transcrire
+   */
+  private async extractAndTranscribeVideoAudio(
+    videoBuffer: Buffer,
+    mimetype?: string
+  ): Promise<string | null> {
+    const { exec } = require('child_process');
+    const { promisify } = require('util');
+    const fs = require('fs/promises');
+    const path = require('path');
+    const crypto = require('crypto');
+
+    const execAsync = promisify(exec);
+    const tempDir = path.join(process.cwd(), 'temp', 'video');
+
+    try {
+      // Créer le dossier temporaire
+      await fs.mkdir(tempDir, { recursive: true });
+
+      // Générer des noms de fichiers uniques
+      const hash = crypto.createHash('md5').update(videoBuffer).digest('hex');
+      const timestamp = Date.now();
+      const videoExt = this.getVideoExtension(mimetype);
+      const videoPath = path.join(tempDir, `video_${hash}_${timestamp}${videoExt}`);
+      const audioPath = path.join(tempDir, `audio_${hash}_${timestamp}.ogg`);
+
+      // Sauvegarder la vidéo temporairement
+      await fs.writeFile(videoPath, videoBuffer);
+      this.logger.log(`Video saved to: ${videoPath}`);
+
+      // Extraire l'audio avec FFmpeg
+      try {
+        const ffmpegCmd = `ffmpeg -i "${videoPath}" -vn -acodec libopus -b:a 64k "${audioPath}" -y`;
+        await execAsync(ffmpegCmd, { timeout: 60000 });
+        this.logger.log(`Audio extracted to: ${audioPath}`);
+      } catch (ffmpegError) {
+        // Essayer une autre méthode d'extraction
+        try {
+          const altCmd = `ffmpeg -i "${videoPath}" -vn -acodec copy "${audioPath}" -y`;
+          await execAsync(altCmd, { timeout: 60000 });
+        } catch {
+          this.logger.warn(`FFmpeg audio extraction failed: ${ffmpegError.message}`);
+          await this.cleanupFiles([videoPath]);
+          return null;
+        }
+      }
+
+      // Lire le fichier audio extrait
+      const audioBuffer = await fs.readFile(audioPath);
+      this.logger.log(`Audio file size: ${audioBuffer.length} bytes`);
+
+      // Transcrire l'audio
+      const transcription = await this.audioTranscriptionService.transcribeAudio(
+        audioBuffer,
+        { mimetype: 'audio/ogg' }
+      );
+
+      // Nettoyer les fichiers temporaires
+      await this.cleanupFiles([videoPath, audioPath]);
+
+      if (transcription.success && transcription.text) {
+        return transcription.text;
+      }
+
+      this.logger.warn(`Video audio transcription failed: ${transcription.error}`);
+      return null;
+
+    } catch (error) {
+      this.logger.error(`Error extracting video audio: ${error.message}`);
+      return null;
+    }
+  }
+
+  /**
+   * Obtenir l'extension de fichier vidéo basée sur le mimetype
+   */
+  private getVideoExtension(mimetype?: string): string {
+    if (!mimetype) return '.mp4';
+
+    const mimeMap: Record<string, string> = {
+      'video/mp4': '.mp4',
+      'video/webm': '.webm',
+      'video/3gpp': '.3gp',
+      'video/quicktime': '.mov',
+      'video/x-msvideo': '.avi',
+      'video/x-matroska': '.mkv'
+    };
+
+    return mimeMap[mimetype.toLowerCase()] || '.mp4';
+  }
+
+  /**
+   * Nettoyer les fichiers temporaires
+   */
+  private async cleanupFiles(filePaths: string[]): Promise<void> {
+    const fs = require('fs/promises');
+    for (const filepath of filePaths) {
+      try {
+        await fs.unlink(filepath);
+      } catch {
+        // Ignore cleanup errors
+      }
     }
   }
 }

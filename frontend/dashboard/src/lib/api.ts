@@ -287,6 +287,10 @@ class ApiClient {
     });
   }
 
+  async getAgentStats(agentId: string) {
+    return this.request(`/conversations/stats?agentId=${agentId}`);
+  }
+
   // WhatsApp endpoints
   async getWhatsAppSessions() {
     return this.request('/whatsapp/sessions');

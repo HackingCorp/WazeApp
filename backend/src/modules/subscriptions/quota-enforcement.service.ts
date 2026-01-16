@@ -430,6 +430,7 @@ export class QuotaEnforcementService {
     }
 
     // Build query to find conversations by sessionId OR agentId
+    // Also check context->>'sessionId' for backward compatibility with old conversations
     const conversationQuery = this.conversationRepository
       .createQueryBuilder('conv')
       .select(['conv.id']);
@@ -438,8 +439,11 @@ export class QuotaEnforcementService {
     const params: any = {};
 
     if (sessionIds.length > 0) {
+      // Check both the sessionId column AND the context->>'sessionId' JSON field
       conditions.push('conv.sessionId IN (:...sessionIds)');
+      conditions.push("conv.context->>'sessionId' IN (:...contextSessionIds)");
       params.sessionIds = sessionIds;
+      params.contextSessionIds = sessionIds;
     }
     if (allAgentIds.length > 0) {
       conditions.push('conv.agentId IN (:...agentIds)');
@@ -454,7 +458,7 @@ export class QuotaEnforcementService {
     const conversations = await conversationQuery.getMany();
     const conversationIds = conversations.map(c => c.id);
 
-    this.logger.log(`[QUOTA] Org ${organizationId}: Found ${conversations.length} conversations`);
+    this.logger.log(`[QUOTA] Org ${organizationId}: Found ${conversations.length} conversations (checking sessionId column and context.sessionId)`);
 
     if (conversationIds.length === 0) {
       this.logger.warn(`[QUOTA] Org ${organizationId}: No conversations found, returning 0`);

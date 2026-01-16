@@ -290,16 +290,43 @@ export class SimpleConversationService implements OnModuleDestroy {
 
       // Generate UUID for message ID while preserving original WhatsApp message ID in metadata
       const messageUUID = uuidv4();
-      
+
       // Determine the message sender and type based on isFromMe and messageType
       // Use 'client' for WhatsApp clients (left side), 'user' for sent by us (right side)
+      const isMediaMessage = messageType && ["image", "video", "audio", "file"].includes(messageType);
+      const isDataUrl = messageText && (messageText.startsWith('data:') || messageText.startsWith('http'));
+
+      // For media messages, set mediaUrl and mediaType properly
+      let mediaUrl: string | undefined;
+      let mediaType: string | undefined;
+      let mediaCaption: string | undefined;
+      let content = messageText;
+
+      if (isMediaMessage && isDataUrl) {
+        mediaUrl = messageText;
+        // Extract mime type from data URL if present
+        if (messageText.startsWith('data:')) {
+          const mimeMatch = messageText.match(/^data:([^;]+);/);
+          mediaType = mimeMatch ? mimeMatch[1] : `${messageType}/*`;
+        } else {
+          mediaType = `${messageType}/*`;
+        }
+        content = `[${messageType}]`; // Placeholder content for media
+      } else if (isMediaMessage) {
+        // Media message but no data URL - might be a caption or placeholder
+        content = messageText || `[${messageType}]`;
+      }
+
       const message: MessageData = {
         id: messageUUID,
-        content: messageText,
+        content,
         timestamp,
         sender: isFromMe ? "user" : "client", // If fromMe, it's sent by us (user), otherwise from WhatsApp client (client)
-        type: (messageType || "text") as "text" | "image" | "audio" | "file",
+        type: (messageType || "text") as "text" | "image" | "audio" | "file" | "video",
         status: "read",
+        mediaUrl,
+        mediaType,
+        mediaCaption,
         metadata: {
           whatsappMessageId: messageId,
           fromWhatsApp: true,
@@ -1301,6 +1328,10 @@ Always respond directly in the user's language without any formatting.`,
               : MessageRole.USER, // Map 'client' to USER role for database consistency
         status: this.mapToMessageStatus(message.status),
         createdAt: message.timestamp,
+        // Media fields for images, videos, audio, files
+        mediaUrl: message.mediaUrl,
+        mediaType: message.mediaType,
+        mediaCaption: message.mediaCaption,
         // Add metadata to distinguish WhatsApp client messages from web interface messages
         metadata:
           message.sender === "client"

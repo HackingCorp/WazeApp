@@ -5,6 +5,7 @@ import { EventEmitter2, OnEvent } from "@nestjs/event-emitter";
 import { v4 as uuidv4 } from "uuid";
 import {
   WhatsAppSession,
+  WhatsAppContact,
   User,
   AgentConversation,
   AgentMessage,
@@ -31,6 +32,7 @@ export interface ConversationData {
   isOnline: boolean;
   userId: string;
   sessionId: string;
+  profilePictureUrl?: string;
 }
 
 export interface MessageData {
@@ -73,6 +75,8 @@ export class SimpleConversationService implements OnModuleDestroy {
     private messageRepository: Repository<AgentMessage>,
     @InjectRepository(WhatsAppSession)
     private sessionRepository: Repository<WhatsAppSession>,
+    @InjectRepository(WhatsAppContact)
+    private contactRepository: Repository<WhatsAppContact>,
     @InjectRepository(User)
     private userRepository: Repository<User>,
     @InjectRepository(AiAgent)
@@ -636,6 +640,22 @@ export class SimpleConversationService implements OnModuleDestroy {
     return `${randomResponse} You said: "${message}" - How can I assist you further?`;
   }
 
+  // Check if a phone number looks like a LID (Linked Identity) instead of a real phone
+  private isLikelyLID(phone: string): boolean {
+    if (!phone) return false;
+    const cleaned = phone.replace(/\D/g, ''); // Remove non-digits
+
+    // LID identifiers typically:
+    // - Are 14+ digits long (real phone numbers are typically 7-13 digits)
+    // - Start with lid_ prefix
+    if (phone.startsWith('lid_') || phone.startsWith('lid')) {
+      return true;
+    }
+
+    // If it's longer than 13 digits, it's likely a LID
+    return cleaned.length > 13;
+  }
+
   // API methods for frontend
   async getConversationsForUser(
     userId: string,
@@ -669,6 +689,28 @@ export class SimpleConversationService implements OnModuleDestroy {
         `💾 Found ${dbConversations.length} persisted conversations in database`,
       );
 
+      // Get all contacts for enrichment (if we have a sessionId)
+      let contactsMap = new Map<string, WhatsAppContact>();
+      if (sessionId) {
+        try {
+          const contacts = await this.contactRepository.find({
+            where: { sessionId },
+          });
+          contacts.forEach(contact => {
+            if (contact.phoneNumber) {
+              contactsMap.set(contact.phoneNumber, contact);
+              // Also map with + prefix
+              if (!contact.phoneNumber.startsWith('+')) {
+                contactsMap.set(`+${contact.phoneNumber}`, contact);
+              }
+            }
+          });
+          this.logger.debug(`Loaded ${contacts.length} contacts for enrichment`);
+        } catch (error) {
+          this.logger.debug(`Could not load contacts for enrichment: ${error.message}`);
+        }
+      }
+
       // Convert to ConversationData format and filter by sessionId if provided
       let persistedConversations: ConversationData[] = dbConversations.map(
         (dbConv) => {
@@ -679,20 +721,39 @@ export class SimpleConversationService implements OnModuleDestroy {
             dbConv.externalId || dbConv.context?.userProfile?.phone || "";
           const normalizedPhone = this.normalizePhoneNumber(rawPhone);
 
+          // Try to get contact info for this phone number
+          const contact = contactsMap.get(normalizedPhone) ||
+            contactsMap.get(`+${normalizedPhone}`) ||
+            contactsMap.get(normalizedPhone.replace(/^\+/, ''));
+
           // Format display name properly
           let displayName;
-          if (normalizedPhone) {
+
+          // First priority: contact name from WhatsApp contacts
+          if (contact?.name || contact?.pushName || contact?.shortName) {
+            displayName = contact.name || contact.pushName || contact.shortName;
+          }
+          // Second priority: name from conversation context
+          else if (dbConv.context?.userProfile?.name &&
+                   dbConv.context.userProfile.name !== rawPhone &&
+                   !this.isLikelyLID(dbConv.context.userProfile.name)) {
+            displayName = dbConv.context.userProfile.name;
+          }
+          // Third priority: phone number if it's valid (not a LID)
+          else if (normalizedPhone && !this.isLikelyLID(normalizedPhone)) {
             displayName = normalizedPhone.startsWith("+")
               ? normalizedPhone
               : `+${normalizedPhone}`;
-          } else {
-            displayName = "Unknown Contact";
+          }
+          // Fallback for LIDs or unknown
+          else {
+            displayName = "Contact WhatsApp";
           }
 
           return {
             id: dbConv.id,
             phoneNumber: normalizedPhone, // Store normalized phone number
-            name: dbConv.context?.userProfile?.name || displayName,
+            name: displayName,
             lastMessage: lastMessage?.content || "",
             lastMessageTime: lastMessage?.createdAt || dbConv.updatedAt,
             unreadCount:
@@ -702,6 +763,7 @@ export class SimpleConversationService implements OnModuleDestroy {
             isOnline: false, // Default to offline for historical conversations
             userId: dbConv.userId || "",
             sessionId: dbConv.context?.sessionId || "",
+            profilePictureUrl: contact?.profilePictureUrl,
           };
         },
       );

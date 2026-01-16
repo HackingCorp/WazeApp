@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/providers/AuthProvider';
+import { useI18n } from '@/providers/I18nProvider';
 import { api } from '@/lib/api';
 import { 
   Smartphone, 
@@ -70,6 +71,7 @@ const PLAN_LIMITS = {
 
 export default function WhatsAppPage() {
   const { user } = useAuth();
+  const { t } = useI18n();
   const [sessions, setSessions] = useState<WhatsAppSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [connecting, setConnecting] = useState<string | null>(null);
@@ -804,7 +806,7 @@ export default function WhatsAppPage() {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <RefreshCw className="w-8 h-8 animate-spin text-green-600" />
-        <span className="ml-2 text-lg">Chargement des sessions WhatsApp...</span>
+        <span className="ml-2 text-lg">{t('whatsapp.loadingSessions')}</span>
       </div>
     );
   }
@@ -818,33 +820,33 @@ export default function WhatsAppPage() {
             <Smartphone className="w-8 h-8 text-green-600" />
           </div>
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">WhatsApp Management</h1>
-            <p className="text-gray-600">Connect and manage your WhatsApp accounts</p>
+            <h1 className="text-3xl font-bold text-gray-900">{t('whatsapp.pageTitle')}</h1>
+            <p className="text-gray-600">{t('whatsapp.pageSubtitle')}</p>
           </div>
         </div>
-        
+
         <div className="flex items-center space-x-4">
           <div className="text-right">
-            <div className="text-sm text-gray-500">Current Plan: {userPlan.charAt(0).toUpperCase() + userPlan.slice(1)}</div>
+            <div className="text-sm text-gray-500">{t('whatsapp.currentPlan')}: {userPlan.charAt(0).toUpperCase() + userPlan.slice(1)}</div>
             <div className="text-sm font-medium">
-              {planLimits.current} / {planLimits.max} accounts used
+              {t('whatsapp.accountsUsed', { current: planLimits.current, max: planLimits.max })}
             </div>
           </div>
-          
+
           {sessions.length < planLimits.max && (
             <button
               onClick={() => setShowCreateModal(true)}
               className="flex items-center space-x-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
             >
               <Plus className="w-4 h-4" />
-              <span>Connect WhatsApp</span>
+              <span>{t('whatsapp.connectWhatsapp')}</span>
             </button>
           )}
-          
+
           {sessions.length >= planLimits.max && (
             <div className="flex items-center space-x-2 bg-gradient-to-r from-purple-600 to-emerald-600 text-white px-4 py-2 rounded-lg">
               <Crown className="w-4 h-4" />
-              <span>Upgrade Plan</span>
+              <span>{t('whatsapp.upgradePlan')}</span>
             </div>
           )}
         </div>
@@ -1103,32 +1105,32 @@ export default function WhatsAppPage() {
               className="bg-white rounded-2xl p-8 max-w-md w-full"
               onClick={(e) => e.stopPropagation()}
             >
-              <h3 className="text-2xl font-bold text-gray-900 mb-4">Create WhatsApp Session</h3>
-              <p className="text-gray-600 mb-6">Give your WhatsApp connection a memorable name</p>
-              
+              <h3 className="text-2xl font-bold text-gray-900 mb-4">{t('whatsapp.createSession')}</h3>
+              <p className="text-gray-600 mb-6">{t('whatsapp.giveSessionName')}</p>
+
               <input
                 type="text"
-                placeholder="e.g., Business Account, Support Line"
+                placeholder={t('whatsapp.sessionNamePlaceholder')}
                 value={newSessionName}
                 onChange={(e) => setNewSessionName(e.target.value)}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent mb-6"
                 autoFocus
                 onKeyPress={(e) => e.key === 'Enter' && createSession()}
               />
-              
+
               <div className="flex space-x-3">
                 <button
                   onClick={() => setShowCreateModal(false)}
                   className="flex-1 bg-gray-100 text-gray-700 py-3 rounded-lg hover:bg-gray-200 transition-colors"
                 >
-                  Cancel
+                  {t('whatsapp.cancel')}
                 </button>
                 <button
                   onClick={createSession}
                   disabled={!newSessionName.trim()}
                   className="flex-1 bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Create & Connect
+                  {t('whatsapp.createAndConnect')}
                 </button>
               </div>
             </motion.div>
@@ -1146,16 +1148,16 @@ export default function WhatsAppPage() {
           <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
             <Smartphone className="w-12 h-12 text-gray-400" />
           </div>
-          <h3 className="text-2xl font-bold text-gray-900 mb-2">No WhatsApp accounts connected</h3>
+          <h3 className="text-2xl font-bold text-gray-900 mb-2">{t('whatsapp.noAccountsConnected')}</h3>
           <p className="text-gray-600 mb-8 max-w-md mx-auto">
-            Connect your WhatsApp account to start sending and receiving messages through our platform
+            {t('whatsapp.connectYourAccount')}
           </p>
           <button
             onClick={() => setShowCreateModal(true)}
             className="inline-flex items-center space-x-2 bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors"
           >
             <Plus className="w-5 h-5" />
-            <span>Connect Your First Account</span>
+            <span>{t('whatsapp.connectFirstAccount')}</span>
           </button>
         </motion.div>
       ) : (
@@ -1205,13 +1207,13 @@ export default function WhatsAppPage() {
                     <div className="text-2xl font-bold text-green-600">
                       {stats[session.id].messagesSentToday}
                     </div>
-                    <div className="text-xs text-gray-600">Sent Today</div>
+                    <div className="text-xs text-gray-600">{t('whatsapp.sentToday')}</div>
                   </div>
                   <div className="text-center">
                     <div className="text-2xl font-bold text-emerald-600">
                       {stats[session.id].messagesReceivedToday}
                     </div>
-                    <div className="text-xs text-gray-600">Received Today</div>
+                    <div className="text-xs text-gray-600">{t('whatsapp.receivedToday')}</div>
                   </div>
                 </div>
               )}
@@ -1222,11 +1224,11 @@ export default function WhatsAppPage() {
                   <div className="flex items-center space-x-2 p-2 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
                     <div className="w-2 h-2 bg-green-500 rounded-full"></div>
                     <span className="text-sm font-medium text-green-800 dark:text-green-200">
-                      Agent: {session.agent.name}
+                      {t('whatsapp.agent')}: {session.agent.name}
                     </span>
                     {session.agent.status === 'active' && (
                       <span className="text-xs px-2 py-1 bg-green-100 dark:bg-green-800 text-green-700 dark:text-green-200 rounded-full">
-                        Actif
+                        {t('whatsapp.active')}
                       </span>
                     )}
                   </div>
@@ -1235,14 +1237,14 @@ export default function WhatsAppPage() {
                     <div className="flex items-center space-x-2">
                       <AlertCircle className="w-4 h-4 text-yellow-600 dark:text-yellow-400" />
                       <span className="text-sm text-yellow-800 dark:text-yellow-200">
-                        Aucun agent IA assigné
+                        {t('whatsapp.noAgentAssigned')}
                       </span>
                     </div>
                     <button
                       onClick={() => openAssignAgentModal(session)}
                       className="text-xs px-3 py-1 bg-yellow-600 text-white rounded hover:bg-yellow-700 transition-colors"
                     >
-                      Assigner
+                      {t('whatsapp.assign')}
                     </button>
                   </div>
                 )}
@@ -1254,7 +1256,7 @@ export default function WhatsAppPage() {
                   <div className="flex items-center space-x-2">
                     <MessageSquare className="w-4 h-4 text-gray-600 dark:text-gray-400" />
                     <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                      Réponses IA automatiques
+                      {t('whatsapp.aiAutoResponses')}
                     </span>
                   </div>
                   <button
@@ -1276,7 +1278,7 @@ export default function WhatsAppPage() {
                 </div>
                 {session.aiResponsesEnabled === false && (
                   <p className="mt-1 text-xs text-orange-600 dark:text-orange-400">
-                    ⚠️ Les réponses IA sont désactivées - les messages ne recevront pas de réponse automatique
+                    ⚠️ {t('whatsapp.aiResponsesDisabled')}
                   </p>
                 )}
               </div>
@@ -1284,10 +1286,10 @@ export default function WhatsAppPage() {
               {/* Last Seen */}
               {session.lastSeenAt && (
                 <p className="text-xs text-gray-500 mb-4">
-                  Last seen: {new Date(session.lastSeenAt).toLocaleString()}
+                  {t('whatsapp.lastSeen')}: {new Date(session.lastSeenAt).toLocaleString()}
                 </p>
               )}
-              
+
               {/* Actions */}
               <div className="flex space-x-2">
                 {session.isActive ? (
@@ -1298,13 +1300,13 @@ export default function WhatsAppPage() {
                       title="Sync all message history"
                     >
                       <Download className="w-4 h-4" />
-                      <span>Sync</span>
+                      <span>{t('whatsapp.sync')}</span>
                     </button>
                     <button
                       onClick={() => disconnectSession(session.id)}
                       className="flex-1 bg-red-50 text-red-600 py-2 px-4 rounded-lg hover:bg-red-100 transition-colors text-sm font-medium"
                     >
-                      Disconnect
+                      {t('whatsapp.disconnect')}
                     </button>
                   </>
                 ) : (
@@ -1318,7 +1320,7 @@ export default function WhatsAppPage() {
                     ) : (
                       <QrCode className="w-4 h-4" />
                     )}
-                    <span>{connecting === session.id ? 'Connecting...' : 'Connect'}</span>
+                    <span>{connecting === session.id ? t('whatsapp.connecting') : t('whatsapp.connect')}</span>
                   </button>
                 )}
                 

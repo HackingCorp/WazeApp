@@ -4,12 +4,14 @@ import React, { useState, useEffect } from 'react';
 import { ConversationInterface } from '@/components/conversations/ConversationInterface';
 import { useSocket } from '@/providers/SocketProvider';
 import { useAuth } from '@/providers/AuthProvider';
+import { useI18n } from '@/providers/I18nProvider';
 import { api } from '@/lib/api';
 import toast from 'react-hot-toast';
 
 
 export default function ConversationsPage() {
   const { user } = useAuth();
+  const { t } = useI18n();
   const [contacts, setContacts] = useState<any[]>([]);
   const [selectedContactId, setSelectedContactId] = useState<string>();
   const [messages, setMessages] = useState<any[]>([]);
@@ -79,7 +81,7 @@ export default function ConversationsPage() {
       console.log('Loaded WhatsApp sessions:', connectedSessions);
     } catch (error) {
       console.error('Failed to load WhatsApp sessions:', error);
-      toast.error('Failed to load WhatsApp sessions');
+      toast.error(t('conversations.failedLoadSessions'));
     }
   };
 
@@ -268,10 +270,10 @@ export default function ConversationsPage() {
           // Format phone number for display - hide LID/invalid identifiers
           let displayPhone = formatPhoneForDisplay(conv.phoneNumber);
           if (isGroup) {
-            displayPhone = `Groupe`;
+            displayPhone = t('conversations.group');
           } else if (!displayPhone) {
             // If no valid phone, use a placeholder
-            displayPhone = 'Contact WhatsApp';
+            displayPhone = t('common.unavailable');
           }
 
           // Get profile picture - prefer backend's profilePictureUrl, fallback to contacts map
@@ -326,11 +328,11 @@ export default function ConversationsPage() {
       // Check if it's an authentication error
       const errorMessage = error instanceof Error ? error.message : String(error);
       if (errorMessage.includes('Authentication required') || errorMessage.includes('Invalid or expired token')) {
-        toast.error('Your session has expired. Please refresh the page to log in again.');
+        toast.error(t('conversations.sessionExpired'));
       } else {
         // Show empty state for other errors
         setContacts([]);
-        toast.error('Failed to load conversations - connect WhatsApp to see real conversations');
+        toast.error(t('conversations.failedLoadConversations'));
       }
     } finally {
       setLoadingConversations(false);
@@ -365,7 +367,7 @@ export default function ConversationsPage() {
       ));
     } catch (error) {
       console.error('Failed to load messages:', error);
-      toast.error('Failed to load messages');
+      toast.error(t('conversations.failedLoadMessages'));
     } finally {
       setIsLoading(false);
     }
@@ -443,7 +445,7 @@ export default function ConversationsPage() {
       
       // Show notification for new messages
       if (data.contactId !== selectedContactId) {
-        toast.success(`New message from ${data.contact?.name || 'Unknown'}`, {
+        toast.success(t('conversations.newMessageFrom', { name: data.contact?.name || 'Unknown' }), {
           duration: 3000,
         });
       }
@@ -484,11 +486,11 @@ export default function ConversationsPage() {
 
       // Show notification for completion
       if (data.status === 'completed') {
-        toast.success(`WhatsApp sync completed! ${data.syncedChats} conversations loaded`);
+        toast.success(t('conversations.syncCompleted', { count: data.syncedChats }));
         // Reload conversations to show newly synced ones
         loadConversations();
       } else if (data.status === 'failed') {
-        toast.error(`WhatsApp sync failed: ${data.error}`);
+        toast.error(t('conversations.syncFailed') + ': ' + data.error);
         setTimeout(() => setSyncStatus(null), 5000);
       }
     };
@@ -560,10 +562,10 @@ export default function ConversationsPage() {
           : contact
       ));
 
-      toast.success('Message sent');
+      toast.success(t('conversations.messageSent'));
     } catch (error) {
       console.error('[FRONTEND] Failed to send message:', error);
-      toast.error('Failed to send message');
+      toast.error(t('conversations.failedSendMessage'));
       
       // Update message status to failed and maintain sorting
       setMessages(prev => {
@@ -587,7 +589,7 @@ export default function ConversationsPage() {
       setSelectedContactId(undefined);
       setMessages([]);
     }
-    toast.success('Contact archived');
+    toast.success(t('conversations.contactArchived'));
   };
 
   if (loadingConversations) {
@@ -595,7 +597,7 @@ export default function ConversationsPage() {
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading conversations...</p>
+          <p className="text-gray-600">{t('conversations.loading')}</p>
         </div>
       </div>
     );
@@ -607,7 +609,7 @@ export default function ConversationsPage() {
       {whatsappSessions.length > 1 && (
         <div className="flex-shrink-0 bg-gray-50 border-b border-gray-200 p-3">
           <div className="flex items-center space-x-3">
-            <span className="text-sm font-medium text-gray-700">WhatsApp Account:</span>
+            <span className="text-sm font-medium text-gray-700">{t('conversations.whatsappAccount')}:</span>
             <select
               value={selectedSessionId}
               onChange={(e) => setSelectedSessionId(e.target.value)}
@@ -620,7 +622,7 @@ export default function ConversationsPage() {
               ))}
             </select>
             <span className="text-xs text-gray-500">
-              {whatsappSessions.length} account{whatsappSessions.length > 1 ? 's' : ''} connected
+              {t('conversations.accountsConnected', { count: whatsappSessions.length })}
             </span>
           </div>
         </div>
@@ -630,11 +632,11 @@ export default function ConversationsPage() {
       {whatsappSessions.length === 0 && !loadingConversations && (
         <div className="flex-shrink-0 bg-yellow-50 border-b border-yellow-200 p-3">
           <div className="text-sm text-yellow-800">
-            <strong>No WhatsApp accounts connected.</strong>{' '}
+            <strong>{t('conversations.noWhatsappConnected')}</strong>{' '}
             <a href="/whatsapp" className="text-blue-600 hover:underline">
-              Connect a WhatsApp account
+              {t('conversations.connectWhatsapp')}
             </a>{' '}
-            to start viewing conversations.
+            {t('conversations.toStartViewing')}
           </div>
         </div>
       )}
@@ -646,13 +648,13 @@ export default function ConversationsPage() {
             <div className="flex items-center space-x-3">
               <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
               <div>
-                <p className="font-medium">Synchronizing WhatsApp conversations...</p>
+                <p className="font-medium">{t('conversations.synchronizing')}</p>
                 <p className="text-sm opacity-90">
                   {syncStatus.status === 'started'
-                    ? `Found ${syncStatus.totalChats} conversations to sync`
-                    : `${syncStatus.syncedChats}/${syncStatus.totalChats} conversations synced`
+                    ? t('conversations.foundConversations', { count: syncStatus.totalChats })
+                    : t('conversations.syncProgress', { synced: syncStatus.syncedChats, total: syncStatus.totalChats })
                   }
-                  {syncStatus.currentChat && ` - Processing: ${syncStatus.currentChat}`}
+                  {syncStatus.currentChat && ` - ${t('conversations.processing')}: ${syncStatus.currentChat}`}
                 </p>
               </div>
             </div>

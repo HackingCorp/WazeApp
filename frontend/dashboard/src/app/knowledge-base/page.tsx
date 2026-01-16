@@ -22,6 +22,7 @@ import {
 import clsx from 'clsx';
 import { CreateKnowledgeBaseModal } from '@/components/knowledge-base/CreateKnowledgeBaseModal';
 import { DeleteKnowledgeBaseModal } from '@/components/knowledge-base/DeleteKnowledgeBaseModal';
+import { useI18n } from '@/providers/I18nProvider';
 import { api } from '@/lib/api';
 
 interface Agent {
@@ -77,6 +78,7 @@ interface KnowledgeBaseStats {
 
 export default function KnowledgeBasePage() {
   const router = useRouter();
+  const { t } = useI18n();
   const [agents, setAgents] = useState<Agent[]>([]);
   const [stats, setStats] = useState<KnowledgeBaseStats | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -183,10 +185,10 @@ export default function KnowledgeBasePage() {
 
   const getStatusText = (status: string) => {
     switch (status) {
-      case 'active': return 'Actif';
-      case 'processing': return 'En cours';
-      case 'error': return 'Erreur';
-      default: return 'Inactif';
+      case 'active': return t('knowledgeBase.active');
+      case 'processing': return t('knowledgeBase.inProgress');
+      case 'error': return t('knowledgeBase.error');
+      default: return t('knowledgeBase.inactive');
     }
   };
 
@@ -233,10 +235,10 @@ export default function KnowledgeBasePage() {
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-              Bases de Connaissances par Agent IA
+              {t('knowledgeBase.pageTitle')}
             </h1>
             <p className="text-gray-600 dark:text-gray-400 mt-2">
-              Gérez les bases de connaissances spécialisées pour chaque agent IA
+              {t('knowledgeBase.pageSubtitle')}
             </p>
           </div>
         </div>
@@ -247,46 +249,46 @@ export default function KnowledgeBasePage() {
             <div className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-sm">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Agents IA</p>
+                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400">{t('knowledgeBase.aiAgents')}</p>
                   <p className="text-2xl font-bold text-gray-900 dark:text-white">{agents.length}</p>
                   <p className="text-xs text-gray-500 dark:text-gray-400">
-                    {agents.filter(a => a.knowledgeBase).length} avec base de connaissances
+                    {agents.filter(a => a.knowledgeBase).length} {t('knowledgeBase.withKnowledgeBase')}
                   </p>
                 </div>
                 <Database className="w-8 h-8 text-blue-500" />
               </div>
             </div>
-            
+
             <div className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-sm">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Bases Actives</p>
+                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400">{t('knowledgeBase.activeBases')}</p>
                   <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.active}</p>
                 </div>
                 <CheckCircle className="w-8 h-8 text-green-500" />
               </div>
             </div>
-            
+
             <div className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-sm">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Documents</p>
+                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400">{t('knowledgeBase.documents')}</p>
                   <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.totalDocuments}</p>
                 </div>
                 <FileText className="w-8 h-8 text-purple-500" />
               </div>
             </div>
-            
+
             <div className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-sm">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Utilisation</p>
+                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400">{t('knowledgeBase.usage')}</p>
                   <p className="text-2xl font-bold text-gray-900 dark:text-white">
                     {stats.characterUsage.percentage.toFixed(1)}%
                   </p>
                   <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 mt-2">
-                    <div 
-                      className="bg-blue-600 h-2 rounded-full transition-all" 
+                    <div
+                      className="bg-blue-600 h-2 rounded-full transition-all"
                       style={{ width: `${Math.min(stats.characterUsage.percentage, 100)}%` }}
                     />
                   </div>
@@ -305,7 +307,7 @@ export default function KnowledgeBasePage() {
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <input
                   type="text"
-                  placeholder="Rechercher un agent ou sa base de connaissances..."
+                  placeholder={t('knowledgeBase.searchPlaceholder')}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
@@ -320,11 +322,11 @@ export default function KnowledgeBasePage() {
                 onChange={(e) => setSelectedStatus(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
               >
-                <option value="all">Tous les statuts</option>
-                <option value="active">Base active</option>
-                <option value="processing">En cours de traitement</option>
-                <option value="error">Erreur</option>
-                <option value="none">Sans base de connaissances</option>
+                <option value="all">{t('knowledgeBase.allStatus')}</option>
+                <option value="active">{t('knowledgeBase.activeBase')}</option>
+                <option value="processing">{t('knowledgeBase.processingBase')}</option>
+                <option value="error">{t('knowledgeBase.errorBase')}</option>
+                <option value="none">{t('knowledgeBase.noBase')}</option>
               </select>
             </div>
 
@@ -339,7 +341,7 @@ export default function KnowledgeBasePage() {
                 }}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
               >
-                <option value="">Filtrer par tag...</option>
+                <option value="">{t('knowledgeBase.filterByTag')}</option>
                 {allTags.map(tag => (
                   <option key={tag} value={tag}>{tag}</option>
                 ))}
@@ -372,16 +374,16 @@ export default function KnowledgeBasePage() {
           {isLoading ? (
             <div className="p-12 text-center">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-              <p className="text-gray-500 dark:text-gray-400 mt-4">Chargement des agents IA...</p>
+              <p className="text-gray-500 dark:text-gray-400 mt-4">{t('knowledgeBase.loadingAgents')}</p>
             </div>
           ) : filteredAgents.length === 0 ? (
             <div className="p-12 text-center">
               <Database className="w-12 h-12 text-gray-400 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-                Aucun agent trouvé
+                {t('knowledgeBase.noAgentFound')}
               </h3>
               <p className="text-gray-500 dark:text-gray-400 mb-4">
-                {searchQuery ? 'Aucun résultat pour votre recherche.' : 'Créez d\'abord vos agents IA dans la section Agents.'}
+                {searchQuery ? t('knowledgeBase.noResultSearch') : t('knowledgeBase.createAgentsFirst')}
               </p>
             </div>
           ) : (
@@ -440,21 +442,21 @@ export default function KnowledgeBasePage() {
                           <div className="flex items-center space-x-6 text-sm text-gray-500 dark:text-gray-400 mb-3">
                             <div className="flex items-center space-x-1">
                               <FileText className="w-4 h-4" />
-                              <span>{agent.knowledgeBase.documentCount} documents</span>
+                              <span>{agent.knowledgeBase.documentCount} {t('knowledgeBase.documents').toLowerCase()}</span>
                             </div>
                             <div className="flex items-center space-x-1">
                               <Database className="w-4 h-4" />
                               <span>
                                 {(() => {
                                   const chars = agent.knowledgeBase.totalCharacters;
-                                  const display = `${(chars / 1000).toFixed(0)}k caractères`;
+                                  const display = `${(chars / 1000).toFixed(0)}k ${t('knowledgeBase.characters')}`;
                                   console.log('🔍 FRONTEND: Displaying characters for KB', agent.knowledgeBase.name, '- Raw:', chars, 'Display:', display);
                                   return display;
                                 })()}
                               </span>
                             </div>
                             <div>
-                              Modifié {agent.knowledgeBase.updatedAt.toLocaleDateString('fr-FR')}
+                              {t('knowledgeBase.modified')} {agent.knowledgeBase.updatedAt.toLocaleDateString()}
                             </div>
                           </div>
                           
@@ -477,26 +479,26 @@ export default function KnowledgeBasePage() {
                               onClick={() => router.push(`/knowledge-base/${agent.knowledgeBase?.id}/documents`)}
                               className="text-xs px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
                             >
-                              Gérer les documents
+                              {t('knowledgeBase.manageDocuments')}
                             </button>
                             <button
                               onClick={() => agent.knowledgeBase && handleEdit(agent, agent.knowledgeBase)}
                               className="text-xs px-3 py-1 bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors"
                             >
-                              Modifier
+                              {t('knowledgeBase.modify')}
                             </button>
                             <button
                               onClick={() => agent.knowledgeBase && handleRebuild(agent.knowledgeBase)}
                               disabled={agent.knowledgeBase?.status === 'processing'}
                               className="text-xs px-3 py-1 bg-yellow-600 text-white rounded hover:bg-yellow-700 disabled:opacity-50 transition-colors"
                             >
-                              {agent.knowledgeBase?.status === 'processing' ? 'En cours...' : 'Reconstruire'}
+                              {agent.knowledgeBase?.status === 'processing' ? t('knowledgeBase.inProgressDots') : t('knowledgeBase.rebuild')}
                             </button>
                             <button
                               onClick={() => agent.knowledgeBase && handleDelete(agent, agent.knowledgeBase)}
                               className="text-xs px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
                             >
-                              Supprimer
+                              {t('knowledgeBase.delete')}
                             </button>
                           </div>
                         </div>
@@ -506,14 +508,14 @@ export default function KnowledgeBasePage() {
                             <div className="flex items-center space-x-2">
                               <AlertCircle className="w-4 h-4 text-yellow-600 dark:text-yellow-400" />
                               <span className="text-sm text-yellow-800 dark:text-yellow-200">
-                                Aucune base de connaissances configurée
+                                {t('knowledgeBase.noKnowledgeBaseConfigured')}
                               </span>
                             </div>
                             <button
                               onClick={() => handleCreateForAgent(agent)}
                               className="text-xs px-3 py-1 bg-yellow-600 text-white rounded hover:bg-yellow-700 transition-colors"
                             >
-                              Créer une base
+                              {t('knowledgeBase.createBase')}
                             </button>
                           </div>
                         </div>

@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { SubscriptionManager } from '@/components/billing/SubscriptionManager';
 import { useAuth } from '@/providers/AuthProvider';
+import { useI18n } from '@/providers/I18nProvider';
 import { api } from '@/lib/api';
 import toast from 'react-hot-toast';
 import {
@@ -51,17 +52,18 @@ interface BillingSummary {
   billingPeriod: { start: string; end: string } | null;
 }
 
-const statusConfig = {
-  draft: { label: 'Brouillon', icon: FileText, color: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200' },
-  pending: { label: 'En attente', icon: Clock, color: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-200' },
-  paid: { label: 'Payee', icon: CheckCircle, color: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200' },
-  overdue: { label: 'En retard', icon: AlertTriangle, color: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200' },
-  cancelled: { label: 'Annulee', icon: XCircle, color: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200' },
-  refunded: { label: 'Remboursee', icon: ArrowRight, color: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-200' },
-};
+const getStatusConfig = (t: (key: string) => string) => ({
+  draft: { label: t('billing.draft'), icon: FileText, color: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200' },
+  pending: { label: t('billing.pending'), icon: Clock, color: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-200' },
+  paid: { label: t('billing.paid'), icon: CheckCircle, color: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200' },
+  overdue: { label: t('billing.overdue'), icon: AlertTriangle, color: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200' },
+  cancelled: { label: t('billing.cancelled'), icon: XCircle, color: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200' },
+  refunded: { label: t('billing.refunded'), icon: ArrowRight, color: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-200' },
+});
 
 export default function BillingPage() {
   const { user, refreshAuth } = useAuth();
+  const { t } = useI18n();
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'plan' | 'credits' | 'invoices'>('plan');
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -79,7 +81,7 @@ export default function BillingPage() {
     const plan = searchParams.get('plan');
 
     if (paymentStatus === 'success' && plan) {
-      toast.success(`Paiement recu ! Votre abonnement ${plan.toUpperCase()} est en cours d'activation...`, {
+      toast.success(t('billing.paymentReceived').replace('{{plan}}', plan.toUpperCase()), {
         duration: 5000,
       });
 
@@ -95,7 +97,7 @@ export default function BillingPage() {
       url.searchParams.delete('plan');
       window.history.replaceState({}, '', url.pathname);
     } else if (paymentStatus === 'failed') {
-      toast.error('Le paiement a echoue. Veuillez reessayer.');
+      toast.error(t('billing.paymentFailed'));
 
       // Clean URL parameters
       const url = new URL(window.location.href);
@@ -159,7 +161,7 @@ export default function BillingPage() {
 
   const handleInvoicePaymentSuccess = async () => {
     // Payment was successful - refresh invoices and auth
-    toast.success('Facture payee avec succes !');
+    toast.success(t('billing.invoicePaid'));
     setShowInvoicePaymentModal(false);
     setSelectedInvoice(null);
     fetchInvoices();
@@ -194,7 +196,7 @@ export default function BillingPage() {
               }`}
             >
               <CreditCard className="w-4 h-4 inline-block mr-2" />
-              Abonnement
+              {t('billing.subscription')}
             </button>
             <button
               onClick={() => setActiveTab('credits')}
@@ -205,7 +207,7 @@ export default function BillingPage() {
               }`}
             >
               <Gift className="w-4 h-4 inline-block mr-2" />
-              Messages Bonus
+              {t('billing.bonusMessages')}
             </button>
             <button
               onClick={() => setActiveTab('invoices')}
@@ -216,7 +218,7 @@ export default function BillingPage() {
               }`}
             >
               <FileText className="w-4 h-4 inline-block mr-2" />
-              Factures
+              {t('billing.invoices')}
               {summary && summary.pendingInvoices > 0 && (
                 <span className="ml-2 bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">
                   {summary.pendingInvoices}
@@ -241,11 +243,10 @@ export default function BillingPage() {
           {/* Header */}
           <div className="mb-8">
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-              Messages Supplementaires
+              {t('billing.additionalMessages')}
             </h1>
             <p className="text-gray-500 dark:text-gray-400">
-              Achetez des messages bonus pour eviter de depasser votre quota mensuel.
-              Les messages bonus sont utilises en priorite avant votre abonnement.
+              {t('billing.buyBonusMessages')}
             </p>
           </div>
 
@@ -255,24 +256,24 @@ export default function BillingPage() {
           {/* Info Section */}
           <div className="mt-8 bg-blue-50 dark:bg-blue-900/20 rounded-xl p-6 border border-blue-200 dark:border-blue-800">
             <h3 className="text-lg font-semibold text-blue-900 dark:text-blue-100 mb-4">
-              Comment ca marche ?
+              {t('billing.howItWorks')}
             </h3>
             <ul className="space-y-3 text-sm text-blue-700 dark:text-blue-300">
               <li className="flex items-start gap-3">
                 <span className="flex-shrink-0 w-6 h-6 bg-blue-100 dark:bg-blue-800 rounded-full flex items-center justify-center text-xs font-bold text-blue-600 dark:text-blue-300">1</span>
-                <span>Achetez des packs de messages supplementaires (minimum 1000 messages)</span>
+                <span>{t('billing.buyMessagePacks')}</span>
               </li>
               <li className="flex items-start gap-3">
                 <span className="flex-shrink-0 w-6 h-6 bg-blue-100 dark:bg-blue-800 rounded-full flex items-center justify-center text-xs font-bold text-blue-600 dark:text-blue-300">2</span>
-                <span>Les messages bonus sont utilises en priorite avant votre quota mensuel</span>
+                <span>{t('billing.bonusUsedFirst')}</span>
               </li>
               <li className="flex items-start gap-3">
                 <span className="flex-shrink-0 w-6 h-6 bg-blue-100 dark:bg-blue-800 rounded-full flex items-center justify-center text-xs font-bold text-blue-600 dark:text-blue-300">3</span>
-                <span>Les messages non utilises expirent apres 30 jours</span>
+                <span>{t('billing.unusedExpire')}</span>
               </li>
               <li className="flex items-start gap-3">
                 <span className="flex-shrink-0 w-6 h-6 bg-blue-100 dark:bg-blue-800 rounded-full flex items-center justify-center text-xs font-bold text-blue-600 dark:text-blue-300">4</span>
-                <span>Les packs les plus anciens sont utilises en premier (FIFO)</span>
+                <span>{t('billing.fifoOrder')}</span>
               </li>
             </ul>
           </div>
@@ -283,19 +284,19 @@ export default function BillingPage() {
           {summary && (
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
               <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
-                <div className="text-sm text-gray-500 dark:text-gray-400 mb-1">Plan actuel</div>
+                <div className="text-sm text-gray-500 dark:text-gray-400 mb-1">{t('billing.currentPlan')}</div>
                 <div className="text-2xl font-bold text-gray-900 dark:text-white capitalize">
                   {summary.currentPlan}
                 </div>
               </div>
               <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
-                <div className="text-sm text-gray-500 dark:text-gray-400 mb-1">Prochaine facturation</div>
+                <div className="text-sm text-gray-500 dark:text-gray-400 mb-1">{t('billing.nextBilling')}</div>
                 <div className="text-2xl font-bold text-gray-900 dark:text-white">
                   {summary.nextBillingDate ? formatDate(summary.nextBillingDate) : '-'}
                 </div>
               </div>
               <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
-                <div className="text-sm text-gray-500 dark:text-gray-400 mb-1">Prochain montant</div>
+                <div className="text-sm text-gray-500 dark:text-gray-400 mb-1">{t('billing.nextAmount')}</div>
                 <div className="text-2xl font-bold text-gray-900 dark:text-white">
                   {formatAmount(summary.nextAmount, summary.currency)}
                 </div>
@@ -305,7 +306,7 @@ export default function BillingPage() {
                   ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
                   : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700'
               }`}>
-                <div className="text-sm text-gray-500 dark:text-gray-400 mb-1">Total a payer</div>
+                <div className="text-sm text-gray-500 dark:text-gray-400 mb-1">{t('billing.totalDue')}</div>
                 <div className={`text-2xl font-bold ${
                   summary.totalDue > 0
                     ? 'text-red-600 dark:text-red-400'
@@ -321,7 +322,7 @@ export default function BillingPage() {
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
             <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                Historique des factures
+                {t('billing.invoiceHistory')}
               </h2>
             </div>
 
@@ -333,10 +334,10 @@ export default function BillingPage() {
               <div className="text-center py-12">
                 <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                 <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-                  Aucune facture
+                  {t('billing.noInvoices')}
                 </h3>
                 <p className="text-gray-500 dark:text-gray-400">
-                  Les factures apparaitront ici une fois generees.
+                  {t('billing.invoicesWillAppear')}
                 </p>
               </div>
             ) : (
@@ -345,27 +346,28 @@ export default function BillingPage() {
                   <thead className="bg-gray-50 dark:bg-gray-900/50">
                     <tr>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                        Facture
+                        {t('billing.invoice')}
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                        Periode
+                        {t('billing.period')}
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                        Montant
+                        {t('billing.amount')}
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                        Echeance
+                        {t('billing.dueDate')}
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                        Statut
+                        {t('billing.status')}
                       </th>
                       <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                        Actions
+                        {t('billing.actions')}
                       </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                     {invoices.map((invoice) => {
+                      const statusConfig = getStatusConfig(t);
                       const status = statusConfig[invoice.status];
                       const StatusIcon = status.icon;
                       const isPending = invoice.status === 'pending' || invoice.status === 'overdue';
@@ -385,7 +387,7 @@ export default function BillingPage() {
                               {formatDate(invoice.periodStart)}
                             </div>
                             <div className="text-xs text-gray-500 dark:text-gray-400">
-                              au {formatDate(invoice.periodEnd)}
+                              {t('billing.to')} {formatDate(invoice.periodEnd)}
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
@@ -399,7 +401,7 @@ export default function BillingPage() {
                             </div>
                             {invoice.paidAt && (
                               <div className="text-xs text-green-600 dark:text-green-400">
-                                Payee le {formatDate(invoice.paidAt)}
+                                {t('billing.paidOn')} {formatDate(invoice.paidAt)}
                               </div>
                             )}
                           </td>
@@ -417,12 +419,12 @@ export default function BillingPage() {
                                   className="inline-flex items-center px-3 py-1.5 bg-primary-600 text-white text-xs font-medium rounded-lg hover:bg-primary-700 transition-colors"
                                 >
                                   <CreditCard className="w-3 h-3 mr-1" />
-                                  Payer
+                                  {t('billing.pay')}
                                 </button>
                               )}
                               <button
                                 className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
-                                title="Telecharger"
+                                title={t('billing.download')}
                               >
                                 <Download className="w-4 h-4" />
                               </button>
@@ -444,13 +446,13 @@ export default function BillingPage() {
                 <Calendar className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5 mr-3" />
                 <div>
                   <h4 className="text-sm font-medium text-blue-900 dark:text-blue-100">
-                    Periode de facturation actuelle
+                    {t('billing.billingPeriod')}
                   </h4>
                   <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
-                    Du {formatDate(summary.billingPeriod.start)} au {formatDate(summary.billingPeriod.end)}
+                    {t('billing.from')} {formatDate(summary.billingPeriod.start)} {t('billing.to')} {formatDate(summary.billingPeriod.end)}
                   </p>
                   <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
-                    Les quotas sont reinitialises apres le paiement de la facture.
+                    {t('billing.quotasReset')}
                   </p>
                 </div>
               </div>

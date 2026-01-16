@@ -712,6 +712,7 @@ export class SimpleConversationService implements OnModuleDestroy {
 
       // Get all contacts for enrichment (if we have a sessionId)
       let contactsMap = new Map<string, WhatsAppContact>();
+      let contactsByLid = new Map<string, WhatsAppContact>();
       if (sessionId) {
         try {
           const contacts = await this.contactRepository.find({
@@ -724,9 +725,19 @@ export class SimpleConversationService implements OnModuleDestroy {
               if (!contact.phoneNumber.startsWith('+')) {
                 contactsMap.set(`+${contact.phoneNumber}`, contact);
               }
+              // Also map without + prefix
+              if (contact.phoneNumber.startsWith('+')) {
+                contactsMap.set(contact.phoneNumber.substring(1), contact);
+              }
+            }
+            // Also index by LID for LID-based lookups
+            if (contact.lid) {
+              contactsByLid.set(contact.lid, contact);
+              // Also try without any prefix
+              contactsByLid.set(contact.lid.replace(/^lid_?/i, ''), contact);
             }
           });
-          this.logger.debug(`Loaded ${contacts.length} contacts for enrichment`);
+          this.logger.debug(`Loaded ${contacts.length} contacts for enrichment (${contactsByLid.size} with LID)`);
         } catch (error) {
           this.logger.debug(`Could not load contacts for enrichment: ${error.message}`);
         }
@@ -743,12 +754,29 @@ export class SimpleConversationService implements OnModuleDestroy {
           const normalizedPhone = this.normalizePhoneNumber(rawPhone);
 
           // Try to get contact info for this phone number
-          const contact = contactsMap.get(normalizedPhone) ||
+          let contact = contactsMap.get(normalizedPhone) ||
             contactsMap.get(`+${normalizedPhone}`) ||
             contactsMap.get(normalizedPhone.replace(/^\+/, ''));
 
+          // If phone looks like a LID, also try to look up by LID
+          if (!contact && this.isLikelyLID(normalizedPhone)) {
+            const lidValue = normalizedPhone.replace(/^lid_?/i, '');
+            contact = contactsByLid.get(lidValue) ||
+              contactsByLid.get(normalizedPhone) ||
+              contactsByLid.get(`lid_${lidValue}`);
+          }
+
           // Format display name properly
           let displayName;
+          let resolvedPhone = normalizedPhone;
+
+          // If we found a contact, try to get a better phone number from it
+          if (contact) {
+            // Use contact's phone number if it's better than what we have
+            if (contact.phoneNumber && !this.isLikelyLID(contact.phoneNumber)) {
+              resolvedPhone = contact.phoneNumber;
+            }
+          }
 
           // First priority: contact name from WhatsApp contacts
           if (contact?.name || contact?.pushName || contact?.shortName) {
@@ -760,11 +788,11 @@ export class SimpleConversationService implements OnModuleDestroy {
                    !this.isLikelyLID(dbConv.context.userProfile.name)) {
             displayName = dbConv.context.userProfile.name;
           }
-          // Third priority: phone number if it's valid (not a LID)
-          else if (normalizedPhone && !this.isLikelyLID(normalizedPhone)) {
-            displayName = normalizedPhone.startsWith("+")
-              ? normalizedPhone
-              : `+${normalizedPhone}`;
+          // Third priority: resolved phone number if it's valid (not a LID)
+          else if (resolvedPhone && !this.isLikelyLID(resolvedPhone)) {
+            displayName = resolvedPhone.startsWith("+")
+              ? resolvedPhone
+              : `+${resolvedPhone}`;
           }
           // Fallback for LIDs or unknown
           else {

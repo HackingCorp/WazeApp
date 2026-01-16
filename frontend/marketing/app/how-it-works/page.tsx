@@ -182,7 +182,7 @@ export default function HowItWorksPage() {
                 </Button>
               </Link>
               <Link href="#demo">
-                <Button size="lg" variant="outline" className="w-full sm:w-auto border-white text-white hover:bg-white hover:text-primary">
+                <Button size="lg" variant="outline" className="w-full sm:w-auto border-white text-white bg-transparent hover:bg-white hover:text-primary">
                   Try Demo
                 </Button>
               </Link>

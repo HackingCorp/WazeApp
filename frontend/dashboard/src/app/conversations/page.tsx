@@ -112,16 +112,44 @@ export default function ConversationsPage() {
     }
   };
 
-  // Helper function to get contact from map
-  const getContactFromMap = (phoneNumber: string): any | null => {
-    if (!phoneNumber) return null;
-
-    // Clean phone number for lookup
-    const cleanPhone = phoneNumber
+  // Helper function to clean phone number
+  const cleanPhoneForLookup = (phoneNumber: string): string => {
+    if (!phoneNumber) return '';
+    return phoneNumber
       .replace(/@s\.whatsapp\.net$/i, '')
       .replace(/@lid$/i, '')
       .replace(/@c\.us$/i, '')
       .replace(/@g\.us$/i, '');
+  };
+
+  // Check if a phone number looks like a valid phone (not a LID)
+  const isLikelyValidPhone = (phone: string): boolean => {
+    if (!phone) return false;
+    const cleaned = cleanPhoneForLookup(phone);
+
+    // LID identifiers typically start with lid_ or are very long
+    if (cleaned.startsWith('lid_') || cleaned.startsWith('lid')) {
+      return false;
+    }
+
+    // Extract only digits
+    const digitsOnly = cleaned.replace(/\D/g, '');
+
+    // Valid international phone numbers are typically 7-13 digits
+    // LIDs are usually 14+ digits
+    if (digitsOnly.length > 13) {
+      return false;
+    }
+
+    // Check for reasonable phone number pattern
+    return /^\+?[1-9]\d{6,12}$/.test(cleaned);
+  };
+
+  // Helper function to get contact from map
+  const getContactFromMap = (phoneNumber: string): any | null => {
+    if (!phoneNumber) return null;
+
+    const cleanPhone = cleanPhoneForLookup(phoneNumber);
 
     // Try to find contact in our map
     return contactsMap[cleanPhone] || contactsMap[`+${cleanPhone}`] || contactsMap[cleanPhone.replace(/^\+/, '')] || null;
@@ -129,21 +157,25 @@ export default function ConversationsPage() {
 
   // Helper function to get contact display name
   const getContactDisplayName = (phoneNumber: string): string => {
-    if (!phoneNumber) return 'Unknown';
+    if (!phoneNumber) return 'Contact WhatsApp';
 
     const contact = getContactFromMap(phoneNumber);
-    const cleanPhone = phoneNumber
-      .replace(/@s\.whatsapp\.net$/i, '')
-      .replace(/@lid$/i, '')
-      .replace(/@c\.us$/i, '')
-      .replace(/@g\.us$/i, '');
+    const cleanPhone = cleanPhoneForLookup(phoneNumber);
 
     if (contact) {
-      return contact.name || contact.pushName || contact.shortName || cleanPhone;
+      // Return contact name if available, otherwise check if phone is valid
+      if (contact.name || contact.pushName || contact.shortName) {
+        return contact.name || contact.pushName || contact.shortName;
+      }
     }
 
-    // Format phone number nicely if no contact found
-    return cleanPhone.startsWith('+') ? cleanPhone : `+${cleanPhone}`;
+    // Only show phone number if it looks like a valid phone, not a LID
+    if (isLikelyValidPhone(cleanPhone)) {
+      return cleanPhone.startsWith('+') ? cleanPhone : `+${cleanPhone}`;
+    }
+
+    // For LIDs or invalid numbers, return a generic placeholder
+    return 'Contact WhatsApp';
   };
 
   // Helper function to get contact profile picture URL
@@ -181,27 +213,8 @@ export default function ConversationsPage() {
             .replace(/@g\.us$/i, '');
         };
 
-        // Check if phone number is a valid phone (not a LID or internal ID)
-        const isValidPhoneNumber = (phone: string): boolean => {
-          if (!phone) return false;
-          const cleaned = cleanPhoneNumber(phone);
-
-          // LID identifiers are typically very long (16+ digits) or start with lid_
-          if (cleaned.startsWith('lid_') || cleaned.startsWith('lid')) {
-            return false;
-          }
-
-          // Valid phone numbers: 7-15 digits total (including country code)
-          // Most country codes are 1-3 digits, followed by 6-12 digit subscriber numbers
-          const phoneRegex = /^\+?[1-9]\d{6,13}$/;
-
-          // Extra check: if the number is longer than 15 digits, it's likely a LID
-          if (cleaned.replace(/\D/g, '').length > 15) {
-            return false;
-          }
-
-          return phoneRegex.test(cleaned);
-        };
+        // Use the shared validation function for phone numbers
+        const isValidPhoneNumber = isLikelyValidPhone;
 
         // Format phone number for display, hide invalid/LID numbers
         const formatPhoneForDisplay = (phone: string): string => {

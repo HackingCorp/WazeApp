@@ -116,6 +116,7 @@ services:
       MICROSOFT_CLIENT_ID: "disabled"
       MICROSOFT_CLIENT_SECRET: "disabled"
       DEEPSEEK_API_KEY: "disabled"
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
     volumes:
       - ./backend/whatsapp-sessions:/app/whatsapp-sessions
       - ./backend/uploads:/app/uploads

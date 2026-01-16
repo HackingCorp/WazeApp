@@ -390,7 +390,7 @@ export function ConversationInterface({
   return (
     <div className="flex h-full overflow-hidden bg-gray-100 dark:bg-gray-900">
       {/* Contacts Sidebar */}
-      <div className="w-[340px] h-full bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col overflow-hidden">
+      <div className="w-[340px] h-full bg-white dark:bg-gray-800 flex flex-col overflow-hidden shadow-sm">
         {/* Sidebar Header */}
         <div className="p-4 bg-emerald-600 dark:bg-emerald-700">
           <div className="flex items-center justify-between mb-4">
@@ -410,7 +410,7 @@ export function ConversationInterface({
               placeholder="Search contacts..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 bg-white/10 border border-white/20 rounded-xl text-white placeholder-emerald-200 focus:outline-none focus:bg-white/20 focus:border-white/30 transition-colors"
+              className="w-full pl-10 pr-4 py-2.5 bg-white/10 rounded-xl text-white placeholder-emerald-200 focus:outline-none focus:bg-white/20 transition-colors"
             />
           </div>
         </div>

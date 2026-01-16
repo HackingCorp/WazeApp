@@ -388,7 +388,7 @@ export function ConversationInterface({
   );
 
   return (
-    <div className="flex h-full overflow-hidden bg-gray-100 dark:bg-gray-900">
+    <div className="flex h-full overflow-hidden">
       {/* Contacts Sidebar */}
       <div className="w-[340px] h-full bg-white dark:bg-gray-800 flex flex-col overflow-hidden shadow-sm">
         {/* Sidebar Header */}
@@ -438,7 +438,7 @@ export function ConversationInterface({
       </div>
 
       {/* Chat Area */}
-      <div className="flex-1 flex flex-col h-full overflow-hidden">
+      <div className="flex-1 flex flex-col h-full overflow-hidden bg-white dark:bg-gray-800">
         {selectedContact ? (
           <>
             {/* Chat Header */}

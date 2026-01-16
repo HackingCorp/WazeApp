@@ -68,13 +68,18 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     );
   }
 
+  // Full-width pages like conversations don't need gradient background
+  const isFullWidthPage = pathname === '/conversations';
+
   return (
-    <div className="h-screen flex overflow-hidden bg-gradient-to-b from-green-50 to-white dark:from-green-950/20 dark:to-gray-900 relative">
-      {/* Background decoration */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-0 -left-4 w-72 h-72 bg-green-200/30 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-pulse"></div>
-        <div className="absolute -bottom-8 -right-4 w-96 h-96 bg-emerald-200/20 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-pulse" style={{animationDelay: '2s'}}></div>
-      </div>
+    <div className={`h-screen flex overflow-hidden relative ${isFullWidthPage ? 'bg-white dark:bg-gray-900' : 'bg-gradient-to-b from-green-50 to-white dark:from-green-950/20 dark:to-gray-900'}`}>
+      {/* Background decoration - only show on pages with gradient */}
+      {!isFullWidthPage && (
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute top-0 -left-4 w-72 h-72 bg-green-200/30 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-pulse"></div>
+          <div className="absolute -bottom-8 -right-4 w-96 h-96 bg-emerald-200/20 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-pulse" style={{animationDelay: '2s'}}></div>
+        </div>
+      )}
       {/* Mobile menu */}
       <MobileMenu 
         isOpen={sidebarOpen}
@@ -91,22 +96,31 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
       {/* Main content area */}
       <div className="flex flex-col w-0 flex-1 overflow-hidden relative z-10">
-        {/* Header */}
-        <Header 
-          onMobileMenuToggle={() => setSidebarOpen(true)}
-          sidebarCollapsed={sidebarCollapsed}
-        />
+        {/* Header - hide on full-width pages like conversations */}
+        {pathname !== '/conversations' && (
+          <Header
+            onMobileMenuToggle={() => setSidebarOpen(true)}
+            sidebarCollapsed={sidebarCollapsed}
+          />
+        )}
 
         {/* Main content */}
         <main className="flex-1 relative overflow-y-auto focus:outline-none">
-          <div className="py-6">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8">
-              {/* Page content */}
-              <div className="animate-fade-in">
-                {children}
+          {/* Full-width pages without padding (like conversations) */}
+          {pathname === '/conversations' ? (
+            <div className="h-full">
+              {children}
+            </div>
+          ) : (
+            <div className="py-6">
+              <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8">
+                {/* Page content */}
+                <div className="animate-fade-in">
+                  {children}
+                </div>
               </div>
             </div>
-          </div>
+          )}
         </main>
       </div>
 

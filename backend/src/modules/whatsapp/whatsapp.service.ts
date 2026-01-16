@@ -1545,13 +1545,11 @@ export class WhatsAppService {
         // If still no phone, try to resolve via Baileys lidMapping
         if (!phoneNumber && lid) {
           try {
-            const sessionId = contact.sessionId; // May be passed from event handler
-            if (sessionId) {
-              const resolved = await this.baileysService.resolveLidToPhoneNumber(sessionId, lid);
-              if (resolved) {
-                phoneNumber = resolved;
-                this.logger.log(`Resolved LID ${lid} to phone ${phoneNumber} during contact upsert`);
-              }
+            // Use the sessionId parameter passed to this function, not contact.sessionId
+            const resolved = await this.baileysService.resolveLidToPhoneNumber(sessionId, lid);
+            if (resolved) {
+              phoneNumber = resolved;
+              this.logger.log(`Resolved LID ${lid} to phone ${phoneNumber} during contact upsert`);
             }
           } catch (error) {
             this.logger.debug(`Could not resolve LID during upsert: ${error.message}`);

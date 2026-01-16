@@ -317,8 +317,17 @@ export class SimpleConversationService implements OnModuleDestroy {
         }
         content = `[${messageType}]`; // Placeholder content for media
       } else if (isMediaMessage) {
-        // Media message but no data URL - might be a caption or placeholder
-        content = messageText || `[${messageType}]`;
+        // Media message but no data URL - set mediaType anyway for proper frontend display
+        // The caption or placeholder text might be in messageText
+        mediaType = `${messageType}/*`; // e.g., "image/*", "video/*", etc.
+
+        // If messageText looks like a caption (not a placeholder), save it as caption
+        if (messageText && !messageText.startsWith('[') && messageText !== 'Media message') {
+          mediaCaption = messageText;
+          content = `[${messageType}]`; // Placeholder content since we have a caption
+        } else {
+          content = messageText || `[${messageType}]`;
+        }
       }
 
       const message: MessageData = {
@@ -555,10 +564,22 @@ export class SimpleConversationService implements OnModuleDestroy {
         : phoneNumber;
       displayName = `📱 Group ${groupId}`;
     } else {
-      // For individual chats, use the normalized phone number as display name
-      displayName = normalizedPhone.startsWith("+")
-        ? normalizedPhone
-        : `+${normalizedPhone}`;
+      // Check if this looks like a LID (too many digits for a real phone number)
+      // Real international phone numbers are typically 7-13 digits
+      const digitsOnly = normalizedPhone.replace(/\D/g, '');
+      const isLikelyLID = normalizedPhone.startsWith('lid_') ||
+        normalizedPhone.startsWith('lid') ||
+        digitsOnly.length > 13;
+
+      if (isLikelyLID) {
+        // This is likely a LID, use a generic name
+        displayName = 'Contact WhatsApp';
+      } else {
+        // For individual chats with real phone numbers, use the normalized phone number as display name
+        displayName = normalizedPhone.startsWith("+")
+          ? normalizedPhone
+          : `+${normalizedPhone}`;
+      }
     }
 
     const conversation: ConversationData = {
@@ -821,15 +842,25 @@ export class SimpleConversationService implements OnModuleDestroy {
         const key = `${conv.userId}-${normalizedPhone}`;
         const existing = phoneGroups.get(key);
         if (!existing || conv.lastMessageTime > existing.lastMessageTime) {
+          // Format display name - keep existing name if it's good, otherwise derive from phone
+          let displayName = conv.name;
+
+          // Only update name if it looks like a phone number we should reformat or is a LID
+          if (displayName === normalizedPhone || displayName === `+${normalizedPhone}` || this.isLikelyLID(displayName)) {
+            if (this.isLikelyLID(normalizedPhone)) {
+              displayName = "Contact WhatsApp";
+            } else {
+              displayName = normalizedPhone.startsWith("+")
+                ? normalizedPhone
+                : `+${normalizedPhone}`;
+            }
+          }
+
           // Update the conversation to use normalized phone number for consistent display
           phoneGroups.set(key, {
             ...conv,
             phoneNumber: normalizedPhone,
-            name: conv.name.includes(normalizedPhone)
-              ? conv.name
-              : normalizedPhone.startsWith("+")
-                ? normalizedPhone
-                : `+${normalizedPhone}`,
+            name: displayName,
           });
         }
       });
@@ -1048,14 +1079,24 @@ export class SimpleConversationService implements OnModuleDestroy {
         const normalizedPhone = this.normalizePhoneNumber(
           dbConversation.externalId || "",
         );
-        const displayName = normalizedPhone.startsWith("+")
-          ? normalizedPhone
-          : `+${normalizedPhone}`;
+
+        // Format display name - check if context name is valid or if phone is a LID
+        let displayName;
+        const contextName = dbConversation.context?.userProfile?.name;
+        if (contextName && !this.isLikelyLID(contextName) && contextName !== normalizedPhone) {
+          displayName = contextName;
+        } else if (!this.isLikelyLID(normalizedPhone)) {
+          displayName = normalizedPhone.startsWith("+")
+            ? normalizedPhone
+            : `+${normalizedPhone}`;
+        } else {
+          displayName = "Contact WhatsApp";
+        }
 
         const conversationData: ConversationData = {
           id: dbConversation.id,
           phoneNumber: normalizedPhone, // Store normalized phone number
-          name: dbConversation.context?.userProfile?.name || displayName,
+          name: displayName,
           lastMessage: lastMessage?.content || "",
           lastMessageTime: lastMessage?.createdAt || dbConversation.updatedAt,
           unreadCount:

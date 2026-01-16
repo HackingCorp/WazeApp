@@ -275,16 +275,203 @@ export const translations = {
     blogPost1Title: "5 Ways WhatsApp AI Can Transform Your Customer Service",
     blogPost1Excerpt: "Discover how AI-powered WhatsApp automation can reduce response times and improve customer satisfaction.",
     blogPost1Date: "January 15, 2025",
+    blogPost1Content: `## Introduction
+
+In today's fast-paced digital world, customer expectations are higher than ever. They want instant responses, 24/7 availability, and personalized interactions. WhatsApp AI is revolutionizing how businesses meet these demands.
+
+## 1. Instant Response Times
+
+With AI-powered WhatsApp automation, your business can respond to customer queries within seconds, not hours. This immediate engagement significantly improves customer satisfaction and reduces abandonment rates.
+
+**Key benefits:**
+- 24/7 availability without additional staff
+- Consistent response quality
+- Reduced wait times from hours to seconds
+
+## 2. Personalized Customer Interactions
+
+AI can analyze customer history and preferences to deliver personalized responses. Each interaction feels tailored to the individual customer, building stronger relationships.
+
+## 3. Seamless Escalation to Human Agents
+
+When complex issues arise, AI can intelligently escalate conversations to human agents with full context, ensuring smooth handoffs and faster resolution.
+
+## 4. Multi-language Support
+
+Break language barriers with AI that can communicate in over 100 languages, expanding your reach to global markets without hiring multilingual staff.
+
+## 5. Data-Driven Insights
+
+AI captures and analyzes every interaction, providing valuable insights into customer behavior, common issues, and opportunities for improvement.
+
+## Conclusion
+
+WhatsApp AI isn't just a trend—it's the future of customer service. Businesses that adopt this technology now will have a significant competitive advantage in the years to come.
+
+Ready to transform your customer service? Start your free trial today.`,
 
     // Blog Post 2
     blogPost2Title: "Getting Started with WhatsApp Business API",
     blogPost2Excerpt: "A comprehensive guide to setting up and optimizing your WhatsApp Business API for maximum engagement.",
     blogPost2Date: "January 10, 2025",
+    blogPost2Content: `## What is WhatsApp Business API?
+
+The WhatsApp Business API allows medium and large businesses to communicate with customers at scale. Unlike the WhatsApp Business App, the API enables automation, integration with existing systems, and handling of high message volumes.
+
+## Prerequisites
+
+Before getting started, you'll need:
+
+1. A verified Facebook Business account
+2. A phone number dedicated to WhatsApp Business
+3. A technical team or platform like WazeApp to handle the integration
+
+## Step 1: Choose Your Integration Method
+
+There are two main approaches:
+
+### Direct API Access
+- More control and customization
+- Requires technical expertise
+- Higher setup complexity
+
+### Business Solution Provider (BSP)
+- Faster setup
+- Managed infrastructure
+- Built-in compliance and support
+
+**WazeApp provides a complete BSP solution**, handling all the technical complexity so you can focus on engaging with your customers.
+
+## Step 2: Set Up Your Business Profile
+
+Your WhatsApp Business profile is your digital storefront. Include:
+
+- Business name and description
+- Contact information
+- Business hours
+- Website link
+- Profile picture
+
+## Step 3: Create Message Templates
+
+For outbound messaging, you'll need approved message templates. Tips for approval:
+
+- Keep messages clear and professional
+- Include a clear call-to-action
+- Avoid promotional language in transactional templates
+- Use proper grammar and formatting
+
+## Step 4: Implement AI Automation
+
+With WazeApp, you can:
+
+- Set up AI agents to handle common queries
+- Create knowledge bases for accurate responses
+- Configure escalation rules for complex issues
+- Monitor performance with analytics
+
+## Best Practices
+
+1. **Respect opt-in requirements** - Only message users who have consented
+2. **Respond quickly** - Aim for under 5-minute response times
+3. **Be helpful, not spammy** - Focus on value, not volume
+4. **Use rich media** - Images and documents improve engagement
+5. **Track metrics** - Monitor response rates and satisfaction scores
+
+## Conclusion
+
+The WhatsApp Business API is a powerful tool for customer engagement. With the right setup and strategy, you can transform how your business communicates with customers.
+
+Get started with WazeApp and have your WhatsApp AI running in minutes.`,
 
     // Blog Post 3
     blogPost3Title: "The Future of Conversational AI in Business",
     blogPost3Excerpt: "Explore upcoming trends in conversational AI and how they'll shape business communication in 2025.",
-    blogPost3Date: "January 5, 2025"
+    blogPost3Date: "January 5, 2025",
+    blogPost3Content: `## The Evolution of Conversational AI
+
+Conversational AI has come a long way from simple chatbots that could only handle basic FAQs. Today's AI assistants can understand context, maintain conversations, and even detect emotions.
+
+## Key Trends for 2025
+
+### 1. Multimodal AI
+
+Future AI won't just understand text—it will seamlessly process:
+
+- Voice messages and audio
+- Images and videos
+- Documents and files
+- Location and context data
+
+WazeApp already supports **audio transcription** and **image analysis**, putting you ahead of the curve.
+
+### 2. Hyper-Personalization
+
+AI will leverage customer data to deliver increasingly personalized experiences:
+
+- Remembering past interactions
+- Anticipating customer needs
+- Adapting communication style
+- Offering proactive support
+
+### 3. Emotional Intelligence
+
+Next-generation AI will better understand and respond to emotional cues:
+
+- Detecting frustration or satisfaction
+- Adjusting tone accordingly
+- Knowing when to escalate to humans
+- Building genuine rapport
+
+### 4. Seamless Human-AI Collaboration
+
+The future isn't AI replacing humans—it's AI augmenting human capabilities:
+
+- AI handles routine tasks
+- Humans focus on complex issues
+- Smooth handoffs between both
+- Continuous learning from human feedback
+
+### 5. Privacy-First Design
+
+As AI becomes more powerful, privacy concerns grow. Future AI will feature:
+
+- On-device processing
+- Data minimization
+- Transparent AI decisions
+- User control over data
+
+## Impact on Business Communication
+
+### Customer Service
+- Instant resolution for 80%+ of queries
+- Proactive outreach based on behavior
+- Consistent quality across all channels
+
+### Sales
+- AI-qualified leads
+- Personalized product recommendations
+- Automated follow-ups
+
+### Marketing
+- Conversational campaigns
+- Interactive content delivery
+- Real-time engagement analytics
+
+## Preparing Your Business
+
+To stay competitive, businesses should:
+
+1. **Start now** - Early adopters gain advantages
+2. **Build knowledge bases** - AI is only as good as its training data
+3. **Invest in integration** - Connect AI to your existing systems
+4. **Monitor and improve** - Continuously refine your AI's performance
+
+## Conclusion
+
+The future of business communication is conversational, intelligent, and available 24/7. Companies that embrace this transformation will thrive; those that don't risk being left behind.
+
+Ready to future-proof your business? Try WazeApp free and experience the future today.`
   },
   fr: {
     // Navigation
@@ -560,16 +747,203 @@ export const translations = {
     blogPost1Title: "5 Façons Dont l'IA WhatsApp Peut Transformer Votre Service Client",
     blogPost1Excerpt: "Découvrez comment l'automatisation WhatsApp alimentée par IA peut réduire les temps de réponse et améliorer la satisfaction client.",
     blogPost1Date: "15 Janvier 2025",
+    blogPost1Content: `## Introduction
+
+Dans le monde numérique actuel en constante évolution, les attentes des clients sont plus élevées que jamais. Ils veulent des réponses instantanées, une disponibilité 24h/24 et des interactions personnalisées. L'IA WhatsApp révolutionne la façon dont les entreprises répondent à ces exigences.
+
+## 1. Temps de Réponse Instantanés
+
+Avec l'automatisation WhatsApp alimentée par IA, votre entreprise peut répondre aux demandes des clients en quelques secondes, et non en heures. Cet engagement immédiat améliore considérablement la satisfaction client et réduit les taux d'abandon.
+
+**Avantages clés :**
+- Disponibilité 24h/24 sans personnel supplémentaire
+- Qualité de réponse constante
+- Temps d'attente réduits de plusieurs heures à quelques secondes
+
+## 2. Interactions Client Personnalisées
+
+L'IA peut analyser l'historique et les préférences des clients pour fournir des réponses personnalisées. Chaque interaction semble adaptée au client individuel, renforçant les relations.
+
+## 3. Escalade Transparente vers les Agents Humains
+
+Lorsque des problèmes complexes surviennent, l'IA peut intelligemment escalader les conversations vers des agents humains avec un contexte complet, assurant des transferts fluides et une résolution plus rapide.
+
+## 4. Support Multilingue
+
+Brisez les barrières linguistiques avec une IA capable de communiquer dans plus de 100 langues, étendant votre portée aux marchés mondiaux sans embaucher de personnel multilingue.
+
+## 5. Insights Basés sur les Données
+
+L'IA capture et analyse chaque interaction, fournissant des insights précieux sur le comportement des clients, les problèmes courants et les opportunités d'amélioration.
+
+## Conclusion
+
+L'IA WhatsApp n'est pas qu'une tendance — c'est l'avenir du service client. Les entreprises qui adoptent cette technologie maintenant auront un avantage concurrentiel significatif dans les années à venir.
+
+Prêt à transformer votre service client ? Commencez votre essai gratuit dès aujourd'hui.`,
 
     // Blog Post 2
     blogPost2Title: "Débuter avec l'API WhatsApp Business",
     blogPost2Excerpt: "Un guide complet pour configurer et optimiser votre API WhatsApp Business pour un engagement maximal.",
     blogPost2Date: "10 Janvier 2025",
+    blogPost2Content: `## Qu'est-ce que l'API WhatsApp Business ?
+
+L'API WhatsApp Business permet aux moyennes et grandes entreprises de communiquer avec leurs clients à grande échelle. Contrairement à l'application WhatsApp Business, l'API permet l'automatisation, l'intégration avec les systèmes existants et la gestion de volumes de messages élevés.
+
+## Prérequis
+
+Avant de commencer, vous aurez besoin de :
+
+1. Un compte Facebook Business vérifié
+2. Un numéro de téléphone dédié à WhatsApp Business
+3. Une équipe technique ou une plateforme comme WazeApp pour gérer l'intégration
+
+## Étape 1 : Choisissez Votre Méthode d'Intégration
+
+Il existe deux approches principales :
+
+### Accès Direct à l'API
+- Plus de contrôle et de personnalisation
+- Nécessite une expertise technique
+- Complexité de configuration plus élevée
+
+### Fournisseur de Solutions Business (BSP)
+- Configuration plus rapide
+- Infrastructure gérée
+- Conformité et support intégrés
+
+**WazeApp fournit une solution BSP complète**, gérant toute la complexité technique pour que vous puissiez vous concentrer sur l'engagement avec vos clients.
+
+## Étape 2 : Configurez Votre Profil Business
+
+Votre profil WhatsApp Business est votre vitrine numérique. Incluez :
+
+- Nom et description de l'entreprise
+- Coordonnées
+- Heures d'ouverture
+- Lien du site web
+- Photo de profil
+
+## Étape 3 : Créez des Modèles de Messages
+
+Pour les messages sortants, vous aurez besoin de modèles de messages approuvés. Conseils pour l'approbation :
+
+- Gardez les messages clairs et professionnels
+- Incluez un appel à l'action clair
+- Évitez le langage promotionnel dans les modèles transactionnels
+- Utilisez une grammaire et un formatage corrects
+
+## Étape 4 : Implémentez l'Automatisation IA
+
+Avec WazeApp, vous pouvez :
+
+- Configurer des agents IA pour gérer les demandes courantes
+- Créer des bases de connaissances pour des réponses précises
+- Configurer des règles d'escalade pour les problèmes complexes
+- Surveiller les performances avec des analyses
+
+## Meilleures Pratiques
+
+1. **Respectez les exigences d'opt-in** - N'envoyez des messages qu'aux utilisateurs qui ont consenti
+2. **Répondez rapidement** - Visez des temps de réponse inférieurs à 5 minutes
+3. **Soyez utile, pas spammeur** - Concentrez-vous sur la valeur, pas le volume
+4. **Utilisez des médias riches** - Les images et documents améliorent l'engagement
+5. **Suivez les métriques** - Surveillez les taux de réponse et les scores de satisfaction
+
+## Conclusion
+
+L'API WhatsApp Business est un outil puissant pour l'engagement client. Avec la bonne configuration et stratégie, vous pouvez transformer la façon dont votre entreprise communique avec ses clients.
+
+Commencez avec WazeApp et ayez votre IA WhatsApp opérationnelle en quelques minutes.`,
 
     // Blog Post 3
     blogPost3Title: "L'Avenir de l'IA Conversationnelle en Entreprise",
     blogPost3Excerpt: "Explorez les tendances à venir de l'IA conversationnelle et comment elles façonneront la communication d'entreprise en 2025.",
-    blogPost3Date: "5 Janvier 2025"
+    blogPost3Date: "5 Janvier 2025",
+    blogPost3Content: `## L'Évolution de l'IA Conversationnelle
+
+L'IA conversationnelle a parcouru un long chemin depuis les simples chatbots qui ne pouvaient gérer que des FAQ basiques. Les assistants IA d'aujourd'hui peuvent comprendre le contexte, maintenir des conversations et même détecter les émotions.
+
+## Tendances Clés pour 2025
+
+### 1. IA Multimodale
+
+L'IA future ne comprendra pas seulement le texte — elle traitera de manière transparente :
+
+- Messages vocaux et audio
+- Images et vidéos
+- Documents et fichiers
+- Données de localisation et de contexte
+
+WazeApp supporte déjà la **transcription audio** et **l'analyse d'images**, vous mettant en avance sur la courbe.
+
+### 2. Hyper-Personnalisation
+
+L'IA exploitera les données clients pour offrir des expériences de plus en plus personnalisées :
+
+- Mémorisation des interactions passées
+- Anticipation des besoins clients
+- Adaptation du style de communication
+- Offre de support proactif
+
+### 3. Intelligence Émotionnelle
+
+L'IA de nouvelle génération comprendra et répondra mieux aux signaux émotionnels :
+
+- Détection de la frustration ou de la satisfaction
+- Ajustement du ton en conséquence
+- Savoir quand escalader vers les humains
+- Construction d'un rapport authentique
+
+### 4. Collaboration Humain-IA Transparente
+
+L'avenir n'est pas l'IA remplaçant les humains — c'est l'IA augmentant les capacités humaines :
+
+- L'IA gère les tâches routinières
+- Les humains se concentrent sur les problèmes complexes
+- Transferts fluides entre les deux
+- Apprentissage continu à partir des retours humains
+
+### 5. Conception Axée sur la Confidentialité
+
+À mesure que l'IA devient plus puissante, les préoccupations en matière de confidentialité augmentent. L'IA future présentera :
+
+- Traitement sur l'appareil
+- Minimisation des données
+- Décisions IA transparentes
+- Contrôle utilisateur sur les données
+
+## Impact sur la Communication d'Entreprise
+
+### Service Client
+- Résolution instantanée pour 80%+ des demandes
+- Approche proactive basée sur le comportement
+- Qualité constante sur tous les canaux
+
+### Ventes
+- Leads qualifiés par IA
+- Recommandations de produits personnalisées
+- Suivis automatisés
+
+### Marketing
+- Campagnes conversationnelles
+- Livraison de contenu interactive
+- Analyses d'engagement en temps réel
+
+## Préparer Votre Entreprise
+
+Pour rester compétitives, les entreprises devraient :
+
+1. **Commencer maintenant** - Les premiers adoptants gagnent des avantages
+2. **Construire des bases de connaissances** - L'IA n'est aussi bonne que ses données d'entraînement
+3. **Investir dans l'intégration** - Connecter l'IA à vos systèmes existants
+4. **Surveiller et améliorer** - Affiner continuellement les performances de votre IA
+
+## Conclusion
+
+L'avenir de la communication d'entreprise est conversationnel, intelligent et disponible 24h/24. Les entreprises qui embrassent cette transformation prospéreront ; celles qui ne le font pas risquent d'être laissées pour compte.
+
+Prêt à pérenniser votre entreprise ? Essayez WazeApp gratuitement et expérimentez l'avenir dès aujourd'hui.`
   },
   es: {
     // Navigation
@@ -825,16 +1199,203 @@ export const translations = {
     blogPost1Title: "5 Formas en que la IA de WhatsApp Puede Transformar tu Servicio al Cliente",
     blogPost1Excerpt: "Descubre cómo la automatización de WhatsApp impulsada por IA puede reducir los tiempos de respuesta y mejorar la satisfacción del cliente.",
     blogPost1Date: "15 de Enero de 2025",
+    blogPost1Content: `## Introducción
+
+En el mundo digital actual de ritmo acelerado, las expectativas de los clientes son más altas que nunca. Quieren respuestas instantáneas, disponibilidad 24/7 e interacciones personalizadas. La IA de WhatsApp está revolucionando cómo las empresas satisfacen estas demandas.
+
+## 1. Tiempos de Respuesta Instantáneos
+
+Con la automatización de WhatsApp impulsada por IA, tu negocio puede responder a las consultas de los clientes en segundos, no en horas. Este compromiso inmediato mejora significativamente la satisfacción del cliente y reduce las tasas de abandono.
+
+**Beneficios clave:**
+- Disponibilidad 24/7 sin personal adicional
+- Calidad de respuesta consistente
+- Tiempos de espera reducidos de horas a segundos
+
+## 2. Interacciones Personalizadas con el Cliente
+
+La IA puede analizar el historial y las preferencias del cliente para ofrecer respuestas personalizadas. Cada interacción se siente adaptada al cliente individual, construyendo relaciones más fuertes.
+
+## 3. Escalada Fluida a Agentes Humanos
+
+Cuando surgen problemas complejos, la IA puede escalar inteligentemente las conversaciones a agentes humanos con contexto completo, asegurando transferencias suaves y resolución más rápida.
+
+## 4. Soporte Multilingüe
+
+Rompe las barreras del idioma con una IA que puede comunicarse en más de 100 idiomas, expandiendo tu alcance a mercados globales sin contratar personal multilingüe.
+
+## 5. Insights Basados en Datos
+
+La IA captura y analiza cada interacción, proporcionando insights valiosos sobre el comportamiento del cliente, problemas comunes y oportunidades de mejora.
+
+## Conclusión
+
+La IA de WhatsApp no es solo una tendencia—es el futuro del servicio al cliente. Las empresas que adopten esta tecnología ahora tendrán una ventaja competitiva significativa en los años venideros.
+
+¿Listo para transformar tu servicio al cliente? Comienza tu prueba gratuita hoy.`,
 
     // Blog Post 2
     blogPost2Title: "Comenzando con la API de WhatsApp Business",
     blogPost2Excerpt: "Una guía completa para configurar y optimizar tu API de WhatsApp Business para máximo compromiso.",
     blogPost2Date: "10 de Enero de 2025",
+    blogPost2Content: `## ¿Qué es la API de WhatsApp Business?
+
+La API de WhatsApp Business permite a las medianas y grandes empresas comunicarse con los clientes a escala. A diferencia de la aplicación WhatsApp Business, la API permite la automatización, integración con sistemas existentes y manejo de altos volúmenes de mensajes.
+
+## Requisitos Previos
+
+Antes de comenzar, necesitarás:
+
+1. Una cuenta de Facebook Business verificada
+2. Un número de teléfono dedicado a WhatsApp Business
+3. Un equipo técnico o plataforma como WazeApp para manejar la integración
+
+## Paso 1: Elige tu Método de Integración
+
+Hay dos enfoques principales:
+
+### Acceso Directo a la API
+- Más control y personalización
+- Requiere experiencia técnica
+- Mayor complejidad de configuración
+
+### Proveedor de Soluciones Business (BSP)
+- Configuración más rápida
+- Infraestructura gestionada
+- Cumplimiento y soporte integrados
+
+**WazeApp proporciona una solución BSP completa**, manejando toda la complejidad técnica para que puedas enfocarte en interactuar con tus clientes.
+
+## Paso 2: Configura tu Perfil Business
+
+Tu perfil de WhatsApp Business es tu escaparate digital. Incluye:
+
+- Nombre y descripción del negocio
+- Información de contacto
+- Horario comercial
+- Enlace del sitio web
+- Foto de perfil
+
+## Paso 3: Crea Plantillas de Mensajes
+
+Para mensajes salientes, necesitarás plantillas de mensajes aprobadas. Consejos para la aprobación:
+
+- Mantén los mensajes claros y profesionales
+- Incluye un llamado a la acción claro
+- Evita lenguaje promocional en plantillas transaccionales
+- Usa gramática y formato correctos
+
+## Paso 4: Implementa la Automatización con IA
+
+Con WazeApp, puedes:
+
+- Configurar agentes de IA para manejar consultas comunes
+- Crear bases de conocimiento para respuestas precisas
+- Configurar reglas de escalada para problemas complejos
+- Monitorear el rendimiento con análisis
+
+## Mejores Prácticas
+
+1. **Respeta los requisitos de opt-in** - Solo envía mensajes a usuarios que hayan dado su consentimiento
+2. **Responde rápido** - Apunta a tiempos de respuesta menores a 5 minutos
+3. **Sé útil, no spam** - Enfócate en el valor, no en el volumen
+4. **Usa medios enriquecidos** - Las imágenes y documentos mejoran el engagement
+5. **Rastrea métricas** - Monitorea tasas de respuesta y puntuaciones de satisfacción
+
+## Conclusión
+
+La API de WhatsApp Business es una herramienta poderosa para el engagement con clientes. Con la configuración y estrategia correctas, puedes transformar cómo tu negocio se comunica con los clientes.
+
+Comienza con WazeApp y ten tu IA de WhatsApp funcionando en minutos.`,
 
     // Blog Post 3
     blogPost3Title: "El Futuro de la IA Conversacional en los Negocios",
     blogPost3Excerpt: "Explora las tendencias emergentes en IA conversacional y cómo darán forma a la comunicación empresarial en 2025.",
-    blogPost3Date: "5 de Enero de 2025"
+    blogPost3Date: "5 de Enero de 2025",
+    blogPost3Content: `## La Evolución de la IA Conversacional
+
+La IA conversacional ha recorrido un largo camino desde los simples chatbots que solo podían manejar FAQs básicas. Los asistentes de IA de hoy pueden entender el contexto, mantener conversaciones e incluso detectar emociones.
+
+## Tendencias Clave para 2025
+
+### 1. IA Multimodal
+
+La IA futura no solo entenderá texto—procesará sin problemas:
+
+- Mensajes de voz y audio
+- Imágenes y videos
+- Documentos y archivos
+- Datos de ubicación y contexto
+
+WazeApp ya soporta **transcripción de audio** y **análisis de imágenes**, poniéndote adelante de la curva.
+
+### 2. Hiper-Personalización
+
+La IA aprovechará los datos del cliente para ofrecer experiencias cada vez más personalizadas:
+
+- Recordando interacciones pasadas
+- Anticipando necesidades del cliente
+- Adaptando el estilo de comunicación
+- Ofreciendo soporte proactivo
+
+### 3. Inteligencia Emocional
+
+La IA de próxima generación entenderá y responderá mejor a las señales emocionales:
+
+- Detectando frustración o satisfacción
+- Ajustando el tono en consecuencia
+- Sabiendo cuándo escalar a humanos
+- Construyendo rapport genuino
+
+### 4. Colaboración Humano-IA Fluida
+
+El futuro no es la IA reemplazando humanos—es la IA aumentando las capacidades humanas:
+
+- La IA maneja tareas rutinarias
+- Los humanos se enfocan en problemas complejos
+- Transferencias suaves entre ambos
+- Aprendizaje continuo de la retroalimentación humana
+
+### 5. Diseño con Privacidad Primero
+
+A medida que la IA se vuelve más poderosa, las preocupaciones de privacidad crecen. La IA futura presentará:
+
+- Procesamiento en el dispositivo
+- Minimización de datos
+- Decisiones de IA transparentes
+- Control del usuario sobre los datos
+
+## Impacto en la Comunicación Empresarial
+
+### Servicio al Cliente
+- Resolución instantánea para 80%+ de consultas
+- Alcance proactivo basado en comportamiento
+- Calidad consistente en todos los canales
+
+### Ventas
+- Leads calificados por IA
+- Recomendaciones de productos personalizadas
+- Seguimientos automatizados
+
+### Marketing
+- Campañas conversacionales
+- Entrega de contenido interactivo
+- Análisis de engagement en tiempo real
+
+## Preparando tu Negocio
+
+Para mantenerse competitivas, las empresas deberían:
+
+1. **Empezar ahora** - Los primeros adoptantes ganan ventajas
+2. **Construir bases de conocimiento** - La IA es tan buena como sus datos de entrenamiento
+3. **Invertir en integración** - Conectar la IA a tus sistemas existentes
+4. **Monitorear y mejorar** - Refinar continuamente el rendimiento de tu IA
+
+## Conclusión
+
+El futuro de la comunicación empresarial es conversacional, inteligente y disponible 24/7. Las empresas que abracen esta transformación prosperarán; las que no, corren el riesgo de quedarse atrás.
+
+¿Listo para preparar tu negocio para el futuro? Prueba WazeApp gratis y experimenta el futuro hoy.`
   },
   de: {
     // Navigation

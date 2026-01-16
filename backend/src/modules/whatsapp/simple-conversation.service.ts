@@ -464,12 +464,13 @@ export class SimpleConversationService implements OnModuleDestroy {
 
   /**
    * Normalize phone number to consistent format for comparison
-   * Removes WhatsApp suffixes and ensures consistent formatting
+   * Removes WhatsApp suffixes (including @lid) and ensures consistent formatting
    */
   private normalizePhoneNumber(phoneNumber: string): string {
     return phoneNumber
-      .replace("@s.whatsapp.net", "")
-      .replace("@g.us", "")
+      .replace(/@s\.whatsapp\.net$/i, "")
+      .replace(/@g\.us$/i, "")
+      .replace(/@lid$/i, "")
       .replace(/\s+/g, "")
       .trim();
   }
@@ -728,6 +729,11 @@ export class SimpleConversationService implements OnModuleDestroy {
               // Also map without + prefix
               if (contact.phoneNumber.startsWith('+')) {
                 contactsMap.set(contact.phoneNumber.substring(1), contact);
+              }
+              // If phoneNumber looks like a LID, also index it in contactsByLid
+              if (this.isLikelyLID(contact.phoneNumber)) {
+                contactsByLid.set(contact.phoneNumber, contact);
+                contactsByLid.set(contact.phoneNumber.replace(/^lid_?/i, ''), contact);
               }
             }
             // Also index by LID for LID-based lookups

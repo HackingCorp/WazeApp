@@ -1534,9 +1534,29 @@ export class WhatsAppService {
       let phoneNumber = '';
 
       if (isLidFormat) {
-        // For LID contacts, try to get phone from contact.phone or lidPhone field
-        // Baileys v7 may provide the real phone in different ways
-        phoneNumber = this.cleanPhoneNumber(contact.phone || contact.phoneNumber || '');
+        // For LID contacts, Baileys v7 provides phoneNumber field when id is a LID
+        // Try multiple sources for the real phone number
+        phoneNumber = this.cleanPhoneNumber(
+          contact.phoneNumber || // Baileys v7 puts real phone here when id is LID
+          contact.phone ||
+          ''
+        );
+
+        // If still no phone, try to resolve via Baileys lidMapping
+        if (!phoneNumber && lid) {
+          try {
+            const sessionId = contact.sessionId; // May be passed from event handler
+            if (sessionId) {
+              const resolved = await this.baileysService.resolveLidToPhoneNumber(sessionId, lid);
+              if (resolved) {
+                phoneNumber = resolved;
+                this.logger.log(`Resolved LID ${lid} to phone ${phoneNumber} during contact upsert`);
+              }
+            }
+          } catch (error) {
+            this.logger.debug(`Could not resolve LID during upsert: ${error.message}`);
+          }
+        }
 
         if (!phoneNumber && lid) {
           // If no phone available, use LID as identifier but mark it specially
@@ -1734,13 +1754,33 @@ export class WhatsAppService {
 
       const lid = jid.replace(/@lid$/i, '');
 
-      // Look up contact by LID
+      // Method 1: Try Baileys' lidMapping store (most reliable for v7+)
+      try {
+        const resolvedPhone = await this.baileysService.resolveLidToPhoneNumber(sessionId, lid);
+        if (resolvedPhone && !resolvedPhone.startsWith('lid')) {
+          this.logger.log(`Resolved LID ${lid} to phone ${resolvedPhone} via Baileys lidMapping`);
+
+          // Also update our contact database with this mapping
+          const existingContact = await this.getContactByLid(sessionId, lid);
+          if (existingContact && existingContact.phoneNumber.startsWith('lid_')) {
+            existingContact.phoneNumber = resolvedPhone;
+            await this.contactRepository.save(existingContact);
+            this.logger.log(`Updated contact ${lid} with resolved phone ${resolvedPhone}`);
+          }
+
+          return `${resolvedPhone}@s.whatsapp.net`;
+        }
+      } catch (error) {
+        this.logger.debug(`Baileys lidMapping resolution failed for ${lid}: ${error.message}`);
+      }
+
+      // Method 2: Look up contact by LID in our database
       const contact = await this.getContactByLid(sessionId, lid);
 
       if (contact && contact.phoneNumber) {
         // Check if we have a real phone number (not a temporary lid_ placeholder)
         if (!contact.phoneNumber.startsWith('lid_')) {
-          this.logger.log(`Resolved LID ${lid} to phone number ${contact.phoneNumber}`);
+          this.logger.log(`Resolved LID ${lid} to phone number ${contact.phoneNumber} from DB`);
           // Return in full JID format for consistency
           return `${contact.phoneNumber}@s.whatsapp.net`;
         } else {
@@ -1748,7 +1788,7 @@ export class WhatsAppService {
         }
       }
 
-      this.logger.warn(`Could not resolve LID ${lid} to real phone number - contact not found or no real phone`);
+      this.logger.warn(`Could not resolve LID ${lid} to real phone number`);
       // Return the original JID if we can't resolve it
       return jid;
     }

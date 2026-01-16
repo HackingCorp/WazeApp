@@ -1324,6 +1324,78 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
     }
   }
 
+  /**
+   * Resolve LID to phone number using Baileys lidMapping store
+   * Returns the phone number if found, otherwise null
+   */
+  async resolveLidToPhoneNumber(sessionId: string, lid: string): Promise<string | null> {
+    try {
+      const sock = this.sessions.get(sessionId);
+      if (!sock) {
+        return null;
+      }
+
+      // Clean the LID (remove @lid suffix if present)
+      const cleanLid = lid.replace(/@lid$/i, '');
+
+      // Try to get phone number from lidMapping store
+      // Baileys v7 provides this through signalRepository.lidMapping
+      if (sock.signalRepository?.lidMapping?.getPNForLID) {
+        const phoneNumber = await sock.signalRepository.lidMapping.getPNForLID(cleanLid);
+        if (phoneNumber) {
+          this.logger.debug(`Resolved LID ${cleanLid} to PN ${phoneNumber} via lidMapping`);
+          return phoneNumber.replace(/@s\.whatsapp\.net$/i, '');
+        }
+      }
+
+      // Alternative: Try to look up in the store's contacts
+      if (sock.store?.contacts) {
+        const lidJid = `${cleanLid}@lid`;
+        const contact = sock.store.contacts[lidJid];
+        if (contact?.phoneNumber) {
+          this.logger.debug(`Resolved LID ${cleanLid} to PN ${contact.phoneNumber} via contacts store`);
+          return contact.phoneNumber.replace(/@s\.whatsapp\.net$/i, '');
+        }
+      }
+
+      // Try using onWhatsApp to verify and get user info
+      // This can sometimes return phone number info
+      try {
+        const lidJid = cleanLid.includes('@') ? cleanLid : `${cleanLid}@lid`;
+        const [result] = await sock.onWhatsApp(lidJid);
+        if (result?.jid && !result.jid.includes('@lid')) {
+          const resolvedPhone = result.jid.replace(/@s\.whatsapp\.net$/i, '');
+          this.logger.debug(`Resolved LID ${cleanLid} to PN ${resolvedPhone} via onWhatsApp`);
+          return resolvedPhone;
+        }
+      } catch (error) {
+        // onWhatsApp might fail for LIDs, that's expected
+      }
+
+      this.logger.debug(`Could not resolve LID ${cleanLid} to phone number`);
+      return null;
+    } catch (error) {
+      this.logger.debug(`Failed to resolve LID ${lid}: ${error.message}`);
+      return null;
+    }
+  }
+
+  /**
+   * Get contact info from Baileys store
+   */
+  getContactFromStore(sessionId: string, jid: string): any | null {
+    try {
+      const sock = this.sessions.get(sessionId);
+      if (!sock?.store?.contacts) {
+        return null;
+      }
+
+      return sock.store.contacts[jid] || null;
+    } catch (error) {
+      return null;
+    }
+  }
+
   // Debug method to check active sessions
   getActiveSessions(): any {
     const activeSessions = Array.from(this.sessions.keys()).map(

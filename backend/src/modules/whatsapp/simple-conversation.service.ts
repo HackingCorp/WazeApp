@@ -1241,97 +1241,15 @@ export class SimpleConversationService implements OnModuleDestroy {
         return session.agent;
       }
 
-      // 2. If no agent assigned to session, try to find an appropriate agent
-      const organizationId = session.organizationId;
-      let agent: AiAgent | null = null;
-      
-      if (organizationId) {
-        // Look for organization agent first
-        agent = await this.agentRepository.findOne({
-          where: { organizationId, status: AgentStatus.ACTIVE },
-          order: { createdAt: "DESC" },
-        });
-      }
-      
-      // If no organization agent, look for user's personal agent
-      if (!agent) {
-        agent = await this.agentRepository.findOne({
-          where: { 
-            createdBy: userId, 
-            status: AgentStatus.ACTIVE,
-            organizationId: organizationId || null
-          },
-          order: { createdAt: "DESC" },
-        });
-      }
+      // 🚨 CRITICAL: Do NOT fall back to any other agent - this causes agent mixing issues
+      // If no agent is assigned to the session, log a warning but return null
+      // The session MUST have an agent explicitly assigned in the dashboard
+      this.logger.warn(`⚠️ Session ${sessionId} has no agent assigned. Please assign an agent in the dashboard.`);
+      this.logger.warn(`⚠️ Conversations will be created without an agent until one is assigned.`);
 
-      // 3. If still no agent found, create a default one
-      if (!agent) {
-        this.logger.log(`Creating default agent for user ${userId}, organizationId: ${organizationId}`);
-        
-        let organization = null;
-        if (organizationId) {
-          organization = await this.organizationRepository.findOne({
-            where: { id: organizationId },
-          });
-        }
-
-        agent = this.agentRepository.create({
-          organizationId: organizationId || null,
-          createdBy: userId,
-          name: `Agent WhatsApp - ${organization?.name || "Default"}`,
-          description: "Agent IA automatique pour WhatsApp avec réponses intelligentes",
-          systemPrompt: `You are an AI assistant for ${organization?.name || "this organization"} responding to WhatsApp messages.
-
-CRITICAL RULES (MUST FOLLOW):
-1. LANGUAGE: Detect and respond in the EXACT same language the user writes. If English, respond in English. If French, respond in French. NEVER switch languages.
-2. NO MARKDOWN: NEVER use asterisks, underscores, or any formatting. Write plain text only. No bold, no italics.
-3. NO THINKING OUT LOUD: Never say "Let me analyze", "I see that", "Looking at". Just respond directly.
-4. Be concise and helpful (2-4 sentences max).
-
-EXAMPLES:
-User: "What products do you sell?"
-You: "We sell Android TV Boxes for streaming. These devices let you watch your favorite content in high definition."
-
-User (French): "Quel produit vendez-vous?"
-You: "Nous vendons des Box TV Android pour le streaming. Ces appareils permettent de regarder vos contenus préférés."
-
-Always respond directly in the user's language without any formatting.`,
-          status: AgentStatus.ACTIVE,
-          primaryLanguage: AgentLanguage.FRENCH,
-          supportedLanguages: [AgentLanguage.FRENCH, AgentLanguage.ENGLISH],
-          tone: AgentTone.PROFESSIONAL,
-          config: {
-            maxTokens: 300,
-            temperature: 0.6,
-          },
-          metrics: {
-            totalConversations: 0,
-            totalMessages: 0,
-            averageResponseTime: 0,
-            satisfactionScore: 0,
-            successfulResponses: 0,
-            failedResponses: 0,
-            knowledgeBaseHits: 0,
-          },
-          faq: [],
-          version: 1,
-          tags: ["whatsapp", "auto-created"],
-        });
-
-        agent = await this.agentRepository.save(agent);
-        this.logger.log(`Created new agent ${agent.id} for user ${userId}`);
-
-        // Optionally assign this new agent to the session for future use
-        try {
-          await this.sessionRepository.update(sessionId, { agentId: agent.id });
-          this.logger.log(`Assigned new agent ${agent.id} to session ${sessionId}`);
-        } catch (error) {
-          this.logger.warn(`Failed to assign agent to session: ${error.message}`);
-        }
-      }
-
-      return agent;
+      // Return null - conversations can still be created but AI responses won't work
+      // This is intentional to prevent agent mixing
+      return null;
     } catch (error) {
       this.logger.error(`Error getting/creating agent for user ${userId}:`, error);
       return null;
@@ -1393,7 +1311,8 @@ Always respond directly in the user's language without any formatting.`,
         const agent = await this.getOrCreateAgentForConversation(conversationData.userId, conversationData.sessionId);
         
         if (!agent) {
-          this.logger.error(`Failed to get/create agent for conversation ${conversationData.id}, skipping persistence`);
+          this.logger.warn(`⚠️ No agent assigned to session ${conversationData.sessionId} - conversation ${conversationData.id} cannot be persisted.`);
+          this.logger.warn(`⚠️ Please assign an agent to this WhatsApp session in the dashboard.`);
           return;
         }
 

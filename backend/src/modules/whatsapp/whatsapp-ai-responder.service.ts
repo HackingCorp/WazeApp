@@ -433,7 +433,7 @@ export class WhatsAppAIResponderService {
         return;
       }
 
-      // Get or create agent
+      // Get agent ONLY from session - NO FALLBACK to prevent agent mixing
       let agent = session.agent;
 
       // === DEBUG: Log session-agent linkage ===
@@ -444,17 +444,32 @@ export class WhatsAppAIResponderService {
       this.logger.log(`   Session.agent (relation loaded): ${session.agent ? `${session.agent.id} - ${session.agent.name}` : 'NULL'}`);
 
       if (!agent) {
-        this.logger.warn(`⚠️ Session ${session.id} has NO linked agent - will find/create one for org`);
-        let targetOrganizationId = session.organizationId || session.user?.currentOrganizationId;
-        agent = await this.getOrCreateAgent(targetOrganizationId);
-        if (!agent) {
-          this.logger.error(`❌ Could not find or create agent for org ${targetOrganizationId}`);
-          return;
+        // 🚨 CRITICAL: Do NOT fall back to any other agent - this causes agent mixing issues
+        // If no agent is linked, the session must have an agent assigned before AI can respond
+        this.logger.error(`❌ Session ${session.id} (${session.name}) has NO linked agent!`);
+        this.logger.error(`❌ AI responses disabled - please assign an agent to this session in the dashboard.`);
+
+        // Send a warning message to the user (only once per conversation)
+        const warningKey = `no-agent-warning:${session.id}:${fromNumber}`;
+        const alreadyWarned = await this.cacheManager.get(warningKey);
+
+        if (!alreadyWarned) {
+          try {
+            await this.baileysService.sendMessage(session.id, {
+              to: fromNumber,
+              message: "⚠️ Cette session WhatsApp n'a pas d'agent IA configuré. Veuillez contacter l'administrateur pour configurer un agent.",
+              type: "text",
+            });
+            // Don't warn again for 1 hour
+            await this.cacheManager.set(warningKey, 'true', 3600000);
+          } catch (e) {
+            this.logger.warn(`Could not send no-agent warning: ${e.message}`);
+          }
         }
-        this.logger.warn(`⚠️ Using fallback agent: ${agent.id} - ${agent.name}`);
-      } else {
-        this.logger.log(`✅ Using session's linked agent: ${agent.id} - ${agent.name}`);
+        return;
       }
+
+      this.logger.log(`✅ Using session's linked agent: ${agent.id} - ${agent.name}`);
 
       // Log the system prompt being used (first 200 chars)
       this.logger.log(`📝 Agent System Prompt (first 200 chars): ${agent.systemPrompt?.substring(0, 200) || 'NO PROMPT'}...`);

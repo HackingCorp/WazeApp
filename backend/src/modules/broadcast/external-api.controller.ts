@@ -75,8 +75,25 @@ export class ExternalApiController {
       throw new ForbiddenException('This WhatsApp session does not belong to your organization');
     }
 
+    // Check REAL connection status from Baileys, not just database status
+    // Database status might be stale (e.g., "connecting" when actually connected)
+    const realStatus = this.baileysService.getSessionStatus(sessionId);
+
+    if (realStatus !== 'connected') {
+      // Also check database status for better error message
+      const dbStatus = session.status;
+      throw new ForbiddenException(
+        `WhatsApp session is not connected. Real status: ${realStatus}, DB status: ${dbStatus}. ` +
+        `Please ensure the session is connected from the dashboard.`
+      );
+    }
+
+    // Update database status if it's out of sync
     if (session.status !== WhatsAppSessionStatus.CONNECTED) {
-      throw new ForbiddenException(`WhatsApp session is not connected. Current status: ${session.status}`);
+      await this.sessionRepository.update(sessionId, {
+        status: WhatsAppSessionStatus.CONNECTED,
+        isActive: true,
+      });
     }
 
     return session;

@@ -548,7 +548,7 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
           // 🔧 FIX: Update database status to CONNECTED immediately
           try {
             await this.sessionRepository.update(sessionId, {
-              status: 'connected',
+              status: 'connected' as any, // Cast to avoid enum type issues
               isActive: true,
               lastSeenAt: new Date(),
             });
@@ -903,7 +903,7 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
           // 🔧 FIX: Update database status to CONNECTED immediately
           try {
             await this.sessionRepository.update(sessionId, {
-              status: 'connected',
+              status: 'connected' as any, // Cast to avoid enum type issues
               isActive: true,
               lastSeenAt: new Date(),
             });

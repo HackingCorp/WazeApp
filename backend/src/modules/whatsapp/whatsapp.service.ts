@@ -243,9 +243,11 @@ export class WhatsAppService {
             isActive: false,
           });
         } else if (
-          session.status === WhatsAppSessionStatus.DISCONNECTED &&
+          (session.status === WhatsAppSessionStatus.DISCONNECTED ||
+           session.status === WhatsAppSessionStatus.CONNECTING) &&
           isReallyActive
         ) {
+          // Fix: Also update CONNECTING → CONNECTED when session becomes active
           session.status = WhatsAppSessionStatus.CONNECTED;
           session.isActive = true;
           // Update in database too

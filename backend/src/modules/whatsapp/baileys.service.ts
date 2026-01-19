@@ -545,6 +545,18 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
           // Update connection state to connected
           this.connectionStates.set(sessionId, 'connected');
 
+          // 🔧 FIX: Update database status to CONNECTED immediately
+          try {
+            await this.sessionRepository.update(sessionId, {
+              status: 'connected',
+              isActive: true,
+              lastSeenAt: new Date(),
+            });
+            this.logger.log(`📝 Database status updated to CONNECTED for session ${sessionId}`);
+          } catch (dbError) {
+            this.logger.error(`Failed to update session status in database: ${dbError.message}`);
+          }
+
           // Start keep-alive ping system
           this.startKeepAlive(sessionId);
 
@@ -884,6 +896,21 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
 
         if (connection === "open") {
           this.logger.log(`✅ Session ${sessionId} connected via pairing code!`);
+
+          // Update connection state
+          this.connectionStates.set(sessionId, 'connected');
+
+          // 🔧 FIX: Update database status to CONNECTED immediately
+          try {
+            await this.sessionRepository.update(sessionId, {
+              status: 'connected',
+              isActive: true,
+              lastSeenAt: new Date(),
+            });
+            this.logger.log(`📝 Database status updated to CONNECTED for session ${sessionId}`);
+          } catch (dbError) {
+            this.logger.error(`Failed to update session status in database: ${dbError.message}`);
+          }
 
           // Start keep-alive for the session
           this.startKeepAlive(sessionId);

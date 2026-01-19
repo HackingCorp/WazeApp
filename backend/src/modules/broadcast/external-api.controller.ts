@@ -8,10 +8,13 @@ import {
   Headers,
   Ip,
   HttpStatus,
+  HttpException,
   UseGuards,
   ParseUUIDPipe,
   ForbiddenException,
   NotFoundException,
+  BadRequestException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -270,22 +273,86 @@ export class ExternalApiController {
     // Verify the session belongs to the organization and is connected
     await this.verifySession(sessionId, organizationId);
 
-    const result = await this.baileysService.sendMessage(sessionId, {
-      to: dto.to,
-      message: dto.message,
-      type: (dto.type as any) || 'text',
-      mediaUrl: dto.mediaUrl,
-      caption: dto.caption,
-    });
+    try {
+      const result = await this.baileysService.sendMessage(sessionId, {
+        to: dto.to,
+        message: dto.message,
+        type: (dto.type as any) || 'text',
+        mediaUrl: dto.mediaUrl,
+        caption: dto.caption,
+      });
 
-    // Trigger webhook
-    await this.webhookService.trigger(organizationId, 'message.sent', {
-      recipient: dto.to,
-      messageId: result.messageId,
-      status: result.status,
-    });
+      // Trigger webhook
+      await this.webhookService.trigger(organizationId, 'message.sent', {
+        recipient: dto.to,
+        messageId: result.messageId,
+        status: result.status,
+      });
 
-    return result;
+      return result;
+    } catch (error) {
+      // Handle specific WhatsApp errors with appropriate HTTP status codes
+      const errorCode = (error as any)?.code;
+      const errorMessage = error?.message || 'Failed to send message';
+      const action = (error as any)?.action;
+
+      // Map error codes to HTTP exceptions
+      switch (errorCode) {
+        case 'PREKEY_ERROR':
+          throw new ServiceUnavailableException({
+            success: false,
+            error: 'WHATSAPP_ENCRYPTION_ERROR',
+            message: errorMessage,
+            action: action || 'Please reconnect the WhatsApp session from the dashboard',
+            recoverable: true,
+          });
+
+        case 'SESSION_DISCONNECTED':
+        case 'SESSION_LOGGED_OUT':
+          throw new ServiceUnavailableException({
+            success: false,
+            error: 'WHATSAPP_SESSION_ERROR',
+            message: errorMessage,
+            action: action || 'Please reconnect the WhatsApp session',
+            recoverable: true,
+          });
+
+        case 'RATE_LIMITED':
+          throw new HttpException({
+            success: false,
+            error: 'RATE_LIMITED',
+            message: errorMessage,
+            action: 'Wait a few minutes before retrying',
+            recoverable: true,
+          }, HttpStatus.TOO_MANY_REQUESTS);
+
+        case 'INVALID_PHONE':
+          throw new BadRequestException({
+            success: false,
+            error: 'INVALID_PHONE_NUMBER',
+            message: errorMessage,
+            recoverable: false,
+          });
+
+        default:
+          // Check for common error patterns even without code
+          if (errorMessage.includes('not connected') || errorMessage.includes('Session not found')) {
+            throw new ServiceUnavailableException({
+              success: false,
+              error: 'WHATSAPP_SESSION_ERROR',
+              message: 'WhatsApp session is not connected. Please reconnect from the dashboard.',
+              recoverable: true,
+            });
+          }
+
+          // Generic error
+          throw new HttpException({
+            success: false,
+            error: 'SEND_MESSAGE_FAILED',
+            message: errorMessage,
+          }, HttpStatus.INTERNAL_SERVER_ERROR);
+      }
+    }
   }
 
   // ==========================================

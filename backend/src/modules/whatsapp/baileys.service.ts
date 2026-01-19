@@ -1259,6 +1259,66 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
         `Failed to send message from session ${sessionId}:`,
         error,
       );
+
+      // Handle specific WhatsApp/Baileys errors with better messages
+      const errorMessage = error?.message || String(error);
+      const errorName = error?.name || 'UnknownError';
+
+      // PreKeyError - encryption key issues
+      if (errorName === 'PreKeyError' || errorMessage.includes('PreKey') || errorMessage.includes('Invalid PreKey')) {
+        const customError = new Error(
+          'WhatsApp encryption error: Session keys are out of sync. Please disconnect and reconnect the WhatsApp session to regenerate encryption keys.'
+        );
+        (customError as any).code = 'PREKEY_ERROR';
+        (customError as any).recoverable = true;
+        (customError as any).action = 'RECONNECT_SESSION';
+        throw customError;
+      }
+
+      // Session closed/disconnected errors
+      if (errorMessage.includes('Connection Closed') || errorMessage.includes('connection closed') || errorMessage.includes('not connected')) {
+        const customError = new Error(
+          'WhatsApp session is disconnected. Please reconnect the session from the dashboard.'
+        );
+        (customError as any).code = 'SESSION_DISCONNECTED';
+        (customError as any).recoverable = true;
+        (customError as any).action = 'RECONNECT_SESSION';
+        throw customError;
+      }
+
+      // Rate limit errors
+      if (errorMessage.includes('rate') || errorMessage.includes('too many') || errorMessage.includes('spam')) {
+        const customError = new Error(
+          'WhatsApp rate limit reached. Please wait a few minutes before sending more messages.'
+        );
+        (customError as any).code = 'RATE_LIMITED';
+        (customError as any).recoverable = true;
+        (customError as any).action = 'WAIT_AND_RETRY';
+        throw customError;
+      }
+
+      // Invalid JID/phone number
+      if (errorMessage.includes('invalid jid') || errorMessage.includes('JID') || errorMessage.includes('not a valid')) {
+        const customError = new Error(
+          'Invalid phone number format. Please use international format without + or spaces (e.g., 237612345678).'
+        );
+        (customError as any).code = 'INVALID_PHONE';
+        (customError as any).recoverable = false;
+        throw customError;
+      }
+
+      // Logged out errors
+      if (errorMessage.includes('logged out') || errorMessage.includes('Logged out') || errorMessage.includes('401')) {
+        const customError = new Error(
+          'WhatsApp session was logged out. Please scan the QR code again to reconnect.'
+        );
+        (customError as any).code = 'SESSION_LOGGED_OUT';
+        (customError as any).recoverable = true;
+        (customError as any).action = 'SCAN_QR_CODE';
+        throw customError;
+      }
+
+      // Generic error - re-throw with original message
       throw error;
     }
   }

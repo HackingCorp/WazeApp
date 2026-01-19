@@ -60,18 +60,40 @@ export class WhatsAppAIResponderService {
   // Détection de langue améliorée avec mots-clés uniques et pondération
   private detectLanguage(text: string): string {
     const lowerText = text.toLowerCase().trim();
+    const words = lowerText.split(/\s+/);
+    const wordCount = words.length;
 
-    // Si texte très court (< 3 mots), utiliser le français par défaut (contexte camerounais)
-    const wordCount = lowerText.split(/\s+/).length;
-    if (wordCount <= 2 && lowerText.length < 15) {
-      // Vérifier rapidement pour des mots anglais évidents
-      const englishIndicators = ['hello', 'hi', 'hey', 'yes', 'no', 'ok', 'okay', 'thanks', 'please', 'help', 'what', 'how', 'why', 'when', 'where', 'who', 'can', 'could', 'would', 'should', 'need', 'want', 'buy', 'price', 'cost'];
-      for (const word of englishIndicators) {
-        if (lowerText === word || lowerText.startsWith(word + ' ') || lowerText.endsWith(' ' + word)) {
+    // Pour les messages très courts, vérifier les indicateurs directs
+    if (wordCount <= 3) {
+      // Indicateurs anglais évidents
+      const englishShort = ['hello', 'hi', 'hey', 'yes', 'no', 'ok', 'okay', 'thanks', 'thank you', 'please', 'help', 'what', 'how', 'why', 'when', 'where', 'who', 'can', 'could', 'would', 'should', 'need', 'want', 'buy', 'price', 'cost', 'good', 'morning', 'afternoon', 'evening', 'night', 'i want', 'i need', 'do you', 'are you', 'is it', 'is there', 'can i', 'how much', 'how many', 'what is', 'tell me', 'show me', 'give me'];
+
+      // Indicateurs français évidents
+      const frenchShort = ['bonjour', 'bonsoir', 'salut', 'oui', 'non', 'merci', 'svp', 's\'il vous plaît', 'aide', 'aidez', 'quoi', 'comment', 'pourquoi', 'quand', 'où', 'qui', 'combien', 'je veux', 'j\'ai besoin', 'avez-vous', 'est-ce que', 'c\'est quoi', 'il y a', 'je cherche', 'donnez-moi', 'montrez-moi'];
+
+      // Vérifier anglais d'abord (plus précis pour messages courts)
+      for (const indicator of englishShort) {
+        if (lowerText === indicator || lowerText.includes(indicator)) {
+          this.logger.debug(`Short message detected as ENGLISH: "${lowerText}" (matched: ${indicator})`);
           return 'en';
         }
       }
-      return 'fr'; // Défaut français pour le contexte camerounais
+
+      // Vérifier français
+      for (const indicator of frenchShort) {
+        if (lowerText === indicator || lowerText.includes(indicator)) {
+          this.logger.debug(`Short message detected as FRENCH: "${lowerText}" (matched: ${indicator})`);
+          return 'fr';
+        }
+      }
+
+      // Pour les messages très courts sans indicateur clair, analyser les caractères
+      // Les messages en anglais utilisent rarement les accents
+      const hasAccents = /[àâäéèêëïîôùûüç]/i.test(lowerText);
+      if (hasAccents) {
+        this.logger.debug(`Short message with accents detected as FRENCH: "${lowerText}"`);
+        return 'fr';
+      }
     }
 
     // Mots-clés UNIQUES par langue (éviter les mots ambigus)
@@ -149,19 +171,51 @@ export class WhatsAppAIResponderService {
     const bestScore = sortedLangs[0]?.[1] || 0;
     const secondScore = sortedLangs[1]?.[1] || 0;
 
-    // Log pour debug
-    this.logger.debug(`Language detection: "${lowerText.substring(0, 50)}..." -> ${bestLang} (score: ${bestScore}, 2nd: ${secondScore})`);
+    // Log détaillé pour debug
+    this.logger.log(`🌐 Language detection for: "${lowerText.substring(0, 80)}..."`);
+    this.logger.log(`   Scores: EN=${scores['en'] || 0}, FR=${scores['fr'] || 0}, ES=${scores['es'] || 0}, DE=${scores['de'] || 0}`);
+    this.logger.log(`   Best: ${bestLang} (${bestScore}), 2nd: ${sortedLangs[1]?.[0]} (${secondScore})`);
 
-    // Si aucune langue n'a de score significatif, utiliser le français (contexte camerounais)
+    // Si aucune langue n'a de score significatif
     if (bestScore < 3) {
-      return 'fr';
+      // Analyser les caractères pour deviner
+      const hasAccents = /[àâäéèêëïîôùûüç]/i.test(lowerText);
+      const hasArabic = /[\u0600-\u06FF]/.test(lowerText);
+      const hasChinese = /[\u4e00-\u9fff]/.test(lowerText);
+      const hasJapanese = /[\u3040-\u309f\u30a0-\u30ff]/.test(lowerText);
+
+      if (hasArabic) return 'ar';
+      if (hasChinese) return 'zh';
+      if (hasJapanese) return 'ja';
+      if (hasAccents) return 'fr';
+
+      // Sans indication claire, utiliser l'anglais comme langue internationale par défaut
+      this.logger.log(`   -> No clear language detected, defaulting to EN (international)`);
+      return 'en';
     }
 
-    // Si les deux premiers scores sont très proches, préférer le français
-    if (bestScore > 0 && secondScore > 0 && bestScore - secondScore < 5) {
-      if (scores['fr'] >= secondScore) {
+    // Si anglais et français sont très proches (différence < 30%), utiliser celui avec le meilleur score
+    // Ne plus biaiser vers le français automatiquement
+    if (bestScore > 0 && secondScore > 0) {
+      const scoreDiffPercent = ((bestScore - secondScore) / bestScore) * 100;
+      this.logger.log(`   Score difference: ${scoreDiffPercent.toFixed(1)}%`);
+
+      // Si la différence est significative (> 20%), utiliser le meilleur
+      if (scoreDiffPercent > 20) {
+        this.logger.log(`   -> Clear winner: ${bestLang}`);
+        return bestLang;
+      }
+
+      // Si très proche, vérifier des indicateurs supplémentaires
+      // Présence d'accents français suggère le français
+      const hasAccents = /[àâäéèêëïîôùûüç]/i.test(lowerText);
+      if (hasAccents && scores['fr'] >= secondScore * 0.8) {
+        this.logger.log(`   -> Close scores but has French accents, choosing FR`);
         return 'fr';
       }
+
+      // Sinon, utiliser le meilleur score
+      this.logger.log(`   -> Close scores, using best: ${bestLang}`);
     }
 
     return bestLang;

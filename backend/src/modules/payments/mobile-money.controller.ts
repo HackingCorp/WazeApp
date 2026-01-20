@@ -637,17 +637,20 @@ export class MobileMoneyController {
   })
   async testEnkapToken(): Promise<any> {
     try {
-      const connected = await this.enkapService.testConnection();
+      const result = await this.enkapService.testConnection();
       return {
-        success: connected,
-        message: connected
+        success: result.success,
+        message: result.success
           ? 'E-nkap token generated successfully'
           : 'Failed to generate E-nkap token',
+        details: result.details,
+        error: result.error,
       };
     } catch (error) {
       return {
         success: false,
         error: error.message,
+        stack: error.stack,
       };
     }
   }

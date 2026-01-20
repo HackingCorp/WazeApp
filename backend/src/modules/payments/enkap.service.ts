@@ -508,12 +508,29 @@ export class EnkapService {
   /**
    * Test de génération de token
    */
-  async testConnection(): Promise<boolean> {
+  async testConnection(): Promise<{ success: boolean; error?: string; details?: any }> {
     try {
-      await this.generateAccessToken();
-      return true;
+      const token = await this.generateAccessToken();
+      return {
+        success: true,
+        details: {
+          tokenLength: token?.length,
+          tokenUrl: this.tokenUrl,
+          isProduction: this.isProduction,
+        }
+      };
     } catch (error) {
-      return false;
+      this.logger.error('E-nkap connection test failed:', error);
+      return {
+        success: false,
+        error: error.message,
+        details: {
+          tokenUrl: this.tokenUrl,
+          isProduction: this.isProduction,
+          errorResponse: error.response?.data,
+          errorStatus: error.response?.status,
+        }
+      };
     }
   }
 }

@@ -68,6 +68,12 @@ services:
       dockerfile: Dockerfile
     container_name: wazeapp_backend
     restart: unless-stopped
+    extra_hosts:
+      - "api-v2.enkap.cm:52.57.163.240"
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+      - 1.1.1.1
     depends_on:
       postgres:
         condition: service_healthy

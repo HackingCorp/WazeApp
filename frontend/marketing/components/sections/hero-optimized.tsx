@@ -6,28 +6,28 @@ import { ArrowRight, MessageCircle, Clock, Globe, Zap } from "lucide-react"
 import { useTranslations } from "@/lib/hooks/use-translations"
 
 export function HeroSection() {
-  const { t } = useTranslations()
+  const { t, isHydrated } = useTranslations()
   return (
-    <section className="relative overflow-hidden bg-gradient-to-b from-green-50 to-white dark:from-green-950/20 dark:to-background py-20 sm:py-32">
+    <section className="relative overflow-hidden bg-gradient-to-b from-green-50 to-white dark:from-green-950/20 dark:to-background py-20 sm:py-32 min-h-[600px] sm:min-h-[700px]">
       <div className="container mx-auto px-4">
         <div className="grid lg:grid-cols-2 gap-12 items-center">
-          <div className="animate-fade-in-up">
-            <div className="inline-flex items-center rounded-full border px-4 py-1.5 text-sm mb-6">
+          <div className={`transition-opacity duration-300 ${isHydrated ? 'opacity-100' : 'opacity-0'}`}>
+            <div className="inline-flex items-center rounded-full border px-4 py-1.5 text-sm mb-6 h-8">
               <span className="mr-2 h-2 w-2 rounded-full bg-green-500 animate-pulse"></span>
               <span>{t("heroTransformTagline")}</span>
             </div>
-            
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-gray-900 dark:text-white mb-6">
+
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-gray-900 dark:text-white mb-6 min-h-[144px] sm:min-h-[168px] lg:min-h-[216px]">
               {t("heroTitle1")}
               <span className="text-whatsapp"> {t("heroTitle2")}</span> {t("heroTitle3")}
               <span className="text-primary"> {t("heroTitle4")}</span>
             </h1>
             
-            <p className="text-lg sm:text-xl text-muted-foreground mb-8">
+            <p className="text-lg sm:text-xl text-muted-foreground mb-8 min-h-[56px] sm:min-h-[64px]">
               {t("heroDescription")}
             </p>
 
-            <div className="flex flex-col sm:flex-row gap-4 mb-12">
+            <div className="flex flex-col sm:flex-row gap-4 mb-12 min-h-[100px] sm:min-h-[44px]">
               <Link href="/register">
                 <Button size="lg" className="w-full sm:w-auto">
                   {t("heroConnectButton")}
@@ -67,8 +67,8 @@ export function HeroSection() {
             </div>
           </div>
 
-          <div className="relative animate-fade-in-up animation-delay-200">
-            <div className="relative mx-auto max-w-md">
+          <div className={`relative transition-opacity duration-500 delay-200 ${isHydrated ? 'opacity-100' : 'opacity-0'}`}>
+            <div className="relative mx-auto max-w-md min-h-[500px]">
               <div className="absolute inset-0 bg-gradient-to-r from-green-400 to-blue-500 rounded-3xl blur-3xl opacity-20 animate-pulse"></div>
               <WhatsAppMockup />
             </div>

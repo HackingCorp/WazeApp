@@ -506,30 +506,92 @@ export class EnkapService {
   }
 
   /**
-   * Test de génération de token
+   * Test de génération de token avec diagnostic complet
    */
   async testConnection(): Promise<{ success: boolean; error?: string; details?: any }> {
+    const diagnostics: any = {
+      tokenUrl: this.tokenUrl,
+      isProduction: this.isProduction,
+      baseUrl: this.baseUrl,
+      hasConsumerKey: !!this.consumerKey,
+      hasConsumerSecret: !!this.consumerSecret,
+      timestamp: new Date().toISOString(),
+    };
+
     try {
-      const token = await this.generateAccessToken();
+      // Test DNS resolution first
+      const url = new URL(this.tokenUrl);
+      diagnostics.hostname = url.hostname;
+
+      // Generate credentials
+      const credentials = Buffer.from(`${this.consumerKey}:${this.consumerSecret}`).toString('base64');
+      diagnostics.credentialsLength = credentials.length;
+
+      // Make the request
+      this.logger.log(`Testing E-nkap connection to ${this.tokenUrl}`);
+
+      const response = await firstValueFrom(
+        this.httpService.post(this.tokenUrl, 'grant_type=client_credentials', {
+          headers: {
+            Authorization: `Basic ${credentials}`,
+            'Content-Type': 'application/x-www-form-urlencoded',
+            Accept: 'application/json',
+          },
+          timeout: 30000,
+        }),
+      );
+
+      const tokenData = response.data;
+      this.accessToken = tokenData.access_token;
+
+      diagnostics.responseStatus = response.status;
+      diagnostics.hasAccessToken = !!tokenData.access_token;
+      diagnostics.tokenLength = tokenData.access_token?.length;
+      diagnostics.expiresIn = tokenData.expires_in;
+
       return {
         success: true,
-        details: {
-          tokenLength: token?.length,
-          tokenUrl: this.tokenUrl,
-          isProduction: this.isProduction,
-        }
+        details: diagnostics,
       };
     } catch (error) {
-      this.logger.error('E-nkap connection test failed:', error);
+      this.logger.error('E-nkap connection test failed:', error.message);
+
+      diagnostics.errorMessage = error.message;
+      diagnostics.errorCode = error.code;
+      diagnostics.errorName = error.name;
+
+      if (error.response) {
+        diagnostics.responseStatus = error.response.status;
+        diagnostics.responseStatusText = error.response.statusText;
+        diagnostics.responseData = error.response.data;
+      }
+
+      if (error.request) {
+        diagnostics.requestMade = true;
+        diagnostics.requestPath = error.request?.path;
+      } else {
+        diagnostics.requestMade = false;
+      }
+
+      // Check for specific error types
+      if (error.code === 'ENOTFOUND') {
+        diagnostics.diagnosis = 'DNS resolution failed - server cannot resolve hostname';
+      } else if (error.code === 'ECONNREFUSED') {
+        diagnostics.diagnosis = 'Connection refused - server/port not accessible';
+      } else if (error.code === 'ETIMEDOUT' || error.code === 'ESOCKETTIMEDOUT') {
+        diagnostics.diagnosis = 'Connection timeout - network too slow or blocked';
+      } else if (error.code === 'CERT_HAS_EXPIRED' || error.code === 'UNABLE_TO_VERIFY_LEAF_SIGNATURE') {
+        diagnostics.diagnosis = 'SSL certificate error';
+      } else if (error.response?.status === 401) {
+        diagnostics.diagnosis = 'Authentication failed - invalid credentials';
+      } else if (error.response?.status === 403) {
+        diagnostics.diagnosis = 'Access forbidden - IP may be blocked';
+      }
+
       return {
         success: false,
         error: error.message,
-        details: {
-          tokenUrl: this.tokenUrl,
-          isProduction: this.isProduction,
-          errorResponse: error.response?.data,
-          errorStatus: error.response?.status,
-        }
+        details: diagnostics,
       };
     }
   }

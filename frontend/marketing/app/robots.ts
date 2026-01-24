@@ -6,7 +6,15 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: '*',
         allow: '/',
-        disallow: ['/api/', '/admin/', '/_next/'],
+        disallow: [
+          '/api/',
+          '/admin/',
+          '/_next/',
+          '/login',
+          '/forgot-password',
+          '/verify-email',
+          '/dashboard',
+        ],
       },
     ],
     sitemap: 'https://wazeapp.xyz/sitemap.xml',

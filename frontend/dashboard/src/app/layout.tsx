@@ -11,13 +11,21 @@ import './globals.css';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://app.wazeapp.xyz'),
   title: 'WazeApp Dashboard - AI WhatsApp Agents',
   description: 'Comprehensive dashboard for managing AI-powered WhatsApp agents, analytics, and business automation',
   keywords: 'WhatsApp, AI, Automation, Dashboard, Analytics, Chatbot, Business',
   authors: [{ name: 'WazeApp Team' }],
   creator: 'WazeApp',
   publisher: 'WazeApp',
-  robots: 'index,follow',
+  robots: {
+    index: false,
+    follow: false,
+    googleBot: {
+      index: false,
+      follow: false,
+    },
+  },
   viewport: 'width=device-width, initial-scale=1',
   themeColor: [
     { media: '(prefers-color-scheme: light)', color: '#059669' },

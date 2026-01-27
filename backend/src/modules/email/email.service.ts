@@ -14,37 +14,51 @@ export class EmailService {
 
   private initializeTransporter() {
     const smtpHost = this.configService.get<string>('SMTP_HOST');
-    const smtpPort = this.configService.get<number>('SMTP_PORT', 3587);
+    const smtpPort = this.configService.get<number>('SMTP_PORT', 587);
     const smtpUser = this.configService.get<string>('SMTP_USER');
     const smtpPass = this.configService.get<string>('SMTP_PASS');
     const smtpSecure = this.configService.get<boolean>('SMTP_SECURE', false);
 
     if (!smtpHost) {
-      this.logger.warn('SMTP_HOST not configured. Email sending will be disabled.');
+      this.logger.warn('SMTP_HOST not configured. Email sending will be disabled. Set SMTP_HOST, SMTP_USER, and SMTP_PASS environment variables to enable emails.');
       return;
     }
 
-    this.transporter = nodemailer.createTransport({
-      host: smtpHost,
-      port: smtpPort,
-      secure: smtpSecure, // true for 465, false for other ports
-      auth: smtpUser && smtpPass ? {
-        user: smtpUser,
-        pass: smtpPass,
-      } : undefined,
-      tls: {
-        rejectUnauthorized: false, // Allow self-signed certificates
-      },
-    });
+    if (!smtpUser || !smtpPass) {
+      this.logger.warn('SMTP_USER or SMTP_PASS not configured. Email sending will be disabled.');
+      return;
+    }
 
-    // Verify connection
-    this.transporter.verify((error, success) => {
-      if (error) {
-        this.logger.error('SMTP connection failed:', error);
-      } else {
-        this.logger.log('✅ SMTP server is ready to send emails');
-      }
-    });
+    try {
+      this.transporter = nodemailer.createTransport({
+        host: smtpHost,
+        port: smtpPort,
+        secure: smtpSecure, // true for 465, false for other ports
+        auth: {
+          user: smtpUser,
+          pass: smtpPass,
+        },
+        tls: {
+          rejectUnauthorized: false, // Allow self-signed certificates
+        },
+        connectionTimeout: 10000, // 10 seconds
+        greetingTimeout: 10000,
+        socketTimeout: 10000,
+      });
+
+      // Verify connection asynchronously without blocking startup
+      this.transporter.verify()
+        .then(() => {
+          this.logger.log('✅ SMTP server is ready to send emails');
+        })
+        .catch((error) => {
+          this.logger.warn(`SMTP connection verification failed: ${error.message}. Emails may not be sent until SMTP is properly configured.`);
+          // Don't set transporter to null - let it retry on actual send
+        });
+    } catch (error) {
+      this.logger.warn(`Failed to initialize SMTP transporter: ${error.message}. Email sending will be disabled.`);
+      this.transporter = null;
+    }
   }
 
   private getFromAddress(): string {

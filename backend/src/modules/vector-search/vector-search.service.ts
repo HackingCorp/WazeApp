@@ -298,20 +298,31 @@ export class VectorSearchService implements OnModuleInit {
   }
 
   private async initializeQdrant(): Promise<void> {
+    const qdrantUrl = process.env.QDRANT_URL;
+
+    // Skip Qdrant initialization if not configured
+    if (!qdrantUrl) {
+      this.logger.warn('QDRANT_URL not configured. Vector search will use PostgreSQL full-text search fallback. Set QDRANT_URL environment variable to enable vector search.');
+      this.isConnected = false;
+      return;
+    }
+
     try {
       // Initialize Qdrant client
       this.qdrantClient = new QdrantClient({
-        url: process.env.QDRANT_URL || "http://localhost:6333",
+        url: qdrantUrl,
         apiKey: process.env.QDRANT_API_KEY,
+        timeout: 5000, // 5 second timeout
+        checkCompatibility: false, // Disable version compatibility check to avoid warnings
       });
 
       // Test connection
       await this.qdrantClient.getCollections();
       this.isConnected = true;
 
-      this.logger.log("Successfully connected to Qdrant");
+      this.logger.log(`✅ Successfully connected to Qdrant at ${qdrantUrl}`);
     } catch (error) {
-      this.logger.error(`Failed to connect to Qdrant: ${error.message}`);
+      this.logger.warn(`Qdrant not available (${error.message}). Using PostgreSQL full-text search fallback.`);
       this.isConnected = false;
     }
   }

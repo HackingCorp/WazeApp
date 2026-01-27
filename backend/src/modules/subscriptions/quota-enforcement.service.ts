@@ -1,6 +1,6 @@
 import { Injectable, ForbiddenException, Logger, Inject, forwardRef } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository, IsNull, MoreThan } from "typeorm";
+import { Repository, IsNull, MoreThan, Not } from "typeorm";
 import {
   Organization,
   Subscription,

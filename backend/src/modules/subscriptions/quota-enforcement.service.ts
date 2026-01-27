@@ -867,6 +867,22 @@ export class QuotaEnforcementService {
       `[QUOTA] Getting active user subscription for userId: ${userId}`,
     );
 
+    // First, check if user already has an organization subscription
+    // Users should have only ONE subscription (either individual OR via organization)
+    const orgSubscription = await this.subscriptionRepository.findOne({
+      where: {
+        userId,
+        organizationId: Not(IsNull()),
+      },
+    });
+
+    if (orgSubscription) {
+      console.log(
+        `[QUOTA] User ${userId} already has organization subscription (plan: ${orgSubscription.plan}), using that`,
+      );
+      return orgSubscription;
+    }
+
     // Find active subscription for this user (not associated with organization)
     let activeSubscription = await this.subscriptionRepository.findOne({
       where: {
@@ -876,7 +892,7 @@ export class QuotaEnforcementService {
     });
 
     console.log(
-      `[QUOTA] Found existing subscription: ${activeSubscription ? "YES" : "NO"}`,
+      `[QUOTA] Found existing individual subscription: ${activeSubscription ? "YES" : "NO"}`,
     );
 
     // Load user email for mapping
@@ -895,7 +911,7 @@ export class QuotaEnforcementService {
       // Default or mapped plan on first subscription creation
       const plan: SubscriptionPlan = mapEmailToPlan();
       const planCode = plan.toLowerCase();
-      console.log(`[QUOTA] Creating subscription for ${email} with plan ${plan}`);
+      console.log(`[QUOTA] Creating individual subscription for ${email} with plan ${plan}`);
 
       // Create subscription for user using database plans
       activeSubscription = this.subscriptionRepository.create({

@@ -500,9 +500,10 @@ export class QuotaEnforcementService {
       .filter(s => s.agent?.id)
       .map(s => s.agent.id);
 
-    // Also get agents created by this user
+    // Also get agents created by this user that DON'T belong to an organization
+    // This prevents double-counting: org agents are counted in org subscription, not user subscription
     const userAgents = await this.aiAgentRepository.find({
-      where: { createdBy: userId },
+      where: { createdBy: userId, organizationId: IsNull() },
       select: ['id'],
     });
     const userAgentIds = userAgents.map(a => a.id);

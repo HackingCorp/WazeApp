@@ -43,13 +43,9 @@ export class WhatsAppGateway
     private jwtService: JwtService,
     private eventEmitter: EventEmitter2,
   ) {
-    // Log pour vérifier que les listeners sont enregistrés
     this.eventEmitter.on(
       "whatsapp.message.received",
       this.handleMessageReceived.bind(this),
-    );
-    console.log(
-      "🔧 Gateway: Manually registered whatsapp.message.received listener",
     );
   }
 

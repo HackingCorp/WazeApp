@@ -478,8 +478,6 @@ export class WhatsAppController {
       type: 'text',
     };
 
-    console.log("🧪 SIMULATING WhatsApp message:", mockMessageData);
-
     // Emit the correct event that WhatsAppAIResponderService listens to
     this.eventEmitter.emit("whatsapp.message.received", mockMessageData);
 
@@ -566,10 +564,6 @@ export class WhatsAppController {
       order: { updatedAt: "DESC" },
     });
 
-    console.log(
-      `[DEBUG-PUBLIC] Found ${allConversations.length} total WhatsApp conversations in DB`,
-    );
-
     // Show user info for each conversation
     const conversationInfo = allConversations.map((conv) => ({
       id: conv.id,
@@ -606,8 +600,6 @@ export class WhatsAppController {
     );
     const originalCount = conversations.length;
 
-    console.log(`[DEDUPE-TEST] Original count: ${originalCount}`);
-
     // Apply deduplication
     const normalizePhoneNumber = (phoneNumber: string): string => {
       return phoneNumber
@@ -624,17 +616,10 @@ export class WhatsAppController {
       const key = `${userId}-${normalizedPhone}`;
       const existing = phoneGroups.get(key);
 
-      console.log(
-        `[DEDUPE-TEST] Processing ${conv.phoneNumber} -> normalized: ${normalizedPhone}, key: ${key}`,
-      );
-
       if (
         !existing ||
         new Date(conv.lastMessageTime) > new Date(existing.lastMessageTime)
       ) {
-        console.log(
-          `[DEDUPE-TEST] Keeping conversation ${conv.id} for phone ${normalizedPhone}`,
-        );
         phoneGroups.set(key, {
           ...conv,
           phoneNumber: normalizedPhone,
@@ -642,17 +627,10 @@ export class WhatsAppController {
             ? normalizedPhone
             : `+${normalizedPhone}`,
         });
-      } else {
-        console.log(
-          `[DEDUPE-TEST] Skipping duplicate conversation ${conv.id} for phone ${normalizedPhone}`,
-        );
       }
     });
 
     const deduplicatedConversations = Array.from(phoneGroups.values());
-    console.log(
-      `[DEDUPE-TEST] After deduplication: ${deduplicatedConversations.length}`,
-    );
 
     return {
       success: true,
@@ -716,10 +694,6 @@ export class WhatsAppController {
       },
     );
 
-    console.log(
-      `[DEBUG-MESSAGES] Found ${dbMessages.length} messages in DB for conversation ${conversationId}`,
-    );
-
     return {
       success: true,
       conversationId,
@@ -743,10 +717,6 @@ export class WhatsAppController {
   @ApiResponse({ status: 200, description: "Conversations persisted" })
   async persistMemoryConversations() {
     try {
-      console.log(
-        `[PERSIST-CONVERSATIONS] Forcing persistence of memory conversations`,
-      );
-
       // Emit event to force conversation persistence
       this.eventEmitter.emit("whatsapp.persist.conversations", {
         userId: "42431320-f9e3-4992-afd1-3f594e635cc4",
@@ -774,10 +744,6 @@ export class WhatsAppController {
   @ApiResponse({ status: 200, description: "Image download triggered" })
   async forceDownloadImages(@Param("sessionId") sessionId: string) {
     try {
-      console.log(
-        `[FORCE-IMAGES] Triggering image download for session ${sessionId}`,
-      );
-
       // Emit event to force image download
       this.eventEmitter.emit("whatsapp.force.download.images", {
         sessionId: sessionId,
@@ -803,8 +769,6 @@ export class WhatsAppController {
   @ApiResponse({ status: 200, description: "Sync forced" })
   async forceSyncSession(@Param("sessionId") sessionId: string) {
     try {
-      console.log(`[FORCE-SYNC] Forcing sync for session ${sessionId}`);
-
       // Get session from database
       const session = await this.whatsappService["sessionRepository"].findOne({
         where: { id: sessionId },
@@ -813,10 +777,6 @@ export class WhatsAppController {
       if (!session) {
         return { success: false, message: "Session not found in database" };
       }
-
-      console.log(
-        `[FORCE-SYNC] Found session: ${session.name}, status: ${session.status}`,
-      );
 
       // Try to force sync via Baileys service
       this.eventEmitter.emit("whatsapp.force.sync", {
@@ -853,10 +813,6 @@ export class WhatsAppController {
   @ApiResponse({ status: 200, description: "Session reconnected" })
   async forceReconnectSession(@Param("sessionId") sessionId: string) {
     try {
-      console.log(
-        `[FORCE-RECONNECT] Reconnecting session ${sessionId} with syncFullHistory=true`,
-      );
-
       // Get session from database
       const session = await this.whatsappService["sessionRepository"].findOne({
         where: { id: sessionId },
@@ -865,10 +821,6 @@ export class WhatsAppController {
       if (!session) {
         return { success: false, message: "Session not found in database" };
       }
-
-      console.log(
-        `[FORCE-RECONNECT] Found session: ${session.name}, status: ${session.status}`,
-      );
 
       // First disconnect the session
       await this.baileysService.disconnectSession(sessionId);
@@ -908,10 +860,6 @@ export class WhatsAppController {
   @ApiResponse({ status: 200, description: "Session reset and reconnected" })
   async forceResetReconnectSession(@Param("sessionId") sessionId: string) {
     try {
-      console.log(
-        `[FORCE-RESET-RECONNECT] Resetting session ${sessionId} with forceReset=true`,
-      );
-
       // Get session from database
       const session = await this.whatsappService["sessionRepository"].findOne({
         where: { id: sessionId },
@@ -920,10 +868,6 @@ export class WhatsAppController {
       if (!session) {
         return { success: false, message: "Session not found in database" };
       }
-
-      console.log(
-        `[FORCE-RESET-RECONNECT] Found session: ${session.name}, status: ${session.status}`,
-      );
 
       // Force reset will clear credentials and require new QR scan
       // This should trigger a fresh myAppStateKeyId generation
@@ -957,8 +901,6 @@ export class WhatsAppController {
   @ApiResponse({ status: 200, description: "Duplicates cleaned up" })
   async cleanupDuplicates(@Param("userId") userId: string) {
     try {
-      console.log(`[CLEANUP-DUPLICATES] Starting cleanup for user ${userId}`);
-
       // Call the cleanup function directly
       await this.conversationService["cleanupDuplicateConversations"](userId);
 
@@ -984,8 +926,6 @@ export class WhatsAppController {
   @ApiResponse({ status: 200, description: "All duplicates cleaned up" })
   async forceCleanupAllDuplicates() {
     try {
-      console.log(`[FORCE-CLEANUP-ALL] Starting comprehensive cleanup`);
-
       // Get all conversations from database
       const allConversations = await this.conversationService[
         "conversationRepository"
@@ -994,10 +934,6 @@ export class WhatsAppController {
         relations: ["messages"],
         order: { createdAt: "ASC" },
       });
-
-      console.log(
-        `[FORCE-CLEANUP-ALL] Found ${allConversations.length} total conversations`,
-      );
 
       // Group conversations by normalized phone number and user
       const normalizePhoneNumber = (phoneNumber: string): string => {
@@ -1028,10 +964,6 @@ export class WhatsAppController {
       // Process each phone group and merge duplicates
       for (const [key, conversations] of phoneGroups.entries()) {
         if (conversations.length > 1) {
-          console.log(
-            `[FORCE-CLEANUP-ALL] Found ${conversations.length} duplicates for key ${key}`,
-          );
-
           // Keep the oldest conversation (first in the sorted array)
           const conversationToKeep = conversations[0];
           const conversationsToDelete = conversations.slice(1);
@@ -1057,9 +989,6 @@ export class WhatsAppController {
                   },
                 );
               }
-              console.log(
-                `[FORCE-CLEANUP-ALL] Moved ${duplicateConv.messages.length} messages from ${duplicateConv.id} to ${conversationToKeep.id}`,
-              );
             }
 
             // Delete the duplicate conversation
@@ -1067,9 +996,6 @@ export class WhatsAppController {
               duplicateConv,
             );
             totalDeleted++;
-            console.log(
-              `[FORCE-CLEANUP-ALL] Deleted duplicate conversation ${duplicateConv.id}`,
-            );
           }
 
           totalMerged++;
@@ -1079,10 +1005,6 @@ export class WhatsAppController {
       // Clear memory cache to force reload from database
       this.conversationService["conversations"].clear();
       this.conversationService["messages"].clear();
-
-      console.log(
-        `[FORCE-CLEANUP-ALL] Cleanup completed: ${totalMerged} groups merged, ${totalDeleted} duplicates deleted`,
-      );
 
       return {
         success: true,
@@ -1118,10 +1040,6 @@ export class WhatsAppController {
     },
   ) {
     try {
-      console.log(
-        `[SIMULATE-INCOMING] Creating conversation for ${body.fromNumber}`,
-      );
-
       // Get session from database to ensure it exists
       const session = await this.whatsappService["sessionRepository"].findOne({
         where: { id: body.sessionId },
@@ -1151,14 +1069,7 @@ export class WhatsAppController {
         type: "message",
       };
 
-      console.log(
-        `[SIMULATE-INCOMING] Emitting whatsapp.message.received:`,
-        eventData,
-      );
-
-      console.log('📡 EMITTING EVENT: whatsapp.message.received');
       this.eventEmitter.emit("whatsapp.message.received", eventData);
-      console.log('📡 EVENT EMITTED: whatsapp.message.received');
 
       return {
         success: true,
@@ -1195,10 +1106,6 @@ export class WhatsAppController {
   @ApiResponse({ status: 200, description: "Session forcefully logged out" })
   async forceLogoutSession(@Param("sessionId") sessionId: string) {
     try {
-      console.log(
-        `[FORCE-LOGOUT] Attempting complete logout for session ${sessionId}`,
-      );
-
       // Get session from database
       const session = await this.whatsappService["sessionRepository"].findOne({
         where: { id: sessionId },
@@ -1207,10 +1114,6 @@ export class WhatsAppController {
       if (!session) {
         return { success: false, message: "Session not found in database" };
       }
-
-      console.log(
-        `[FORCE-LOGOUT] Found session: ${session.name}, status: ${session.status}`,
-      );
 
       // Use our enhanced disconnectSession which will force logout even if no active socket
       await this.baileysService.disconnectSession(sessionId);
@@ -1252,8 +1155,6 @@ export class WhatsAppController {
   @ApiResponse({ status: 200, description: "Connection test initiated" })
   async testConnectSession(@Param("sessionId") sessionId: string) {
     try {
-      console.log(`[TEST-CONNECT] Testing connection for session ${sessionId}`);
-
       // Get session from database to get userId
       const session = await this.whatsappService["sessionRepository"].findOne({
         where: { id: sessionId },
@@ -1299,10 +1200,6 @@ export class WhatsAppController {
   @ApiResponse({ status: 200, description: "Connection success simulated" })
   async simulateConnectionSuccess(@Param("sessionId") sessionId: string) {
     try {
-      console.log(
-        `[SIMULATE-CONNECTION] Simulating connection success for session ${sessionId}`,
-      );
-
       // Get session from database
       const session = await this.whatsappService["sessionRepository"].findOne({
         where: { id: sessionId },
@@ -1312,10 +1209,6 @@ export class WhatsAppController {
         return { success: false, message: "Session not found in database" };
       }
 
-      console.log(
-        `[SIMULATE-CONNECTION] Found session: ${session.name}, current status: ${session.status}`,
-      );
-
       // Manually trigger the connection update event to simulate successful connection
       await this.whatsappService["handleConnectionUpdate"]({
         sessionId,
@@ -1324,10 +1217,6 @@ export class WhatsAppController {
           receivedPendingNotifications: false,
         },
       });
-
-      console.log(
-        `[SIMULATE-CONNECTION] Triggered connection update event for session ${sessionId}`,
-      );
 
       return {
         success: true,

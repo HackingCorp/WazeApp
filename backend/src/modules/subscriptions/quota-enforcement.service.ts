@@ -263,7 +263,7 @@ export class QuotaEnforcementService {
     // (Bonus credits are consumed FIRST, so subscription is only used for messages beyond bonus)
     const messagesFromSubscription = Math.max(0, totalMessagesUsed - totalBonusCapacity);
 
-    this.logger.log(`[QUOTA] Org ${organizationId}: ${totalMessagesUsed} total messages, ${bonusCreditsAvailable} bonus available, ${bonusCreditsUsed} bonus used, ${messagesFromSubscription} from subscription`);
+    this.logger.debug(`Org ${organizationId}: ${messagesFromSubscription}/${planLimit} messages (${bonusCreditsAvailable} bonus available)`);
 
     // Build quota check based on subscription usage only
     const quotaCheck = this.buildQuotaCheck(messagesFromSubscription, planLimit, "monthly WhatsApp messages");
@@ -393,13 +393,10 @@ export class QuotaEnforcementService {
    * Uses billing cycle based on subscription's nextBillingDate
    */
   private async getActualWhatsAppMessageCount(organizationId: string): Promise<number> {
-    // Get subscription to determine billing period
     const subscription = await this.getActiveSubscription(organizationId);
-    const { start: periodStart, end: periodEnd } = this.getBillingPeriod(subscription);
+    const { start: periodStart } = this.getBillingPeriod(subscription);
 
-    this.logger.debug(`[QUOTA DEBUG] Org ${organizationId}: Billing period ${periodStart.toISOString()} to ${periodEnd.toISOString()}`);
-
-    // Get all sessions for this organization (don't use select to ensure relations load)
+    // Get all sessions for this organization
     const sessions = await this.sessionRepository.find({
       where: { organizationId },
       relations: ['agent'],
@@ -409,28 +406,19 @@ export class QuotaEnforcementService {
       .filter(s => s.agent?.id)
       .map(s => s.agent.id);
 
-    this.logger.log(`[QUOTA] Org ${organizationId}: Found ${sessions.length} sessions`);
-
     // Also get agents directly assigned to this organization
     const orgAgents = await this.aiAgentRepository.find({
       where: { organizationId },
     });
     const orgAgentIds = orgAgents.map(a => a.id);
 
-    this.logger.log(`[QUOTA] Org ${organizationId}: Found ${orgAgents.length} agents directly in org: ${JSON.stringify(orgAgentIds)}`);
-
-    // Combine all agent IDs
     const allAgentIds = [...new Set([...agentIdsFromSessions, ...orgAgentIds])];
 
-    this.logger.log(`[QUOTA] Org ${organizationId}: Combined ${allAgentIds.length} unique agent IDs: ${JSON.stringify(allAgentIds)}`);
-
     if (sessionIds.length === 0 && allAgentIds.length === 0) {
-      this.logger.warn(`[QUOTA DEBUG] No sessions or agents found for org ${organizationId}`);
       return 0;
     }
 
     // Build query to find conversations by sessionId OR agentId
-    // Also check context->>'sessionId' for backward compatibility with old conversations
     const conversationQuery = this.conversationRepository
       .createQueryBuilder('conv')
       .select(['conv.id']);
@@ -439,7 +427,6 @@ export class QuotaEnforcementService {
     const params: any = {};
 
     if (sessionIds.length > 0) {
-      // Check both the sessionId column AND the context->>'sessionId' JSON field
       conditions.push('conv.sessionId IN (:...sessionIds)');
       conditions.push("conv.context->>'sessionId' IN (:...contextSessionIds)");
       params.sessionIds = sessionIds;
@@ -458,24 +445,17 @@ export class QuotaEnforcementService {
     const conversations = await conversationQuery.getMany();
     const conversationIds = conversations.map(c => c.id);
 
-    this.logger.log(`[QUOTA] Org ${organizationId}: Found ${conversations.length} conversations (checking sessionId column and context.sessionId)`);
-
     if (conversationIds.length === 0) {
-      this.logger.warn(`[QUOTA] Org ${organizationId}: No conversations found, returning 0`);
       return 0;
     }
 
-    // Count AI responses (ASSISTANT) for quota - only AI-generated messages count towards the limit
-    const aiMessageCount = await this.messageRepository
+    // Count AI responses for quota
+    return this.messageRepository
       .createQueryBuilder('msg')
       .where('msg.conversationId IN (:...conversationIds)', { conversationIds })
       .andWhere('msg.role = :role', { role: MessageRole.AGENT })
       .andWhere('msg.createdAt >= :periodStart', { periodStart })
       .getCount();
-
-    this.logger.log(`[QUOTA] Org ${organizationId}: AI responses count = ${aiMessageCount} (period starts: ${periodStart.toISOString()})`);
-
-    return aiMessageCount;
   }
 
   /**
@@ -743,9 +723,7 @@ export class QuotaEnforcementService {
   }
 
   async getUserUsageSummary(userId: string): Promise<any> {
-    console.log(`[USAGE] Getting user usage summary for userId: ${userId}`);
     const subscription = await this.getActiveUserSubscription(userId);
-    console.log(`[USAGE] Got subscription plan: ${subscription.plan}`);
 
     // For individual users, we check WhatsApp agents and messages
     const [agentCheck, whatsappMessageCheck] = await Promise.all([
@@ -753,15 +731,7 @@ export class QuotaEnforcementService {
       this.checkUserWhatsAppMessageQuota(userId),
     ]);
 
-    console.log(
-      `[USAGE] Agent quota check: limit=${agentCheck.limit}, current=${agentCheck.current}`,
-    );
-    console.log(
-      `[USAGE] WhatsApp message quota check: limit=${whatsappMessageCheck.limit}, current=${whatsappMessageCheck.current}`,
-    );
-
     // Individual users don't have knowledge bases, storage, etc. for now
-    // But they can have basic limits
     const basicQuota = {
       allowed: true,
       limit: 0,
@@ -770,7 +740,7 @@ export class QuotaEnforcementService {
       percentUsed: 0,
     };
 
-    const result = {
+    return {
       plan: subscription.plan,
       status: subscription.status,
       usage: {
@@ -778,7 +748,7 @@ export class QuotaEnforcementService {
         knowledgeBases: basicQuota,
         storage: basicQuota,
         knowledgeCharacters: basicQuota,
-        monthlyRequests: whatsappMessageCheck, // Use actual message count for requests
+        monthlyRequests: whatsappMessageCheck,
         monthlyTokens: basicQuota,
         monthlyVectorSearches: basicQuota,
         monthlyConversations: basicQuota,
@@ -786,9 +756,6 @@ export class QuotaEnforcementService {
       },
       features: subscription.features,
     };
-
-    console.log(`[USAGE] Returning result with plan: ${result.plan}`);
-    return result;
   }
 
   private async getActiveSubscription(
@@ -863,10 +830,6 @@ export class QuotaEnforcementService {
   private async getActiveUserSubscription(
     userId: string,
   ): Promise<Subscription> {
-    console.log(
-      `[QUOTA] Getting active user subscription for userId: ${userId}`,
-    );
-
     // First, check if user already has an organization subscription
     // Users should have only ONE subscription (either individual OR via organization)
     const orgSubscription = await this.subscriptionRepository.findOne({
@@ -877,9 +840,6 @@ export class QuotaEnforcementService {
     });
 
     if (orgSubscription) {
-      console.log(
-        `[QUOTA] User ${userId} already has organization subscription (plan: ${orgSubscription.plan}), using that`,
-      );
       return orgSubscription;
     }
 
@@ -891,15 +851,10 @@ export class QuotaEnforcementService {
       },
     });
 
-    console.log(
-      `[QUOTA] Found existing individual subscription: ${activeSubscription ? "YES" : "NO"}`,
-    );
-
-    // Load user email for mapping
+    // Load user email for mapping demo/test accounts
     const user = await this.userRepository.findOne({ where: { id: userId } });
     const email = (user?.email || '').toLowerCase();
 
-    // Helper to map demo/test emails to plans
     const mapEmailToPlan = (): SubscriptionPlan => {
       if (email === 'standard.user@wazeapp.com') return SubscriptionPlan.STANDARD;
       if (email === 'prouser@example.com' || email === 'pro.user@wazeapp.com') return SubscriptionPlan.PRO;
@@ -908,12 +863,9 @@ export class QuotaEnforcementService {
     };
 
     if (!activeSubscription) {
-      // Default or mapped plan on first subscription creation
       const plan: SubscriptionPlan = mapEmailToPlan();
       const planCode = plan.toLowerCase();
-      console.log(`[QUOTA] Creating individual subscription for ${email} with plan ${plan}`);
 
-      // Create subscription for user using database plans
       activeSubscription = this.subscriptionRepository.create({
         userId,
         organizationId: null,
@@ -923,28 +875,13 @@ export class QuotaEnforcementService {
         startsAt: new Date(),
       });
 
-      console.log(
-        `[QUOTA] Created subscription object with plan: ${activeSubscription.plan}`,
-      );
-
-      try {
-        activeSubscription =
-          await this.subscriptionRepository.save(activeSubscription);
-        console.log(
-          `[QUOTA] Successfully saved subscription with id: ${activeSubscription.id}, plan: ${activeSubscription.plan}`,
-        );
-      } catch (error) {
-        console.error(`[QUOTA] Failed to save subscription: ${error.message}`);
-        throw error;
-      }
+      activeSubscription = await this.subscriptionRepository.save(activeSubscription);
+      this.logger.log(`Created subscription for user ${userId} with plan ${plan}`);
     } else {
       // If an existing subscription exists but mapping expects a higher plan (demo accounts), adjust it
       const desired = mapEmailToPlan();
       if (desired !== activeSubscription.plan) {
         const desiredCode = desired.toLowerCase();
-        console.log(
-          `[QUOTA] Adjusting existing plan for ${email} from ${activeSubscription.plan} to ${desired}`,
-        );
         activeSubscription.plan = desired;
         activeSubscription.limits = this.planService.getPlanLimits(desiredCode);
         activeSubscription.features = this.planService.getPlanFeatures(desiredCode);
@@ -1020,16 +957,12 @@ export class QuotaEnforcementService {
       // If today is BEFORE the calculated period start, it means the user paid early
       // We need to use the PREVIOUS period instead
       if (now < periodStart) {
-        this.logger.debug(`[BILLING PERIOD] Today (${now.toISOString()}) is before calculated periodStart (${periodStart.toISOString()}), using previous period`);
-        // Go back one more month
         periodEnd = new Date(periodStart);
         periodEnd.setHours(23, 59, 59, 999);
         periodStart = new Date(periodEnd);
         periodStart.setMonth(periodStart.getMonth() - 1);
         periodStart.setHours(0, 0, 0, 0);
       }
-
-      this.logger.debug(`[BILLING PERIOD] nextBillingDate=${subscription.nextBillingDate.toISOString()}, periodStart=${periodStart.toISOString()}, periodEnd=${periodEnd.toISOString()}`);
 
       return { start: periodStart, end: periodEnd };
     }
@@ -1053,8 +986,6 @@ export class QuotaEnforcementService {
     const periodEnd = new Date(periodStart);
     periodEnd.setMonth(periodEnd.getMonth() + 1);
     periodEnd.setHours(23, 59, 59, 999);
-
-    this.logger.debug(`[BILLING PERIOD FALLBACK] start=${periodStart.toISOString()}, end=${periodEnd.toISOString()}`);
 
     return { start: periodStart, end: periodEnd };
   }

@@ -34,11 +34,9 @@ export class AnalyticsService {
   async getAnalytics(organizationId: string, userId: string, params: any) {
     const { period = "7d", startDate, endDate } = params;
 
-    console.log('🔍 Analytics Service: Getting analytics for org:', organizationId, 'user:', userId);
-
+    
     try {
       // Get real data from database
-      console.log('🔍 Analytics Service: Fetching real data from database...');
 
       // Build proper where conditions - find ALL agents the user has access to
       // Always search for agents created by the user (regardless of org assignment)
@@ -66,8 +64,6 @@ export class AnalyticsService {
         ];
       }
 
-      console.log('📊 Analytics: Where conditions for agents:', JSON.stringify(agentWhereConditions));
-      console.log('📊 Analytics: Where conditions for sessions:', JSON.stringify(sessionWhereConditions));
 
       // Get AI Agents
       const agents = await this.agentRepository.find({
@@ -86,9 +82,6 @@ export class AnalyticsService {
       const agentIds = agents.map(agent => agent.id);
       const sessionIds = sessions.map(session => session.id);
 
-      console.log('📊 Analytics: Agent IDs found:', agentIds);
-      console.log('📊 Analytics: Session IDs found:', sessionIds);
-      console.log('📊 Analytics: User ID:', userId);
 
       // Get real conversations count - by agentId OR sessionId
       // Conversations can be linked via agentId (AI agent) or sessionId (WhatsApp session)
@@ -117,8 +110,6 @@ export class AnalyticsService {
           .then(results => results.map(r => r.conversation_id));
       }
 
-      console.log('📊 Analytics: Conversations count:', conversations);
-      console.log('📊 Analytics: Conversation IDs count:', conversationIds.length);
       
       // Get real messages count for the period
       const dateFilter = this.getDateFilter(period, startDate, endDate);
@@ -133,10 +124,6 @@ export class AnalyticsService {
       }
       const messages = await messagesQuery.getCount();
       
-      console.log('📊 Analytics Service: Real agents count:', agents.length);
-      console.log('📊 Analytics Service: Real sessions count:', sessions.length);
-      console.log('📊 Analytics Service: Conversations count:', conversations);
-      console.log('📊 Analytics Service: Messages count:', messages);
 
       // Calculate real active conversations (conversations with recent activity)
       const recentThreshold = new Date(Date.now() - 30 * 60 * 1000); // 30 minutes ago
@@ -189,14 +176,10 @@ export class AnalyticsService {
         lastActive: this.getRelativeTime(agent.updatedAt)
       }));
 
-      console.log('📊 Analytics Service: AI Agent statuses:', agentStatuses.length);
 
       // Generate real chart data for last 7 days
       const chartData = await this.generateRealChartData(agents, period);
 
-      console.log('✅ Analytics Service: Returning REAL data with stats:', JSON.stringify(stats));
-      console.log('✅ Analytics Service: AI Agent statuses:', JSON.stringify(agentStatuses));
-      console.log('✅ Analytics Service: Chart data points:', chartData.length);
 
       // Get quota information
       let messageQuota: QuotaCheck | null = null;
@@ -229,8 +212,6 @@ export class AnalyticsService {
         generatedAt: new Date().toISOString(),
       };
     } catch (error) {
-      console.error('❌ Analytics Service: Error occurred:', error);
-      console.error('❌ Analytics Service: Error stack:', error.stack);
       // Return ZERO data on error - don't show fake numbers
       return {
         stats: {

@@ -364,11 +364,6 @@ export class KnowledgeBaseService {
     const documentCount = parseInt(allDocsStats?.[0]?.documentCount) || 0;
     const totalCharacters = parseInt(charStats?.[0]?.totalCharacters) || 0;
 
-    console.log(`📊 UPDATE STATS for KB ${knowledgeBaseId}:`);
-    console.log(`   - Raw result:`, allDocsStats, charStats);
-    console.log(`   - Parsed documentCount: ${documentCount}`);
-    console.log(`   - Parsed totalCharacters: ${totalCharacters}`);
-
     await this.knowledgeBaseRepository.update(knowledgeBaseId, {
       documentCount,
       totalCharacters,
@@ -543,9 +538,6 @@ export class KnowledgeBaseService {
    * Test KB search like AI does - for debugging
    */
   async testSearchForAI(knowledgeBaseId: string, query: string): Promise<any> {
-    console.log(`🧪 TEST SEARCH: KB=${knowledgeBaseId}, Query="${query}"`);
-
-    // Get knowledge base
     const kb = await this.knowledgeBaseRepository.findOne({
       where: { id: knowledgeBaseId },
     });
@@ -554,9 +546,6 @@ export class KnowledgeBaseService {
       return { error: `Knowledge base ${knowledgeBaseId} not found` };
     }
 
-    console.log(`🧪 KB Found: ${kb.name}`);
-
-    // Get documents like AI does
     const documents = await this.documentRepository
       .createQueryBuilder("doc")
       .where("doc.knowledgeBaseId = :kbId", { kbId: knowledgeBaseId })
@@ -566,29 +555,17 @@ export class KnowledgeBaseService {
       .orderBy("doc.createdAt", "DESC")
       .getMany();
 
-    console.log(`🧪 Documents found: ${documents.length}`);
+    const docDetails = documents.map((doc) => ({
+      id: doc.id,
+      title: doc.title,
+      status: doc.status,
+      contentLength: doc.content?.length || 0,
+      preview: doc.content?.substring(0, 2000) || '[No content]',
+      fullContent: doc.content || '[No content]',
+    }));
 
-    // Log each document
-    const docDetails = documents.map((doc, idx) => {
-      console.log(`🧪 Doc ${idx + 1}: "${doc.title}" - ${doc.content?.length || 0} chars - Status: ${doc.status}`);
-      if (doc.content) {
-        console.log(`🧪 Preview: ${doc.content.substring(0, 300).replace(/\n/g, ' ')}`);
-      }
-      return {
-        id: doc.id,
-        title: doc.title,
-        status: doc.status,
-        contentLength: doc.content?.length || 0,
-        preview: doc.content?.substring(0, 2000) || '[No content]',
-        fullContent: doc.content || '[No content]',
-      };
-    });
-
-    // Search with query terms
     const searchTerms = query.toLowerCase().split(/[\s,.'?!]+/).filter(t => t.length > 2);
-    console.log(`🧪 Search terms: ${searchTerms.join(', ')}`);
 
-    // Score documents
     const scoredDocs = documents.map(doc => {
       let score = 0;
       const content = (doc.content || "").toLowerCase();
@@ -602,8 +579,6 @@ export class KnowledgeBaseService {
 
       return { title: doc.title, score, hasContent: !!doc.content };
     }).filter(d => d.score > 0).sort((a, b) => b.score - a.score);
-
-    console.log(`🧪 Scored documents: ${scoredDocs.length}`);
 
     return {
       knowledgeBase: {

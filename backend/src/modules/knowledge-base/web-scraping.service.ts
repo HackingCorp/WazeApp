@@ -508,10 +508,7 @@ export class WebScrapingService {
           document.querySelector(selector) !== null
         );
         
-        // Adjust wait time for e-commerce sites
-        if (isEcommerceSite) {
-          console.log('E-commerce site detected, using specialized extraction');
-        }
+        // E-commerce sites may need specialized extraction
         // Extract metadata
         const title = document.title || 
                      document.querySelector('meta[property="og:title"]')?.getAttribute('content') || 
@@ -604,8 +601,6 @@ export class WebScrapingService {
 
         // ENHANCED: Extract from Next.js scripts (for sites like E-Market 237)
         if (document.body.innerHTML.includes('__next') || document.body.innerHTML.includes('self.__next_f')) {
-          console.log('Extracting from Next.js scripts...');
-          
           const scripts = document.querySelectorAll('script');
           scripts.forEach(script => {
             const content = script.textContent || script.innerHTML;
@@ -617,8 +612,7 @@ export class WebScrapingService {
             
             if (productMatch) {
               const [, id, name, slug, description] = productMatch;
-              console.log('Found product in Next.js script:', name);
-              
+
               if (name && !text.includes(name)) {
                 text += ' ' + name;
               }

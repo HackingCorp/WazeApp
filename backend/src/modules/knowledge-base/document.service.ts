@@ -126,9 +126,8 @@ export class DocumentService {
     try {
       const cacheKey = `kb:docs:${knowledgeBaseId}`;
       await this.cacheManager.del(cacheKey);
-      console.log(`🗑️ KB Cache INVALIDATED: ${cacheKey}`);
     } catch (error) {
-      console.warn(`Cache invalidation error: ${error.message}`);
+      // Cache invalidation error - non-critical
     }
   }
 

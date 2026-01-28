@@ -252,10 +252,7 @@ export class WhatsAppAIResponderService {
     private eventEmitter: EventEmitter2,
     private quotaEnforcementService: QuotaEnforcementService,
   ) {
-    console.log('🔧 WhatsAppAIResponderService: Service initialized and ready to receive events');
     this.logger.log('WhatsAppAIResponderService initialized');
-    // NOTE: Using ONLY the @OnEvent decorator for event handling - no manual listener
-    // to prevent duplicate message processing
   }
 
   @OnEvent("whatsapp.message.received")

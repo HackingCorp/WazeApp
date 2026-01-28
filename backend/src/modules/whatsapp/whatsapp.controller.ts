@@ -349,14 +349,12 @@ export class WhatsAppController {
     if (clearCache === "true") {
       this.conversationService["conversations"].clear();
       this.conversationService["messages"].clear();
-      console.log("[CLEAR-CACHE] Memory cache cleared");
     }
 
     let conversations = await this.conversationService.getConversationsForUser(
       userId,
       sessionId,
     );
-    console.log(`[API-DEDUPE] Original count: ${conversations.length}`);
 
     // FORCE deduplication at API level
     const normalizePhoneNumber = (phoneNumber: string): string => {
@@ -394,10 +392,6 @@ export class WhatsAppController {
         new Date(a.lastMessageTime).getTime(),
     );
 
-    console.log(
-      `[API-DEDUPE] After deduplication: ${conversations.length} unique conversations`,
-    );
-
     return conversations;
   }
 
@@ -409,18 +403,7 @@ export class WhatsAppController {
     @Param("id") id: string,
     @CurrentUser() user: AuthenticatedRequest,
   ) {
-    const userId = user.userId;
-    console.log(
-      `[DEBUG] Getting messages for conversation: ${id}, user: ${userId}`,
-    );
-    const messages =
-      await this.conversationService.getMessagesForConversation(id);
-    console.log(
-      `[DEBUG] Found ${messages.length} messages for user ${userId}:`,
-      messages,
-    );
-
-    return messages;
+    return this.conversationService.getMessagesForConversation(id);
   }
 
   @Post("conversations/:id/messages")
@@ -431,29 +414,16 @@ export class WhatsAppController {
     @Body() body: { content: string },
     @CurrentUser() user: AuthenticatedRequest,
   ) {
-    console.log(`[SEND-MESSAGE] Received request to send message:`);
-    console.log(`[SEND-MESSAGE] Conversation ID: ${id}`);
-    console.log(`[SEND-MESSAGE] Content: ${body.content}`);
-    console.log(`[SEND-MESSAGE] User: ${JSON.stringify(user)}`);
-
     const userId = user.userId;
-    console.log(`[SEND-MESSAGE] Using userId: ${userId}`);
-
-    try {
-      const message = await this.conversationService.sendMessage(
-        id,
-        body.content,
-        userId,
-      );
-      console.log(`[SEND-MESSAGE] Message sent successfully:`, message);
-      return {
-        success: true,
-        data: message,
-      };
-    } catch (error) {
-      console.error(`[SEND-MESSAGE] Error sending message:`, error);
-      throw error;
-    }
+    const message = await this.conversationService.sendMessage(
+      id,
+      body.content,
+      userId,
+    );
+    return {
+      success: true,
+      data: message,
+    };
   }
 
   @Put("conversations/:id/read")

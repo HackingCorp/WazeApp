@@ -33,16 +33,6 @@ async function loadBaileys() {
     downloadMediaMessage = baileys.downloadMediaMessage;
     isJidBroadcast = baileys.isJidBroadcast;
 
-    // Log what we got to debug
-    console.log('[Baileys] Loaded exports:', {
-      hasDefault: !!baileys.default,
-      hasMakeWASocket: !!baileys.makeWASocket,
-      makeWASocketType: typeof makeWASocket,
-      hasDisconnectReason: !!DisconnectReason,
-      hasUseMultiFileAuthState: !!useMultiFileAuthState,
-      hasBrowsers: !!Browsers,
-    });
-
     if (typeof makeWASocket !== 'function') {
       throw new Error(`makeWASocket is not a function, got: ${typeof makeWASocket}`);
     }

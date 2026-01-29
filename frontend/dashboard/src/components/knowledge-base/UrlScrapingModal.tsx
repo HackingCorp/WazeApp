@@ -132,7 +132,6 @@ export default function UrlScrapingModal({
     e.preventDefault();
     if (!url.trim()) return;
 
-    console.log('[UrlScrapingModal] Starting real URL scraping process');
     setIsProcessing(true);
     setIsCompleted(false);
     setCurrentStep(1);
@@ -193,8 +192,6 @@ export default function UrlScrapingModal({
         progress: 20 
       });
 
-      console.log('[UrlScrapingModal] Making real API call to scrape URL:', url.trim());
-      
       const scrapeResponse = await api.scrapeUrl({
         url: url.trim(),
         options: {
@@ -203,8 +200,6 @@ export default function UrlScrapingModal({
           maxDepth: 1
         }
       });
-
-      console.log('[UrlScrapingModal] API response received:', scrapeResponse);
 
       if (scrapeResponse.success && scrapeResponse.data) {
         // Check if the internal operation was successful
@@ -219,10 +214,7 @@ export default function UrlScrapingModal({
         
         const realScrapedContent = scrapeResponse.data.data.scrapedContent;
         const realAiSynthesis = scrapeResponse.data.data.aiSynthesis;
-        
-        console.log('[UrlScrapingModal] Real scraped content:', realScrapedContent);
-        console.log('[UrlScrapingModal] Real AI synthesis:', realAiSynthesis);
-        
+
         setScrapedContent(realScrapedContent);
         setAiSynthesis(realAiSynthesis);
         
@@ -252,7 +244,6 @@ export default function UrlScrapingModal({
   };
 
   const handleClose = () => {
-    console.log('[UrlScrapingModal] handleClose called - Modal is closing');
     setUrl('');
     setTitle('');
     setIsProcessing(false);
@@ -272,7 +263,6 @@ export default function UrlScrapingModal({
       return;
     }
 
-    console.log('[UrlScrapingModal] Saving scraped content to knowledge base...');
     setIsSaving(true);
 
     try {
@@ -299,10 +289,7 @@ export default function UrlScrapingModal({
         },
       });
 
-      console.log('[UrlScrapingModal] Save response:', response);
-
       if (response.success) {
-        console.log('[UrlScrapingModal] Document saved successfully!');
         // Call the callback to refresh the documents list
         if (onUploadComplete) {
           onUploadComplete();

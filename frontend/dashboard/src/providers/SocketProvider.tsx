@@ -37,8 +37,6 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
     if (!user || !token) return;
 
     const connectSocket = () => {
-      console.log('Connecting to WhatsApp WebSocket...');
-      
       // Connect to the /whatsapp namespace (must match backend gateway)
       const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3100';
       const newSocket = io(`${socketUrl}/whatsapp`, {
@@ -55,7 +53,6 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
 
       // Connection events
       newSocket.on('connect', () => {
-        console.log('Socket connected:', newSocket.id);
         setIsConnected(true);
         reconnectAttemptsRef.current = 0;
         isRefreshingToken.current = false; // Reset refresh flag on successful connection
@@ -69,26 +66,22 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
       });
 
       newSocket.on('disconnect', (reason) => {
-        console.log('Socket disconnected:', reason);
         setIsConnected(false);
-        
+
         if (reason === 'io server disconnect') {
           // Server disconnected due to JWT expiry, try token refresh first
           if (!isRefreshingToken.current) {
-            console.log('Server disconnect detected, attempting token refresh...');
             handleTokenRefreshAndReconnect(newSocket);
           }
         }
       });
 
       newSocket.on('connect_error', (error) => {
-        console.error('Socket connection error:', error);
         setIsConnected(false);
-        
+
         // If error is JWT related or during authentication, try to refresh token
         if (error.message && (error.message.includes('jwt') || error.message.includes('auth'))) {
           if (!isRefreshingToken.current) {
-            console.log('JWT/Auth error detected, attempting token refresh...');
             handleTokenRefreshAndReconnect(newSocket);
           }
           return;
@@ -105,21 +98,15 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
 
       const handleTokenRefreshAndReconnect = async (socketInstance: Socket) => {
         if (isRefreshingToken.current) {
-          console.log('Token refresh already in progress, skipping...');
           return;
         }
 
         isRefreshingToken.current = true;
-        
+
         try {
-          console.log('Refreshing token for WebSocket connection...');
           await refreshToken?.();
-          console.log('Token refreshed successfully, socket will reconnect with new token');
-          
           // The useEffect will handle reconnection when token updates
-          
         } catch (error) {
-          console.error('Token refresh failed:', error);
           isRefreshingToken.current = false;
           toast.error('Session expired, please refresh the page', {
             id: 'session-expired',
@@ -134,31 +121,12 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
         });
       });
 
-      // WhatsApp specific events
-      newSocket.on('whatsapp:message', (data) => {
-        console.log('WhatsApp message received:', data);
-        // This will be handled by conversation components
-      });
-
-      newSocket.on('whatsapp:message-sent', (data) => {
-        console.log('WhatsApp message sent:', data);
-        // This will be handled by conversation components
-      });
-
-      newSocket.on('whatsapp:session-status', (data) => {
-        console.log('WhatsApp session status:', data);
-        // This will be handled by WhatsApp settings components
-      });
-
-      newSocket.on('whatsapp:typing', (data) => {
-        console.log('WhatsApp typing indicator:', data);
-        // This will be handled by conversation components
-      });
-
-      newSocket.on('whatsapp:online-status', (data) => {
-        console.log('WhatsApp contact online status:', data);
-        // This will be handled by conversation components
-      });
+      // WhatsApp specific events - handled by conversation components
+      newSocket.on('whatsapp:message', () => {});
+      newSocket.on('whatsapp:message-sent', () => {});
+      newSocket.on('whatsapp:session-status', () => {});
+      newSocket.on('whatsapp:typing', () => {});
+      newSocket.on('whatsapp:online-status', () => {});
 
       newSocket.on('agent:status', (data) => {
         if (data.status === 'offline') {
@@ -172,15 +140,9 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
         }
       });
 
-      newSocket.on('conversation:updated', (data) => {
-        // This will be handled by specific components
-        console.log('Conversation updated:', data);
-      });
-
-      newSocket.on('analytics:updated', (data) => {
-        // This will be handled by analytics components
-        console.log('Analytics updated:', data);
-      });
+      // Handled by specific components
+      newSocket.on('conversation:updated', () => {});
+      newSocket.on('analytics:updated', () => {});
 
       newSocket.on('notification', (data) => {
         toast(data.message, {
@@ -209,14 +171,11 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
   const emit = (event: string, data: any) => {
     if (socket && isConnected) {
       socket.emit(event, data);
-    } else {
-      console.warn('Socket not connected, cannot emit event:', event);
     }
   };
 
   const subscribe = (event: string, callback: (data: any) => void) => {
     if (!socket) {
-      console.warn('Socket not available for subscription:', event);
       return () => {};
     }
 

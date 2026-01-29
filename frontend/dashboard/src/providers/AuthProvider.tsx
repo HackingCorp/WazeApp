@@ -65,9 +65,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const getUserPlanInfo = async (userData: any) => {
     try {
-      console.log('AuthProvider: getUserPlanInfo called with userData:', userData);
       const response = await api.get('/subscriptions/usage-summary');
-      console.log('AuthProvider: Subscription response:', response);
 
       if (response.success && response.data) {
         const planData = response.data;
@@ -84,8 +82,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                         userData?.organization?.name ||
                         (hasOrganization ? 'Mon Organisation' : 'Personal Workspace');
 
-        console.log('AuthProvider: Organization info - hasOrg:', hasOrganization, 'name:', orgName);
-
         return {
           organization: {
             id: hasOrganization || 'personal',
@@ -100,7 +96,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         };
       }
     } catch (error) {
-      console.log('Error fetching plan info:', error);
+      // Silently fall back to free plan
     }
 
     // Fallback to free plan
@@ -110,8 +106,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const fallbackName = userData?.currentOrganization?.name ||
                          userData?.organization?.name ||
                          (hasOrganization ? 'Mon Organisation' : 'Personal Workspace');
-
-    console.log('AuthProvider: Using fallback - hasOrg:', hasOrganization, 'name:', fallbackName);
 
     return {
       organization: {
@@ -129,15 +123,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const initAuth = async () => {
     try {
-      console.log('AuthProvider: initAuth started');
-
       // Check for token in URL first (from marketing site login)
       const urlParams = new URLSearchParams(window.location.search);
       const urlToken = urlParams.get('token');
       const urlRefresh = urlParams.get('refresh');
 
       if (urlToken) {
-        console.log('AuthProvider: Found token in URL, setting in localStorage');
         localStorage.setItem('auth-token', urlToken);
         if (urlRefresh) {
           localStorage.setItem('refresh-token', urlRefresh);
@@ -148,27 +139,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       const savedToken = localStorage.getItem('auth-token');
       const savedRefreshToken = localStorage.getItem('refresh-token');
-      console.log('AuthProvider: Tokens from localStorage:', {
-        hasAccessToken: !!savedToken,
-        hasRefreshToken: !!savedRefreshToken,
-        accessTokenPreview: savedToken ? savedToken.substring(0, 30) + '...' : 'none',
-      });
 
       if (!savedToken) {
-        console.log('AuthProvider: No token found');
         setIsLoading(false);
         return;
       }
 
       // Try to validate token with real API first
-      console.log('AuthProvider: Validating token:', savedToken.substring(0, 20) + '...');
       api.setToken(savedToken);
 
       const response = await api.getProfile();
-      console.log('AuthProvider: API response:', response);
 
       if (response.success && response.data?.user) {
-        console.log('AuthProvider: Token valid, setting user');
         const userData = response.data.user;
         setToken(savedToken);
 
@@ -194,12 +176,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      // Log the error for debugging
-      console.log('AuthProvider: Profile request failed:', {
-        error: response.error,
-        success: response.success,
-      });
-
       // Check if it's an auth error (401) vs network error
       // Be more specific with "Invalid" to avoid false positives
       const isAuthError = response.error?.includes('401') ||
@@ -208,26 +184,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                           response.error?.includes('jwt') ||
                           response.error?.includes('expired');
 
-      console.log('AuthProvider: Is auth error?', isAuthError, 'Error:', response.error);
-
       if (isAuthError) {
         // Token is invalid, try to refresh
-        console.log('AuthProvider: Token invalid, attempting refresh...');
         const refreshToken = localStorage.getItem('refresh-token');
-        console.log('AuthProvider: Refresh token available?', !!refreshToken);
 
         if (refreshToken) {
           try {
-            console.log('AuthProvider: Calling api.refreshToken()...');
             const refreshResponse = await api.refreshToken();
-            console.log('AuthProvider: Refresh response:', {
-              success: refreshResponse.success,
-              hasAccessToken: !!refreshResponse.data?.accessToken,
-              error: refreshResponse.error,
-            });
 
             if (refreshResponse.success && refreshResponse.data?.accessToken) {
-              console.log('AuthProvider: Token refreshed, retrying profile...');
               // Retry profile with new token
               const retryResponse = await api.getProfile();
               if (retryResponse.success && retryResponse.data?.user) {
@@ -246,31 +211,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     notifications: { email: true, push: true, sms: false },
                   },
                 });
-                console.log('AuthProvider: Profile restored after token refresh');
                 return;
-              } else {
-                console.log('AuthProvider: Profile retry failed:', retryResponse.error);
               }
             }
           } catch (refreshError) {
-            console.log('AuthProvider: Refresh exception:', refreshError);
+            // Refresh failed silently
           }
         }
 
         // Refresh failed, remove tokens
-        console.log('AuthProvider: Token validation failed, removing invalid token');
         localStorage.removeItem('auth-token');
         localStorage.removeItem('refresh-token');
         api.setToken(null);
-      } else {
-        // Network or other error - keep the token for retry
-        console.log('AuthProvider: Network error, keeping token for retry');
       }
+      // Network or other error - keep the token for retry
     } catch (error) {
       // Unexpected error - don't remove token automatically
-      console.error('AuthProvider: Exception during auth init:', error);
     } finally {
-      console.log('AuthProvider: Initialization complete');
       setIsLoading(false);
     }
   };
@@ -383,9 +340,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const refreshTokenFn = async (): Promise<void> => {
     try {
-      console.log('AuthProvider: Attempting token refresh');
       const response = await api.refreshToken();
-      
+
       if (!response.success) {
         throw new Error('Token refresh failed');
       }
@@ -394,10 +350,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setToken(accessToken);
       localStorage.setItem('auth-token', accessToken);
       api.setToken(accessToken);
-      
-      console.log('AuthProvider: Token refreshed successfully');
     } catch (error) {
-      console.error('AuthProvider: Token refresh failed:', error);
       // If refresh fails, logout user
       logout();
       throw error;

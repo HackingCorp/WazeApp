@@ -24,9 +24,6 @@ async function getAIResponse(message: string, userLanguage: string = 'en'): Prom
   }
   
   try {
-    console.log('🔄 Calling API:', `${API_BASE_URL}/marketing/chat`)
-    console.log('📨 Request body:', { message, context: "marketing_demo", language: userLanguage })
-    
     const response = await fetch(`${API_BASE_URL}/marketing/chat`, {
       method: 'POST',
       headers: {
@@ -38,17 +35,12 @@ async function getAIResponse(message: string, userLanguage: string = 'en'): Prom
         language: userLanguage
       }),
     })
-    
-    console.log('📥 Response status:', response.status)
-    console.log('📥 Response ok:', response.ok)
-    
+
     if (response.ok) {
       const data = await response.json()
-      console.log('📄 Full response data:', data)
-      
+
       // Le backend renvoie: { success: true, data: { success: true, data: { response: "...", timestamp: "...", provider: "..." } } }
       const aiResponse = data.data?.data?.response || data.data?.response || data.response || data.message || "Désolé, je n'ai pas pu traiter votre demande pour le moment."
-      console.log('✅ Extracted AI response:', aiResponse)
       return aiResponse
     } else {
       const errorText = await response.text()

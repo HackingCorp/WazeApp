@@ -89,7 +89,6 @@ export default function DashboardPage() {
     const refreshToken = searchParams?.get('refresh');
     
     if (token && typeof window !== 'undefined') {
-      console.log('Dashboard: Setting token from URL params');
       localStorage.setItem('auth-token', token);
       if (refreshToken) {
         localStorage.setItem('refresh-token', refreshToken);
@@ -98,7 +97,6 @@ export default function DashboardPage() {
       window.history.replaceState(null, '', window.location.pathname);
       // Trigger AuthProvider to re-initialize with new token
       setTimeout(() => {
-        console.log('Dashboard: Triggering auth refresh after token set');
         refreshAuth();
       }, 100); // Small delay to ensure localStorage is set
     }
@@ -133,24 +131,18 @@ export default function DashboardPage() {
   const loadDashboardData = async () => {
     try {
       setLoading(true);
-      console.log('🔍 Dashboard: Loading real data from API...');
 
       const [analyticsRes, agentsRes] = await Promise.all([
         apiHelpers.analytics.getDashboard(),
         apiHelpers.agents.getAll(),
       ]);
 
-      console.log('🔍 Dashboard: Analytics response:', analyticsRes);
-      console.log('🔍 Dashboard: Agents response:', agentsRes);
-
       // Process analytics data
       if (analyticsRes.success && analyticsRes.data) {
-        console.log('✅ Dashboard: Setting analytics data from API');
         setStats(analyticsRes.data.stats);
         setChartData(analyticsRes.data.chartData || []);
         // Set quota data
         if (analyticsRes.data.quota) {
-          console.log('✅ Dashboard: Setting quota data:', analyticsRes.data.quota);
           setQuota(analyticsRes.data.quota);
         }
       }
@@ -158,8 +150,6 @@ export default function DashboardPage() {
       // Process real agents data
       const agents = agentsRes?.data || agentsRes || [];
       if (Array.isArray(agents) && agents.length > 0) {
-        console.log('✅ Dashboard: Setting real agents data:', agents.length, 'agents');
-        console.log('✅ Dashboard: First agent data:', agents[0]);
         const realAgentStatuses: AgentStatus[] = agents.map((agent: any) => ({
           id: agent.id,
           name: agent.name || 'Unnamed Agent',
@@ -174,11 +164,9 @@ export default function DashboardPage() {
         }));
         setAgentStatuses(realAgentStatuses);
       } else {
-        console.log('ℹ️ Dashboard: No agents found, showing empty state');
         setAgentStatuses([]);
       }
     } catch (error) {
-      console.error('❌ Dashboard: Failed to load dashboard data:', error);
       // On error, set empty arrays instead of mock data
       setAgentStatuses([]);
     } finally {

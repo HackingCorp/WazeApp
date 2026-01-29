@@ -231,7 +231,6 @@ export function SubscriptionManager({
           if (response.lastUpdated) {
             setRatesLastUpdated(new Date(response.lastUpdated));
           }
-          console.log('Official exchange rates loaded:', Object.keys(response.rates).length, 'currencies');
         }
       } catch (error) {
         console.error('Error fetching exchange rates:', error);

@@ -140,13 +140,6 @@ export function PaymentModal({
       const amount = dynamicPrice;
       const cleanPhone = getCleanPhoneNumber();
 
-      console.log('=== S3P PAYMENT DEBUG (Frontend) ===');
-      console.log('Phone entered:', phoneNumber);
-      console.log('Phone sent to API:', cleanPhone);
-      console.log('Provider:', mobileProvider);
-      console.log('Amount:', amount, 'FCFA');
-      console.log('Plan:', plan.id);
-
       const response = await api.initiateS3PPayment({
         amount,
         customerPhone: cleanPhone,
@@ -158,8 +151,6 @@ export function PaymentModal({
         billingPeriod,
         currency: currency || 'XAF', // Send currency so backend can convert to XAF if needed
       });
-
-      console.log('S3P API Response:', response);
 
       if (response.success && response.data) {
         const data = response.data;

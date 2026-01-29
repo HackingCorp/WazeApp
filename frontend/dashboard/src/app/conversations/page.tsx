@@ -64,21 +64,18 @@ export default function ConversationsPage() {
   const loadWhatsAppSessions = async () => {
     try {
       const response = await api.getWhatsAppSessions();
-      console.log('WhatsApp sessions API response:', response);
-      
+
       // Handle nested data structure
       const sessions = response?.data?.data || response?.data || [];
-      
+
       // Filter only connected sessions
       const connectedSessions = sessions.filter((session: any) => session.status === 'connected');
       setWhatsappSessions(connectedSessions);
-      
+
       // Auto-select first connected session if none selected
       if (connectedSessions.length > 0 && !selectedSessionId) {
         setSelectedSessionId(connectedSessions[0].id);
       }
-      
-      console.log('Loaded WhatsApp sessions:', connectedSessions);
     } catch (error) {
       console.error('Failed to load WhatsApp sessions:', error);
       toast.error(t('conversations.failedLoadSessions'));
@@ -87,7 +84,6 @@ export default function ConversationsPage() {
 
   const loadContactsForSession = async (sessionId: string) => {
     try {
-      console.log('Loading contacts for session:', sessionId);
       const response = await api.getSessionContacts(sessionId);
 
       if (response.success && response.data) {
@@ -106,7 +102,6 @@ export default function ConversationsPage() {
         });
 
         setContactsMap(map);
-        console.log(`Loaded ${contacts.length} contacts for session ${sessionId}`);
       }
     } catch (error) {
       console.error('Failed to load contacts:', error);
@@ -195,12 +190,10 @@ export default function ConversationsPage() {
 
     try {
       setLoadingConversations(true);
-      console.log('Loading conversations for sessionId:', selectedSessionId);
-      
+
       // Pass sessionId as query parameter to filter conversations
       const response = await api.get(`/whatsapp/conversations?sessionId=${selectedSessionId}`);
-      console.log('Conversations API response:', response);
-      
+
       // Handle direct array response from API (no wrapping)
       const conversations = Array.isArray(response) ? response : response?.data || [];
       
@@ -347,15 +340,13 @@ export default function ConversationsPage() {
       
       // Handle direct array response from API (no wrapping)
       const rawMessages = Array.isArray(response) ? response : response?.data || [];
-      console.log('Loaded raw messages:', rawMessages);
-      
+
       // Convert timestamp strings to Date objects and sort by timestamp (oldest first)
       const messages = rawMessages.map((msg: any) => ({
         ...msg,
         timestamp: new Date(msg.timestamp),
       })).sort((a: any, b: any) => a.timestamp.getTime() - b.timestamp.getTime());
-      
-      console.log('Processed messages:', messages);
+
       setMessages(messages);
       
       // Mark conversation as read
@@ -378,15 +369,12 @@ export default function ConversationsPage() {
     if (!socket) return;
 
     const handleNewMessage = (data: any) => {
-      console.log('Received WhatsApp message event:', data);
-      
       if (data.contactId === selectedContactId) {
         // Ensure timestamp is a Date object
         const message = {
           ...data.message,
           timestamp: new Date(data.message.timestamp),
         };
-        console.log('Adding new message to conversation:', message);
         setMessages(prev => {
           const updated = [...prev, message];
           // Sort messages by timestamp to ensure proper ordering
@@ -426,7 +414,6 @@ export default function ConversationsPage() {
             isTyping: false,
             isGroup: isGroup,
           };
-          console.log('Creating new contact:', newContact);
           return [newContact, ...prev];
         } else {
           // Update existing contact
@@ -468,8 +455,6 @@ export default function ConversationsPage() {
     };
 
     const handleSyncStatus = (data: any) => {
-      console.log('Received sync status:', data);
-      
       setSyncStatus({
         isActive: data.status !== 'completed' && data.status !== 'failed',
         status: data.status,
@@ -495,14 +480,12 @@ export default function ConversationsPage() {
       }
     };
 
-    console.log('Setting up WhatsApp WebSocket listeners');
     const unsubscribeNewMessage = subscribe('whatsapp:message', handleNewMessage);
     const unsubscribeTyping = subscribe('whatsapp:typing', handleTypingUpdate);
     const unsubscribeOnlineStatus = subscribe('whatsapp:online-status', handleOnlineStatus);
     const unsubscribeSyncStatus = subscribe('whatsapp:sync-status', handleSyncStatus);
 
     return () => {
-      console.log('Cleaning up WhatsApp WebSocket listeners');
       unsubscribeNewMessage();
       unsubscribeTyping();
       unsubscribeOnlineStatus();
@@ -511,10 +494,7 @@ export default function ConversationsPage() {
   }, [socket, subscribe, selectedContactId]);
 
   const handleSendMessage = async (content: string, type: 'text' | 'image' | 'audio' | 'file' | 'video') => {
-    console.log('[FRONTEND] handleSendMessage called with:', { selectedContactId, content, type });
-    
     if (!selectedContactId) {
-      console.log('[FRONTEND] No selectedContactId, returning');
       return;
     }
 
@@ -527,7 +507,6 @@ export default function ConversationsPage() {
       status: 'sending' as const,
     };
 
-    console.log('[FRONTEND] Adding message to UI:', newMessage);
     // Add message to UI immediately and ensure proper ordering
     setMessages(prev => {
       const updated = [...prev, newMessage];
@@ -536,11 +515,9 @@ export default function ConversationsPage() {
     });
 
     try {
-      console.log('[FRONTEND] Calling API to send message...');
       // Send to real WhatsApp conversation
       const result = await api.sendWhatsAppConversationMessage(selectedContactId, content);
-      console.log('[FRONTEND] API call successful:', result);
-      
+
       // Update message status and maintain sorting
       setMessages(prev => {
         const updated = prev.map(msg =>

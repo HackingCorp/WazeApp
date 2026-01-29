@@ -143,14 +143,12 @@ export default function BillingPage() {
   const handlePlanChange = async (planId: string) => {
     // The actual plan change happens in PaymentModal after successful payment
     // This callback is called after payment success, so just refresh auth
-    console.log('Plan changed to:', planId);
     await refreshAuth();
   };
 
   // Billing cycle is passed to PaymentModal and handled during payment
   const handleBillingCycleChange = async (cycle: 'monthly' | 'annual') => {
     // The billing cycle is stored with the subscription during payment
-    console.log('Billing cycle changed to:', cycle);
   };
 
   const handlePayInvoice = (invoice: Invoice) => {

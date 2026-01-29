@@ -164,9 +164,6 @@ export default function WhatsAppPage() {
         const plan = planData.plan as 'free' | 'standard' | 'pro' | 'enterprise';
         const maxSessions = planData.usage?.agents?.limit || 1;
 
-        console.log('Plan data from API:', planData);
-        console.log('Detected plan:', plan, 'Max sessions:', maxSessions);
-
         setUserPlan(plan);
         setPlanLimits(prev => ({ ...prev, max: maxSessions }));
         return;
@@ -200,11 +197,8 @@ export default function WhatsAppPage() {
   const fetchSessions = async () => {
     try {
       setLoading(true);
-      console.log('Fetching WhatsApp sessions...');
       const response = await api.get('/whatsapp/sessions');
-      
-      console.log('Sessions response:', response);
-      
+
       // Check if the API call was successful
       if (!response.success) {
         throw new Error(response.error || 'Failed to fetch sessions');
@@ -225,8 +219,7 @@ export default function WhatsAppPage() {
         ...session,
         hasAgent: !!(session.agent && session.agent.id),
       }));
-      
-      console.log('Valid sessions found:', sessionsWithAgents.length, sessionsWithAgents);
+
       setSessions(sessionsWithAgents);
       
       // Fetch stats for each valid session
@@ -268,7 +261,6 @@ export default function WhatsAppPage() {
     }
 
     try {
-      console.log('Creating WhatsApp session...');
       const response = await api.post('/whatsapp/sessions', {
         name: newSessionName.trim(),
         autoReconnect: true,
@@ -279,9 +271,7 @@ export default function WhatsAppPage() {
           defaultPresence: 'available'
         }
       });
-      
-      console.log('Create session response:', response);
-      
+
       // Check if the API call was successful
       if (!response.success) {
         throw new Error(response.error || 'Failed to create session');
@@ -311,9 +301,7 @@ export default function WhatsAppPage() {
       }
       
       const response = await api.post(`/whatsapp/sessions/${sessionId}/connect`);
-      
-      console.log('Connect response:', response);
-      
+
       // Gestion d'erreur améliorée
       if (!response.success && response.error) {
         const errorMessage = getWhatsAppErrorMessage(response.error);
@@ -335,8 +323,7 @@ export default function WhatsAppPage() {
       setTimeout(async () => {
         try {
           const qrResponse = await api.get(`/whatsapp/sessions/${sessionId}/qr`);
-          console.log('QR response:', qrResponse);
-          
+
           if (qrResponse.success && qrResponse.data.qrCode) {
             setQrData(qrResponse.data);
             setTimeRemaining(qrResponse.data.timeRemaining);
@@ -346,7 +333,6 @@ export default function WhatsAppPage() {
             toast.error(qrErrorMessage);
           }
         } catch (error: any) {
-          console.log('QR code generation error:', error);
           const qrErrorMessage = getQRErrorMessage(error?.response?.data?.error || error?.message);
           toast.error(qrErrorMessage);
         }
@@ -365,7 +351,6 @@ export default function WhatsAppPage() {
               
               if (forceCompleteData.success && forceCompleteData.status === 'connected') {
                 // Connection is now complete!
-                console.log('✅ Connection detected via force-complete:', forceCompleteData);
                 clearInterval(pollInterval);
                 setConnecting(null);
                 setQrData(null);
@@ -440,11 +425,11 @@ export default function WhatsAppPage() {
                   setTimeRemaining(qrResponse.data.timeRemaining);
                 }
               } catch (qrError) {
-                console.log('QR code may have expired or not available');
+                // QR code may have expired or not available
               }
             }
           } catch (error) {
-            console.error('Error polling session status:', error);
+            // Error polling session status
           }
         }, 3000);
         
@@ -525,7 +510,7 @@ export default function WhatsAppPage() {
             toast.success('WhatsApp connecté avec succès! 🎉');
           }
         } catch (error) {
-          console.error('Error polling session status:', error);
+          // Error polling session status
         }
       }, 3000);
 
@@ -574,26 +559,19 @@ export default function WhatsAppPage() {
 
   const syncMessages = async (sessionId: string) => {
     try {
-      console.log(`[SYNC] Starting sync for session: ${sessionId}`);
       toast.loading('Synchronizing all messages...', { id: 'sync-messages' });
-      
-      console.log(`[SYNC] Making API call to: /whatsapp/sessions/${sessionId}/sync`);
+
       const response = await api.post(`/whatsapp/sessions/${sessionId}/sync`);
-      
-      console.log(`[SYNC] API response:`, response);
-      
+
       if (response.success) {
-        console.log(`[SYNC] Success! Backend response:`, response.data);
-        toast.success('Message synchronization started! This may take a few minutes for large chats.', { 
+        toast.success('Message synchronization started! This may take a few minutes for large chats.', {
           id: 'sync-messages',
-          duration: 5000 
+          duration: 5000
         });
       } else {
-        console.log(`[SYNC] Failed! Error:`, response.error);
         toast.error(response.message || response.error || 'Failed to start synchronization', { id: 'sync-messages' });
       }
     } catch (error: any) {
-      console.error('[SYNC] Exception during sync:', error);
       toast.error('Failed to sync messages', { id: 'sync-messages' });
     }
   };
@@ -602,13 +580,7 @@ export default function WhatsAppPage() {
     try {
       const targetSession = newlyConnectedSession || selectedSessionForAgent;
       if (!targetSession) return;
-      
-      console.log('Assigning agent to session:', {
-        sessionId: targetSession.id,
-        agentId,
-        createKnowledgeBase
-      });
-      
+
       // API call to assign agent to session
       const response = await api.put(`/whatsapp/sessions/${targetSession.id}`, {
         agentId

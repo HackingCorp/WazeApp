@@ -100,8 +100,6 @@ export function AssignAgentModal({
         });
 
         if (response.success && response.data) {
-          console.log('Agent created successfully:', response.data);
-          
           // Rafraîchir la liste des agents dans le parent
           if (onAgentCreated) {
             onAgentCreated();

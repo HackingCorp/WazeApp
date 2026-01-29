@@ -82,7 +82,6 @@ export default function KnowledgeBaseDocumentsPage() {
       try {
         // Load knowledge base info
         const kbResponse = await api.getKnowledgeBase(id);
-        console.log('🔍 FRONTEND KB Documents Page - API Response:', kbResponse.data);
         if (kbResponse.success) {
           // Calculate actual counts from the documents data
           const actualDocumentsCount = kbResponse.data.documents?.length || 0;
@@ -100,8 +99,7 @@ export default function KnowledgeBaseDocumentsPage() {
             documentsCount: kbResponse.data.documentCount || actualDocumentsCount,
             charactersCount: kbResponse.data.totalCharacters || actualCharactersCount,
           };
-          
-          console.log('🔍 FRONTEND KB Documents Page - Setting KB data:', kbData);
+
           setKnowledgeBase(kbData);
         }
 
@@ -256,8 +254,6 @@ export default function KnowledgeBaseDocumentsPage() {
   };
 
   const handleUploadComplete = async (uploadedFiles: any[]) => {
-    console.log('[DocumentsPage] handleUploadComplete called with:', uploadedFiles);
-    console.log('[DocumentsPage] This should NOT close the modal - only refresh documents');
     // Refresh documents list
     const docsResponse = await api.get(`/documents?knowledgeBaseId=${id}`);
     if (docsResponse.success && docsResponse.data?.data) {
@@ -275,12 +271,10 @@ export default function KnowledgeBaseDocumentsPage() {
         metadata: doc.metadata || {},
       }));
       setDocuments(formattedDocs);
-      console.log('[DocumentsPage] Documents refreshed successfully');
     }
   };
 
   const handleRichTextSave = async (document: any) => {
-    console.log('Rich text document saved:', document);
     // Refresh documents list
     const docsResponse = await api.get(`/documents?knowledgeBaseId=${id}`);
     if (docsResponse.success && docsResponse.data?.data) {
@@ -642,7 +636,6 @@ export default function KnowledgeBaseDocumentsPage() {
       <UrlScrapingModal
         isOpen={showUrlScrapingModal}
         onClose={() => {
-          console.log('[DocumentsPage] Modal onClose called - User triggered close or external trigger');
           setShowUrlScrapingModal(false);
         }}
         knowledgeBaseId={id}

@@ -94,7 +94,6 @@ export default function ApiKeysPage() {
   const checkApiAccess = async () => {
     try {
       const response = await api.checkApiAccess();
-      console.log('API Access Response:', response);
 
       // Backend returns { canUseApi: boolean } which gets wrapped by TransformInterceptor
       // API client extracts data.data, so response.data = { canUseApi: boolean }
@@ -130,7 +129,6 @@ export default function ApiKeysPage() {
     setLoading(true);
     try {
       const response = await api.getBroadcastApiKeys();
-      console.log('API Keys response:', response);
       if (response.success) {
         const data = response.data;
         setApiKeys(Array.isArray(data) ? data : []);
@@ -144,7 +142,6 @@ export default function ApiKeysPage() {
 
   const handleCreateKey = async () => {
     try {
-      console.log('Creating API key with data:', newKeyData);
       const response = await api.createBroadcastApiKey({
         name: newKeyData.name,
         sessionId: newKeyData.sessionId,
@@ -154,8 +151,6 @@ export default function ApiKeysPage() {
         allowedIps: newKeyData.allowedIps ? newKeyData.allowedIps.split(',').map(ip => ip.trim()).filter(ip => ip) : undefined,
         rateLimitPerMinute: newKeyData.rateLimitPerMinute,
       });
-
-      console.log('Create API key response:', response);
 
       // The response structure is: { success: true, data: { ...apiKey, key: "wz_live_..." } }
       if (response.success && response.data?.key) {

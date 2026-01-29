@@ -93,7 +93,6 @@ export default function PricingPage() {
         if (data.lastUpdated) {
           setRatesLastUpdated(new Date(data.lastUpdated))
         }
-        console.log('Official exchange rates loaded:', Object.keys(data.rates).length, 'currencies')
       }
     } catch (error) {
       console.error('Failed to fetch exchange rates:', error)

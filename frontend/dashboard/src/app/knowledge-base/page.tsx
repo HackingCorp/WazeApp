@@ -96,8 +96,6 @@ export default function KnowledgeBasePage() {
     try {
       const response = await api.get('/agents');
 
-      console.log('🔍 FRONTEND: Raw API response from /agents:', response);
-
       if (response.success && response.data) {
         const agentsWithKnowledgeBase = response.data.data?.map((agent: any) => ({
           ...agent,
@@ -110,7 +108,6 @@ export default function KnowledgeBasePage() {
           } : undefined,
         })) || [];
 
-        console.log('🔍 FRONTEND: Processed agents data:', agentsWithKnowledgeBase);
         setAgents(agentsWithKnowledgeBase);
 
         // Calculer les stats
@@ -119,18 +116,7 @@ export default function KnowledgeBasePage() {
         const processingKB = agentsWithKB.filter((a: Agent) => a.knowledgeBase?.status === 'processing').length;
         const totalDocs = agentsWithKB.reduce((sum: number, a: Agent) => sum + (a.knowledgeBase?.documentCount || 0), 0);
         const totalChars = agentsWithKB.reduce((sum: number, a: Agent) => sum + (a.knowledgeBase?.totalCharacters || 0), 0);
-        
-        console.log('🔍 FRONTEND: Stats calculation:', {
-          agentsWithKB: agentsWithKB.length,
-          totalDocs,
-          totalChars,
-          charactersFromEachKB: agentsWithKB.map((a: any) => ({
-            name: a.knowledgeBase?.name,
-            totalCharacters: a.knowledgeBase?.totalCharacters,
-            documentCount: a.knowledgeBase?.documentCount
-          }))
-        });
-        
+
         setStats({
           total: agentsWithKB.length,
           active: activeKB,
@@ -212,17 +198,14 @@ export default function KnowledgeBasePage() {
 
   const handleRebuild = async (kb: KnowledgeBase) => {
     // TODO: Implement rebuild logic
-    console.log('Rebuilding knowledge base:', kb.id);
   };
 
   const handleCreateSubmit = (data: Partial<KnowledgeBase>) => {
-    console.log('Creating/updating knowledge base:', data);
     // TODO: Implement API call
     setShowCreateModal(false);
   };
 
   const handleDeleteConfirm = () => {
-    console.log('Deleting knowledge base:', selectedKnowledgeBase?.id);
     // TODO: Implement API call
     setShowDeleteModal(false);
     setSelectedKnowledgeBase(null);
@@ -447,12 +430,7 @@ export default function KnowledgeBasePage() {
                             <div className="flex items-center space-x-1">
                               <Database className="w-4 h-4" />
                               <span>
-                                {(() => {
-                                  const chars = agent.knowledgeBase.totalCharacters;
-                                  const display = `${(chars / 1000).toFixed(0)}k ${t('knowledgeBase.characters')}`;
-                                  console.log('🔍 FRONTEND: Displaying characters for KB', agent.knowledgeBase.name, '- Raw:', chars, 'Display:', display);
-                                  return display;
-                                })()}
+                                {`${(agent.knowledgeBase.totalCharacters / 1000).toFixed(0)}k ${t('knowledgeBase.characters')}`}
                               </span>
                             </div>
                             <div>

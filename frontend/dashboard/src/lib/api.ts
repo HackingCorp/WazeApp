@@ -56,13 +56,6 @@ class ApiClient {
       ...options.headers,
     };
     
-    // Debug: Log token status
-    console.log('API Request:', {
-      url,
-      hasToken: !!this.token,
-      tokenPreview: this.token ? `${this.token.substring(0, 20)}...` : 'No token'
-    });
-
     try {
       const response = await fetch(url, {
         ...options,
@@ -73,10 +66,8 @@ class ApiClient {
 
       // Handle 401 Unauthorized - try to refresh token
       if (response.status === 401 && !isRetry && typeof window !== 'undefined') {
-        console.log('API: Got 401, attempting token refresh...');
         const refreshed = await this.tryRefreshToken();
         if (refreshed) {
-          console.log('API: Token refreshed, retrying request...');
           return this.request(endpoint, options, true); // Retry with new token
         }
       }
@@ -104,11 +95,8 @@ class ApiClient {
     try {
       const refreshToken = localStorage.getItem('refresh-token');
       if (!refreshToken) {
-        console.log('API: No refresh token available');
         return false;
       }
-
-      console.log('API: Attempting token refresh with refresh token:', refreshToken.substring(0, 20) + '...');
 
       const response = await fetch(`${this.baseURL}/auth/refresh`, {
         method: 'POST',
@@ -118,11 +106,8 @@ class ApiClient {
         body: JSON.stringify({ refreshToken }),
       });
 
-      console.log('API: Refresh response status:', response.status);
-
       if (response.ok) {
         const data = await response.json();
-        console.log('API: Refresh response data:', data);
 
         const newAccessToken = data.data?.accessToken || data.accessToken;
         const newRefreshToken = data.data?.refreshToken || data.refreshToken;
@@ -133,15 +118,10 @@ class ApiClient {
           // Update refresh token if provided
           if (newRefreshToken) {
             localStorage.setItem('refresh-token', newRefreshToken);
-            console.log('API: Updated refresh token');
           }
 
-          console.log('API: Token refresh successful, new token:', newAccessToken.substring(0, 20) + '...');
           return true;
         }
-      } else {
-        const errorData = await response.json().catch(() => ({}));
-        console.log('API: Token refresh failed with status', response.status, errorData);
       }
 
       return false;

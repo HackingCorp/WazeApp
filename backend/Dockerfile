@@ -1,30 +1,39 @@
-# Multi-stage build for production
-FROM node:20-alpine AS builder
-
-# Install build dependencies
-RUN apk add --no-cache python3 make g++ cmake git curl
+# Multi-stage build optimized for speed
+# Stage 1: Dependencies (cached separately)
+FROM node:20-alpine AS deps
 
 WORKDIR /app
 
-# Copy package files
+# Copy only package files for better caching
+COPY package*.json ./
+
+# Install ALL dependencies once (will be reused)
+RUN npm ci --legacy-peer-deps
+
+# Stage 2: Builder
+FROM node:20-alpine AS builder
+
+# Install build tools only if needed for native modules
+RUN apk add --no-cache python3 make g++
+
+WORKDIR /app
+
+# Copy dependencies from deps stage (avoid re-downloading)
+COPY --from=deps /app/node_modules ./node_modules
 COPY package*.json ./
 COPY tsconfig*.json ./
-
-# Install all dependencies
-RUN npm ci --legacy-peer-deps
 
 # Copy source code
 COPY src/ ./src/
 
-# Build the application
-RUN npm run build
+# Build the application with increased memory
+RUN NODE_OPTIONS="--max-old-space-size=2048" npm run build
 
-# Production stage
+# Stage 3: Production
 FROM node:20-alpine AS production
 
-# Install runtime dependencies (curl, ffmpeg for audio/video processing)
-RUN apk add --no-cache curl dumb-init ffmpeg && \
-    apk upgrade --no-cache
+# Install runtime dependencies
+RUN apk add --no-cache curl dumb-init ffmpeg
 
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs && \
@@ -35,33 +44,28 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
-# Install only production dependencies
-RUN npm ci --only=production --legacy-peer-deps && \
+# Copy node_modules and prune dev dependencies (faster than fresh npm ci)
+COPY --from=deps /app/node_modules ./node_modules
+RUN npm prune --production --legacy-peer-deps && \
     npm cache clean --force
 
-# Copy built application from builder stage
+# Copy built application
 COPY --from=builder /app/dist ./dist
 
-# Create necessary directories and set permissions
+# Create directories and set permissions
 RUN mkdir -p whatsapp-sessions uploads uploads/templates uploads/broadcasts temp logs models && \
     chown -R nestjs:nodejs /app
 
-# Switch to non-root user
 USER nestjs
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+# Health check with longer start period for slow starts
+HEALTHCHECK --interval=30s --timeout=10s --start-period=90s --retries=3 \
     CMD curl -f http://localhost:3100/api/v1/health || exit 1
 
-# Set environment variables
 ENV NODE_ENV=production
 ENV PORT=3100
 
-# Expose port
 EXPOSE 3100
 
-# Use dumb-init for proper signal handling
 ENTRYPOINT ["dumb-init", "--"]
-
-# Start the application
 CMD ["node", "dist/main.js"]

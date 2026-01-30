@@ -71,6 +71,9 @@ export class AgentMessage extends BaseEntity {
     };
     fromWhatsApp?: boolean;
     originalSender?: "client" | "user" | "agent";
+    // Catch-up processing tracking for reconnection scenarios
+    catchUpProcessed?: boolean;
+    catchUpProcessedAt?: string;
   };
 
   @ApiProperty({ description: "External message ID from channel" })

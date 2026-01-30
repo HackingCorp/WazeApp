@@ -2,6 +2,7 @@ import { Module } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { ConfigModule } from "@nestjs/config";
 import { JwtModule } from "@nestjs/jwt";
+import { BullModule } from "@nestjs/bull";
 import { WhatsAppController } from "./whatsapp.controller";
 import { WhatsAppService } from "./whatsapp.service";
 import { BaileysService } from "./baileys.service";
@@ -15,6 +16,8 @@ import { MediaAnalysisService } from "./media-analysis.service";
 import { VisionService } from "./vision.service";
 import { OpenSourceVisionService } from "./open-source-vision.service";
 import { AudioTranscriptionService } from "./audio-transcription.service";
+import { UnansweredMessageService } from "./unanswered-message.service";
+import { UnansweredMessageProcessor } from "./unanswered-message.processor";
 import { EmailModule } from "../email/email.module";
 import {
   WhatsAppSession,
@@ -62,6 +65,13 @@ import { LlmProvidersModule } from "../llm-providers/llm-providers.module";
     SubscriptionModule,
     LlmProvidersModule,
     EmailModule,
+    BullModule.registerQueue({
+      name: "message-catchup",
+      defaultJobOptions: {
+        removeOnComplete: 100,
+        removeOnFail: 50,
+      },
+    }),
   ],
   controllers: [WhatsAppController],
   providers: [
@@ -78,6 +88,8 @@ import { LlmProvidersModule } from "../llm-providers/llm-providers.module";
     OpenSourceVisionService,
     AudioTranscriptionService,
     WhatsAppSessionMonitorService,
+    UnansweredMessageService,
+    UnansweredMessageProcessor,
   ],
   exports: [WhatsAppService, BaileysService, SimpleConversationService, WhatsAppGateway, WhatsAppSessionMonitorService],
 })

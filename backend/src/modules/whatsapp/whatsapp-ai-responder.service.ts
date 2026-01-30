@@ -324,6 +324,115 @@ export class WhatsAppAIResponderService {
   }
 
   /**
+   * Handle catch-up messages after reconnection
+   * This reuses the AI response generation for messages that weren't answered during disconnection
+   */
+  @OnEvent("whatsapp.catchup.message")
+  async handleCatchUpMessage(event: {
+    sessionId: string;
+    conversationId: string;
+    messageId: string;
+    agentId: string;
+    clientPhoneNumber: string;
+    messageContent: string;
+    session: WhatsAppSession;
+    conversation: AgentConversation;
+    originalMessage: AgentMessage;
+    isCatchUp: boolean;
+  }) {
+    const { sessionId, conversationId, messageId, clientPhoneNumber, messageContent, session } = event;
+
+    // Create a unique key to prevent duplicate processing
+    const processingKey = `catchup-${messageId}`;
+    if (this.processingMessages.has(processingKey)) {
+      this.logger.debug(`Catch-up message ${messageId} already being processed`);
+      return;
+    }
+
+    this.processingMessages.add(processingKey);
+
+    try {
+      this.logger.log(`🔄 Processing catch-up message ${messageId} for session ${sessionId}`);
+
+      // Get full session with all relations if not already loaded
+      let fullSession = session;
+      if (!fullSession.agent) {
+        fullSession = await this.sessionRepository.findOne({
+          where: { id: sessionId },
+          relations: [
+            "user",
+            "organization",
+            "agent",
+            "agent.knowledgeBases",
+            "knowledgeBase",
+          ],
+        });
+
+        if (!fullSession) {
+          this.logger.warn(`Session not found: ${sessionId}`);
+          return;
+        }
+      }
+
+      // Check if AI responses are enabled
+      if (fullSession.aiResponsesEnabled === false) {
+        this.logger.log(`🔇 AI responses disabled for session ${fullSession.id} - skipping catch-up`);
+        return;
+      }
+
+      // Get the agent from session
+      const agent = fullSession.agent;
+      if (!agent) {
+        this.logger.error(`❌ No agent linked to session ${sessionId} - cannot process catch-up`);
+        return;
+      }
+
+      // Check message quota
+      try {
+        if (fullSession.organizationId) {
+          await this.quotaEnforcementService.enforceWhatsAppMessageQuota(fullSession.organizationId);
+        } else if (fullSession.userId) {
+          await this.quotaEnforcementService.enforceUserWhatsAppMessageQuota(fullSession.userId);
+        }
+      } catch (quotaError) {
+        this.logger.warn(`Message quota exceeded during catch-up: ${quotaError.message}`);
+        return;
+      }
+
+      // Get the conversation
+      let conversation = await this.conversationRepository.findOne({
+        where: { id: conversationId },
+        relations: ["messages"],
+      });
+
+      if (!conversation) {
+        // Create conversation if it doesn't exist
+        conversation = await this.getOrCreateConversation(clientPhoneNumber, fullSession, agent);
+      }
+
+      this.logger.log(`🤖 Generating catch-up AI response for message: ${messageId}`);
+
+      // Generate and send AI response
+      await this.generateAndSendResponse(
+        conversation,
+        agent,
+        fullSession,
+        clientPhoneNumber,
+        messageContent,
+        null, // No media analysis for catch-up messages
+        null, // No reply context
+      );
+
+      this.logger.log(`✅ Catch-up response sent for message ${messageId}`);
+
+    } catch (error) {
+      this.logger.error(`❌ Error processing catch-up message ${messageId}: ${error.message}`, error.stack);
+    } finally {
+      this.processingMessages.delete(processingKey);
+    }
+  }
+
+  /**
    * Process all buffered messages for a conversation as a single batch
    */
   private async processBatchedMessages(bufferKey: string) {

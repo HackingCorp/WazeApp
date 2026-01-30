@@ -27,7 +27,7 @@ export class HealthController {
   @HealthCheck()
   check() {
     return this.health.check([
-      () => this.db.pingCheck("database"),
+      () => this.db.pingCheck("database", { timeout: 5000 }),
       // Heap memory threshold: 1 GB (for AI/LLM processing)
       () => this.memory.checkHeap("memory_heap", 1024 * 1024 * 1024),
       // RSS memory threshold: 1.5 GB (for WhatsApp sessions + Node.js overhead)

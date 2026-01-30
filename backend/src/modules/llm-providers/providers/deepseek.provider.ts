@@ -46,22 +46,40 @@ export class DeepSeekProvider extends BaseLLMProvider {
 
   async generateResponse(request: LLMRequest): Promise<LLMResponse> {
     const startTime = Date.now();
+    const maxRetries = 3;
+    let lastError: Error | null = null;
 
-    try {
-      const payload = this.buildRequestPayload(request);
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const payload = this.buildRequestPayload(request);
 
-      const response = await this.httpClient.post(
-        "/v1/chat/completions",
-        payload,
-      );
+        const response = await this.httpClient.post(
+          "/v1/chat/completions",
+          payload,
+        );
 
-      const responseTime = Date.now() - startTime;
+        const responseTime = Date.now() - startTime;
 
-      return this.parseResponse(response.data, responseTime);
-    } catch (error) {
-      this.logger.error(`DeepSeek generation failed: ${error.message}`);
-      throw new Error(`DeepSeek generation failed: ${error.message}`);
+        return this.parseResponse(response.data, responseTime);
+      } catch (error) {
+        lastError = error;
+        const status = error.response?.status;
+        const isRateLimited = status === 429 || error.message?.includes('rate limit');
+
+        if (isRateLimited && attempt < maxRetries) {
+          // Exponential backoff: 2s, 4s, 8s
+          const waitTime = Math.pow(2, attempt) * 1000;
+          this.logger.warn(`DeepSeek rate limited, waiting ${waitTime / 1000}s before retry ${attempt + 1}/${maxRetries}`);
+          await new Promise(resolve => setTimeout(resolve, waitTime));
+          continue;
+        }
+
+        this.logger.error(`DeepSeek generation failed: ${error.message}`);
+        throw new Error(`DeepSeek generation failed: ${error.message}`);
+      }
     }
+
+    throw new Error(`DeepSeek generation failed after ${maxRetries} retries: ${lastError?.message}`);
   }
 
   async *generateStreamResponse(

@@ -425,8 +425,11 @@ export class LLMRouterService implements OnModuleInit {
     providerName: string,
     request: RouterRequest,
   ): Promise<void> {
-    const rateLimiter = this.rateLimiters.get(providerName);
-    if (!rateLimiter) return;
+    let rateLimiter = this.rateLimiters.get(providerName);
+    if (!rateLimiter) {
+      rateLimiter = { requests: 0, tokens: 0, resetTime: Date.now() + 60000 };
+      this.rateLimiters.set(providerName, rateLimiter);
+    }
 
     const now = Date.now();
 
@@ -442,12 +445,25 @@ export class LLMRouterService implements OnModuleInit {
       request.messages.map((m) => m.content).join(" "),
     );
 
+    // If rate limit would be exceeded, wait until reset instead of throwing
     if (
       rateLimiter.requests >= 100 ||
       rateLimiter.tokens + estimatedTokens > 10000
     ) {
-      throw new Error(`Rate limit exceeded for provider ${providerName}`);
+      const waitTime = rateLimiter.resetTime - now;
+      if (waitTime > 0 && waitTime <= 60000) {
+        this.logger.log(`Rate limit reached for ${providerName}, waiting ${Math.round(waitTime / 1000)}s...`);
+        await new Promise(resolve => setTimeout(resolve, waitTime + 1000));
+        // Reset after waiting
+        rateLimiter.requests = 0;
+        rateLimiter.tokens = 0;
+        rateLimiter.resetTime = Date.now() + 60000;
+      }
     }
+
+    // Add minimum delay between requests (500ms) to avoid bursting
+    const minDelayMs = 500;
+    await new Promise(resolve => setTimeout(resolve, minDelayMs));
 
     rateLimiter.requests += 1;
     rateLimiter.tokens += estimatedTokens;

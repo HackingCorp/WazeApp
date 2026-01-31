@@ -2,35 +2,32 @@
 # Stage 1: Dependencies (cached separately)
 FROM node:20-alpine AS deps
 
-# Install build tools needed for native modules (SWC)
-RUN apk add --no-cache python3 make g++ libc6-compat
-
 WORKDIR /app
 
 # Copy only package files for better caching
 COPY package*.json ./
 
-# Install ALL dependencies and ensure SWC binaries are built
-RUN npm ci --legacy-peer-deps && npm rebuild @swc/core
+# Install ALL dependencies
+RUN npm ci --legacy-peer-deps
 
 # Stage 2: Builder
 FROM node:20-alpine AS builder
 
-RUN apk add --no-cache libc6-compat
+# Install build tools for native modules
+RUN apk add --no-cache python3 make g++
 
 WORKDIR /app
 
-# Copy dependencies from deps stage (SWC already rebuilt)
+# Copy dependencies from deps stage
 COPY --from=deps /app/node_modules ./node_modules
 COPY package*.json ./
 COPY tsconfig*.json ./
-COPY nest-cli.json ./
 
 # Copy source code
 COPY src/ ./src/
 
-# Build with SWC (should be fast now)
-RUN npm run build
+# Build with TypeScript compiler (more reliable for circular deps)
+RUN NODE_OPTIONS="--max-old-space-size=2048" npx nest build --builder tsc
 
 # Stage 3: Production
 FROM node:20-alpine AS production

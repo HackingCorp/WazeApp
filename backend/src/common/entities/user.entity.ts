@@ -12,10 +12,10 @@ import { ApiProperty } from "@nestjs/swagger";
 import { Exclude } from "class-transformer";
 import * as bcrypt from "bcryptjs";
 import { BaseEntity } from "./base.entity";
-import type { Organization } from "./organization.entity";
-import type { OrganizationMember } from "./organization-member.entity";
-import type { AuditLog } from "./audit-log.entity";
-import type { WhatsAppSession } from "./whatsapp-session.entity";
+import { Organization } from "./organization.entity";
+import { OrganizationMember } from "./organization-member.entity";
+import { AuditLog } from "./audit-log.entity";
+import { WhatsAppSession } from "./whatsapp-session.entity";
 
 @Entity("users")
 @Index("IDX_USER_EMAIL", ["email"])

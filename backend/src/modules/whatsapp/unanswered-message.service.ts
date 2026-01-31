@@ -181,75 +181,65 @@ export class UnansweredMessageService {
 
   /**
    * Find messages that haven't been responded to
-   * Uses a query to find the last message of each conversation and filters for USER messages
+   * Uses raw SQL for reliability
    */
   private async findUnansweredMessages(
     sessionId: string,
     cutoffTime: Date,
     maxMessages: number,
   ): Promise<AgentMessage[]> {
-    // Query to find unanswered user messages
-    // A message is considered unanswered if:
-    // 1. It's from a USER
-    // 2. It's the last message in the conversation OR there's no AGENT response after it
-    // 3. It hasn't been processed for catch-up before
-    // 4. It's within the time window
+    // Use raw SQL query for reliability - TypeORM query builder has issues with complex LEFT JOINs
+    const rawResults = await this.messageRepository.query(
+      `
+      SELECT
+        m.id as message_id,
+        m.content as message_content,
+        m."conversationId" as message_conversationId,
+        m."createdAt" as message_createdAt,
+        m."sequenceNumber" as message_sequenceNumber,
+        m.metadata as message_metadata,
+        c."agentId" as conversation_agentId,
+        c."clientPhoneNumber" as conversation_clientPhoneNumber
+      FROM agent_messages m
+      INNER JOIN agent_conversations c ON c.id = m."conversationId"
+      LEFT JOIN agent_messages later_agent_msg ON
+        later_agent_msg."conversationId" = m."conversationId"
+        AND later_agent_msg.role = 'agent'
+        AND later_agent_msg."sequenceNumber" > m."sequenceNumber"
+      WHERE (c."sessionId" = $1 OR c.context->>'sessionId' = $1)
+        AND c.status = 'active'
+        AND m.role = 'user'
+        AND m."createdAt" >= $2
+        AND (m.metadata->>'catchUpProcessed' IS NULL OR m.metadata->>'catchUpProcessed' = 'false')
+        AND later_agent_msg.id IS NULL
+      ORDER BY m."createdAt" ASC
+      LIMIT $3
+      `,
+      [sessionId, cutoffTime.toISOString(), maxMessages],
+    );
 
-    const query = this.messageRepository
-      .createQueryBuilder("message")
-      .innerJoin("message.conversation", "conversation")
-      .leftJoin(
-        "agent_messages",
-        "later_agent_msg",
-        `later_agent_msg."conversationId" = message."conversationId"
-         AND later_agent_msg.role = :agentRole
-         AND later_agent_msg."sequenceNumber" > message."sequenceNumber"`,
-        { agentRole: MessageRole.AGENT },
-      )
-      .where(
-        `(conversation."sessionId" = :sessionId OR conversation.context->>'sessionId' = :sessionId)`,
-        { sessionId },
-      )
-      .andWhere("conversation.status = :status", { status: ConversationStatus.ACTIVE })
-      .andWhere("message.role = :userRole", { userRole: MessageRole.USER })
-      .andWhere("message.createdAt >= :cutoffTime", { cutoffTime })
-      .andWhere(`(message.metadata->>'catchUpProcessed' IS NULL OR message.metadata->>'catchUpProcessed' = 'false')`)
-      .andWhere("later_agent_msg.id IS NULL") // No agent response after this message
-      .select([
-        "message.id",
-        "message.content",
-        "message.conversationId",
-        "message.createdAt",
-        "message.sequenceNumber",
-        "message.metadata",
-      ])
-      .addSelect("conversation.agentId", "conversation_agentId")
-      .addSelect("conversation.clientPhoneNumber", "conversation_clientPhoneNumber")
-      .orderBy("message.createdAt", "ASC")
-      .take(maxMessages);
-
-    const rawResults = await query.getRawMany();
+    this.logger.log(`Raw SQL found ${rawResults.length} unanswered messages for session ${sessionId}`);
 
     // Map raw results to message objects with conversation info
-    const messages: AgentMessage[] = rawResults.map((raw) => {
+    const messages: AgentMessage[] = rawResults.map((raw: any) => {
       const message = new AgentMessage();
       message.id = raw.message_id;
       message.content = raw.message_content;
-      message.conversationId = raw.message_conversationId;
-      message.createdAt = raw.message_createdAt;
-      message.sequenceNumber = raw.message_sequenceNumber;
+      message.conversationId = raw.message_conversationid;
+      message.createdAt = raw.message_createdat;
+      message.sequenceNumber = raw.message_sequencenumber;
       message.metadata = raw.message_metadata || {};
 
       // Attach conversation info
       message.conversation = {
-        agentId: raw.conversation_agentId,
-        clientPhoneNumber: raw.conversation_clientPhoneNumber,
+        agentId: raw.conversation_agentid,
+        clientPhoneNumber: raw.conversation_clientphonenumber,
       } as AgentConversation;
 
       return message;
     });
 
-    this.logger.debug(`Found ${messages.length} unanswered messages for session ${sessionId}`);
+    this.logger.debug(`Mapped ${messages.length} unanswered messages for session ${sessionId}`);
 
     return messages;
   }

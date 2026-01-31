@@ -446,9 +446,10 @@ export class LLMRouterService implements OnModuleInit {
     );
 
     // If rate limit would be exceeded, wait until reset instead of throwing
+    // DeepSeek has dynamic limits - we use conservative internal limits
     if (
-      rateLimiter.requests >= 100 ||
-      rateLimiter.tokens + estimatedTokens > 10000
+      rateLimiter.requests >= 500 ||
+      rateLimiter.tokens + estimatedTokens > 100000
     ) {
       const waitTime = rateLimiter.resetTime - now;
       if (waitTime > 0 && waitTime <= 60000) {

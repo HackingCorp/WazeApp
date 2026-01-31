@@ -109,10 +109,10 @@ export class UnansweredMessageService {
         return;
       }
 
-      // Get configuration
-      const timeWindowHours = this.configService.get<number>("CATCHUP_TIME_WINDOW_HOURS", 24);
-      const delayMs = this.configService.get<number>("CATCHUP_DELAY_MS", 3000);
-      const maxMessages = this.configService.get<number>("MAX_CATCHUP_MESSAGES", 50);
+      // Get configuration - increased defaults for better catch-up coverage
+      const timeWindowHours = this.configService.get<number>("CATCHUP_TIME_WINDOW_HOURS", 72);
+      const delayMs = this.configService.get<number>("CATCHUP_DELAY_MS", 2000);
+      const maxMessages = this.configService.get<number>("MAX_CATCHUP_MESSAGES", 200);
 
       // Calculate cutoff time
       const cutoffTime = new Date();

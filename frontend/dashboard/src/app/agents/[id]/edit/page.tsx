@@ -34,6 +34,10 @@ interface Agent {
   systemPrompt: string;
   status: 'active' | 'inactive';
   knowledgeBases?: any[];
+  responseLength?: string;
+  verbosity?: string;
+  useEmojis?: boolean;
+  maxResponseChars?: number;
 }
 
 interface AgentFormData {
@@ -42,6 +46,10 @@ interface AgentFormData {
   primaryLanguage: string;
   tone: string;
   systemPrompt: string;
+  responseLength: string;
+  verbosity: string;
+  useEmojis: boolean;
+  maxResponseChars: number;
 }
 
 const TONES = [
@@ -58,6 +66,20 @@ const LANGUAGES = [
   { value: 'en', label: 'Anglais' },
   { value: 'es', label: 'Espagnol' },
   { value: 'ar', label: 'Arabe' },
+];
+
+const RESPONSE_LENGTHS = [
+  { value: 'very_short', label: 'Très court (1-2 phrases)' },
+  { value: 'short', label: 'Court (2-3 phrases)' },
+  { value: 'medium', label: 'Moyen (3-5 phrases)' },
+  { value: 'detailed', label: 'Détaillé (réponse complète)' },
+];
+
+const VERBOSITY_LEVELS = [
+  { value: 'minimal', label: 'Minimal (essentiel uniquement)' },
+  { value: 'concise', label: 'Concis (bref mais complet)' },
+  { value: 'balanced', label: 'Équilibré (normal)' },
+  { value: 'verbose', label: 'Verbeux (explications détaillées)' },
 ];
 
 export default function EditAgentPage() {
@@ -77,6 +99,10 @@ export default function EditAgentPage() {
     primaryLanguage: 'fr',
     tone: 'friendly',
     systemPrompt: '',
+    responseLength: 'medium',
+    verbosity: 'balanced',
+    useEmojis: false,
+    maxResponseChars: 0,
   });
 
   // Charger l'agent au montage
@@ -93,6 +119,10 @@ export default function EditAgentPage() {
             primaryLanguage: agentData.primaryLanguage || 'fr',
             tone: agentData.tone || 'friendly',
             systemPrompt: agentData.systemPrompt || '',
+            responseLength: agentData.responseLength || 'medium',
+            verbosity: agentData.verbosity || 'balanced',
+            useEmojis: agentData.useEmojis || false,
+            maxResponseChars: agentData.maxResponseChars || 0,
           });
         } else {
           toast.error('Agent introuvable');
@@ -377,9 +407,86 @@ export default function EditAgentPage() {
       case 'advanced':
         return (
           <div className="space-y-6">
+            {/* Style des réponses */}
             <div>
               <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
-                Paramètres avancés
+                Style des réponses
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Longueur des réponses
+                  </label>
+                  <select
+                    value={formData.responseLength}
+                    onChange={(e) => updateFormData({ responseLength: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    {RESPONSE_LENGTHS.map(opt => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                  </select>
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    Contrôle la longueur maximale des réponses de l'agent
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Niveau de détail
+                  </label>
+                  <select
+                    value={formData.verbosity}
+                    onChange={(e) => updateFormData({ verbosity: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    {VERBOSITY_LEVELS.map(opt => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                  </select>
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    Contrôle le niveau de détail dans les explications
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Limite de caractères
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="5000"
+                    value={formData.maxResponseChars}
+                    onChange={(e) => updateFormData({ maxResponseChars: parseInt(e.target.value) || 0 })}
+                    placeholder="0 = illimité"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    0 = pas de limite. Ex: 500 pour des messages courts
+                  </p>
+                </div>
+
+                <div className="flex items-center">
+                  <label className="flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.useEmojis}
+                      onChange={(e) => updateFormData({ useEmojis: e.target.checked })}
+                      className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                    />
+                    <span className="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Utiliser des emojis dans les réponses
+                    </span>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            {/* Informations système */}
+            <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
+              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
+                Informations système
               </h3>
               <div className="space-y-4">
                 <div>
@@ -390,7 +497,7 @@ export default function EditAgentPage() {
                     Statut actuel: <span className="capitalize font-medium">{agent?.status}</span>
                   </p>
                 </div>
-                
+
                 <div>
                   <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
                     ID de l'agent

@@ -18,7 +18,7 @@ import {
   OrganizationMember,
 } from "../../common/entities";
 import { MessageRole } from "../../common/enums";
-import { SubscriptionPlan, UsageMetricType } from "../../common/enums";
+import { SubscriptionPlan, SubscriptionStatus, UsageMetricType } from "../../common/enums";
 import { PlanService } from "./plan.service";
 
 export interface QuotaCheck {
@@ -801,8 +801,9 @@ export class QuotaEnforcementService {
       `Found organization: ${organization.name}, subscriptions count: ${organization.subscriptions?.length || 0}`,
     );
 
+    // Check status directly instead of using getter (getters don't survive cache serialization)
     const activeSubscription = organization.subscriptions?.find(
-      (sub) => sub.isActive,
+      (sub) => sub.status === SubscriptionStatus.ACTIVE || sub.status === SubscriptionStatus.TRIALING,
     );
 
     if (!activeSubscription) {

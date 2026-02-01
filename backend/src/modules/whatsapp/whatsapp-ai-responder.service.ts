@@ -27,6 +27,8 @@ import {
   AgentLanguage,
   AgentTone,
   UsageMetricType,
+  ResponseLength,
+  VerbosityLevel,
 } from "@/common/enums";
 import { LLMRouterService } from "../llm-providers/llm-router.service";
 import { BaileysService } from "./baileys.service";
@@ -1307,6 +1309,9 @@ Always respond directly in the user's language without any formatting.`,
       // Create enhanced system prompt with knowledge base, web context, and media context
       let systemPrompt = agent.systemPrompt || "Tu es un assistant IA utile.";
 
+      // Add response style instructions based on agent configuration
+      systemPrompt += this.buildResponseStyleInstructions(agent);
+
       // Add image sending instructions if media is available
       if (availableMedia.length > 0) {
         systemPrompt += this.buildImageInstructions(availableMedia);
@@ -2068,6 +2073,78 @@ EXEMPLE DE BONNE RÉPONSE AUTOMATIQUE:
       .trim();
 
     return { cleanText, imageSlugs };
+  }
+
+  /**
+   * Build response style instructions based on agent configuration
+   */
+  private buildResponseStyleInstructions(agent: AiAgent): string {
+    const instructions: string[] = [];
+
+    // Tone instructions
+    const toneInstructions: Record<AgentTone, string> = {
+      [AgentTone.PROFESSIONAL]: "Adopte un ton professionnel et courtois.",
+      [AgentTone.FRIENDLY]: "Sois amical et chaleureux dans tes réponses.",
+      [AgentTone.CASUAL]: "Utilise un ton décontracté et informel.",
+      [AgentTone.FORMAL]: "Maintiens un ton très formel et respectueux.",
+      [AgentTone.EMPATHETIC]: "Sois empathique et compréhensif envers le client.",
+      [AgentTone.TECHNICAL]: "Utilise un langage technique et précis.",
+    };
+    instructions.push(toneInstructions[agent.tone] || toneInstructions[AgentTone.PROFESSIONAL]);
+
+    // Response length instructions
+    const lengthInstructions: Record<ResponseLength, string> = {
+      [ResponseLength.VERY_SHORT]: "IMPORTANT: Tes réponses doivent être TRÈS COURTES (1-2 phrases maximum). Va droit au but.",
+      [ResponseLength.SHORT]: "Tes réponses doivent être courtes et concises (2-3 phrases maximum).",
+      [ResponseLength.MEDIUM]: "Tes réponses doivent être modérées en longueur (3-5 phrases).",
+      [ResponseLength.DETAILED]: "Tu peux donner des réponses détaillées et complètes quand nécessaire.",
+    };
+    const responseLength = agent.responseLength || ResponseLength.MEDIUM;
+    instructions.push(lengthInstructions[responseLength]);
+
+    // Verbosity instructions
+    const verbosityInstructions: Record<VerbosityLevel, string> = {
+      [VerbosityLevel.MINIMAL]: "Ne donne que l'information essentielle, sans détails supplémentaires.",
+      [VerbosityLevel.CONCISE]: "Sois bref mais complet. Évite les répétitions et les formulations longues.",
+      [VerbosityLevel.BALANCED]: "Équilibre entre concision et clarté.",
+      [VerbosityLevel.VERBOSE]: "Tu peux donner des explications détaillées et des exemples.",
+    };
+    const verbosity = agent.verbosity || VerbosityLevel.BALANCED;
+    instructions.push(verbosityInstructions[verbosity]);
+
+    // Emoji usage
+    if (agent.useEmojis) {
+      instructions.push("Tu peux utiliser des emojis pour rendre tes réponses plus expressives. 😊");
+    } else {
+      instructions.push("N'utilise PAS d'emojis dans tes réponses.");
+    }
+
+    // Max response characters
+    if (agent.maxResponseChars && agent.maxResponseChars > 0) {
+      instructions.push(`LIMITE: Tes réponses ne doivent PAS dépasser ${agent.maxResponseChars} caractères.`);
+    }
+
+    // Additional config options
+    if (agent.config?.avoidRepetition) {
+      instructions.push("Évite de répéter les mêmes informations déjà mentionnées dans la conversation.");
+    }
+    if (agent.config?.useListsWhenAppropriate) {
+      instructions.push("Utilise des listes à puces quand c'est approprié pour plus de clarté.");
+    }
+    if (agent.config?.includeGreetings === false) {
+      instructions.push("Ne commence PAS tes réponses par des salutations. Va directement au contenu.");
+    }
+    if (agent.config?.signOffStyle === "none") {
+      instructions.push("Ne termine PAS tes réponses par des formules de politesse.");
+    } else if (agent.config?.signOffStyle === "simple") {
+      instructions.push("Termine avec une formule simple si approprié.");
+    }
+
+    if (instructions.length === 0) {
+      return "";
+    }
+
+    return `\n\n📝 STYLE DE RÉPONSE:\n${instructions.map(i => `- ${i}`).join('\n')}`;
   }
 
   /**

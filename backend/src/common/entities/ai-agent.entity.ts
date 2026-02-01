@@ -15,34 +15,13 @@ import { User } from "./user.entity";
 import { KnowledgeBase } from "./knowledge-base.entity";
 import { AgentConversation } from "./agent-conversation.entity";
 import { WhatsAppSession } from "./whatsapp-session.entity";
-
-export enum AgentStatus {
-  ACTIVE = "active",
-  INACTIVE = "inactive",
-  TRAINING = "training",
-  MAINTENANCE = "maintenance",
-}
-
-export enum AgentLanguage {
-  ENGLISH = "en",
-  FRENCH = "fr",
-  SPANISH = "es",
-  GERMAN = "de",
-  ITALIAN = "it",
-  PORTUGUESE = "pt",
-  CHINESE = "zh",
-  JAPANESE = "ja",
-  ARABIC = "ar",
-}
-
-export enum AgentTone {
-  PROFESSIONAL = "professional",
-  FRIENDLY = "friendly",
-  CASUAL = "casual",
-  FORMAL = "formal",
-  EMPATHETIC = "empathetic",
-  TECHNICAL = "technical",
-}
+import {
+  AgentStatus,
+  AgentLanguage,
+  AgentTone,
+  ResponseLength,
+  VerbosityLevel,
+} from "../enums";
 
 @Entity("ai_agents")
 @Index("IDX_AGENT_ORG", ["organizationId"])
@@ -97,6 +76,22 @@ export class AiAgent extends BaseEntity {
   @Column({ type: "text", nullable: true })
   fallbackMessage?: string;
 
+  @ApiProperty({ description: "Response length preference", enum: ResponseLength })
+  @Column({ type: "enum", enum: ResponseLength, default: ResponseLength.MEDIUM })
+  responseLength: ResponseLength;
+
+  @ApiProperty({ description: "Verbosity level", enum: VerbosityLevel })
+  @Column({ type: "enum", enum: VerbosityLevel, default: VerbosityLevel.BALANCED })
+  verbosity: VerbosityLevel;
+
+  @ApiProperty({ description: "Use emojis in responses" })
+  @Column({ default: false })
+  useEmojis: boolean;
+
+  @ApiProperty({ description: "Maximum response characters (0 = unlimited)" })
+  @Column({ default: 0 })
+  maxResponseChars: number;
+
   @ApiProperty({ description: "Agent configuration" })
   @Column({ type: "jsonb", default: {} })
   config: {
@@ -113,6 +108,11 @@ export class AiAgent extends BaseEntity {
     enableImageAnalysis?: boolean;
     confidenceThreshold?: number;
     maxRetries?: number;
+    // Response style options
+    avoidRepetition?: boolean;
+    useListsWhenAppropriate?: boolean;
+    includeGreetings?: boolean;
+    signOffStyle?: "none" | "simple" | "formal";
   };
 
   @ApiProperty({ description: "Agent performance metrics" })

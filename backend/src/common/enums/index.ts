@@ -118,6 +118,20 @@ export enum AgentTone {
   TECHNICAL = "technical",
 }
 
+export enum ResponseLength {
+  VERY_SHORT = "very_short",    // 1-2 sentences max
+  SHORT = "short",              // 2-3 sentences
+  MEDIUM = "medium",            // 3-5 sentences
+  DETAILED = "detailed",        // Full detailed response
+}
+
+export enum VerbosityLevel {
+  MINIMAL = "minimal",          // Just the essential info
+  CONCISE = "concise",          // Brief but complete
+  BALANCED = "balanced",        // Normal verbosity
+  VERBOSE = "verbose",          // Detailed explanations
+}
+
 // Conversation Enums
 export enum ConversationStatus {
   ACTIVE = "active",

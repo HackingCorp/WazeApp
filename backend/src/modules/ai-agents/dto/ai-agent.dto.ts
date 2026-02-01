@@ -10,7 +10,7 @@ import {
 } from "class-validator";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { Type, Transform } from "class-transformer";
-import { AgentStatus, AgentLanguage, AgentTone } from "../../../common/enums";
+import { AgentStatus, AgentLanguage, AgentTone, ResponseLength, VerbosityLevel } from "../../../common/enums";
 
 export class CreateAiAgentDto {
   @ApiProperty({ description: "Agent name" })
@@ -44,6 +44,26 @@ export class CreateAiAgentDto {
   @ApiProperty({ description: "Agent personality tone", enum: AgentTone })
   @IsEnum(AgentTone)
   tone: AgentTone;
+
+  @ApiPropertyOptional({ description: "Response length preference", enum: ResponseLength, default: ResponseLength.MEDIUM })
+  @IsOptional()
+  @IsEnum(ResponseLength)
+  responseLength?: ResponseLength;
+
+  @ApiPropertyOptional({ description: "Verbosity level", enum: VerbosityLevel, default: VerbosityLevel.BALANCED })
+  @IsOptional()
+  @IsEnum(VerbosityLevel)
+  verbosity?: VerbosityLevel;
+
+  @ApiPropertyOptional({ description: "Use emojis in responses", default: false })
+  @IsOptional()
+  @IsBoolean()
+  useEmojis?: boolean;
+
+  @ApiPropertyOptional({ description: "Maximum response characters (0 = unlimited)", default: 0 })
+  @IsOptional()
+  @IsNumber()
+  maxResponseChars?: number;
 
   @ApiProperty({ description: "System prompt template" })
   @IsString()
@@ -142,6 +162,26 @@ export class UpdateAiAgentDto {
   @IsOptional()
   @IsEnum(AgentTone)
   tone?: AgentTone;
+
+  @ApiPropertyOptional({ description: "Response length preference", enum: ResponseLength })
+  @IsOptional()
+  @IsEnum(ResponseLength)
+  responseLength?: ResponseLength;
+
+  @ApiPropertyOptional({ description: "Verbosity level", enum: VerbosityLevel })
+  @IsOptional()
+  @IsEnum(VerbosityLevel)
+  verbosity?: VerbosityLevel;
+
+  @ApiPropertyOptional({ description: "Use emojis in responses" })
+  @IsOptional()
+  @IsBoolean()
+  useEmojis?: boolean;
+
+  @ApiPropertyOptional({ description: "Maximum response characters (0 = unlimited)" })
+  @IsOptional()
+  @IsNumber()
+  maxResponseChars?: number;
 
   @ApiPropertyOptional({ description: "System prompt template" })
   @IsOptional()

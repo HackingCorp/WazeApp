@@ -855,6 +855,14 @@ export class WhatsAppService {
     try {
       this.logger.warn(`⚠️ Stale connection detected for session ${sessionId}: ${message}`);
 
+      // Check if session has autoReconnect enabled
+      const session = await this.sessionRepository.findOne({ where: { id: sessionId } });
+
+      if (!session) {
+        this.logger.warn(`Session ${sessionId} not found in database`);
+        return;
+      }
+
       // Update session status in database
       await this.sessionRepository.update(sessionId, {
         status: WhatsAppSessionStatus.DISCONNECTED,
@@ -870,6 +878,25 @@ export class WhatsAppService {
         status: "disconnected",
         message: "Connection became stale. Automatic reconnection will be attempted.",
       });
+
+      // ACTUALLY trigger reconnection if autoReconnect is enabled
+      if (session.autoReconnect) {
+        this.logger.log(`🔄 Triggering automatic reconnection for stale session ${sessionId}`);
+
+        // Small delay before reconnection attempt
+        setTimeout(async () => {
+          try {
+            const result = await this.baileysService.connectSession(sessionId, false);
+            if (result.needsQR) {
+              this.logger.warn(`⚠️ Session ${sessionId} requires QR code - cannot auto-reconnect`);
+            } else {
+              this.logger.log(`✅ Stale session ${sessionId} reconnected successfully`);
+            }
+          } catch (error) {
+            this.logger.error(`❌ Failed to reconnect stale session ${sessionId}:`, error.message);
+          }
+        }, 5000); // 5 second delay before reconnection
+      }
     } catch (error) {
       this.logger.error(`Failed to handle stale connection for session ${sessionId}:`, error);
     }

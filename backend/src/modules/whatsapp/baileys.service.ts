@@ -465,11 +465,11 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
         // Configuration for better connection stability
         generateHighQualityLinkPreview: false,
         markOnlineOnConnect: false, // Don't appear online immediately
-        defaultQueryTimeoutMs: 120000, // 2 minutes timeout for queries
-        connectTimeoutMs: 120000, // 2 minutes connection timeout
+        defaultQueryTimeoutMs: 180000, // 3 minutes timeout for queries (increased)
+        connectTimeoutMs: 180000, // 3 minutes connection timeout (increased)
         qrTimeout: 60000,
-        keepAliveIntervalMs: 30000, // Built-in keep-alive every 30 seconds
-        retryRequestDelayMs: 500, // Small delay between retries
+        keepAliveIntervalMs: 25000, // Built-in keep-alive every 25 seconds (more frequent)
+        retryRequestDelayMs: 1000, // 1 second delay between retries (increased)
         emitOwnEvents: true,
 
         // Message retrieval for context
@@ -963,10 +963,10 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
         generateHighQualityLinkPreview: false,
         markOnlineOnConnect: false,
         syncFullHistory: false,
-        defaultQueryTimeoutMs: 120000,
-        connectTimeoutMs: 120000,
-        keepAliveIntervalMs: 30000,
-        retryRequestDelayMs: 500,
+        defaultQueryTimeoutMs: 180000, // 3 minutes (increased)
+        connectTimeoutMs: 180000, // 3 minutes (increased)
+        keepAliveIntervalMs: 25000, // 25 seconds (more frequent)
+        retryRequestDelayMs: 1000, // 1 second (increased)
       });
 
       this.sessions.set(sessionId, sock);
@@ -2025,7 +2025,7 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
     this.stopKeepAlive(sessionId);
 
     let consecutiveFailures = 0;
-    const MAX_CONSECUTIVE_FAILURES = 3;
+    const MAX_CONSECUTIVE_FAILURES = 5; // Increased from 3 to be more tolerant
 
     // Use a longer interval since Baileys handles its own keep-alive
     // This serves as a fallback health check, not primary keep-alive
@@ -2088,10 +2088,10 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
           this.stopKeepAlive(sessionId);
         }
       }
-    }, 45000); // Every 45 seconds - slightly offset from Baileys' 30s keep-alive
+    }, 60000); // Every 60 seconds - offset from Baileys' 30s keep-alive
 
     this.keepAliveTimers.set(sessionId, keepAliveInterval);
-    this.logger.log(`⏰ Health check timer started for session ${sessionId} (45s interval)`);
+    this.logger.log(`⏰ Health check timer started for session ${sessionId} (60s interval)`);
   }
 
   // Stop keep-alive system for a session
@@ -2255,6 +2255,15 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
         }
 
         if (hasFilesystemCreds) {
+          // Calculate staggered delay based on session index to avoid rate limiting
+          // Each session gets a progressively longer delay (10-30s base + random jitter)
+          const sessionIndex = dbSessions.indexOf(dbSession);
+          const baseDelay = 10000 + (sessionIndex * 15000); // 10s, 25s, 40s, etc.
+          const jitter = Math.random() * 5000; // 0-5s random jitter
+          const totalDelay = baseDelay + jitter;
+
+          this.logger.log(`⏱️ Scheduling session ${sessionId} restoration in ${Math.round(totalDelay / 1000)}s`);
+
           // Initialize and connect the session
           setTimeout(async () => {
             try {
@@ -2273,7 +2282,7 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
             } catch (error) {
               this.logger.warn(`❌ Failed to restore session ${sessionId}:`, error.message);
             }
-          }, Math.random() * 5000); // Random delay 0-5s to avoid overwhelming WhatsApp
+          }, totalDelay);
         } else {
           this.logger.log(`⚠️ No credentials available for session ${sessionId}`);
         }

@@ -786,106 +786,33 @@ export class WhatsAppService {
   }
 
   // Event handlers for Baileys events
+  // NOTE: BaileysService is now the single source of truth for connection status.
+  // This handler only logs events and manages auxiliary tasks (like lastSeenAt updates).
   @OnEvent("whatsapp.connection.update")
   async handleConnectionUpdate(data: { sessionId: string; update: any }) {
     const { sessionId, update } = data;
 
     try {
-      this.logger.log(`📡 Connection update received for session ${sessionId}: ${JSON.stringify(update)}`);
+      this.logger.debug(`📡 Connection update received for session ${sessionId}: ${JSON.stringify(update)}`);
 
-      // Check if session exists in database
-      const existingSession = await this.sessionRepository.findOne({
-        where: { id: sessionId },
-      });
-
-      if (!existingSession) {
-        this.logger.warn(`⚠️ Session ${sessionId} not found in database - cannot update status`);
-        return;
-      }
-
-      let status = WhatsAppSessionStatus.DISCONNECTED;
-      let isActive = false;
-      let updateData: any = {};
+      // BaileysService handles all database status updates now.
+      // We only handle auxiliary tasks here.
 
       if (update.connection === "open") {
-        status = WhatsAppSessionStatus.CONNECTED;
-        isActive = true;
-        updateData = {
-          status,
-          isActive,
-          lastSeenAt: new Date(),
-          retryCount: 0,
-        };
-        this.logger.log(`✅ Session ${sessionId} is now CONNECTED in database`);
-      } else if (update.connection === "connecting") {
-        status = WhatsAppSessionStatus.CONNECTING;
-        updateData = {
-          status,
-          lastConnectionAttempt: new Date(),
-        };
-        this.logger.log(`🔄 Session ${sessionId} is CONNECTING`);
-      } else if (update.connection === "close") {
-        // Check if this is a permanent disconnect or temporary
-        const statusCode = update.lastDisconnect?.error?.output?.statusCode;
-        const isLoggedOut = statusCode === 401 || statusCode === 403 || statusCode === 515;
-
-        if (isLoggedOut) {
-          // Permanent disconnect - update immediately
-          status = WhatsAppSessionStatus.DISCONNECTED;
-          isActive = false;
-          updateData = {
-            status,
-            isActive,
-          };
-          this.logger.log(`🚪 Session ${sessionId} logged out permanently (code: ${statusCode})`);
-        } else {
-          // Temporary disconnect - keep status as connecting to allow reconnection
-          // Only update to disconnected after a delay if not reconnected
-          this.logger.log(`⏳ Session ${sessionId} temporarily disconnected (code: ${statusCode}) - waiting for reconnection...`);
-
-          // Schedule a delayed status update (30 seconds)
-          setTimeout(async () => {
-            try {
-              // Re-check if session is still disconnected
-              const currentSession = await this.sessionRepository.findOne({
-                where: { id: sessionId },
-              });
-              // Only mark as disconnected if still not connected
-              if (currentSession && currentSession.status !== WhatsAppSessionStatus.CONNECTED) {
-                await this.sessionRepository.update(sessionId, {
-                  status: WhatsAppSessionStatus.DISCONNECTED,
-                  isActive: false,
-                });
-                this.logger.log(`❌ Session ${sessionId} confirmed DISCONNECTED after timeout`);
-              }
-            } catch (error) {
-              this.logger.error(`Failed to update delayed disconnect status:`, error);
-            }
-          }, 30000); // 30 second delay
-
-          // Don't update database immediately for temporary disconnects
-          return;
-        }
-      } else {
-        this.logger.debug(`Session ${sessionId} received update without connection state change`);
-        return;
-      }
-
-      const result = await this.sessionRepository.update(sessionId, updateData);
-      this.logger.log(`📝 Database update result for ${sessionId}: ${JSON.stringify(result)}`);
-
-      // Verify the update worked
-      const verifySession = await this.sessionRepository.findOne({
-        where: { id: sessionId },
-      });
-      this.logger.log(`✓ Verified session ${sessionId} status in DB: ${verifySession?.status}, isActive: ${verifySession?.isActive}`);
-
-      // Also update lastSeenAt periodically for active sessions
-      if (isActive) {
+        this.logger.log(`✅ Session ${sessionId} connected (handled by BaileysService)`);
+        // Schedule periodic lastSeenAt updates for active sessions
         this.scheduleLastSeenUpdate(sessionId);
+      } else if (update.connection === "connecting") {
+        this.logger.debug(`🔄 Session ${sessionId} connecting (handled by BaileysService)`);
+      } else if (update.connection === "close") {
+        const statusCode = update.lastDisconnect?.error?.output?.statusCode;
+        this.logger.log(`🔌 Session ${sessionId} closed with code ${statusCode} (handled by BaileysService)`);
+
+        // Stop lastSeenAt updates for this session
+        this.stopLastSeenUpdate(sessionId);
       }
     } catch (error) {
-      this.logger.error(`❌ Failed to update connection status for session ${sessionId}:`, error);
+      this.logger.error(`❌ Error in connection update handler for session ${sessionId}:`, error);
     }
   }
 
@@ -905,6 +832,9 @@ export class WhatsAppService {
 
       this.logger.log(`📝 Updated session ${sessionId} to DISCONNECTED after device removal`);
 
+      // Stop lastSeenAt updates
+      this.stopLastSeenUpdate(sessionId);
+
       // Emit WebSocket event to frontend
       this.eventEmitter.emit("whatsapp.session.error", {
         sessionId,
@@ -918,36 +848,146 @@ export class WhatsAppService {
     }
   }
 
+  @OnEvent("whatsapp.connection.stale")
+  async handleStaleConnection(data: { sessionId: string; message: string }) {
+    const { sessionId, message } = data;
+
+    try {
+      this.logger.warn(`⚠️ Stale connection detected for session ${sessionId}: ${message}`);
+
+      // Update session status in database
+      await this.sessionRepository.update(sessionId, {
+        status: WhatsAppSessionStatus.DISCONNECTED,
+        isActive: false,
+      });
+
+      // Stop lastSeenAt updates
+      this.stopLastSeenUpdate(sessionId);
+
+      // Emit WebSocket event to frontend
+      this.eventEmitter.emit("whatsapp.session.status", {
+        sessionId,
+        status: "disconnected",
+        message: "Connection became stale. Automatic reconnection will be attempted.",
+      });
+    } catch (error) {
+      this.logger.error(`Failed to handle stale connection for session ${sessionId}:`, error);
+    }
+  }
+
+  @OnEvent("whatsapp.reconnect.success")
+  async handleReconnectSuccess(data: { sessionId: string; attempt: number }) {
+    const { sessionId, attempt } = data;
+
+    try {
+      this.logger.log(`✅ Reconnection successful for session ${sessionId} on attempt ${attempt}`);
+
+      // Emit WebSocket event to frontend
+      this.eventEmitter.emit("whatsapp.session.status", {
+        sessionId,
+        status: "connected",
+        message: `Session reconnected successfully after ${attempt} attempt(s).`,
+      });
+
+      // Restart lastSeenAt updates
+      this.scheduleLastSeenUpdate(sessionId);
+    } catch (error) {
+      this.logger.error(`Failed to handle reconnect success for session ${sessionId}:`, error);
+    }
+  }
+
+  @OnEvent("whatsapp.reconnect.failed")
+  async handleReconnectFailed(data: { sessionId: string; totalAttempts: number; errorType?: string }) {
+    const { sessionId, totalAttempts, errorType } = data;
+
+    try {
+      this.logger.error(`❌ All reconnection attempts failed for session ${sessionId} (${totalAttempts} attempts, error: ${errorType})`);
+
+      // Update session status
+      await this.sessionRepository.update(sessionId, {
+        status: WhatsAppSessionStatus.DISCONNECTED,
+        isActive: false,
+      });
+
+      // Emit WebSocket event to frontend
+      this.eventEmitter.emit("whatsapp.session.error", {
+        sessionId,
+        errorType: "reconnect_failed",
+        message: `Failed to reconnect after ${totalAttempts} attempts. Please reconnect manually.`,
+        requiresReauth: false,
+      });
+    } catch (error) {
+      this.logger.error(`Failed to handle reconnect failure for session ${sessionId}:`, error);
+    }
+  }
+
+  @OnEvent("whatsapp.reconnect.needs.qr")
+  async handleReconnectNeedsQR(data: { sessionId: string; message: string }) {
+    const { sessionId, message } = data;
+
+    try {
+      this.logger.warn(`⚠️ Session ${sessionId} requires QR code for reconnection: ${message}`);
+
+      // Update session status
+      await this.sessionRepository.update(sessionId, {
+        status: WhatsAppSessionStatus.DISCONNECTED,
+        isActive: false,
+      });
+
+      // Emit WebSocket event to frontend
+      this.eventEmitter.emit("whatsapp.session.error", {
+        sessionId,
+        errorType: "needs_qr",
+        message: "Session requires QR code authentication. Please scan the QR code again.",
+        requiresReauth: true,
+      });
+    } catch (error) {
+      this.logger.error(`Failed to handle reconnect needs QR for session ${sessionId}:`, error);
+    }
+  }
+
   private lastSeenTimers = new Map<string, NodeJS.Timeout>();
 
   private scheduleLastSeenUpdate(sessionId: string) {
     // Clear existing timer if any
+    this.stopLastSeenUpdate(sessionId);
+
+    // Update lastSeenAt every 60 seconds for active sessions (less frequent to reduce DB load)
+    const timer = setInterval(async () => {
+      try {
+        const session = await this.sessionRepository.findOne({
+          where: { id: sessionId },
+        });
+        if (
+          session &&
+          session.isActive &&
+          session.status === WhatsAppSessionStatus.CONNECTED
+        ) {
+          await this.sessionRepository.update(sessionId, {
+            lastSeenAt: new Date(),
+          });
+          this.logger.debug(`Updated lastSeenAt for session ${sessionId}`);
+        } else {
+          // Session no longer active, stop the timer
+          this.stopLastSeenUpdate(sessionId);
+        }
+      } catch (error) {
+        this.logger.debug(`Failed to update lastSeenAt for ${sessionId}: ${error.message}`);
+        // Don't stop the timer on transient errors
+      }
+    }, 60000); // 60 seconds (reduced frequency)
+
+    this.lastSeenTimers.set(sessionId, timer);
+    this.logger.debug(`Started lastSeenAt timer for session ${sessionId}`);
+  }
+
+  private stopLastSeenUpdate(sessionId: string) {
     const existingTimer = this.lastSeenTimers.get(sessionId);
     if (existingTimer) {
       clearInterval(existingTimer);
+      this.lastSeenTimers.delete(sessionId);
+      this.logger.debug(`Stopped lastSeenAt timer for session ${sessionId}`);
     }
-
-    // Update lastSeenAt every 30 seconds for active sessions
-    const timer = setInterval(async () => {
-      const session = await this.sessionRepository.findOne({
-        where: { id: sessionId },
-      });
-      if (
-        session &&
-        session.isActive &&
-        session.status === WhatsAppSessionStatus.CONNECTED
-      ) {
-        await this.sessionRepository.update(sessionId, {
-          lastSeenAt: new Date(),
-        });
-        this.logger.debug(`Updated lastSeenAt for session ${sessionId}`);
-      } else {
-        clearInterval(timer);
-        this.lastSeenTimers.delete(sessionId);
-      }
-    }, 30000); // 30 seconds
-
-    this.lastSeenTimers.set(sessionId, timer);
   }
 
   @OnEvent("whatsapp.message.received")

@@ -54,10 +54,21 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
   // Track real connection state (connected, disconnected, reconnecting)
   private connectionStates = new Map<string, 'connected' | 'disconnected' | 'reconnecting'>();
 
+  // Track active reconnection attempts to prevent duplicates
+  private reconnectionAttempts = new Map<string, { count: number; timer: NodeJS.Timeout | null }>();
+
+  // Store event handlers for proper cleanup (prevents memory leaks)
+  private eventHandlers = new Map<string, Map<string, Function>>();
+
   // Memory management configuration
   private readonly MAX_SESSIONS = 50; // Maximum concurrent sessions
-  private readonly SESSION_CLEANUP_INTERVAL = 30 * 60 * 1000; // 30 minutes
+  private readonly SESSION_CLEANUP_INTERVAL = 5 * 60 * 1000; // 5 minutes (reduced from 30)
   private cleanupTimer: NodeJS.Timeout;
+
+  // Configurable reconnection parameters
+  private readonly MAX_RECONNECT_RETRIES = 10; // Increased from 3
+  private readonly RECONNECT_BASE_DELAY = 5000; // 5 seconds base delay
+  private readonly RECONNECT_MAX_DELAY = 300000; // 5 minutes max delay
 
   constructor(
     private configService: ConfigService,
@@ -92,6 +103,96 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
 
     // Auto-restore sessions on service startup
     this.restoreExistingSessions();
+  }
+
+  /**
+   * Classify error to determine retry strategy
+   * Returns: { shouldRetry: boolean, isPermanent: boolean, retryDelay: number, errorType: string }
+   */
+  private classifyError(statusCode: number, errorMessage: string): {
+    shouldRetry: boolean;
+    isPermanent: boolean;
+    retryDelay: number;
+    errorType: string;
+  } {
+    // Permanent errors - don't retry
+    if (statusCode === DisconnectReason?.loggedOut) {
+      return { shouldRetry: false, isPermanent: true, retryDelay: 0, errorType: 'logged_out' };
+    }
+
+    // Device removed - needs re-authentication
+    if (statusCode === 401 || errorMessage.includes('device_removed')) {
+      return { shouldRetry: false, isPermanent: true, retryDelay: 0, errorType: 'device_removed' };
+    }
+
+    // Conflict errors (409, 440) - session conflict, might resolve
+    if (statusCode === 409 || statusCode === 440) {
+      return { shouldRetry: true, isPermanent: false, retryDelay: 30000, errorType: 'conflict' };
+    }
+
+    // Rate limit errors (429) - wait longer before retry
+    if (statusCode === 429 || errorMessage.includes('rate') || errorMessage.includes('too many')) {
+      return { shouldRetry: true, isPermanent: false, retryDelay: 60000, errorType: 'rate_limited' };
+    }
+
+    // Service unavailable (503) - temporary, retry with backoff
+    if (statusCode === 503 || statusCode === 502 || statusCode === 500) {
+      return { shouldRetry: true, isPermanent: false, retryDelay: 15000, errorType: 'server_error' };
+    }
+
+    // Network errors - retry immediately
+    if (errorMessage.includes('ECONNRESET') || errorMessage.includes('ETIMEDOUT') ||
+        errorMessage.includes('ENOTFOUND') || errorMessage.includes('network')) {
+      return { shouldRetry: true, isPermanent: false, retryDelay: 5000, errorType: 'network_error' };
+    }
+
+    // Timeout errors
+    if (errorMessage.includes('timeout') || statusCode === 408) {
+      return { shouldRetry: true, isPermanent: false, retryDelay: 10000, errorType: 'timeout' };
+    }
+
+    // Unknown errors - retry with caution
+    return { shouldRetry: true, isPermanent: false, retryDelay: 15000, errorType: 'unknown' };
+  }
+
+  /**
+   * Cancel any pending reconnection attempt for a session
+   */
+  private cancelReconnection(sessionId: string): void {
+    const attempt = this.reconnectionAttempts.get(sessionId);
+    if (attempt?.timer) {
+      clearTimeout(attempt.timer);
+      this.logger.log(`🛑 Cancelled pending reconnection for session ${sessionId}`);
+    }
+    this.reconnectionAttempts.delete(sessionId);
+  }
+
+  /**
+   * Register event handler for a session (for proper cleanup)
+   */
+  private registerEventHandler(sessionId: string, eventName: string, handler: Function): void {
+    if (!this.eventHandlers.has(sessionId)) {
+      this.eventHandlers.set(sessionId, new Map());
+    }
+    this.eventHandlers.get(sessionId)!.set(eventName, handler);
+  }
+
+  /**
+   * Remove all event handlers for a session to prevent memory leaks
+   */
+  private removeEventHandlers(sessionId: string, sock: any): void {
+    const handlers = this.eventHandlers.get(sessionId);
+    if (handlers && sock?.ev) {
+      for (const [eventName, handler] of handlers) {
+        try {
+          sock.ev.off(eventName, handler);
+          this.logger.debug(`Removed event handler '${eventName}' for session ${sessionId}`);
+        } catch (error) {
+          this.logger.debug(`Failed to remove handler '${eventName}': ${error.message}`);
+        }
+      }
+    }
+    this.eventHandlers.delete(sessionId);
   }
 
   /**
@@ -451,80 +552,98 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
             this.authStates.delete(sessionId);
             this.connectionStates.delete(sessionId);
           } else {
-            // Temporary disconnect - try to reconnect with exponential backoff + jitter
+            // Temporary disconnect - use improved reconnection strategy
+            const errorClassification = this.classifyError(statusCode, errorMessage);
+
+            this.logger.log(`🔄 Session ${sessionId} disconnected (code: ${statusCode}, type: ${errorClassification.errorType})`);
+
+            if (!errorClassification.shouldRetry) {
+              this.logger.log(`🚫 Error type '${errorClassification.errorType}' is not retryable for session ${sessionId}`);
+              this.connectionStates.set(sessionId, 'disconnected');
+              this.cancelReconnection(sessionId);
+              return;
+            }
+
+            // Cancel any existing reconnection attempt to prevent race conditions
+            this.cancelReconnection(sessionId);
+
             // Update connection state to reconnecting
             this.connectionStates.set(sessionId, 'reconnecting');
-            this.logger.log(`🔄 Session ${sessionId} temporarily disconnected (code: ${statusCode}) - scheduling reconnection...`);
 
-            const maxRetries = 3; // Fewer retries to avoid rate limiting
-            const baseDelay = 10000; // 10 second initial delay (longer to avoid immediate reconnect storms)
-            let retryCount = 0;
+            const attemptReconnect = async (retryCount: number) => {
+              // Check if session was already reconnected, manually disconnected, or cancelled
+              const currentState = this.connectionStates.get(sessionId);
+              if (currentState === 'connected') {
+                this.logger.log(`✅ Session ${sessionId} already reconnected, skipping retry`);
+                this.cancelReconnection(sessionId);
+                return;
+              }
 
-            const attemptReconnect = () => {
-              if (retryCount < maxRetries) {
-                // Exponential backoff with random jitter (±25%) to prevent reconnection storms
-                const exponentialDelay = baseDelay * Math.pow(2, retryCount);
-                const jitter = exponentialDelay * 0.25 * (Math.random() * 2 - 1); // ±25% jitter
-                const delay = Math.min(Math.max(exponentialDelay + jitter, 5000), 120000); // Between 5s and 2min
+              if (currentState === 'disconnected') {
+                this.logger.log(`🛑 Session ${sessionId} manually disconnected, stopping reconnection`);
+                this.cancelReconnection(sessionId);
+                return;
+              }
 
-                this.logger.log(
-                  `🔄 Scheduling reconnection ${retryCount + 1}/${maxRetries} for session ${sessionId} in ${Math.round(delay / 1000)}s`,
+              if (retryCount >= this.MAX_RECONNECT_RETRIES) {
+                this.logger.error(`❌ All ${this.MAX_RECONNECT_RETRIES} reconnection attempts exhausted for session ${sessionId}`);
+                this.connectionStates.set(sessionId, 'disconnected');
+                this.cancelReconnection(sessionId);
+                this.eventEmitter.emit("whatsapp.reconnect.failed", {
+                  sessionId,
+                  totalAttempts: this.MAX_RECONNECT_RETRIES,
+                  errorType: errorClassification.errorType,
+                });
+                return;
+              }
+
+              try {
+                this.logger.log(`🔄 Attempting reconnection ${retryCount + 1}/${this.MAX_RECONNECT_RETRIES} for session ${sessionId}`);
+
+                // Try to reconnect using existing auth state
+                const result = await this.connectSession(sessionId, false);
+
+                if (result.needsQR) {
+                  this.logger.warn(`⚠️ Session ${sessionId} needs QR code - stopping auto-reconnect`);
+                  this.connectionStates.set(sessionId, 'disconnected');
+                  this.cancelReconnection(sessionId);
+                  this.eventEmitter.emit("whatsapp.reconnect.needs.qr", {
+                    sessionId,
+                    message: "Session requires QR code authentication",
+                  });
+                } else {
+                  this.logger.log(`✅ Auto-reconnection successful for session ${sessionId} on attempt ${retryCount + 1}`);
+                  this.cancelReconnection(sessionId);
+                  this.eventEmitter.emit("whatsapp.reconnect.success", {
+                    sessionId,
+                    attempt: retryCount + 1,
+                  });
+                }
+              } catch (error) {
+                this.logger.error(`❌ Reconnection attempt ${retryCount + 1} failed for session ${sessionId}: ${error.message}`);
+
+                // Schedule next attempt with exponential backoff + jitter
+                const exponentialDelay = Math.min(
+                  this.RECONNECT_BASE_DELAY * Math.pow(1.5, retryCount), // 1.5x multiplier instead of 2x
+                  this.RECONNECT_MAX_DELAY
                 );
+                // Add ±25% jitter to prevent reconnection storms
+                const jitter = exponentialDelay * 0.25 * (Math.random() - 0.5);
+                const delay = Math.max(exponentialDelay + jitter, this.RECONNECT_BASE_DELAY);
 
-                setTimeout(async () => {
-                  try {
-                    // Check if session was already reconnected or manually disconnected
-                    const currentState = this.connectionStates.get(sessionId);
-                    if (currentState === 'connected') {
-                      this.logger.log(`✅ Session ${sessionId} already reconnected, skipping retry`);
-                      return;
-                    }
+                this.logger.log(`⏱️ Scheduling retry ${retryCount + 2}/${this.MAX_RECONNECT_RETRIES} for session ${sessionId} in ${Math.round(delay / 1000)}s`);
 
-                    // Try to reconnect using existing auth state
-                    const result = await this.connectSession(sessionId, false);
-
-                    if (result.needsQR) {
-                      this.logger.warn(
-                        `⚠️ Session ${sessionId} needs QR code - stopping auto-reconnect`,
-                      );
-                      this.connectionStates.set(sessionId, 'disconnected');
-                      this.eventEmitter.emit("whatsapp.reconnect.needs.qr", {
-                        sessionId,
-                        message: "Session requires QR code authentication",
-                      });
-                    } else {
-                      this.logger.log(
-                        `✅ Auto-reconnection successful for session ${sessionId}`,
-                      );
-                      this.eventEmitter.emit("whatsapp.reconnect.success", {
-                        sessionId,
-                        attempt: retryCount + 1,
-                      });
-                    }
-                  } catch (error) {
-                    this.logger.error(
-                      `❌ Reconnection attempt ${retryCount + 1} failed for session ${sessionId}: ${error.message}`,
-                    );
-                    retryCount++;
-                    if (retryCount < maxRetries) {
-                      attemptReconnect();
-                    } else {
-                      this.logger.error(
-                        `❌ All reconnection attempts exhausted for session ${sessionId}`,
-                      );
-                      this.connectionStates.set(sessionId, 'disconnected');
-                      this.eventEmitter.emit("whatsapp.reconnect.failed", {
-                        sessionId,
-                        totalAttempts: maxRetries,
-                      });
-                    }
-                  }
-                }, delay);
+                const timer = setTimeout(() => attemptReconnect(retryCount + 1), delay);
+                this.reconnectionAttempts.set(sessionId, { count: retryCount + 1, timer });
               }
             };
 
-            // Add initial delay before first reconnection attempt to let WhatsApp settle
-            setTimeout(() => attemptReconnect(), 3000);
+            // Start reconnection with initial delay based on error type
+            const initialDelay = Math.max(errorClassification.retryDelay, 3000);
+            this.logger.log(`⏱️ Starting reconnection for session ${sessionId} in ${Math.round(initialDelay / 1000)}s`);
+
+            const timer = setTimeout(() => attemptReconnect(0), initialDelay);
+            this.reconnectionAttempts.set(sessionId, { count: 0, timer });
           }
         } else if (connection === "open") {
           this.logger.log(`✅ Session ${sessionId} connected successfully`);
@@ -982,11 +1101,22 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
   }
 
   async disconnectSession(sessionId: string): Promise<void> {
+    // Cancel any pending reconnection
+    this.cancelReconnection(sessionId);
+
     // Stop timers first
     this.stopKeepAlive(sessionId);
     this.stopCredentialsSave(sessionId);
 
+    // Mark as disconnected to prevent auto-reconnect
+    this.connectionStates.set(sessionId, 'disconnected');
+
     const sock = this.sessions.get(sessionId);
+
+    // Remove event handlers BEFORE logout to prevent memory leaks
+    if (sock) {
+      this.removeEventHandlers(sessionId, sock);
+    }
 
     if (sock) {
       try {
@@ -1894,30 +2024,74 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
     // Clear existing timer if any
     this.stopKeepAlive(sessionId);
 
+    let consecutiveFailures = 0;
+    const MAX_CONSECUTIVE_FAILURES = 3;
+
     // Use a longer interval since Baileys handles its own keep-alive
     // This serves as a fallback health check, not primary keep-alive
     const keepAliveInterval = setInterval(async () => {
       try {
         const sock = this.sessions.get(sessionId);
-        if (sock && sock.ws && sock.ws.readyState === 1) {
-          // Just log status, don't send presence updates to avoid rate limiting
+        const wsReadyState = sock?.ws?.readyState;
+        const connectionState = this.connectionStates.get(sessionId);
+
+        // WebSocket ready states: 0=CONNECTING, 1=OPEN, 2=CLOSING, 3=CLOSED
+        if (sock && wsReadyState === 1) {
+          // Connection is healthy
+          consecutiveFailures = 0;
           this.logger.debug(`🏓 Session ${sessionId} health check: WebSocket connected`);
+
+          // Update lastSeenAt in database
+          try {
+            await this.sessionRepository.update(sessionId, { lastSeenAt: new Date() });
+          } catch (dbError) {
+            this.logger.debug(`Failed to update lastSeenAt: ${dbError.message}`);
+          }
+        } else if (connectionState === 'reconnecting') {
+          // Already reconnecting, don't interfere
+          this.logger.debug(`🔄 Session ${sessionId} is reconnecting, health check skipped`);
         } else {
+          // Connection appears dead
+          consecutiveFailures++;
           this.logger.warn(
-            `⚠️ Session ${sessionId} WebSocket not ready (readyState: ${sock?.ws?.readyState})`,
+            `⚠️ Session ${sessionId} WebSocket not ready (readyState: ${wsReadyState}, failures: ${consecutiveFailures}/${MAX_CONSECUTIVE_FAILURES})`,
           );
-          // Don't stop immediately, let Baileys handle reconnection
+
+          // After multiple failures, trigger cleanup and potential reconnection
+          if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
+            this.logger.error(`❌ Session ${sessionId} appears dead after ${consecutiveFailures} health check failures`);
+
+            // Update connection state
+            if (connectionState === 'connected') {
+              this.connectionStates.set(sessionId, 'disconnected');
+
+              // Emit event to trigger reconnection logic
+              this.eventEmitter.emit("whatsapp.connection.stale", {
+                sessionId,
+                message: "Session detected as stale by health check",
+              });
+            }
+
+            // Stop this timer as session needs full reconnection
+            this.stopKeepAlive(sessionId);
+          }
         }
       } catch (error) {
+        consecutiveFailures++;
         this.logger.error(
-          `❌ Health check failed for session ${sessionId}:`,
+          `❌ Health check failed for session ${sessionId} (failures: ${consecutiveFailures}):`,
           error,
         );
+
+        // Clean up timer if persistent errors
+        if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
+          this.stopKeepAlive(sessionId);
+        }
       }
-    }, 60000); // Every 60 seconds - just for monitoring, not active keep-alive
+    }, 45000); // Every 45 seconds - slightly offset from Baileys' 30s keep-alive
 
     this.keepAliveTimers.set(sessionId, keepAliveInterval);
-    this.logger.log(`⏰ Health check timer started for session ${sessionId} (60s interval)`);
+    this.logger.log(`⏰ Health check timer started for session ${sessionId} (45s interval)`);
   }
 
   // Stop keep-alive system for a session
@@ -2114,6 +2288,11 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
     const sessionIds = Array.from(this.sessions.keys());
     this.logger.log(`🧹 Starting cleanup for ${sessionIds.length} sessions...`);
 
+    // Cancel all reconnection attempts first
+    for (const sessionId of this.reconnectionAttempts.keys()) {
+      this.cancelReconnection(sessionId);
+    }
+
     // Stop all timers
     for (const sessionId of sessionIds) {
       this.stopKeepAlive(sessionId);
@@ -2121,7 +2300,7 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
     }
 
     // Gracefully disconnect all sessions (save state but don't logout from WhatsApp)
-    for (const sessionId of sessionIds) {
+    const cleanupPromises = sessionIds.map(async (sessionId) => {
       try {
         const authState = this.authStates.get(sessionId);
         if (authState && authState.saveCreds) {
@@ -2133,20 +2312,35 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
         // Backup credentials to database for persistence across deployments
         await this.backupCredentialsToDatabase(sessionId);
 
-        // Close socket without logging out (just disconnect, don't invalidate session)
+        // Remove event handlers to prevent memory leaks
         const sock = this.sessions.get(sessionId);
-        if (sock && sock.ws) {
-          sock.ws.close();
+        if (sock) {
+          this.removeEventHandlers(sessionId, sock);
+
+          // Close socket without logging out (just disconnect, don't invalidate session)
+          if (sock.ws && typeof sock.ws.close === 'function') {
+            sock.ws.close();
+          }
         }
       } catch (error) {
         this.logger.warn(`Error cleaning up session ${sessionId}:`, error);
       }
-    }
+    });
 
+    // Wait for all cleanup operations with a timeout
+    await Promise.race([
+      Promise.all(cleanupPromises),
+      new Promise(resolve => setTimeout(resolve, 10000)), // 10 second timeout
+    ]);
+
+    // Clear all maps
     this.sessions.clear();
     this.authStates.clear();
     this.keepAliveTimers.clear();
     this.credentialsSaveTimers.clear();
+    this.connectionStates.clear();
+    this.reconnectionAttempts.clear();
+    this.eventHandlers.clear();
 
     this.logger.log(`🧹 Cleanup completed for ${sessionIds.length} sessions`);
   }
@@ -2165,14 +2359,18 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
   /**
    * Lifecycle hook - cleanup when module is destroyed
    */
-  onModuleDestroy(): void {
+  async onModuleDestroy(): Promise<void> {
+    this.logger.log('🛑 Module destroy initiated - starting graceful shutdown...');
+
     if (this.cleanupTimer) {
       clearInterval(this.cleanupTimer);
       this.logger.log('Stopped session cleanup timer');
     }
 
-    // Cleanup all sessions
-    this.performSessionCleanup();
+    // Perform full cleanup with proper async handling
+    await this.cleanup();
+
+    this.logger.log('✅ Module destroy completed');
   }
 
   /**
@@ -2189,19 +2387,24 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
 
       for (const [sessionId, sock] of sessionsToRemove) {
         try {
-          // Check if session is still connected
-          if (!sock || sock.readyState !== sock.OPEN) {
-            this.logger.debug(`Removing inactive session: ${sessionId}`);
+          // Check if session is still connected (WebSocket.OPEN = 1)
+          const wsReadyState = sock?.ws?.readyState;
+          const isConnected = wsReadyState === 1; // 1 = WebSocket.OPEN
+          const connectionState = this.connectionStates.get(sessionId);
+
+          // Only remove if truly inactive (not connected and not reconnecting)
+          if (!sock || (!isConnected && connectionState !== 'reconnecting')) {
+            this.logger.debug(`Removing inactive session: ${sessionId} (wsState: ${wsReadyState}, connState: ${connectionState})`);
             this.removeSession(sessionId);
           }
         } catch (error) {
           this.logger.warn(`Error checking session ${sessionId} status: ${error.message}`);
-          this.removeSession(sessionId);
+          // Don't remove on error - could be a transient issue
         }
       }
     }
 
-    // Clean up orphaned auth states and timers
+    // Clean up orphaned auth states, timers, and reconnection attempts
     this.cleanupOrphanedResources();
 
     const finalSessionCount = this.sessions.size;
@@ -2211,7 +2414,7 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
   }
 
   /**
-   * Clean up orphaned resources (auth states, timers) that don't have corresponding sessions
+   * Clean up orphaned resources (auth states, timers, event handlers) that don't have corresponding sessions
    */
   private cleanupOrphanedResources(): void {
     const activeSessionIds = new Set(this.sessions.keys());
@@ -2247,6 +2450,30 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
         this.logger.debug(`Removed orphaned credentials timer for session: ${sessionId}`);
       }
     }
+
+    // Clean up reconnection attempts for sessions that no longer exist
+    for (const sessionId of this.reconnectionAttempts.keys()) {
+      if (!activeSessionIds.has(sessionId)) {
+        this.cancelReconnection(sessionId);
+        this.logger.debug(`Removed orphaned reconnection attempt for session: ${sessionId}`);
+      }
+    }
+
+    // Clean up connection states for sessions that no longer exist
+    for (const sessionId of this.connectionStates.keys()) {
+      if (!activeSessionIds.has(sessionId)) {
+        this.connectionStates.delete(sessionId);
+        this.logger.debug(`Removed orphaned connection state for session: ${sessionId}`);
+      }
+    }
+
+    // Clean up event handlers for sessions that no longer exist
+    for (const sessionId of this.eventHandlers.keys()) {
+      if (!activeSessionIds.has(sessionId)) {
+        this.eventHandlers.delete(sessionId);
+        this.logger.debug(`Removed orphaned event handlers for session: ${sessionId}`);
+      }
+    }
   }
 
   /**
@@ -2255,17 +2482,29 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
   private removeSession(sessionId: string): void {
     // Close the socket if it exists
     const sock = this.sessions.get(sessionId);
-    if (sock && typeof sock.close === 'function') {
-      try {
-        sock.close();
-      } catch (error) {
-        this.logger.warn(`Error closing socket for session ${sessionId}: ${error.message}`);
+
+    // Remove event handlers FIRST to prevent memory leaks
+    if (sock) {
+      this.removeEventHandlers(sessionId, sock);
+
+      // Close WebSocket connection
+      if (sock.ws && typeof sock.ws.close === 'function') {
+        try {
+          sock.ws.close();
+        } catch (error) {
+          this.logger.warn(`Error closing WebSocket for session ${sessionId}: ${error.message}`);
+        }
       }
     }
+
+    // Cancel any pending reconnection
+    this.cancelReconnection(sessionId);
 
     // Remove from all maps
     this.sessions.delete(sessionId);
     this.authStates.delete(sessionId);
+    this.connectionStates.delete(sessionId);
+    this.eventHandlers.delete(sessionId);
 
     // Clear timers
     const keepAliveTimer = this.keepAliveTimers.get(sessionId);
@@ -2291,14 +2530,28 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
     authStateCount: number;
     keepAliveTimerCount: number;
     credentialsTimerCount: number;
+    reconnectionAttemptCount: number;
+    eventHandlerSessionCount: number;
+    connectionStates: Record<string, string>;
     maxSessions: number;
+    maxReconnectRetries: number;
   } {
+    // Build connection states summary
+    const connectionStatesSummary: Record<string, string> = {};
+    for (const [sessionId, state] of this.connectionStates) {
+      connectionStatesSummary[sessionId] = state;
+    }
+
     return {
       activeSessionCount: this.sessions.size,
       authStateCount: this.authStates.size,
       keepAliveTimerCount: this.keepAliveTimers.size,
       credentialsTimerCount: this.credentialsSaveTimers.size,
-      maxSessions: this.MAX_SESSIONS
+      reconnectionAttemptCount: this.reconnectionAttempts.size,
+      eventHandlerSessionCount: this.eventHandlers.size,
+      connectionStates: connectionStatesSummary,
+      maxSessions: this.MAX_SESSIONS,
+      maxReconnectRetries: this.MAX_RECONNECT_RETRIES,
     };
   }
 }

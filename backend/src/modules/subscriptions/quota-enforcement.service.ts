@@ -1,6 +1,7 @@
 import { Injectable, ForbiddenException, Logger, Inject, forwardRef } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository, IsNull, MoreThan, Not } from "typeorm";
+import { CACHE_MANAGER, Cache } from "@nestjs/cache-manager";
 import {
   Organization,
   Subscription,
@@ -46,6 +47,10 @@ export interface FeatureCheck {
 export class QuotaEnforcementService {
   private readonly logger = new Logger(QuotaEnforcementService.name);
 
+  // Cache TTL constants (in milliseconds)
+  private readonly SUBSCRIPTION_CACHE_TTL = 30000; // 30 seconds
+  private readonly QUOTA_CACHE_TTL = 10000; // 10 seconds for quota checks
+
   constructor(
     @InjectRepository(Organization)
     private readonly organizationRepository: Repository<Organization>,
@@ -84,6 +89,9 @@ export class QuotaEnforcementService {
     private readonly memberRepository: Repository<OrganizationMember>,
 
     private readonly planService: PlanService,
+
+    @Inject(CACHE_MANAGER)
+    private readonly cacheManager: Cache,
   ) {}
 
   async checkAgentQuota(organizationId: string): Promise<QuotaCheck> {
@@ -240,6 +248,13 @@ export class QuotaEnforcementService {
    * Bonus credits are consumed FIRST, then subscription quota is used
    */
   async checkWhatsAppMessageQuota(organizationId: string): Promise<QuotaCheck> {
+    // Check cache first for quota result
+    const cacheKey = `quota:whatsapp:org:${organizationId}`;
+    const cached = await this.cacheManager.get<QuotaCheck>(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
     const subscription = await this.getActiveSubscription(organizationId);
     const planLimit = subscription.limits.maxRequestsPerMonth; // Using requests limit for messages
 
@@ -288,6 +303,9 @@ export class QuotaEnforcementService {
 
     // Update remaining to include remaining bonus
     quotaCheck.remaining = bonusCreditsAvailable + Math.max(0, planLimit - messagesFromSubscription);
+
+    // Cache the result
+    await this.cacheManager.set(cacheKey, quotaCheck, this.QUOTA_CACHE_TTL);
 
     return quotaCheck;
   }
@@ -761,6 +779,13 @@ export class QuotaEnforcementService {
   private async getActiveSubscription(
     organizationId: string,
   ): Promise<Subscription> {
+    // Check cache first
+    const cacheKey = `subscription:org:${organizationId}`;
+    const cached = await this.cacheManager.get<Subscription>(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
     this.logger.debug(`Looking for organization: ${organizationId}`);
 
     const organization = await this.organizationRepository.findOne({
@@ -775,14 +800,6 @@ export class QuotaEnforcementService {
     this.logger.debug(
       `Found organization: ${organization.name}, subscriptions count: ${organization.subscriptions?.length || 0}`,
     );
-
-    if (organization.subscriptions) {
-      organization.subscriptions.forEach((sub) => {
-        this.logger.debug(
-          `Subscription: ${sub.id}, plan: ${sub.plan}, status: ${sub.status}, isActive: ${sub.isActive}`,
-        );
-      });
-    }
 
     const activeSubscription = organization.subscriptions?.find(
       (sub) => sub.isActive,
@@ -801,7 +818,9 @@ export class QuotaEnforcementService {
         startsAt: new Date(),
       });
 
-      return this.subscriptionRepository.save(freeSubscription);
+      const saved = await this.subscriptionRepository.save(freeSubscription);
+      await this.cacheManager.set(cacheKey, saved, this.SUBSCRIPTION_CACHE_TTL);
+      return saved;
     }
 
     // Always sync limits and features with the latest database values
@@ -821,6 +840,9 @@ export class QuotaEnforcementService {
       await this.subscriptionRepository.save(activeSubscription);
     }
 
+    // Cache the result
+    await this.cacheManager.set(cacheKey, activeSubscription, this.SUBSCRIPTION_CACHE_TTL);
+
     this.logger.debug(
       `Returning active subscription: ${activeSubscription.plan}`,
     );
@@ -830,6 +852,13 @@ export class QuotaEnforcementService {
   private async getActiveUserSubscription(
     userId: string,
   ): Promise<Subscription> {
+    // Check cache first
+    const cacheKey = `subscription:user:${userId}`;
+    const cached = await this.cacheManager.get<Subscription>(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
     // First, check if user already has an organization subscription
     // Users should have only ONE subscription (either individual OR via organization)
     const orgSubscription = await this.subscriptionRepository.findOne({
@@ -840,6 +869,7 @@ export class QuotaEnforcementService {
     });
 
     if (orgSubscription) {
+      await this.cacheManager.set(cacheKey, orgSubscription, this.SUBSCRIPTION_CACHE_TTL);
       return orgSubscription;
     }
 
@@ -904,6 +934,9 @@ export class QuotaEnforcementService {
         }
       }
     }
+
+    // Cache the result
+    await this.cacheManager.set(cacheKey, activeSubscription, this.SUBSCRIPTION_CACHE_TTL);
 
     return activeSubscription;
   }

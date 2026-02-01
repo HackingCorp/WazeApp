@@ -697,7 +697,8 @@ export default function WhatsAppPage() {
   };
 
   const getStatusIcon = (status: string, isActive: boolean) => {
-    if (isActive) return <Wifi className="w-4 h-4 text-green-600" />;
+    // Only show connected icon if BOTH isActive AND status is connected
+    if (isActive && status === 'connected') return <Wifi className="w-4 h-4 text-green-600" />;
     if (status === 'connecting') return <RefreshCw className="w-4 h-4 animate-spin text-yellow-600" />;
     return <WifiOff className="w-4 h-4 text-red-600" />;
   };
@@ -1145,7 +1146,7 @@ export default function WhatsAppPage() {
               {/* Session Header */}
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center space-x-3">
-                  <div className={`p-3 rounded-full ${session.isActive ? 'bg-green-100 dark:bg-green-900/30' : 'bg-gray-100 dark:bg-gray-700'}`}>
+                  <div className={`p-3 rounded-full ${session.isActive && session.status === 'connected' ? 'bg-green-100 dark:bg-green-900/30' : 'bg-gray-100 dark:bg-gray-700'}`}>
                     {getStatusIcon(session.status, session.isActive)}
                   </div>
                   <div>
@@ -1154,7 +1155,7 @@ export default function WhatsAppPage() {
                       <p className="text-sm text-gray-600 dark:text-gray-400">{session.phoneNumber}</p>
                     )}
                     <div className="flex items-center space-x-2 mt-1">
-                      <div className={`w-2 h-2 rounded-full ${session.isActive ? 'bg-green-500' : 'bg-red-500'}`} />
+                      <div className={`w-2 h-2 rounded-full ${session.isActive && session.status === 'connected' ? 'bg-green-500' : session.status === 'connecting' ? 'bg-yellow-500' : 'bg-red-500'}`} />
                       <span className={`text-xs font-medium ${getStatusColor(session.status)}`}>
                         {session.status.charAt(0).toUpperCase() + session.status.slice(1)}
                       </span>
@@ -1264,7 +1265,8 @@ export default function WhatsAppPage() {
 
               {/* Actions */}
               <div className="flex space-x-2">
-                {session.isActive ? (
+                {/* Show connected buttons only if BOTH isActive AND status is connected */}
+                {session.isActive && session.status === 'connected' ? (
                   <>
                     <button
                       onClick={() => syncMessages(session.id)}

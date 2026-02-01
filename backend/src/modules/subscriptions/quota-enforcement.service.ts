@@ -284,10 +284,15 @@ export class QuotaEnforcementService {
     const quotaCheck = this.buildQuotaCheck(messagesFromSubscription, planLimit, "monthly WhatsApp messages");
 
     // Add reset date from subscription's nextBillingDate
+    // Handle both Date objects and strings (from cache serialization)
     if (subscription.nextBillingDate) {
-      quotaCheck.resetDate = subscription.nextBillingDate.toISOString();
+      quotaCheck.resetDate = typeof subscription.nextBillingDate === 'string'
+        ? subscription.nextBillingDate
+        : subscription.nextBillingDate.toISOString();
     } else if (subscription.endsAt) {
-      quotaCheck.resetDate = subscription.endsAt.toISOString();
+      quotaCheck.resetDate = typeof subscription.endsAt === 'string'
+        ? subscription.endsAt
+        : subscription.endsAt.toISOString();
     }
 
     // Add bonus credits info
@@ -1030,8 +1035,10 @@ export class QuotaEnforcementService {
   isPaymentDue(subscription: Subscription): boolean {
     if (!subscription.nextBillingDate) return false;
     const now = new Date();
+    // Handle both Date objects and strings (from cache serialization)
+    const billingDate = new Date(subscription.nextBillingDate);
     const daysUntilDue = Math.ceil(
-      (subscription.nextBillingDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
+      (billingDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
     );
     return daysUntilDue <= 7 && daysUntilDue >= 0;
   }
@@ -1041,7 +1048,8 @@ export class QuotaEnforcementService {
    */
   isSubscriptionExpired(subscription: Subscription): boolean {
     if (!subscription.nextBillingDate) return false;
-    return new Date() > subscription.nextBillingDate;
+    // Handle both Date objects and strings (from cache serialization)
+    return new Date() > new Date(subscription.nextBillingDate);
   }
 
   private async getCurrentStorageUsage(

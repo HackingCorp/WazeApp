@@ -35,7 +35,7 @@ import {
 } from "./dto/vector-search.dto";
 
 @ApiTags("Vector Search")
-@Controller("api/v1/vector-search")
+@Controller("vector-search")
 @UseGuards(JwtAuthGuard, RolesGuard)
 @ApiBearerAuth()
 export class VectorSearchController {

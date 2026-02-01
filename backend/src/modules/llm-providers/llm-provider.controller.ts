@@ -38,7 +38,7 @@ import {
 } from "./dto/llm-provider.dto";
 
 @ApiTags("LLM Providers")
-@Controller("api/v1/llm-providers")
+@Controller("llm-providers")
 @UseGuards(JwtAuthGuard, RolesGuard)
 @ApiBearerAuth()
 export class LlmProviderController {

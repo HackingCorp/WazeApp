@@ -34,7 +34,7 @@ import {
 } from "./dto/conversation.dto";
 
 @ApiTags("AI Agents - Conversations")
-@Controller("api/v1/conversations")
+@Controller("agent-conversations")
 @UseGuards(JwtAuthGuard, RolesGuard)
 @ApiBearerAuth()
 export class ConversationController {

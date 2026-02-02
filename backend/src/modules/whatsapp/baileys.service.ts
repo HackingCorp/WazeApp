@@ -8,6 +8,7 @@ import * as path from "path";
 import * as fs from "fs/promises";
 import { SendMessageDto } from "./dto/whatsapp.dto";
 import { WhatsAppSession } from "@/common/entities";
+import { usePostgresAuthState, PostgresAuthStateResult } from "./postgres-auth-state";
 
 // Baileys v7 requires dynamic imports (ESM)
 let makeWASocket: any;
@@ -373,28 +374,55 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
 
   async initializeSession(sessionId: string): Promise<void> {
     try {
-      const sessionPath = path.join(
-        this.configService.get("WHATSAPP_SESSION_PATH", "./whatsapp-sessions"),
-        sessionId,
-      );
+      // Use PostgreSQL-based auth state for production (recommended)
+      // This eliminates filesystem IO and survives container restarts
+      const usePostgres = this.configService.get("WHATSAPP_AUTH_STORAGE", "postgres") === "postgres";
 
-      // Ensure session directory exists
-      await fs.mkdir(sessionPath, { recursive: true });
+      if (usePostgres) {
+        this.logger.log(`🗄️ Initializing PostgreSQL auth state for session ${sessionId}`);
 
-      // Initialize auth state with better error handling
-      const { state, saveCreds } = await useMultiFileAuthState(sessionPath);
-      
-      // Store both state and save function
-      this.authStates.set(sessionId, { state, saveCreds });
+        const { state, saveCreds, clearState } = await usePostgresAuthState(
+          sessionId,
+          this.sessionRepository,
+          this.logger,
+        );
 
-      // Log session state for debugging
-      const hasValidCreds = !!(state.creds && state.creds.me);
-      this.logger.log(`Session ${sessionId} initialized - Has valid credentials: ${hasValidCreds}`);
-      
-      if (hasValidCreds) {
-        this.logger.log(`Session ${sessionId} has existing auth state, attempting auto-restore`);
+        // Store auth state with PostgreSQL-specific methods
+        this.authStates.set(sessionId, { state, saveCreds, clearState, isPostgres: true });
+
+        // Log session state for debugging
+        const hasValidCreds = !!(state.creds && state.creds.me);
+        this.logger.log(`Session ${sessionId} initialized (PostgreSQL) - Has valid credentials: ${hasValidCreds}`);
+
+        if (hasValidCreds) {
+          this.logger.log(`Session ${sessionId} has existing auth state, attempting auto-restore`);
+        }
+      } else {
+        // Fallback to filesystem-based auth (for development/testing)
+        this.logger.log(`📁 Initializing filesystem auth state for session ${sessionId}`);
+
+        const sessionPath = path.join(
+          this.configService.get("WHATSAPP_SESSION_PATH", "./whatsapp-sessions"),
+          sessionId,
+        );
+
+        // Ensure session directory exists
+        await fs.mkdir(sessionPath, { recursive: true });
+
+        // Initialize auth state with better error handling
+        const { state, saveCreds } = await useMultiFileAuthState(sessionPath);
+
+        // Store both state and save function
+        this.authStates.set(sessionId, { state, saveCreds, isPostgres: false });
+
+        // Log session state for debugging
+        const hasValidCreds = !!(state.creds && state.creds.me);
+        this.logger.log(`Session ${sessionId} initialized (Filesystem) - Has valid credentials: ${hasValidCreds}`);
+
+        if (hasValidCreds) {
+          this.logger.log(`Session ${sessionId} has existing auth state, attempting auto-restore`);
+        }
       }
-
     } catch (error) {
       this.logger.error(`Failed to initialize session ${sessionId}:`, error);
       throw error;
@@ -2178,25 +2206,29 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
     // Clear existing timer if any
     this.stopCredentialsSave(sessionId);
 
-    // Initialize backup counter
+    // Initialize backup counter (only used for filesystem auth)
     this.dbBackupCounters.set(sessionId, 0);
+
+    // Check if using PostgreSQL auth (saves directly to DB, no backup needed)
+    const isPostgresAuth = authState?.isPostgres === true;
 
     const saveInterval = setInterval(async () => {
       try {
         if (authState && authState.saveCreds) {
-          // Always save to filesystem
+          // Save credentials (PostgreSQL auth saves directly to DB)
           await authState.saveCreds();
-          this.logger.debug(`💾 Periodic credentials save for session ${sessionId}`);
+          this.logger.debug(`💾 Periodic credentials save for session ${sessionId} (${isPostgresAuth ? 'PostgreSQL' : 'Filesystem'})`);
 
-          // Increment counter and backup to database every 5 intervals (every 2.5 minutes)
-          // This ensures credentials are preserved across deployments without excessive DB writes
-          const counter = (this.dbBackupCounters.get(sessionId) || 0) + 1;
-          this.dbBackupCounters.set(sessionId, counter);
+          // For filesystem auth, also backup to database periodically
+          if (!isPostgresAuth) {
+            const counter = (this.dbBackupCounters.get(sessionId) || 0) + 1;
+            this.dbBackupCounters.set(sessionId, counter);
 
-          if (counter >= 5) {
-            this.dbBackupCounters.set(sessionId, 0);
-            await this.backupCredentialsToDatabase(sessionId);
-            this.logger.log(`💾 Periodic database backup completed for session ${sessionId}`);
+            if (counter >= 5) {
+              this.dbBackupCounters.set(sessionId, 0);
+              await this.backupCredentialsToDatabase(sessionId);
+              this.logger.log(`💾 Periodic database backup completed for session ${sessionId}`);
+            }
           }
         } else {
           this.logger.warn(`⚠️ No auth state available for credentials save: ${sessionId}`);
@@ -2205,10 +2237,11 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
       } catch (error) {
         this.logger.error(`❌ Periodic credentials save failed for session ${sessionId}:`, error);
       }
-    }, 30000); // Every 30 seconds (reduced from 60s for better persistence)
+    }, 30000); // Every 30 seconds
 
     this.credentialsSaveTimers.set(sessionId, saveInterval);
-    this.logger.log(`💾 Periodic credentials save started for session ${sessionId} (30s interval, DB backup every 2.5min)`);
+    const storageType = isPostgresAuth ? "PostgreSQL (direct)" : "Filesystem + DB backup";
+    this.logger.log(`💾 Periodic credentials save started for session ${sessionId} (30s interval, ${storageType})`);
   }
 
   // Stop periodic credentials save for a session

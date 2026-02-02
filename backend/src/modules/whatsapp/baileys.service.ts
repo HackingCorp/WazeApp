@@ -139,6 +139,13 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
       return { shouldRetry: true, isPermanent: false, retryDelay: 60000, errorType: 'rate_limited' };
     }
 
+    // Connection terminated by server (428) - WhatsApp kicked the connection
+    // This often happens due to anti-spam measures or connection limits
+    // Wait longer and retry with caution
+    if (statusCode === 428 || errorMessage.includes('Connection Terminated')) {
+      return { shouldRetry: true, isPermanent: false, retryDelay: 45000, errorType: 'connection_terminated' };
+    }
+
     // Service unavailable (503) - temporary, retry with backoff
     if (statusCode === 503 || statusCode === 502 || statusCode === 500) {
       return { shouldRetry: true, isPermanent: false, retryDelay: 15000, errorType: 'server_error' };
@@ -580,7 +587,29 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
             this.stopKeepAlive(sessionId);
             this.stopCredentialsSave(sessionId);
 
-            // Clean up session files to force fresh QR on next connect
+            // Clear PostgreSQL auth state if using PostgreSQL auth
+            const authState = this.authStates.get(sessionId);
+            if (authState?.clearState && authState?.isPostgres) {
+              try {
+                await authState.clearState();
+                this.logger.log(`🗄️ Cleared PostgreSQL auth state for ${sessionId}`);
+              } catch (error) {
+                this.logger.warn(`Failed to clear PostgreSQL auth state: ${error.message}`);
+              }
+            }
+
+            // Also clear authData directly in database to ensure clean state
+            try {
+              await this.sessionRepository.update(sessionId, {
+                authData: {},
+                status: 'disconnected' as any,
+              });
+              this.logger.log(`🗄️ Cleared database authData for ${sessionId}`);
+            } catch (error) {
+              this.logger.warn(`Failed to clear database authData: ${error.message}`);
+            }
+
+            // Clean up session files to force fresh QR on next connect (for filesystem auth)
             const sessionPath = path.join(
               this.configService.get("WHATSAPP_SESSION_PATH", "./whatsapp-sessions"),
               sessionId,

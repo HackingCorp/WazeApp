@@ -71,15 +71,24 @@ export class WhatsAppAIResponderSimpleService {
         `Processing incoming message for session: ${event.sessionId}`,
       );
 
-      // Get session details
+      // Get session details - don't filter by DB status since it might be stale
+      // If we're receiving messages, the session IS connected (event came from Baileys)
       const session = await this.sessionRepository.findOne({
-        where: { id: event.sessionId, status: WhatsAppSessionStatus.CONNECTED },
+        where: { id: event.sessionId },
         relations: ["user", "organization"],
       });
 
       if (!session) {
         this.logger.warn(
-          `Session not found or not connected: ${event.sessionId}`,
+          `Session not found: ${event.sessionId}`,
+        );
+        return;
+      }
+
+      // Check if AI responses are enabled for this session
+      if (!session.aiResponsesEnabled) {
+        this.logger.debug(
+          `AI responses disabled for session ${event.sessionId}, skipping`,
         );
         return;
       }

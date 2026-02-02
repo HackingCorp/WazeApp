@@ -1557,44 +1557,53 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
   getSessionStatus(
     sessionId: string,
   ): "connected" | "connecting" | "disconnected" {
-    // First, check the explicit connection state (most reliable)
+    const sock = this.sessions.get(sessionId);
     const connectionState = this.connectionStates.get(sessionId);
 
-    if (connectionState === 'reconnecting') {
-      this.logger.debug(`Session ${sessionId} status: reconnecting (from connectionStates)`);
-      return "connecting"; // Map reconnecting to connecting for dashboard
-    }
+    // Check if socket exists and is authenticated (has user info)
+    const hasUser = !!sock?.user;
+    const wsReadyState = sock?.ws?.readyState;
 
-    if (connectionState === 'disconnected') {
-      this.logger.debug(`Session ${sessionId} status: disconnected (from connectionStates)`);
-      return "disconnected";
-    }
+    this.logger.debug(`Session ${sessionId} status check: connectionState=${connectionState}, hasUser=${hasUser}, wsReadyState=${wsReadyState}, hasSock=${!!sock}`);
 
-    const sock = this.sessions.get(sessionId);
-
+    // If no socket at all, definitely disconnected
     if (!sock) {
       return "disconnected";
     }
 
-    // Check if socket is authenticated (has user info)
-    // Baileys socket structure may vary - check multiple indicators
-    const hasUser = !!sock.user;
-    const wsReadyState = sock.ws?.readyState;
+    // If socket exists and has user, it's connected - trust the actual socket state
+    // This is more reliable than connectionStates which can become stale
+    if (hasUser) {
+      // WebSocket readyState: 0=CONNECTING, 1=OPEN, 2=CLOSING, 3=CLOSED
+      if (wsReadyState === 1) {
+        // Socket is open and authenticated - definitely connected
+        if (connectionState !== 'connected') {
+          this.logger.log(`🔧 Fixing stale connectionState for session ${sessionId}: ${connectionState} -> connected`);
+          this.connectionStates.set(sessionId, 'connected');
+        }
+        return "connected";
+      }
 
-    this.logger.debug(`Session ${sessionId} status check: connectionState=${connectionState}, hasUser=${hasUser}, wsReadyState=${wsReadyState}`);
+      // Socket has user but WebSocket isn't fully open - might be reconnecting
+      if (wsReadyState === 0) {
+        return "connecting";
+      }
+    }
 
-    // Only return connected if connectionState is explicitly 'connected' AND we have user info
+    // Check explicit connection state as fallback
+    if (connectionState === 'reconnecting') {
+      return "connecting";
+    }
+
     if (connectionState === 'connected' && hasUser) {
       return "connected";
     }
 
-    // If we have user but no explicit connected state, we're likely reconnecting
-    if (hasUser && !connectionState) {
-      // Session has user but we haven't tracked state yet - assume connected for backward compat
-      this.connectionStates.set(sessionId, 'connected');
-      return "connected";
+    if (connectionState === 'disconnected') {
+      return "disconnected";
     }
 
+    // Socket exists but not fully authenticated yet
     return "connecting";
   }
 

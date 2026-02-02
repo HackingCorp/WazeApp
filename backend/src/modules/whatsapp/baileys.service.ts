@@ -2369,6 +2369,10 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
     try {
       this.logger.log(`🔄 Auto-restoring existing WhatsApp sessions...`);
 
+      // Check if using PostgreSQL auth (recommended for production)
+      const usePostgresAuth = this.configService.get("WHATSAPP_AUTH_STORAGE", "postgres") === "postgres";
+      this.logger.log(`🗄️ Auth storage mode: ${usePostgresAuth ? 'PostgreSQL' : 'Filesystem'}`);
+
       // Get all sessions that were connected from the database
       const dbSessions = await this.sessionRepository.find({
         where: { autoReconnect: true },
@@ -2380,27 +2384,42 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
 
       for (const dbSession of dbSessions) {
         const sessionId = dbSession.id;
-        const sessionPath = path.join(sessionsPath, sessionId);
-        const credentialsPath = path.join(sessionPath, "creds.json");
+        let hasCredentials = false;
 
-        let hasFilesystemCreds = false;
+        if (usePostgresAuth) {
+          // PostgreSQL auth mode: Check if credentials exist in database authData
+          const hasDbCreds = dbSession.authData &&
+                            typeof dbSession.authData === 'object' &&
+                            dbSession.authData.creds &&
+                            Object.keys(dbSession.authData).length > 0;
 
-        // Check if credentials exist in filesystem
-        try {
-          await fs.access(credentialsPath);
-          hasFilesystemCreds = true;
-          this.logger.log(`🔑 Found filesystem credentials for session ${sessionId}`);
-        } catch (error) {
-          this.logger.log(`📁 No filesystem credentials for session ${sessionId}`);
+          if (hasDbCreds) {
+            hasCredentials = true;
+            this.logger.log(`🗄️ Found PostgreSQL credentials for session ${sessionId}`);
+          } else {
+            this.logger.log(`📁 No PostgreSQL credentials for session ${sessionId}`);
+          }
+        } else {
+          // Filesystem auth mode: Check if credentials exist in filesystem
+          const sessionPath = path.join(sessionsPath, sessionId);
+          const credentialsPath = path.join(sessionPath, "creds.json");
+
+          try {
+            await fs.access(credentialsPath);
+            hasCredentials = true;
+            this.logger.log(`🔑 Found filesystem credentials for session ${sessionId}`);
+          } catch (error) {
+            this.logger.log(`📁 No filesystem credentials for session ${sessionId}`);
+          }
+
+          // If no filesystem creds, try to restore from database
+          if (!hasCredentials && dbSession.authData && Object.keys(dbSession.authData).length > 0) {
+            this.logger.log(`💾 Restoring credentials from database for session ${sessionId}...`);
+            hasCredentials = await this.restoreCredentialsFromDatabase(sessionId);
+          }
         }
 
-        // If no filesystem creds, try to restore from database
-        if (!hasFilesystemCreds && dbSession.authData && Object.keys(dbSession.authData).length > 0) {
-          this.logger.log(`💾 Restoring credentials from database for session ${sessionId}...`);
-          hasFilesystemCreds = await this.restoreCredentialsFromDatabase(sessionId);
-        }
-
-        if (hasFilesystemCreds) {
+        if (hasCredentials) {
           // Calculate staggered delay based on session index to avoid rate limiting
           // Each session gets a progressively longer delay (10-30s base + random jitter)
           const sessionIndex = dbSessions.indexOf(dbSession);

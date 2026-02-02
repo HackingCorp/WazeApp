@@ -490,14 +490,16 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
           keys: makeCacheableSignalKeyStore(authState.state.keys, undefined),
         },
 
-        // Configuration for better connection stability
+        // OPTIMIZED Configuration based on community best practices (2025)
+        // See: https://github.com/WhiskeySockets/Baileys/issues/1625
+        // See: https://github.com/WhiskeySockets/Baileys/issues/2052
         generateHighQualityLinkPreview: false,
-        markOnlineOnConnect: false, // Don't appear online immediately
-        defaultQueryTimeoutMs: 180000, // 3 minutes timeout for queries (increased)
-        connectTimeoutMs: 180000, // 3 minutes connection timeout (increased)
+        markOnlineOnConnect: false, // Don't appear online - allows push notifications
+        defaultQueryTimeoutMs: 60000, // 60 seconds for queries (reduced from 180s)
+        connectTimeoutMs: 60000, // 60 seconds connection timeout (reduced from 180s)
         qrTimeout: 60000,
-        keepAliveIntervalMs: 25000, // Built-in keep-alive every 25 seconds (more frequent)
-        retryRequestDelayMs: 1000, // 1 second delay between retries (increased)
+        keepAliveIntervalMs: 15000, // 15 seconds keep-alive (reduced from 25s for better stability)
+        retryRequestDelayMs: 5000, // 5 seconds between retries (increased from 1s to avoid rate limits)
         emitOwnEvents: true,
 
         // Message retrieval for context
@@ -1011,13 +1013,14 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
           creds: authState.state.creds,
           keys: makeCacheableSignalKeyStore(authState.state.keys, undefined),
         },
+        // OPTIMIZED Configuration based on community best practices (2025)
         generateHighQualityLinkPreview: false,
         markOnlineOnConnect: false,
         syncFullHistory: false,
-        defaultQueryTimeoutMs: 180000, // 3 minutes (increased)
-        connectTimeoutMs: 180000, // 3 minutes (increased)
-        keepAliveIntervalMs: 25000, // 25 seconds (more frequent)
-        retryRequestDelayMs: 1000, // 1 second (increased)
+        defaultQueryTimeoutMs: 60000, // 60 seconds (reduced from 180s)
+        connectTimeoutMs: 60000, // 60 seconds (reduced from 180s)
+        keepAliveIntervalMs: 15000, // 15 seconds (reduced from 25s for better stability)
+        retryRequestDelayMs: 5000, // 5 seconds (increased to avoid rate limits)
       });
 
       this.sessions.set(sessionId, sock);
@@ -2092,6 +2095,17 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
           consecutiveFailures = 0;
           this.logger.debug(`🏓 Session ${sessionId} health check: WebSocket connected`);
 
+          // Send presence update to keep connection alive (recommended best practice)
+          // See: https://github.com/WhiskeySockets/Baileys/issues/1625
+          // Presence expires after ~10 seconds, so this helps maintain active connection
+          try {
+            await sock.sendPresenceUpdate('available');
+            this.logger.debug(`📡 Session ${sessionId} presence update sent`);
+          } catch (presenceError) {
+            // Presence update failure is not critical, just log it
+            this.logger.debug(`Failed to send presence update: ${presenceError.message}`);
+          }
+
           // Update lastSeenAt in database
           try {
             await this.sessionRepository.update(sessionId, { lastSeenAt: new Date() });
@@ -2139,10 +2153,11 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
           this.stopKeepAlive(sessionId);
         }
       }
-    }, 60000); // Every 60 seconds - offset from Baileys' 30s keep-alive
+    }, 30000); // Every 30 seconds - send presence updates to maintain connection
+    // Presence expires after ~10 seconds, so 30s interval ensures continuous presence
 
     this.keepAliveTimers.set(sessionId, keepAliveInterval);
-    this.logger.log(`⏰ Health check timer started for session ${sessionId} (60s interval)`);
+    this.logger.log(`⏰ Health check timer started for session ${sessionId} (30s interval with presence updates)`);
   }
 
   // Stop keep-alive system for a session

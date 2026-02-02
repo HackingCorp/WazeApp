@@ -60,6 +60,9 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
   // Store event handlers for proper cleanup (prevents memory leaks)
   private eventHandlers = new Map<string, Map<string, Function>>();
 
+  // Connection locks to prevent duplicate simultaneous connections (prevents device_removed conflicts)
+  private connectionLocks = new Map<string, Promise<{ needsQR: boolean; qr?: string }>>();
+
   // Memory management configuration
   private readonly MAX_SESSIONS = 50; // Maximum concurrent sessions
   private readonly SESSION_CLEANUP_INTERVAL = 5 * 60 * 1000; // 5 minutes (reduced from 30)
@@ -399,6 +402,31 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
   }
 
   async connectSession(
+    sessionId: string,
+    forceReset: boolean = false,
+  ): Promise<{ needsQR: boolean; qr?: string }> {
+    // Check if there's already a connection attempt in progress for this session
+    // This prevents duplicate connections which can trigger device_removed (401) errors
+    const existingLock = this.connectionLocks.get(sessionId);
+    if (existingLock && !forceReset) {
+      this.logger.warn(`⚠️ Connection already in progress for session ${sessionId}, waiting for existing attempt`);
+      return existingLock;
+    }
+
+    // Create a new connection attempt with a lock
+    const connectionPromise = this.doConnectSession(sessionId, forceReset);
+    this.connectionLocks.set(sessionId, connectionPromise);
+
+    try {
+      const result = await connectionPromise;
+      return result;
+    } finally {
+      // Clear the lock after connection attempt completes (success or failure)
+      this.connectionLocks.delete(sessionId);
+    }
+  }
+
+  private async doConnectSession(
     sessionId: string,
     forceReset: boolean = false,
   ): Promise<{ needsQR: boolean; qr?: string }> {
@@ -2421,6 +2449,7 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
     this.connectionStates.clear();
     this.reconnectionAttempts.clear();
     this.eventHandlers.clear();
+    this.connectionLocks.clear();
 
     this.logger.log(`🧹 Cleanup completed for ${sessionIds.length} sessions`);
   }

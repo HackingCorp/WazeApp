@@ -483,7 +483,7 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
 
         // Use standard WhatsApp Web browser fingerprint to avoid detection
         browser: Browsers.windows("Chrome"),
-        syncFullHistory: false,
+        syncFullHistory: true, // Enable full history sync for AI agents context
 
         auth: {
           creds: authState.state.creds,
@@ -494,7 +494,7 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
         // See: https://github.com/WhiskeySockets/Baileys/issues/1625
         // See: https://github.com/WhiskeySockets/Baileys/issues/2052
         generateHighQualityLinkPreview: false,
-        markOnlineOnConnect: false, // Don't appear online - allows push notifications
+        markOnlineOnConnect: true, // Show online status - AI agents should appear active
         defaultQueryTimeoutMs: 60000, // 60 seconds for queries (reduced from 180s)
         connectTimeoutMs: 60000, // 60 seconds connection timeout (reduced from 180s)
         qrTimeout: 60000,
@@ -1015,8 +1015,8 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
         },
         // OPTIMIZED Configuration based on community best practices (2025)
         generateHighQualityLinkPreview: false,
-        markOnlineOnConnect: false,
-        syncFullHistory: false,
+        markOnlineOnConnect: true, // AI agents should appear active
+        syncFullHistory: true, // Enable full history for AI context
         defaultQueryTimeoutMs: 60000, // 60 seconds (reduced from 180s)
         connectTimeoutMs: 60000, // 60 seconds (reduced from 180s)
         keepAliveIntervalMs: 15000, // 15 seconds (reduced from 25s for better stability)

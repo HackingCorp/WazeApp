@@ -223,38 +223,25 @@ export class WhatsAppService {
       .getMany();
 
     // Update real-time status from Baileys for each session
+    // NOTE: We only update the session object for display, NOT the database
+    // Database status is managed by connection events in BaileysService
+    // This prevents race conditions during auto-restore after deployment
     const updatedSessions = await Promise.all(
       sessions.map(async (session) => {
-        // Check if session is actually active in Baileys
+        // Check if session is actually active in Baileys (in-memory state)
         const isReallyActive = await this.baileysService.isSessionActive(
           session.id,
         );
 
-        // Update session with real status
-        if (
-          session.status === WhatsAppSessionStatus.CONNECTED &&
-          !isReallyActive
-        ) {
-          session.status = WhatsAppSessionStatus.DISCONNECTED;
-          session.isActive = false;
-          // Update in database too
-          await this.sessionRepository.update(session.id, {
-            status: WhatsAppSessionStatus.DISCONNECTED,
-            isActive: false,
-          });
-        } else if (
-          (session.status === WhatsAppSessionStatus.DISCONNECTED ||
-           session.status === WhatsAppSessionStatus.CONNECTING) &&
-          isReallyActive
-        ) {
-          // Fix: Also update CONNECTING → CONNECTED when session becomes active
+        // Only update the session object for display purposes
+        // Do NOT update database here to avoid race conditions with auto-restore
+        if (isReallyActive) {
           session.status = WhatsAppSessionStatus.CONNECTED;
           session.isActive = true;
-          // Update in database too
-          await this.sessionRepository.update(session.id, {
-            status: WhatsAppSessionStatus.CONNECTED,
-            isActive: true,
-          });
+        } else if (session.status === WhatsAppSessionStatus.CONNECTED) {
+          // If DB says connected but memory says not, show as connecting
+          // (might be in the process of auto-restoring)
+          session.status = WhatsAppSessionStatus.CONNECTING;
         }
 
         return session;

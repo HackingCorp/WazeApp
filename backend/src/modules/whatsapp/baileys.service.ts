@@ -614,6 +614,18 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
                 } else {
                   this.logger.log(`✅ Auto-reconnection successful for session ${sessionId} on attempt ${retryCount + 1}`);
                   this.cancelReconnection(sessionId);
+
+                  // Immediately backup credentials to database after successful reconnection
+                  // This ensures we capture the refreshed session keys
+                  setTimeout(async () => {
+                    try {
+                      await this.backupCredentialsToDatabase(sessionId);
+                      this.logger.log(`💾 Post-reconnection database backup completed for session ${sessionId}`);
+                    } catch (err) {
+                      this.logger.warn(`Failed post-reconnection backup for ${sessionId}: ${err.message}`);
+                    }
+                  }, 5000); // Wait 5 seconds for credentials to stabilize
+
                   this.eventEmitter.emit("whatsapp.reconnect.success", {
                     sessionId,
                     attempt: retryCount + 1,
@@ -690,6 +702,17 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
             sessionId,
             status: "connected",
           });
+
+          // Schedule initial database backup after connection stabilizes
+          // This ensures we capture the fresh session credentials
+          setTimeout(async () => {
+            try {
+              await this.backupCredentialsToDatabase(sessionId);
+              this.logger.log(`💾 Initial post-connection database backup completed for session ${sessionId}`);
+            } catch (err) {
+              this.logger.warn(`Failed initial database backup for ${sessionId}: ${err.message}`);
+            }
+          }, 10000); // Wait 10 seconds for credentials to fully stabilize
         }
       });
 
@@ -2104,16 +2127,34 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
     }
   }
 
+  // Track database backup counter per session (to avoid backing up to DB on every interval)
+  private dbBackupCounters = new Map<string, number>();
+
   // Start periodic credentials save for a session
   private startCredentialsSave(sessionId: string, authState: any): void {
     // Clear existing timer if any
     this.stopCredentialsSave(sessionId);
 
+    // Initialize backup counter
+    this.dbBackupCounters.set(sessionId, 0);
+
     const saveInterval = setInterval(async () => {
       try {
         if (authState && authState.saveCreds) {
+          // Always save to filesystem
           await authState.saveCreds();
           this.logger.debug(`💾 Periodic credentials save for session ${sessionId}`);
+
+          // Increment counter and backup to database every 5 intervals (every 2.5 minutes)
+          // This ensures credentials are preserved across deployments without excessive DB writes
+          const counter = (this.dbBackupCounters.get(sessionId) || 0) + 1;
+          this.dbBackupCounters.set(sessionId, counter);
+
+          if (counter >= 5) {
+            this.dbBackupCounters.set(sessionId, 0);
+            await this.backupCredentialsToDatabase(sessionId);
+            this.logger.log(`💾 Periodic database backup completed for session ${sessionId}`);
+          }
         } else {
           this.logger.warn(`⚠️ No auth state available for credentials save: ${sessionId}`);
           this.stopCredentialsSave(sessionId);
@@ -2121,10 +2162,10 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
       } catch (error) {
         this.logger.error(`❌ Periodic credentials save failed for session ${sessionId}:`, error);
       }
-    }, 60000); // Every minute
+    }, 30000); // Every 30 seconds (reduced from 60s for better persistence)
 
     this.credentialsSaveTimers.set(sessionId, saveInterval);
-    this.logger.log(`💾 Periodic credentials save started for session ${sessionId} (60s interval)`);
+    this.logger.log(`💾 Periodic credentials save started for session ${sessionId} (30s interval, DB backup every 2.5min)`);
   }
 
   // Stop periodic credentials save for a session
@@ -2133,12 +2174,14 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
     if (timer) {
       clearInterval(timer);
       this.credentialsSaveTimers.delete(sessionId);
+      this.dbBackupCounters.delete(sessionId);
       this.logger.log(`💾 Periodic credentials save stopped for session ${sessionId}`);
     }
   }
 
   /**
    * Backup credentials to database for persistence across deployments
+   * IMPORTANT: Backs up ALL auth files to ensure Signal Protocol keys are preserved
    */
   private async backupCredentialsToDatabase(sessionId: string): Promise<void> {
     try {
@@ -2146,26 +2189,51 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
       const sessionPath = path.join(sessionsPath, sessionId);
       const credentialsPath = path.join(sessionPath, "creds.json");
 
+      // Check if session directory exists
+      try {
+        await fs.access(sessionPath);
+      } catch (error) {
+        this.logger.debug(`Session directory does not exist for ${sessionId}, skipping backup`);
+        return;
+      }
+
       // Read all auth files
       const authData: Record<string, any> = {};
 
+      // Read main credentials file
       try {
         const creds = await fs.readFile(credentialsPath, "utf-8");
         authData.creds = JSON.parse(creds);
       } catch (error) {
-        // No creds file
+        // No creds file - this is critical, log it
+        this.logger.warn(`No creds.json found for session ${sessionId}`);
       }
 
-      // Read app state keys if they exist
+      // Read ALL auth-related files (not just specific prefixes)
+      // Baileys Signal Protocol uses many different file types:
+      // - app-state-sync-key-* : App state synchronization keys
+      // - pre-key-* : Pre-keys for establishing encrypted sessions
+      // - sender-key-* : Group messaging sender keys
+      // - session-* : Individual session encryption keys
+      // - lid-* : Linked device ID mappings
       const files = await fs.readdir(sessionPath);
+      let filesBackedUp = 0;
+
       for (const file of files) {
-        if (file.startsWith("app-state-sync-key-") || file.startsWith("pre-key-") || file.startsWith("sender-key-")) {
-          try {
-            const content = await fs.readFile(path.join(sessionPath, file), "utf-8");
-            authData[file] = JSON.parse(content);
-          } catch (error) {
-            // Skip files that can't be parsed
-          }
+        // Skip creds.json (already handled) and non-JSON files
+        if (file === "creds.json" || !file.endsWith(".json")) {
+          continue;
+        }
+
+        // Backup all JSON files in the session directory
+        // These are all Signal Protocol related files
+        try {
+          const content = await fs.readFile(path.join(sessionPath, file), "utf-8");
+          authData[file] = JSON.parse(content);
+          filesBackedUp++;
+        } catch (error) {
+          // Skip files that can't be parsed
+          this.logger.debug(`Could not parse ${file} for backup: ${error.message}`);
         }
       }
 
@@ -2175,7 +2243,9 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
           authData,
           lastSeenAt: new Date(),
         });
-        this.logger.log(`💾 Backed up credentials to database for session ${sessionId}`);
+        this.logger.log(`💾 Backed up ${filesBackedUp + 1} auth files to database for session ${sessionId}`);
+      } else {
+        this.logger.warn(`No auth files found for session ${sessionId}`);
       }
     } catch (error) {
       this.logger.warn(`Failed to backup credentials to database for session ${sessionId}:`, error.message);
@@ -2347,6 +2417,7 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
     this.authStates.clear();
     this.keepAliveTimers.clear();
     this.credentialsSaveTimers.clear();
+    this.dbBackupCounters.clear();
     this.connectionStates.clear();
     this.reconnectionAttempts.clear();
     this.eventHandlers.clear();

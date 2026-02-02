@@ -11,6 +11,7 @@ import {
 } from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiResponse } from "@nestjs/swagger";
 import { AuthGuard } from "@nestjs/passport";
+import { Throttle } from "@nestjs/throttler";
 import { Request, Response } from "express";
 import { AuthService } from "./auth.service";
 import {
@@ -35,6 +36,7 @@ export class AuthController {
 
   @Public()
   @Post("register")
+  @Throttle({ default: { limit: 5, ttl: 60000 } }) // 5 requests per minute - prevent mass account creation
   @ApiOperation({ summary: "Register new user" })
   @ApiResponse({
     status: 201,
@@ -48,6 +50,7 @@ export class AuthController {
   @Public()
   @UseGuards(LocalAuthGuard)
   @Post("login")
+  @Throttle({ default: { limit: 10, ttl: 60000 } }) // 10 requests per minute - prevent brute force
   @ApiOperation({ summary: "Login user" })
   @ApiResponse({
     status: 200,
@@ -63,6 +66,7 @@ export class AuthController {
 
   @Public()
   @Post("refresh")
+  @Throttle({ default: { limit: 20, ttl: 60000 } }) // 20 requests per minute - more lenient for token refresh
   @ApiOperation({ summary: "Refresh access token" })
   @ApiResponse({
     status: 200,
@@ -75,6 +79,7 @@ export class AuthController {
 
   @Public()
   @Post("forgot-password")
+  @Throttle({ default: { limit: 3, ttl: 300000 } }) // 3 requests per 5 minutes - prevent email spam
   @ApiOperation({ summary: "Request password reset" })
   @ApiResponse({ status: 200, description: "Password reset email sent" })
   async forgotPassword(
@@ -88,6 +93,7 @@ export class AuthController {
 
   @Public()
   @Post("reset-password")
+  @Throttle({ default: { limit: 5, ttl: 60000 } }) // 5 requests per minute - prevent token brute force
   @ApiOperation({ summary: "Reset password with token" })
   @ApiResponse({ status: 200, description: "Password reset successfully" })
   async resetPassword(
@@ -108,6 +114,7 @@ export class AuthController {
 
   @Public()
   @Post("resend-verification")
+  @Throttle({ default: { limit: 3, ttl: 300000 } }) // 3 requests per 5 minutes - prevent email spam
   @ApiOperation({ summary: "Resend email verification" })
   @ApiResponse({ status: 200, description: "Verification email sent" })
   async resendVerification(

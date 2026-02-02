@@ -10,6 +10,7 @@ import {
   UseGuards,
   ParseUUIDPipe,
   Headers,
+  UnauthorizedException,
 } from "@nestjs/common";
 import { Throttle } from "@nestjs/throttler";
 import {
@@ -37,6 +38,9 @@ import {
   AuthenticatedRequest,
 } from "@/common/decorators/current-user.decorator";
 import { JwtAuthGuard } from "@/common/guards/jwt-auth.guard";
+import { RolesGuard } from "@/common/guards/roles.guard";
+import { Roles } from "@/common/decorators/roles.decorator";
+import { UserRole } from "@/common/enums";
 import { Public } from "@/common/decorators/public.decorator";
 import { SimpleConversationService } from "./simple-conversation.service";
 import { WhatsAppGateway } from "./whatsapp.gateway";
@@ -201,12 +205,12 @@ export class WhatsAppController {
   @ApiResponse({ status: 400, description: "QR code not available" })
   async getQRCode(
     @Param("id", ParseUUIDPipe) id: string,
-    @CurrentUser() user?: AuthenticatedRequest,
+    @CurrentUser() user: AuthenticatedRequest,
   ): Promise<QRCodeResponseDto> {
-    // Use fallback userId if not authenticated (for public access during QR scanning)
-    const userId = user?.userId || "5c4f3566-80c1-4ab5-a5ce-2310279e2169";
-    const organizationId = user?.organizationId || null;
-    return this.whatsappService.getQRCode(id, userId, organizationId);
+    if (!user?.userId) {
+      throw new UnauthorizedException("Authentication required");
+    }
+    return this.whatsappService.getQRCode(id, user.userId, user.organizationId || null);
   }
 
   @Post("sessions/:id/pairing-code")
@@ -315,18 +319,19 @@ export class WhatsAppController {
   }
 
   @Get("sessions/:id/status")
-  @Public()
   @ApiOperation({ summary: "Get real-time session status" })
   @ApiResponse({ status: 200, description: "Status retrieved successfully" })
   async getRealTimeStatus(
     @Param("id", ParseUUIDPipe) id: string,
-    @CurrentUser() user?: AuthenticatedRequest,
+    @CurrentUser() user: AuthenticatedRequest,
   ): Promise<{ status: string; isActive: boolean; needsSync: boolean }> {
-    const userId = user?.userId || "5c4f3566-80c1-4ab5-a5ce-2310279e2169";
+    if (!user?.userId) {
+      throw new UnauthorizedException("Authentication required");
+    }
     return this.whatsappService.getRealTimeStatus(
       id,
-      userId,
-      user?.organizationId || null,
+      user.userId,
+      user.organizationId || null,
     );
   }
 
@@ -427,15 +432,16 @@ export class WhatsAppController {
   }
 
   @Put("conversations/:id/read")
-  @Public()
   @ApiOperation({ summary: "Mark conversation as read" })
   @ApiResponse({ status: 200, description: "Conversation marked as read" })
   async markConversationAsRead(
     @Param("id") id: string,
-    @CurrentUser() user?: AuthenticatedRequest,
+    @CurrentUser() user: AuthenticatedRequest,
   ) {
-    const userId = user?.userId || "42431320-f9e3-4992-afd1-3f594e635cc4";
-    await this.conversationService.markConversationAsRead(id, userId);
+    if (!user?.userId) {
+      throw new UnauthorizedException("Authentication required");
+    }
+    await this.conversationService.markConversationAsRead(id, user.userId);
     return {
       success: true,
       message: "Conversation marked as read",
@@ -507,14 +513,17 @@ export class WhatsAppController {
   }
 
   @Post("sessions/:id/sync")
-  @Public()
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.OWNER)
   @ApiOperation({ summary: "Trigger manual sync for WhatsApp session" })
   @ApiResponse({ status: 200, description: "Sync triggered successfully" })
   async triggerSync(
     @Param("id", ParseUUIDPipe) id: string,
-    @CurrentUser() user?: AuthenticatedRequest,
+    @CurrentUser() user: AuthenticatedRequest,
   ) {
-    // For public sync endpoint, find the session directly without user authorization check
+    if (!user?.userId) {
+      throw new UnauthorizedException("Authentication required");
+    }
     const session = await this.whatsappService["sessionRepository"].findOne({
       where: { id },
     });
@@ -539,10 +548,14 @@ export class WhatsAppController {
   }
 
   @Get("debug/active-sessions")
-  @Public()
-  @ApiOperation({ summary: "Debug: Get active Baileys sessions" })
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.OWNER)
+  @ApiOperation({ summary: "Debug: Get active Baileys sessions (Admin only)" })
   @ApiResponse({ status: 200, description: "Active sessions retrieved" })
-  async getActiveSessions() {
+  async getActiveSessions(@CurrentUser() user: AuthenticatedRequest) {
+    if (!user?.userId) {
+      throw new UnauthorizedException("Authentication required");
+    }
     return {
       success: true,
       data: this.baileysService.getActiveSessions(),
@@ -550,11 +563,15 @@ export class WhatsAppController {
   }
 
   @Get("debug/conversations")
-  @Public()
-  @Throttle({ default: { limit: 1000, ttl: 60000 } }) // Very high limit for debug endpoints
-  @ApiOperation({ summary: "Debug: Get all conversations without auth" })
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.OWNER)
+  @Throttle({ default: { limit: 100, ttl: 60000 } })
+  @ApiOperation({ summary: "Debug: Get all conversations (Admin only)" })
   @ApiResponse({ status: 200, description: "Conversations retrieved" })
-  async getDebugConversations() {
+  async getDebugConversations(@CurrentUser() user: AuthenticatedRequest) {
+    if (!user?.userId) {
+      throw new UnauthorizedException("Authentication required");
+    }
     // Get all conversations from database
     const allConversations = await this.conversationService[
       "conversationRepository"
@@ -582,16 +599,23 @@ export class WhatsAppController {
   }
 
   @Get("debug/conversations-deduplicated")
-  @Public()
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.OWNER)
   @ApiOperation({
-    summary: "Debug: Get conversations with forced deduplication",
+    summary: "Debug: Get conversations with forced deduplication (Admin only)",
   })
   @ApiResponse({
     status: 200,
     description: "Deduplicated conversations retrieved",
   })
-  async getDeduplicatedConversations(@Query("sessionId") sessionId?: string) {
-    const userId = "5c4f3566-80c1-4ab5-a5ce-2310279e2169";
+  async getDeduplicatedConversations(
+    @CurrentUser() user: AuthenticatedRequest,
+    @Query("sessionId") sessionId?: string,
+  ) {
+    if (!user?.userId) {
+      throw new UnauthorizedException("Authentication required");
+    }
+    const userId = user.userId;
 
     // Get original conversations
     let conversations = await this.conversationService.getConversationsForUser(
@@ -659,10 +683,14 @@ export class WhatsAppController {
   }
 
   @Get("debug/sessions-db")
-  @Public()
-  @ApiOperation({ summary: "Debug: Get all sessions from database" })
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.OWNER)
+  @ApiOperation({ summary: "Debug: Get all sessions from database (Admin only)" })
   @ApiResponse({ status: 200, description: "Sessions retrieved" })
-  async getSessionsFromDB() {
+  async getSessionsFromDB(@CurrentUser() user: AuthenticatedRequest) {
+    if (!user?.userId) {
+      throw new UnauthorizedException("Authentication required");
+    }
     const dbSessions = await this.whatsappService["sessionRepository"].find({
       order: { updatedAt: "DESC" },
     });
@@ -682,10 +710,17 @@ export class WhatsAppController {
   }
 
   @Get("debug/messages/:conversationId")
-  @Public()
-  @ApiOperation({ summary: "Debug: Get all messages for a conversation" })
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.OWNER)
+  @ApiOperation({ summary: "Debug: Get all messages for a conversation (Admin only)" })
   @ApiResponse({ status: 200, description: "Messages retrieved" })
-  async getDebugMessages(@Param("conversationId") conversationId: string) {
+  async getDebugMessages(
+    @CurrentUser() user: AuthenticatedRequest,
+    @Param("conversationId") conversationId: string,
+  ) {
+    if (!user?.userId) {
+      throw new UnauthorizedException("Authentication required");
+    }
     // Get messages from database directly
     const dbMessages = await this.conversationService["messageRepository"].find(
       {
@@ -710,16 +745,20 @@ export class WhatsAppController {
   }
 
   @Post("debug/persist-conversations")
-  @Public()
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.OWNER)
   @ApiOperation({
-    summary: "Debug: Force persist memory conversations to database",
+    summary: "Debug: Force persist memory conversations to database (Admin only)",
   })
   @ApiResponse({ status: 200, description: "Conversations persisted" })
-  async persistMemoryConversations() {
+  async persistMemoryConversations(@CurrentUser() user: AuthenticatedRequest) {
+    if (!user?.userId) {
+      throw new UnauthorizedException("Authentication required");
+    }
     try {
       // Emit event to force conversation persistence
       this.eventEmitter.emit("whatsapp.persist.conversations", {
-        userId: "42431320-f9e3-4992-afd1-3f594e635cc4",
+        userId: user.userId,
       });
 
       return {
@@ -737,12 +776,19 @@ export class WhatsAppController {
   }
 
   @Post("debug/download-images/:sessionId")
-  @Public()
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.OWNER)
   @ApiOperation({
-    summary: "Debug: Force download images for existing messages",
+    summary: "Debug: Force download images for existing messages (Admin only)",
   })
   @ApiResponse({ status: 200, description: "Image download triggered" })
-  async forceDownloadImages(@Param("sessionId") sessionId: string) {
+  async forceDownloadImages(
+    @CurrentUser() user: AuthenticatedRequest,
+    @Param("sessionId") sessionId: string,
+  ) {
+    if (!user?.userId) {
+      throw new UnauthorizedException("Authentication required");
+    }
     try {
       // Emit event to force image download
       this.eventEmitter.emit("whatsapp.force.download.images", {
@@ -764,10 +810,17 @@ export class WhatsAppController {
   }
 
   @Post("debug/force-sync/:sessionId")
-  @Public()
-  @ApiOperation({ summary: "Debug: Force sync for a specific session" })
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.OWNER)
+  @ApiOperation({ summary: "Debug: Force sync for a specific session (Admin only)" })
   @ApiResponse({ status: 200, description: "Sync forced" })
-  async forceSyncSession(@Param("sessionId") sessionId: string) {
+  async forceSyncSession(
+    @CurrentUser() user: AuthenticatedRequest,
+    @Param("sessionId") sessionId: string,
+  ) {
+    if (!user?.userId) {
+      throw new UnauthorizedException("Authentication required");
+    }
     try {
       // Get session from database
       const session = await this.whatsappService["sessionRepository"].findOne({
@@ -805,13 +858,20 @@ export class WhatsAppController {
   }
 
   @Post("debug/force-reconnect/:sessionId")
-  @Public()
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.OWNER)
   @ApiOperation({
     summary:
-      "Debug: Force reconnect session with new syncFullHistory configuration",
+      "Debug: Force reconnect session (Admin only)",
   })
   @ApiResponse({ status: 200, description: "Session reconnected" })
-  async forceReconnectSession(@Param("sessionId") sessionId: string) {
+  async forceReconnectSession(
+    @CurrentUser() user: AuthenticatedRequest,
+    @Param("sessionId") sessionId: string,
+  ) {
+    if (!user?.userId) {
+      throw new UnauthorizedException("Authentication required");
+    }
     try {
       // Get session from database
       const session = await this.whatsappService["sessionRepository"].findOne({
@@ -853,12 +913,19 @@ export class WhatsAppController {
   }
 
   @Post("debug/force-reset-reconnect/:sessionId")
-  @Public()
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.OWNER)
   @ApiOperation({
-    summary: "Debug: Force reset and reconnect session (will require QR scan)",
+    summary: "Debug: Force reset and reconnect session (Admin only)",
   })
   @ApiResponse({ status: 200, description: "Session reset and reconnected" })
-  async forceResetReconnectSession(@Param("sessionId") sessionId: string) {
+  async forceResetReconnectSession(
+    @CurrentUser() user: AuthenticatedRequest,
+    @Param("sessionId") sessionId: string,
+  ) {
+    if (!user?.userId) {
+      throw new UnauthorizedException("Authentication required");
+    }
     try {
       // Get session from database
       const session = await this.whatsappService["sessionRepository"].findOne({
@@ -896,10 +963,17 @@ export class WhatsAppController {
   }
 
   @Post("debug/cleanup-duplicates/:userId")
-  @Public()
-  @ApiOperation({ summary: "Debug: Cleanup duplicate conversations for user" })
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.OWNER)
+  @ApiOperation({ summary: "Debug: Cleanup duplicate conversations (Admin only)" })
   @ApiResponse({ status: 200, description: "Duplicates cleaned up" })
-  async cleanupDuplicates(@Param("userId") userId: string) {
+  async cleanupDuplicates(
+    @CurrentUser() user: AuthenticatedRequest,
+    @Param("userId") userId: string,
+  ) {
+    if (!user?.userId) {
+      throw new UnauthorizedException("Authentication required");
+    }
     try {
       // Call the cleanup function directly
       await this.conversationService["cleanupDuplicateConversations"](userId);
@@ -919,12 +993,16 @@ export class WhatsAppController {
   }
 
   @Post("debug/force-cleanup-all-duplicates")
-  @Public()
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.OWNER)
   @ApiOperation({
-    summary: "Debug: Force cleanup ALL duplicate conversations in database",
+    summary: "Debug: Force cleanup ALL duplicate conversations (Admin only)",
   })
   @ApiResponse({ status: 200, description: "All duplicates cleaned up" })
-  async forceCleanupAllDuplicates() {
+  async forceCleanupAllDuplicates(@CurrentUser() user: AuthenticatedRequest) {
+    if (!user?.userId) {
+      throw new UnauthorizedException("Authentication required");
+    }
     try {
       // Get all conversations from database
       const allConversations = await this.conversationService[
@@ -1027,10 +1105,12 @@ export class WhatsAppController {
   }
 
   @Post("debug/simulate-incoming-message")
-  @Public()
-  @ApiOperation({ summary: "Debug: Simulate incoming WhatsApp message" })
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.OWNER)
+  @ApiOperation({ summary: "Debug: Simulate incoming WhatsApp message (Admin only)" })
   @ApiResponse({ status: 200, description: "Message simulated successfully" })
   async simulateIncomingMessage(
+    @CurrentUser() user: AuthenticatedRequest,
     @Body()
     body: {
       sessionId: string;
@@ -1039,6 +1119,9 @@ export class WhatsAppController {
       isGroup?: boolean;
     },
   ) {
+    if (!user?.userId) {
+      throw new UnauthorizedException("Authentication required");
+    }
     try {
       // Get session from database to ensure it exists
       const session = await this.whatsappService["sessionRepository"].findOne({
@@ -1098,13 +1181,20 @@ export class WhatsAppController {
   }
 
   @Post("debug/force-logout/:sessionId")
-  @Public()
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.OWNER)
   @ApiOperation({
     summary:
-      "Debug: Force complete logout from WhatsApp servers (will remove from mobile)",
+      "Debug: Force complete logout from WhatsApp servers (Admin only)",
   })
   @ApiResponse({ status: 200, description: "Session forcefully logged out" })
-  async forceLogoutSession(@Param("sessionId") sessionId: string) {
+  async forceLogoutSession(
+    @CurrentUser() user: AuthenticatedRequest,
+    @Param("sessionId") sessionId: string,
+  ) {
+    if (!user?.userId) {
+      throw new UnauthorizedException("Authentication required");
+    }
     try {
       // Get session from database
       const session = await this.whatsappService["sessionRepository"].findOne({
@@ -1148,12 +1238,19 @@ export class WhatsAppController {
   }
 
   @Post("debug/test-connect/:sessionId")
-  @Public()
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.OWNER)
   @ApiOperation({
-    summary: "Debug: Test connection flow without auth (for QR modal testing)",
+    summary: "Debug: Test connection flow (Admin only)",
   })
   @ApiResponse({ status: 200, description: "Connection test initiated" })
-  async testConnectSession(@Param("sessionId") sessionId: string) {
+  async testConnectSession(
+    @CurrentUser() user: AuthenticatedRequest,
+    @Param("sessionId") sessionId: string,
+  ) {
+    if (!user?.userId) {
+      throw new UnauthorizedException("Authentication required");
+    }
     try {
       // Get session from database to get userId
       const session = await this.whatsappService["sessionRepository"].findOne({
@@ -1192,13 +1289,20 @@ export class WhatsAppController {
   }
 
   @Post("debug/simulate-connection-success/:sessionId")
-  @Public()
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.OWNER)
   @ApiOperation({
     summary:
-      "Debug: Simulate successful WhatsApp connection (for testing QR modal close)",
+      "Debug: Simulate successful WhatsApp connection (Admin only)",
   })
   @ApiResponse({ status: 200, description: "Connection success simulated" })
-  async simulateConnectionSuccess(@Param("sessionId") sessionId: string) {
+  async simulateConnectionSuccess(
+    @CurrentUser() user: AuthenticatedRequest,
+    @Param("sessionId") sessionId: string,
+  ) {
+    if (!user?.userId) {
+      throw new UnauthorizedException("Authentication required");
+    }
     try {
       // Get session from database
       const session = await this.whatsappService["sessionRepository"].findOne({
@@ -1239,10 +1343,15 @@ export class WhatsAppController {
   }
 
   @Post("debug/force-connected/:id")
-  @Public()
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.OWNER)
   async forceConnected(
+    @CurrentUser() user: AuthenticatedRequest,
     @Param("id", ParseUUIDPipe) id: string,
   ): Promise<{ message: string; status: any }> {
+    if (!user?.userId) {
+      throw new UnauthorizedException("Authentication required");
+    }
     try {
       // Get current session to preserve existing metadata
       const session = await this.whatsappService["sessionRepository"].findOne({
@@ -1283,10 +1392,15 @@ export class WhatsAppController {
   }
 
   @Post("debug/clear-forced/:id")
-  @Public()
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.OWNER)
   async clearForced(
+    @CurrentUser() user: AuthenticatedRequest,
     @Param("id", ParseUUIDPipe) id: string,
   ): Promise<{ message: string; status: any }> {
+    if (!user?.userId) {
+      throw new UnauthorizedException("Authentication required");
+    }
     try {
       // Get current session
       const session = await this.whatsappService["sessionRepository"].findOne({
@@ -1327,10 +1441,15 @@ export class WhatsAppController {
   }
 
   @Post("debug/force-complete-connection/:id")
-  @Public()
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.OWNER)
   async forceCompleteConnection(
+    @CurrentUser() user: AuthenticatedRequest,
     @Param("id", ParseUUIDPipe) id: string,
   ): Promise<{ message: string; status: any; baileysInfo: any }> {
+    if (!user?.userId) {
+      throw new UnauthorizedException("Authentication required");
+    }
     try {
       // Check Baileys session status
       const sessionInfo = await this.baileysService.getSessionInfo(id);
@@ -1410,10 +1529,14 @@ export class WhatsAppController {
   }
 
   @Get("vision/test")
-  @Public()
-  @ApiOperation({ summary: "Test vision analysis with sample image" })
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.OWNER)
+  @ApiOperation({ summary: "Test vision analysis with sample image (Admin only)" })
   @ApiResponse({ status: 200, description: "Vision test completed" })
-  async testVisionAnalysis() {
+  async testVisionAnalysis(@CurrentUser() user: AuthenticatedRequest) {
+    if (!user?.userId) {
+      throw new UnauthorizedException("Authentication required");
+    }
     // Sample base64 image (1x1 pixel red dot)
     const sampleImage = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==";
     
@@ -1442,7 +1565,8 @@ export class WhatsAppController {
   }
 
   @Post("test/facebook-link")
-  @Public()
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.OWNER)
   @ApiOperation({ summary: "Test Facebook link analysis like E-Market scenario" })
   @ApiResponse({ status: 200, description: "Facebook link test completed" })
   async testFacebookLink(@Body() body: { 
@@ -1494,7 +1618,8 @@ export class WhatsAppController {
   }
 
   @Post("test/reply-message")
-  @Public()
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.OWNER)
   @ApiOperation({ summary: "Test WhatsApp reply message context understanding" })
   @ApiResponse({ status: 200, description: "Reply message test completed" })
   async testReplyMessage(@Body() body: { 
@@ -1663,7 +1788,8 @@ export class WhatsAppController {
   }
 
   @Get("audio/transcription/status")
-  @Public()
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.OWNER)
   @ApiOperation({ summary: "Check audio transcription service status" })
   @ApiResponse({ status: 200, description: "Audio transcription status" })
   async getAudioTranscriptionStatus() {
@@ -1723,7 +1849,8 @@ export class WhatsAppController {
   }
 
   @Post("test/deepseek")
-  @Public()
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.OWNER)
   @Throttle({ default: { limit: 50, ttl: 60000 } })
   @ApiOperation({ summary: "Test DeepSeek integration" })
   async testDeepSeekIntegration(@Body() body: any): Promise<any> {

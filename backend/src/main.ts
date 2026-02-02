@@ -22,9 +22,31 @@ async function bootstrap() {
   const configService = app.get(ConfigService);
   const logger = new Logger("Bootstrap");
 
-  // Enable CORS with permissive settings for development
+  // CORS configuration - restrict to allowed origins
+  const allowedOrigins = [
+    configService.get("FRONTEND_URL"),
+    configService.get("DASHBOARD_URL"),
+    configService.get("API_URL"),
+    "http://localhost:3000",
+    "http://localhost:3100",
+    "http://localhost:3101",
+    "http://localhost:3102",
+  ].filter(Boolean); // Remove undefined values
+
   app.enableCors({
-    origin: true, // Allow all origins in development
+    origin: (origin, callback) => {
+      // Allow requests with no origin (mobile apps, Postman, etc.)
+      if (!origin) {
+        return callback(null, true);
+      }
+      // Check if origin is in allowed list
+      if (allowedOrigins.some(allowed => origin.startsWith(allowed))) {
+        return callback(null, true);
+      }
+      // Reject other origins
+      logger.warn(`CORS blocked origin: ${origin}`);
+      return callback(new Error("Not allowed by CORS"), false);
+    },
     credentials: true,
     methods: ["GET", "HEAD", "PUT", "PATCH", "POST", "DELETE", "OPTIONS"],
     allowedHeaders: [
@@ -33,16 +55,30 @@ async function bootstrap() {
       "Accept",
       "Origin",
       "X-Requested-With",
+      "X-API-Key",
     ],
-    preflightContinue: false,
-    optionsSuccessStatus: 204,
+    exposedHeaders: ["X-Total-Count", "X-Page", "X-Limit"],
+    maxAge: 3600, // Cache preflight for 1 hour
   });
 
-  // Security disabled temporarily for debugging
-  // app.use(helmet({
-  //   crossOriginResourcePolicy: { policy: 'cross-origin' },
-  //   crossOriginEmbedderPolicy: false,
-  // }));
+  // Security headers with Helmet.js
+  app.use(helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+    crossOriginEmbedderPolicy: false,
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        scriptSrc: ["'self'"],
+        imgSrc: ["'self'", "data:", "https:"],
+        connectSrc: ["'self'", ...allowedOrigins],
+      },
+    },
+    hsts: {
+      maxAge: 31536000, // 1 year
+      includeSubDomains: true,
+    },
+  }));
 
   // Serve static files from uploads directory
   app.useStaticAssets(join(__dirname, "..", "uploads"), {

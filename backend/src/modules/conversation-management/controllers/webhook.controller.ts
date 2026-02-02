@@ -41,10 +41,14 @@ export class WebhookController {
     private webhookProcessorService: WebhookProcessorService,
     private configService: ConfigService,
   ) {
-    this.webhookSecret = this.configService.get(
-      "WHATSAPP_WEBHOOK_SECRET",
-      "default-secret",
-    );
+    this.webhookSecret = this.configService.get("WHATSAPP_WEBHOOK_SECRET");
+
+    // Warn if no webhook secret is configured
+    if (!this.webhookSecret) {
+      this.logger.warn(
+        "WHATSAPP_WEBHOOK_SECRET not configured - webhooks will reject all requests without valid signature"
+      );
+    }
   }
 
   @Get("whatsapp")
@@ -91,10 +95,18 @@ export class WebhookController {
     );
 
     try {
-      // Verify webhook signature
-      if (signature) {
-        this.verifyWebhookSignature(JSON.stringify(payload), signature);
+      // Verify webhook signature - MANDATORY for security
+      if (!signature) {
+        this.logger.warn("Webhook request rejected: missing X-Hub-Signature-256 header");
+        throw new UnauthorizedException("Missing webhook signature");
       }
+
+      if (!this.webhookSecret) {
+        this.logger.error("Webhook request rejected: WHATSAPP_WEBHOOK_SECRET not configured");
+        throw new UnauthorizedException("Webhook secret not configured");
+      }
+
+      this.verifyWebhookSignature(JSON.stringify(payload), signature);
 
       // Extract organization ID from payload or header
       const orgId =

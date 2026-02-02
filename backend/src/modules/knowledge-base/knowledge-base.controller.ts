@@ -94,7 +94,8 @@ export class KnowledgeBaseController {
   }
 
   @Get("debug-all-docs")
-  @Public()
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.OWNER)
   @ApiOperation({ summary: "Debug endpoint to list all documents" })
   async debugAllDocs() {
     try {
@@ -109,7 +110,8 @@ export class KnowledgeBaseController {
   }
 
   @Get("debug/:id")
-  @Public()
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.OWNER)
   @ApiOperation({ summary: "Debug endpoint to check KB data" })
   async debugKB(@Param("id") id: string) {
     try {
@@ -133,7 +135,8 @@ export class KnowledgeBaseController {
   }
 
   @Get("debug-stats/:orgId")
-  @Public()
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.OWNER)
   @ApiOperation({ summary: "Debug stats endpoint" })
   async debugStats(@Param("orgId") orgId: string) {
     try {
@@ -146,7 +149,8 @@ export class KnowledgeBaseController {
   }
 
   @Get("debug-raw-count/:kbId")
-  @Public()
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.OWNER)
   @ApiOperation({ summary: "Debug raw count for a KB" })
   async debugRawCount(@Param("kbId") kbId: string) {
     try {
@@ -243,7 +247,8 @@ export class KnowledgeBaseController {
   }
 
   @Post(":id/refresh-stats")
-  @Public()
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.OWNER)
   @ApiOperation({ summary: "Refresh knowledge base statistics" })
   @ApiParam({ name: "id", description: "Knowledge base ID" })
   @ApiResponse({
@@ -258,7 +263,8 @@ export class KnowledgeBaseController {
   }
 
   @Post("refresh-all-stats")
-  @Public()
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.OWNER)
   @ApiOperation({ summary: "Refresh statistics for all knowledge bases" })
   @ApiResponse({
     status: HttpStatus.OK,
@@ -273,7 +279,8 @@ export class KnowledgeBaseController {
   }
 
   @Post("fix-slug-column")
-  @Public()
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.OWNER)
   @ApiOperation({ summary: "Add slug column to knowledge_documents if missing" })
   async fixSlugColumn() {
     try {
@@ -285,7 +292,8 @@ export class KnowledgeBaseController {
   }
 
   @Post("test-search")
-  @Public()
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.OWNER)
   @ApiOperation({ summary: "Test KB search like AI does" })
   async testKBSearch(@Body() body: { knowledgeBaseId: string; query: string }) {
     try {

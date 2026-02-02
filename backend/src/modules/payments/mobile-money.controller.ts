@@ -8,7 +8,13 @@ import {
   HttpStatus,
   Query,
   Logger,
+  Headers,
+  UnauthorizedException,
+  RawBodyRequest,
+  Req,
 } from '@nestjs/common';
+import { Request } from 'express';
+import * as crypto from 'crypto';
 import {
   ApiTags,
   ApiOperation,
@@ -18,6 +24,7 @@ import {
   ApiQuery,
 } from '@nestjs/swagger';
 import { IsString, IsOptional, IsNumber, IsIn } from 'class-validator';
+import { ConfigService } from '@nestjs/config';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Public } from '../../common/decorators/public.decorator';
@@ -97,6 +104,7 @@ export class PaymentVerificationDto {
 @Controller('payments')
 export class MobileMoneyController {
   private readonly logger = new Logger(MobileMoneyController.name);
+  private readonly enkapWebhookSecret: string;
 
   constructor(
     private readonly s3pService: S3PService,
@@ -104,7 +112,16 @@ export class MobileMoneyController {
     private readonly currencyService: CurrencyService,
     private readonly subscriptionUpgradeService: SubscriptionUpgradeService,
     private readonly invoiceService: InvoiceService,
-  ) {}
+    private readonly configService: ConfigService,
+  ) {
+    this.enkapWebhookSecret = this.configService.get('ENKAP_WEBHOOK_SECRET');
+
+    if (!this.enkapWebhookSecret) {
+      this.logger.warn(
+        'ENKAP_WEBHOOK_SECRET not configured - E-nkap webhooks will reject all requests without valid signature'
+      );
+    }
+  }
 
   @Post('initiate')
   @ApiOperation({ summary: 'Initiate Mobile Money payment for subscription' })
@@ -540,8 +557,46 @@ export class MobileMoneyController {
     status: HttpStatus.OK,
     description: 'Webhook processed and subscription upgraded if payment successful',
   })
-  async enkapWebhook(@Body() webhookData: any): Promise<any> {
+  async enkapWebhook(
+    @Body() webhookData: any,
+    @Headers('x-enkap-signature') signature?: string,
+    @Headers('x-signature') altSignature?: string,
+  ): Promise<any> {
     this.logger.log(`E-nkap webhook received: ${JSON.stringify(webhookData)}`);
+
+    // Verify webhook signature - MANDATORY for security
+    const webhookSignature = signature || altSignature;
+
+    if (!webhookSignature) {
+      this.logger.warn('E-nkap webhook rejected: missing signature header');
+      throw new UnauthorizedException('Missing webhook signature');
+    }
+
+    if (!this.enkapWebhookSecret) {
+      this.logger.error('E-nkap webhook rejected: ENKAP_WEBHOOK_SECRET not configured');
+      throw new UnauthorizedException('Webhook secret not configured');
+    }
+
+    // Verify HMAC signature
+    const expectedSignature = crypto
+      .createHmac('sha256', this.enkapWebhookSecret)
+      .update(JSON.stringify(webhookData), 'utf8')
+      .digest('hex');
+
+    // Support both plain hex and sha256= prefix formats
+    const normalizedSignature = webhookSignature.startsWith('sha256=')
+      ? webhookSignature.slice(7)
+      : webhookSignature;
+
+    if (!crypto.timingSafeEqual(
+      Buffer.from(normalizedSignature, 'hex'),
+      Buffer.from(expectedSignature, 'hex')
+    )) {
+      this.logger.warn('E-nkap webhook rejected: invalid signature');
+      throw new UnauthorizedException('Invalid webhook signature');
+    }
+
+    this.logger.log('E-nkap webhook signature verified successfully');
 
     const result = this.enkapService.processWebhook(webhookData);
 
@@ -629,8 +684,9 @@ export class MobileMoneyController {
   }
 
   @Get('enkap/test-token')
-  @Public()
-  @ApiOperation({ summary: 'Test E-nkap token generation' })
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Test E-nkap token generation (Admin only)' })
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'Token generation test result',

@@ -1561,49 +1561,43 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
     const connectionState = this.connectionStates.get(sessionId);
 
     // Check if socket exists and is authenticated (has user info)
+    // sock.user is the most reliable indicator that the session is connected
     const hasUser = !!sock?.user;
-    const wsReadyState = sock?.ws?.readyState;
 
-    this.logger.debug(`Session ${sessionId} status check: connectionState=${connectionState}, hasUser=${hasUser}, wsReadyState=${wsReadyState}, hasSock=${!!sock}`);
+    this.logger.debug(`Session ${sessionId} status check: connectionState=${connectionState}, hasUser=${hasUser}, hasSock=${!!sock}`);
 
     // If no socket at all, definitely disconnected
     if (!sock) {
       return "disconnected";
     }
 
-    // If socket exists and has user, it's connected - trust the actual socket state
-    // This is more reliable than connectionStates which can become stale
+    // PRIMARY CHECK: If socket exists and has user, it's connected
+    // This is the most reliable indicator - Baileys sets sock.user when authenticated
     if (hasUser) {
-      // WebSocket readyState: 0=CONNECTING, 1=OPEN, 2=CLOSING, 3=CLOSED
-      if (wsReadyState === 1) {
-        // Socket is open and authenticated - definitely connected
-        if (connectionState !== 'connected') {
-          this.logger.log(`🔧 Fixing stale connectionState for session ${sessionId}: ${connectionState} -> connected`);
-          this.connectionStates.set(sessionId, 'connected');
-        }
-        return "connected";
+      // If we have user, session is authenticated and working
+      // Fix stale connectionState if necessary
+      if (connectionState !== 'connected') {
+        this.logger.log(`🔧 Fixing stale connectionState for session ${sessionId}: ${connectionState} -> connected (hasUser=true)`);
+        this.connectionStates.set(sessionId, 'connected');
       }
-
-      // Socket has user but WebSocket isn't fully open - might be reconnecting
-      if (wsReadyState === 0) {
-        return "connecting";
-      }
+      return "connected";
     }
 
-    // Check explicit connection state as fallback
-    if (connectionState === 'reconnecting') {
+    // SECONDARY CHECK: Use connectionStates map
+    if (connectionState === 'connected') {
+      // connectionState says connected but no user yet - likely just connected, waiting for auth
       return "connecting";
     }
 
-    if (connectionState === 'connected' && hasUser) {
-      return "connected";
+    if (connectionState === 'reconnecting') {
+      return "connecting";
     }
 
     if (connectionState === 'disconnected') {
       return "disconnected";
     }
 
-    // Socket exists but not fully authenticated yet
+    // Socket exists but not authenticated yet
     return "connecting";
   }
 
@@ -2152,14 +2146,15 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
     const keepAliveInterval = setInterval(async () => {
       try {
         const sock = this.sessions.get(sessionId);
-        const wsReadyState = sock?.ws?.readyState;
+        const hasUser = !!sock?.user;
         const connectionState = this.connectionStates.get(sessionId);
 
-        // WebSocket ready states: 0=CONNECTING, 1=OPEN, 2=CLOSING, 3=CLOSED
-        if (sock && wsReadyState === 1) {
-          // Connection is healthy
+        // Primary health indicator: sock.user exists = authenticated and working
+        // sock.ws.readyState is NOT reliable in all Baileys versions
+        if (sock && hasUser) {
+          // Connection is healthy - session is authenticated
           consecutiveFailures = 0;
-          this.logger.debug(`🏓 Session ${sessionId} health check: WebSocket connected`);
+          this.logger.debug(`🏓 Session ${sessionId} health check: authenticated (hasUser=true)`);
 
           // Send presence update to keep connection alive (recommended best practice)
           // See: https://github.com/WhiskeySockets/Baileys/issues/1625
@@ -2178,14 +2173,23 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
           } catch (dbError) {
             this.logger.debug(`Failed to update lastSeenAt: ${dbError.message}`);
           }
+
+          // Ensure connectionState is consistent
+          if (connectionState !== 'connected') {
+            this.logger.log(`🔧 Fixing connectionState for ${sessionId}: ${connectionState} -> connected`);
+            this.connectionStates.set(sessionId, 'connected');
+          }
         } else if (connectionState === 'reconnecting') {
           // Already reconnecting, don't interfere
           this.logger.debug(`🔄 Session ${sessionId} is reconnecting, health check skipped`);
+        } else if (sock && !hasUser) {
+          // Socket exists but not authenticated - might be connecting
+          this.logger.debug(`⏳ Session ${sessionId} has socket but no user yet, waiting...`);
         } else {
-          // Connection appears dead
+          // No socket at all - connection appears dead
           consecutiveFailures++;
           this.logger.warn(
-            `⚠️ Session ${sessionId} WebSocket not ready (readyState: ${wsReadyState}, failures: ${consecutiveFailures}/${MAX_CONSECUTIVE_FAILURES})`,
+            `⚠️ Session ${sessionId} has no socket (failures: ${consecutiveFailures}/${MAX_CONSECUTIVE_FAILURES})`,
           );
 
           // After multiple failures, trigger cleanup and potential reconnection
@@ -2601,14 +2605,13 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
 
       for (const [sessionId, sock] of sessionsToRemove) {
         try {
-          // Check if session is still connected (WebSocket.OPEN = 1)
-          const wsReadyState = sock?.ws?.readyState;
-          const isConnected = wsReadyState === 1; // 1 = WebSocket.OPEN
+          // Check if session is still connected - use sock.user as primary indicator
+          const hasUser = !!sock?.user;
           const connectionState = this.connectionStates.get(sessionId);
 
-          // Only remove if truly inactive (not connected and not reconnecting)
-          if (!sock || (!isConnected && connectionState !== 'reconnecting')) {
-            this.logger.debug(`Removing inactive session: ${sessionId} (wsState: ${wsReadyState}, connState: ${connectionState})`);
+          // Only remove if truly inactive (not authenticated and not reconnecting)
+          if (!sock || (!hasUser && connectionState !== 'reconnecting')) {
+            this.logger.debug(`Removing inactive session: ${sessionId} (hasUser: ${hasUser}, connState: ${connectionState})`);
             this.removeSession(sessionId);
           }
         } catch (error) {

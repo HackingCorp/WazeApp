@@ -1564,20 +1564,34 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
     // sock.user is the most reliable indicator that the session is connected
     const hasUser = !!sock?.user;
 
-    this.logger.debug(`Session ${sessionId} status check: connectionState=${connectionState}, hasUser=${hasUser}, hasSock=${!!sock}`);
+    // Check if WebSocket is actually open (readyState 1 = OPEN)
+    // This catches cases where the socket object exists but WebSocket is dead
+    const wsReadyState = sock?.ws?.readyState;
+    const isWsOpen = wsReadyState === 1; // WebSocket.OPEN = 1
+
+    this.logger.debug(`Session ${sessionId} status check: connectionState=${connectionState}, hasUser=${hasUser}, hasSock=${!!sock}, wsReadyState=${wsReadyState}`);
 
     // If no socket at all, definitely disconnected
     if (!sock) {
       return "disconnected";
     }
 
-    // PRIMARY CHECK: If socket exists and has user, it's connected
+    // CRITICAL CHECK: If WebSocket is not open, session is disconnected
+    // This catches silently dead connections where sock.user still exists
+    if (wsReadyState !== undefined && !isWsOpen) {
+      this.logger.warn(`⚠️ Session ${sessionId} WebSocket is not open (readyState=${wsReadyState}), marking as disconnected`);
+      // Update connectionState to reflect reality
+      this.connectionStates.set(sessionId, 'disconnected');
+      return "disconnected";
+    }
+
+    // PRIMARY CHECK: If socket exists, has user, AND WebSocket is open, it's connected
     // This is the most reliable indicator - Baileys sets sock.user when authenticated
-    if (hasUser) {
-      // If we have user, session is authenticated and working
+    if (hasUser && (isWsOpen || wsReadyState === undefined)) {
+      // If we have user and ws is open (or ws check not available), session is working
       // Fix stale connectionState if necessary
       if (connectionState !== 'connected') {
-        this.logger.log(`🔧 Fixing stale connectionState for session ${sessionId}: ${connectionState} -> connected (hasUser=true)`);
+        this.logger.log(`🔧 Fixing stale connectionState for session ${sessionId}: ${connectionState} -> connected (hasUser=true, ws open)`);
         this.connectionStates.set(sessionId, 'connected');
       }
       return "connected";

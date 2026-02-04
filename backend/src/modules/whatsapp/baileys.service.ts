@@ -2164,34 +2164,67 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
         const connectionState = this.connectionStates.get(sessionId);
 
         // Primary health indicator: sock.user exists = authenticated and working
-        // sock.ws.readyState is NOT reliable in all Baileys versions
+        // BUT we also need to verify the WebSocket is actually working
         if (sock && hasUser) {
-          // Connection is healthy - session is authenticated
-          consecutiveFailures = 0;
           this.logger.debug(`🏓 Session ${sessionId} health check: authenticated (hasUser=true)`);
 
-          // Send presence update to keep connection alive (recommended best practice)
+          // Send presence update to keep connection alive AND verify WebSocket is working
           // See: https://github.com/WhiskeySockets/Baileys/issues/1625
-          // Presence expires after ~10 seconds, so this helps maintain active connection
+          // This is the REAL test - if it fails with "Connection Closed", WebSocket is dead
+          let presenceSuccess = false;
           try {
             await sock.sendPresenceUpdate('available');
             this.logger.debug(`📡 Session ${sessionId} presence update sent`);
+            presenceSuccess = true;
+            consecutiveFailures = 0; // Only reset on successful presence update
           } catch (presenceError) {
-            // Presence update failure is not critical, just log it
-            this.logger.debug(`Failed to send presence update: ${presenceError.message}`);
+            const errorMsg = presenceError.message || '';
+            // "Connection Closed" means WebSocket is dead even though hasUser is true
+            if (errorMsg.includes('Connection Closed') || errorMsg.includes('not open')) {
+              consecutiveFailures++;
+              this.logger.warn(`⚠️ Session ${sessionId} WebSocket is DEAD (hasUser=true but presence failed: ${errorMsg}) - failures: ${consecutiveFailures}/${MAX_CONSECUTIVE_FAILURES}`);
+
+              // After 2 consecutive failures, mark as disconnected and trigger reconnection
+              if (consecutiveFailures >= 2) {
+                this.logger.error(`❌ Session ${sessionId} confirmed DEAD - WebSocket closed despite having user. Triggering reconnection.`);
+                this.connectionStates.set(sessionId, 'disconnected');
+
+                // Update database status to disconnected
+                try {
+                  await this.sessionRepository.update(sessionId, { status: 'disconnected' });
+                  this.logger.log(`📝 Updated database status to 'disconnected' for session ${sessionId}`);
+                } catch (dbErr) {
+                  this.logger.error(`Failed to update DB status: ${dbErr.message}`);
+                }
+
+                // Emit event to trigger reconnection
+                this.eventEmitter.emit("whatsapp.connection.stale", {
+                  sessionId,
+                  message: "WebSocket dead (Connection Closed) despite hasUser=true",
+                });
+
+                // Stop this timer and let reconnection logic handle it
+                this.stopKeepAlive(sessionId);
+                return;
+              }
+            } else {
+              this.logger.debug(`Failed to send presence update: ${errorMsg}`);
+            }
           }
 
-          // Update lastSeenAt in database
-          try {
-            await this.sessionRepository.update(sessionId, { lastSeenAt: new Date() });
-          } catch (dbError) {
-            this.logger.debug(`Failed to update lastSeenAt: ${dbError.message}`);
-          }
+          // Only update lastSeenAt if presence was successful
+          if (presenceSuccess) {
+            try {
+              await this.sessionRepository.update(sessionId, { lastSeenAt: new Date() });
+            } catch (dbError) {
+              this.logger.debug(`Failed to update lastSeenAt: ${dbError.message}`);
+            }
 
-          // Ensure connectionState is consistent
-          if (connectionState !== 'connected') {
-            this.logger.log(`🔧 Fixing connectionState for ${sessionId}: ${connectionState} -> connected`);
-            this.connectionStates.set(sessionId, 'connected');
+            // Ensure connectionState is consistent
+            if (connectionState !== 'connected') {
+              this.logger.log(`🔧 Fixing connectionState for ${sessionId}: ${connectionState} -> connected`);
+              this.connectionStates.set(sessionId, 'connected');
+            }
           }
         } else if (connectionState === 'reconnecting') {
           // Already reconnecting, don't interfere

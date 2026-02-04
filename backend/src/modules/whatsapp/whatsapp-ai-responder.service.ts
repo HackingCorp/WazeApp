@@ -1428,12 +1428,13 @@ EXEMPLE DE RÉPONSE CORRECTE:
 
       // Create a simple context for the LLM Router
       // Use last 15 messages for better conversation context
+      // NOTE: recentMessages is ordered DESC (newest first), so we take first 15 then reverse for chronological order
       const messages = [
         {
           role: "system" as const,
           content: systemPrompt,
         },
-        ...recentMessages.slice(-15).reverse().map((msg) => ({
+        ...recentMessages.slice(0, 15).reverse().map((msg) => ({
           role:
             msg.role === MessageRole.USER
               ? ("user" as const)
@@ -1445,6 +1446,13 @@ EXEMPLE DE RÉPONSE CORRECTE:
           content: userMessage,
         },
       ];
+
+      // Debug log conversation history being sent to LLM
+      this.logger.log(`📜 Conversation history: ${recentMessages.length} total messages, sending ${Math.min(recentMessages.length, 15)} to LLM`);
+      if (recentMessages.length > 0) {
+        const historyPreview = recentMessages.slice(0, 3).map(m => `[${m.role}]: ${m.content?.substring(0, 50)}...`).join(' | ');
+        this.logger.log(`📜 Recent messages preview (newest first): ${historyPreview}`);
+      }
 
       // Détecter la langue du message utilisateur
       const detectedLanguage = this.detectLanguage(userMessage);

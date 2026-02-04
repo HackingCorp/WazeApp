@@ -109,10 +109,10 @@ export class UnansweredMessageService {
         return;
       }
 
-      // Get configuration - increased defaults for better catch-up coverage
-      const timeWindowHours = this.configService.get<number>("CATCHUP_TIME_WINDOW_HOURS", 72);
-      const delayMs = this.configService.get<number>("CATCHUP_DELAY_MS", 2000);
-      const maxMessages = this.configService.get<number>("MAX_CATCHUP_MESSAGES", 200);
+      // Get configuration - reduced defaults to prevent message flooding
+      const timeWindowHours = this.configService.get<number>("CATCHUP_TIME_WINDOW_HOURS", 24); // Reduced from 72 to 24 hours
+      const delayMs = this.configService.get<number>("CATCHUP_DELAY_MS", 3000);
+      const maxMessagesPerConversation = this.configService.get<number>("MAX_CATCHUP_MESSAGES_PER_CONVERSATION", 1); // Only respond to LAST message per conversation
 
       // Calculate cutoff time
       const cutoffTime = new Date();
@@ -122,7 +122,7 @@ export class UnansweredMessageService {
       const unansweredMessages = await this.findUnansweredMessages(
         sessionId,
         cutoffTime,
-        maxMessages,
+        100, // Get up to 100 messages to analyze
       );
 
       if (unansweredMessages.length === 0) {
@@ -132,9 +132,39 @@ export class UnansweredMessageService {
 
       this.logger.log(`Found ${unansweredMessages.length} unanswered messages for session ${sessionId}`);
 
+      // GROUP messages by conversation and only respond to the LAST message per conversation
+      // This prevents flooding the client with multiple AI responses
+      const messagesByConversation = new Map<string, AgentMessage[]>();
+      for (const msg of unansweredMessages) {
+        const convId = msg.conversationId;
+        if (!messagesByConversation.has(convId)) {
+          messagesByConversation.set(convId, []);
+        }
+        messagesByConversation.get(convId)!.push(msg);
+      }
+
+      // Take only the last N messages per conversation (default: 1)
+      const messagesToProcess: AgentMessage[] = [];
+      for (const [convId, messages] of messagesByConversation) {
+        // Sort by createdAt DESC to get most recent first
+        messages.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        // Take only the last N messages
+        const toProcess = messages.slice(0, maxMessagesPerConversation);
+        messagesToProcess.push(...toProcess);
+
+        // Mark other messages as processed to prevent future catch-up
+        for (let i = maxMessagesPerConversation; i < messages.length; i++) {
+          await this.markMessageAsProcessed(messages[i].id);
+        }
+
+        this.logger.log(`Conversation ${convId}: ${messages.length} unanswered messages, will respond to ${toProcess.length}`);
+      }
+
+      this.logger.log(`Will process ${messagesToProcess.length} messages (1 per conversation) out of ${unansweredMessages.length} total`);
+
       // Queue messages with progressive delays
-      for (let i = 0; i < unansweredMessages.length; i++) {
-        const msg = unansweredMessages[i];
+      for (let i = 0; i < messagesToProcess.length; i++) {
+        const msg = messagesToProcess[i];
         const delay = i * delayMs;
 
         const jobId = `catchup-${sessionId}-${msg.id}`;
@@ -172,7 +202,7 @@ export class UnansweredMessageService {
         this.logger.debug(`Queued catch-up message ${msg.id} with delay ${delay}ms`);
       }
 
-      this.logger.log(`Queued ${unansweredMessages.length} catch-up messages for session ${sessionId}`);
+      this.logger.log(`Queued ${messagesToProcess.length} catch-up messages for session ${sessionId} (grouped from ${unansweredMessages.length} total)`);
 
     } catch (error) {
       this.logger.error(`Error during catch-up process for session ${sessionId}: ${error.message}`, error.stack);

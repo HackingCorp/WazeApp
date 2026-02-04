@@ -23,6 +23,19 @@ interface SendMessageJob {
   organizationId: string;
 }
 
+interface ExternalSendJob {
+  sessionId: string;
+  organizationId: string;
+  messageContent: {
+    to: string;
+    message: string;
+    type: string;
+    mediaUrl?: string;
+    caption?: string;
+    filename?: string;
+  };
+}
+
 @Processor('broadcast')
 export class BroadcastProcessor {
   private readonly logger = new Logger(BroadcastProcessor.name);
@@ -210,6 +223,39 @@ export class BroadcastProcessor {
       if (message.retryCount < message.maxRetries) {
         throw error;
       }
+    }
+  }
+
+  @Process('send-external')
+  async handleSendExternal(job: Job<ExternalSendJob>): Promise<void> {
+    const { sessionId, organizationId, messageContent } = job.data;
+
+    this.logger.log(`📤 Processing external message to ${messageContent.to} (job ${job.id})`);
+
+    try {
+      const result = await this.baileysService.sendMessage(sessionId, {
+        to: messageContent.to,
+        message: messageContent.message,
+        type: messageContent.type as any,
+        mediaUrl: messageContent.mediaUrl,
+        caption: messageContent.caption,
+        filename: messageContent.filename,
+      });
+
+      this.logger.log(`✅ External message sent to ${messageContent.to} (messageId: ${result.messageId})`);
+
+      // Trigger webhook
+      await this.webhookService.trigger(organizationId, 'message.sent', {
+        recipient: messageContent.to,
+        messageId: result.messageId,
+        status: result.status,
+        source: 'external-api',
+      });
+    } catch (error) {
+      this.logger.error(`❌ Failed to send external message to ${messageContent.to}:`, error);
+
+      // Re-throw to trigger Bull retry mechanism
+      throw error;
     }
   }
 

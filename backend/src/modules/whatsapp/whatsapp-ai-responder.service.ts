@@ -318,11 +318,14 @@ export class WhatsAppAIResponderService {
 
     } catch (error) {
       this.logger.error(`Error buffering message: ${error.message}`);
-    } finally {
+      // Only delete on error - successful buffering keeps the ID to prevent duplicates
       if (messageId) {
         this.processingMessages.delete(messageId);
       }
     }
+    // NOTE: messageId is kept in processingMessages until batch processing completes
+    // This prevents duplicate processing if the same event is emitted multiple times
+    // The ID will be cleaned up in processBatchedMessages after BATCH_DELAY_MS + processing time
   }
 
   /**
@@ -669,6 +672,15 @@ export class WhatsAppAIResponderService {
 
     } catch (error) {
       this.logger.error(`Error processing batched messages: ${error.message}`, error.stack);
+    } finally {
+      // Clean up processed message IDs from the deduplication set
+      for (const msg of bufferedMessages) {
+        const msgId = msg.event.message?.key?.id;
+        if (msgId) {
+          this.processingMessages.delete(msgId);
+        }
+      }
+      this.logger.debug(`🧹 Cleaned up ${bufferedMessages.length} message IDs from processingMessages set`);
     }
   }
 

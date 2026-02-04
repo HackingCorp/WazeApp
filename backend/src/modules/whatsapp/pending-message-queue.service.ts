@@ -16,6 +16,7 @@ export interface PendingMessage {
   source: 'external-api' | 'ai-responder' | 'broadcast' | 'manual' | 'catch-up';
   originalError?: string;
   createdAt: Date;
+  reconnectedAt?: Date;
   attempts: number;
   metadata?: Record<string, any>;
 }

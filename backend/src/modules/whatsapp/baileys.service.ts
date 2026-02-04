@@ -8,6 +8,7 @@ import * as path from "path";
 import * as fs from "fs/promises";
 import { SendMessageDto } from "./dto/whatsapp.dto";
 import { WhatsAppSession } from "@/common/entities";
+import { WhatsAppSessionStatus } from "@/common/enums";
 import { usePostgresAuthState, PostgresAuthStateResult } from "./postgres-auth-state";
 
 // Baileys v7 requires dynamic imports (ESM)
@@ -2191,7 +2192,7 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
 
                 // Update database status to disconnected
                 try {
-                  await this.sessionRepository.update(sessionId, { status: 'disconnected' });
+                  await this.sessionRepository.update(sessionId, { status: WhatsAppSessionStatus.DISCONNECTED });
                   this.logger.log(`📝 Updated database status to 'disconnected' for session ${sessionId}`);
                 } catch (dbErr) {
                   this.logger.error(`Failed to update DB status: ${dbErr.message}`);

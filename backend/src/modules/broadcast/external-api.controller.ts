@@ -47,6 +47,10 @@ import { Queue } from 'bull';
 @Controller('external')
 @Public()
 export class ExternalApiController {
+  // Deduplication: Track recently sent messages (recipient:hash -> timestamp)
+  private readonly recentlySentMessages = new Map<string, number>();
+  private readonly DEDUP_WINDOW_MS = 30000; // 30 seconds deduplication window
+
   constructor(
     private apiKeyService: ApiKeyService,
     private contactService: ContactService,
@@ -59,7 +63,49 @@ export class ExternalApiController {
     private broadcastQueue: Queue,
     @InjectRepository(WhatsAppSession)
     private sessionRepository: Repository<WhatsAppSession>,
-  ) {}
+  ) {
+    // Clean up old deduplication entries every minute
+    setInterval(() => this.cleanupRecentlySent(), 60000);
+  }
+
+  /**
+   * Generate a hash for deduplication based on recipient and message content
+   */
+  private generateMessageHash(to: string, message: string): string {
+    return `${to}:${(message || '').substring(0, 100)}`;
+  }
+
+  /**
+   * Check if this message was recently sent (duplicate detection)
+   */
+  private isDuplicateMessage(to: string, message: string): boolean {
+    const hash = this.generateMessageHash(to, message);
+    const lastSent = this.recentlySentMessages.get(hash);
+    if (lastSent && Date.now() - lastSent < this.DEDUP_WINDOW_MS) {
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Mark a message as sent for deduplication
+   */
+  private markMessageSent(to: string, message: string): void {
+    const hash = this.generateMessageHash(to, message);
+    this.recentlySentMessages.set(hash, Date.now());
+  }
+
+  /**
+   * Clean up old entries from the deduplication map
+   */
+  private cleanupRecentlySent(): void {
+    const now = Date.now();
+    for (const [hash, timestamp] of this.recentlySentMessages) {
+      if (now - timestamp > this.DEDUP_WINDOW_MS * 2) {
+        this.recentlySentMessages.delete(hash);
+      }
+    }
+  }
 
   /**
    * Verify that a session belongs to the organization and is connected
@@ -305,6 +351,16 @@ export class ExternalApiController {
       throw new ForbiddenException('This WhatsApp session does not belong to your organization');
     }
 
+    // Check for duplicate message (same recipient + content within 30 seconds)
+    if (this.isDuplicateMessage(dto.to, dto.message)) {
+      return {
+        success: true,
+        status: 'deduplicated',
+        message: 'Duplicate message detected - already sent within the last 30 seconds',
+        deduplicated: true,
+      };
+    }
+
     // Check real connection status
     const realStatus = this.baileysService.getSessionStatus(sessionId);
     const queueIfDisconnected = dto.queueIfDisconnected !== false; // Default true
@@ -324,6 +380,9 @@ export class ExternalApiController {
           source: 'external-api',
           originalError: `Session disconnected (status: ${realStatus})`,
         });
+
+        // Mark as queued for deduplication (prevents duplicate queue entries)
+        this.markMessageSent(dto.to, dto.message);
 
         // Return 202 Accepted - message queued for later delivery
         return {
@@ -355,6 +414,9 @@ export class ExternalApiController {
         mediaUrl: dto.mediaUrl,
         caption: dto.caption,
       });
+
+      // Mark as sent for deduplication
+      this.markMessageSent(dto.to, dto.message);
 
       // Trigger webhook
       await this.webhookService.trigger(organizationId, 'message.sent', {
@@ -392,6 +454,9 @@ export class ExternalApiController {
           source: 'external-api',
           originalError: errorMessage,
         });
+
+        // Mark as queued for deduplication
+        this.markMessageSent(dto.to, dto.message);
 
         return {
           success: true,

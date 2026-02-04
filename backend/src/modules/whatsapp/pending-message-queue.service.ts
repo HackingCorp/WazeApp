@@ -179,25 +179,45 @@ export class PendingMessageQueueService {
       );
 
       // Promote all jobs with staggered delays (3 seconds apart)
+      let scheduledCount = 0;
       for (let i = 0; i < pendingJobs.length; i++) {
         const job = pendingJobs[i];
         try {
-          // Update job data with reconnect info
-          await job.update({
-            ...job.data,
-            reconnectedAt: new Date(),
-            attempts: job.data.attempts + 1,
-          });
+          // Check job state - skip if already being processed or completed
+          const jobState = await job.getState();
+          if (jobState === 'active' || jobState === 'completed') {
+            this.logger.debug(
+              `⏭️ Skipping job ${job.id} - already ${jobState} (to: ${job.data.to})`,
+            );
+            continue;
+          }
 
           // Move to ready state with staggered delay
-          const delay = i * 3000; // 3 seconds between each message
+          const delay = scheduledCount * 3000; // 3 seconds between each message
 
-          // Remove and re-add with proper delay for processing
+          // Use job ID to ensure we don't create duplicates
+          const newJobId = `reconnect-${job.data.id}`;
+
+          // Check if reconnect job already exists
+          const existingReconnectJob = await this.pendingMessageQueue.getJob(newJobId);
+          if (existingReconnectJob) {
+            this.logger.debug(
+              `⏭️ Reconnect job ${newJobId} already exists - skipping duplicate`,
+            );
+            // Remove the original job to prevent it from being processed again
+            await job.remove().catch(() => {});
+            continue;
+          }
+
+          // Remove original job first
           await job.remove();
+
+          // Add with new job ID to prevent duplicates
           await this.pendingMessageQueue.add('send-pending', {
             ...job.data,
             reconnectedAt: new Date(),
           }, {
+            jobId: newJobId,
             delay,
             attempts: 3,
             backoff: { type: 'exponential', delay: 5000 },
@@ -205,6 +225,7 @@ export class PendingMessageQueueService {
             removeOnFail: false,
           });
 
+          scheduledCount++;
           this.logger.debug(
             `📤 Scheduled pending message ${job.data.id} for sending in ${delay}ms ` +
             `(source: ${job.data.source}, to: ${job.data.to})`,
@@ -215,7 +236,7 @@ export class PendingMessageQueueService {
       }
 
       this.logger.log(
-        `✅ Scheduled ${pendingJobs.length} pending messages for session ${sessionId}`,
+        `✅ Scheduled ${scheduledCount}/${pendingJobs.length} pending messages for session ${sessionId}`,
       );
     } finally {
       // Remove from processing set after a cooldown

@@ -1,0 +1,274 @@
+import { Injectable, Logger } from '@nestjs/common';
+import { InjectQueue } from '@nestjs/bull';
+import { Queue, Job } from 'bull';
+import { OnEvent } from '@nestjs/event-emitter';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+
+export interface PendingMessage {
+  id: string;
+  sessionId: string;
+  organizationId?: string;
+  to: string;
+  message: string;
+  type: 'text' | 'image' | 'video' | 'audio' | 'document';
+  mediaUrl?: string;
+  caption?: string;
+  source: 'external-api' | 'ai-responder' | 'broadcast' | 'manual' | 'catch-up';
+  originalError?: string;
+  createdAt: Date;
+  attempts: number;
+  metadata?: Record<string, any>;
+}
+
+@Injectable()
+export class PendingMessageQueueService {
+  private readonly logger = new Logger(PendingMessageQueueService.name);
+
+  // Track sessions being processed to avoid duplicates
+  private processingSession = new Set<string>();
+
+  constructor(
+    @InjectQueue('pending-messages')
+    private pendingMessageQueue: Queue<PendingMessage>,
+    private eventEmitter: EventEmitter2,
+  ) {}
+
+  /**
+   * Queue a message for retry when session reconnects
+   */
+  async queueMessage(data: {
+    sessionId: string;
+    organizationId?: string;
+    to: string;
+    message: string;
+    type?: 'text' | 'image' | 'video' | 'audio' | 'document';
+    mediaUrl?: string;
+    caption?: string;
+    source: PendingMessage['source'];
+    originalError?: string;
+    metadata?: Record<string, any>;
+  }): Promise<{ queued: true; messageId: string; position: number }> {
+    const messageId = `pending-${data.source}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+    const pendingMessage: PendingMessage = {
+      id: messageId,
+      sessionId: data.sessionId,
+      organizationId: data.organizationId,
+      to: data.to,
+      message: data.message,
+      type: data.type || 'text',
+      mediaUrl: data.mediaUrl,
+      caption: data.caption,
+      source: data.source,
+      originalError: data.originalError,
+      createdAt: new Date(),
+      attempts: 0,
+      metadata: data.metadata,
+    };
+
+    await this.pendingMessageQueue.add('send-pending', pendingMessage, {
+      // Messages stay in queue until session reconnects
+      delay: 0,
+      attempts: 15, // Max retry attempts over time
+      backoff: {
+        type: 'exponential',
+        delay: 10000, // 10 seconds base delay between retries
+      },
+      removeOnComplete: 200,
+      removeOnFail: 100,
+      jobId: messageId,
+    });
+
+    // Get queue position for this session
+    const sessionJobs = await this.getPendingMessages(data.sessionId);
+    const position = sessionJobs.length;
+
+    this.logger.log(
+      `📥 Queued ${data.source} message ${messageId} for session ${data.sessionId} ` +
+      `(to: ${data.to}). Queue position: ${position}`,
+    );
+
+    return {
+      queued: true,
+      messageId,
+      position,
+    };
+  }
+
+  /**
+   * Get all pending messages for a session
+   */
+  async getPendingMessages(sessionId: string): Promise<Job<PendingMessage>[]> {
+    const jobs = await this.pendingMessageQueue.getJobs(['waiting', 'delayed', 'paused']);
+    return jobs.filter((job) => job.data.sessionId === sessionId);
+  }
+
+  /**
+   * Get all pending messages by source
+   */
+  async getPendingMessagesBySource(source: PendingMessage['source']): Promise<Job<PendingMessage>[]> {
+    const jobs = await this.pendingMessageQueue.getJobs(['waiting', 'delayed', 'paused']);
+    return jobs.filter((job) => job.data.source === source);
+  }
+
+  /**
+   * Get queue stats
+   */
+  async getQueueStats(): Promise<{
+    waiting: number;
+    active: number;
+    delayed: number;
+    failed: number;
+    completed: number;
+    bySession: Record<string, number>;
+    bySource: Record<string, number>;
+  }> {
+    const [waiting, active, delayed, failed, completed] = await Promise.all([
+      this.pendingMessageQueue.getWaitingCount(),
+      this.pendingMessageQueue.getActiveCount(),
+      this.pendingMessageQueue.getDelayedCount(),
+      this.pendingMessageQueue.getFailedCount(),
+      this.pendingMessageQueue.getCompletedCount(),
+    ]);
+
+    // Get breakdown by session and source
+    const allJobs = await this.pendingMessageQueue.getJobs(['waiting', 'delayed']);
+    const bySession: Record<string, number> = {};
+    const bySource: Record<string, number> = {};
+
+    for (const job of allJobs) {
+      bySession[job.data.sessionId] = (bySession[job.data.sessionId] || 0) + 1;
+      bySource[job.data.source] = (bySource[job.data.source] || 0) + 1;
+    }
+
+    return { waiting, active, delayed, failed, completed, bySession, bySource };
+  }
+
+  /**
+   * Handle session reconnect - process queued messages
+   */
+  @OnEvent('whatsapp.session.ready')
+  async handleSessionReady(payload: { sessionId: string; phoneNumber?: string }) {
+    const { sessionId } = payload;
+
+    // Prevent duplicate processing
+    if (this.processingSession.has(sessionId)) {
+      this.logger.debug(`Session ${sessionId} already being processed, skipping`);
+      return;
+    }
+
+    this.processingSession.add(sessionId);
+
+    try {
+      this.logger.log(`🔄 Session ${sessionId} reconnected - checking pending messages queue`);
+
+      // Get all pending messages for this session
+      const pendingJobs = await this.getPendingMessages(sessionId);
+
+      if (pendingJobs.length === 0) {
+        this.logger.debug(`No pending messages for session ${sessionId}`);
+        return;
+      }
+
+      this.logger.log(`📬 Found ${pendingJobs.length} pending messages for session ${sessionId}`);
+
+      // Sort by creation date (oldest first)
+      pendingJobs.sort((a, b) =>
+        new Date(a.data.createdAt).getTime() - new Date(b.data.createdAt).getTime()
+      );
+
+      // Promote all jobs with staggered delays (3 seconds apart)
+      for (let i = 0; i < pendingJobs.length; i++) {
+        const job = pendingJobs[i];
+        try {
+          // Update job data with reconnect info
+          await job.update({
+            ...job.data,
+            reconnectedAt: new Date(),
+            attempts: job.data.attempts + 1,
+          });
+
+          // Move to ready state with staggered delay
+          const delay = i * 3000; // 3 seconds between each message
+
+          // Remove and re-add with proper delay for processing
+          await job.remove();
+          await this.pendingMessageQueue.add('send-pending', {
+            ...job.data,
+            reconnectedAt: new Date(),
+          }, {
+            delay,
+            attempts: 3,
+            backoff: { type: 'exponential', delay: 5000 },
+            removeOnComplete: true,
+            removeOnFail: false,
+          });
+
+          this.logger.debug(
+            `📤 Scheduled pending message ${job.data.id} for sending in ${delay}ms ` +
+            `(source: ${job.data.source}, to: ${job.data.to})`,
+          );
+        } catch (error) {
+          this.logger.error(`Failed to process job ${job.id}: ${error.message}`);
+        }
+      }
+
+      this.logger.log(
+        `✅ Scheduled ${pendingJobs.length} pending messages for session ${sessionId}`,
+      );
+    } finally {
+      // Remove from processing set after a cooldown
+      setTimeout(() => {
+        this.processingSession.delete(sessionId);
+      }, 60000); // 1 minute cooldown
+    }
+  }
+
+  /**
+   * Handle reconnect success - also process queued messages
+   */
+  @OnEvent('whatsapp.reconnect.success')
+  async handleReconnectSuccess(payload: { sessionId: string }) {
+    await this.handleSessionReady(payload);
+  }
+
+  /**
+   * Clear all pending messages for a session
+   */
+  async clearPendingMessages(sessionId: string): Promise<number> {
+    const pendingJobs = await this.getPendingMessages(sessionId);
+    let cleared = 0;
+
+    for (const job of pendingJobs) {
+      try {
+        await job.remove();
+        cleared++;
+      } catch (error) {
+        this.logger.error(`Failed to remove job ${job.id}: ${error.message}`);
+      }
+    }
+
+    this.logger.log(`🗑️ Cleared ${cleared} pending messages for session ${sessionId}`);
+    return cleared;
+  }
+
+  /**
+   * Clear all pending messages by source
+   */
+  async clearPendingMessagesBySource(source: PendingMessage['source']): Promise<number> {
+    const pendingJobs = await this.getPendingMessagesBySource(source);
+    let cleared = 0;
+
+    for (const job of pendingJobs) {
+      try {
+        await job.remove();
+        cleared++;
+      } catch (error) {
+        this.logger.error(`Failed to remove job ${job.id}: ${error.message}`);
+      }
+    }
+
+    this.logger.log(`🗑️ Cleared ${cleared} pending ${source} messages`);
+    return cleared;
+  }
+}

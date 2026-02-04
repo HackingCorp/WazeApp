@@ -18,6 +18,8 @@ import { OpenSourceVisionService } from "./open-source-vision.service";
 import { AudioTranscriptionService } from "./audio-transcription.service";
 import { UnansweredMessageService } from "./unanswered-message.service";
 import { UnansweredMessageProcessor } from "./unanswered-message.processor";
+import { PendingMessageQueueService } from "./pending-message-queue.service";
+import { PendingMessageProcessor } from "./pending-message.processor";
 import { EmailModule } from "../email/email.module";
 import {
   WhatsAppSession,
@@ -72,6 +74,13 @@ import { LlmProvidersModule } from "../llm-providers/llm-providers.module";
         removeOnFail: 50,
       },
     }),
+    BullModule.registerQueue({
+      name: "pending-messages",
+      defaultJobOptions: {
+        removeOnComplete: 200,
+        removeOnFail: 100,
+      },
+    }),
   ],
   controllers: [WhatsAppController],
   providers: [
@@ -90,7 +99,16 @@ import { LlmProvidersModule } from "../llm-providers/llm-providers.module";
     WhatsAppSessionMonitorService,
     UnansweredMessageService,
     UnansweredMessageProcessor,
+    PendingMessageQueueService,
+    PendingMessageProcessor,
   ],
-  exports: [WhatsAppService, BaileysService, SimpleConversationService, WhatsAppGateway, WhatsAppSessionMonitorService],
+  exports: [
+    WhatsAppService,
+    BaileysService,
+    SimpleConversationService,
+    WhatsAppGateway,
+    WhatsAppSessionMonitorService,
+    PendingMessageQueueService,
+  ],
 })
 export class WhatsAppModule {}

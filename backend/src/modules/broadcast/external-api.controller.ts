@@ -32,6 +32,7 @@ import { TemplateService } from './template.service';
 import { CampaignService } from './campaign.service';
 import { WebhookService } from './webhook.service';
 import { BaileysService } from '../whatsapp/baileys.service';
+import { PendingMessageQueueService } from '../whatsapp/pending-message-queue.service';
 import {
   ExternalSendMessageDto,
   CreateCampaignDto,
@@ -53,6 +54,7 @@ export class ExternalApiController {
     private campaignService: CampaignService,
     private webhookService: WebhookService,
     private baileysService: BaileysService,
+    private pendingMessageQueueService: PendingMessageQueueService,
     @InjectQueue('broadcast')
     private broadcastQueue: Queue,
     @InjectRepository(WhatsAppSession)
@@ -258,8 +260,10 @@ export class ExternalApiController {
   }
 
   @Post('send/immediate')
-  @ApiOperation({ summary: 'Send message immediately (single recipient)' })
+  @ApiOperation({ summary: 'Send message immediately (single recipient). If session is disconnected, message is queued for retry.' })
   @ApiHeader({ name: 'X-API-Key', required: true })
+  @ApiResponse({ status: HttpStatus.OK, description: 'Message sent or queued' })
+  @ApiResponse({ status: HttpStatus.ACCEPTED, description: 'Message queued for delivery when session reconnects' })
   async sendImmediate(
     @Headers('x-api-key') apiKey: string,
     @Ip() clientIp: string,
@@ -271,6 +275,7 @@ export class ExternalApiController {
       type?: string;
       mediaUrl?: string;
       caption?: string;
+      queueIfDisconnected?: boolean; // Default: true - queue message if session is disconnected
     },
   ) {
     const { organizationId, sessionId: apiKeySessionId } = await this.apiKeyService.validateApiKey(
@@ -287,9 +292,61 @@ export class ExternalApiController {
       this.apiKeyService.validateSessionAccess(apiKeySessionId, dto.sessionId);
     }
 
-    // Verify the session belongs to the organization and is connected
-    await this.verifySession(sessionId, organizationId);
+    // Check session ownership
+    const session = await this.sessionRepository.findOne({
+      where: { id: sessionId },
+    });
 
+    if (!session) {
+      throw new NotFoundException('WhatsApp session not found');
+    }
+
+    if (session.organizationId !== organizationId) {
+      throw new ForbiddenException('This WhatsApp session does not belong to your organization');
+    }
+
+    // Check real connection status
+    const realStatus = this.baileysService.getSessionStatus(sessionId);
+    const queueIfDisconnected = dto.queueIfDisconnected !== false; // Default true
+
+    // If session is disconnected, queue the message for later delivery
+    if (realStatus !== 'connected') {
+      if (queueIfDisconnected) {
+        // Queue the message for retry when session reconnects
+        const queueResult = await this.pendingMessageQueueService.queueMessage({
+          sessionId,
+          organizationId,
+          to: dto.to,
+          message: dto.message,
+          type: (dto.type as any) || 'text',
+          mediaUrl: dto.mediaUrl,
+          caption: dto.caption,
+          source: 'external-api',
+          originalError: `Session disconnected (status: ${realStatus})`,
+        });
+
+        // Return 202 Accepted - message queued for later delivery
+        return {
+          success: true,
+          status: 'queued',
+          message: 'Session is disconnected. Message queued for delivery when session reconnects.',
+          messageId: queueResult.messageId,
+          queuePosition: queueResult.position,
+          sessionStatus: realStatus,
+        };
+      } else {
+        // User explicitly doesn't want queueing
+        throw new ServiceUnavailableException({
+          success: false,
+          error: 'WHATSAPP_SESSION_DISCONNECTED',
+          message: `WhatsApp session is not connected (status: ${realStatus}). Message not sent.`,
+          sessionStatus: realStatus,
+          recoverable: true,
+        });
+      }
+    }
+
+    // Session is connected - try to send immediately
     try {
       const result = await this.baileysService.sendMessage(sessionId, {
         to: dto.to,
@@ -306,31 +363,54 @@ export class ExternalApiController {
         status: result.status,
       });
 
-      return result;
+      return {
+        ...result,
+        status: 'sent',
+      };
     } catch (error) {
-      // Handle specific WhatsApp errors with appropriate HTTP status codes
       const errorCode = (error as any)?.code;
       const errorMessage = error?.message || 'Failed to send message';
-      const action = (error as any)?.action;
 
-      // Map error codes to HTTP exceptions
+      // Check if error is due to connection issue - queue the message
+      if (
+        queueIfDisconnected && (
+          errorMessage.includes('Connection Closed') ||
+          errorMessage.includes('not connected') ||
+          errorMessage.includes('not open') ||
+          errorCode === 'SESSION_DISCONNECTED'
+        )
+      ) {
+        // Queue the message for retry
+        const queueResult = await this.pendingMessageQueueService.queueMessage({
+          sessionId,
+          organizationId,
+          to: dto.to,
+          message: dto.message,
+          type: (dto.type as any) || 'text',
+          mediaUrl: dto.mediaUrl,
+          caption: dto.caption,
+          source: 'external-api',
+          originalError: errorMessage,
+        });
+
+        return {
+          success: true,
+          status: 'queued',
+          message: 'Connection lost during send. Message queued for delivery when session reconnects.',
+          messageId: queueResult.messageId,
+          queuePosition: queueResult.position,
+          originalError: errorMessage,
+        };
+      }
+
+      // Handle other specific errors
       switch (errorCode) {
         case 'PREKEY_ERROR':
           throw new ServiceUnavailableException({
             success: false,
             error: 'WHATSAPP_ENCRYPTION_ERROR',
             message: errorMessage,
-            action: action || 'Please reconnect the WhatsApp session from the dashboard',
-            recoverable: true,
-          });
-
-        case 'SESSION_DISCONNECTED':
-        case 'SESSION_LOGGED_OUT':
-          throw new ServiceUnavailableException({
-            success: false,
-            error: 'WHATSAPP_SESSION_ERROR',
-            message: errorMessage,
-            action: action || 'Please reconnect the WhatsApp session',
+            action: 'Please reconnect the WhatsApp session from the dashboard',
             recoverable: true,
           });
 
@@ -352,17 +432,6 @@ export class ExternalApiController {
           });
 
         default:
-          // Check for common error patterns even without code
-          if (errorMessage.includes('not connected') || errorMessage.includes('Session not found')) {
-            throw new ServiceUnavailableException({
-              success: false,
-              error: 'WHATSAPP_SESSION_ERROR',
-              message: 'WhatsApp session is not connected. Please reconnect from the dashboard.',
-              recoverable: true,
-            });
-          }
-
-          // Generic error
           throw new HttpException({
             success: false,
             error: 'SEND_MESSAGE_FAILED',
@@ -370,6 +439,31 @@ export class ExternalApiController {
           }, HttpStatus.INTERNAL_SERVER_ERROR);
       }
     }
+  }
+
+  @Get('queue/stats')
+  @ApiOperation({ summary: 'Get pending message queue statistics' })
+  @ApiHeader({ name: 'X-API-Key', required: true })
+  async getQueueStats(
+    @Headers('x-api-key') apiKey: string,
+    @Ip() clientIp: string,
+  ) {
+    const { sessionId } = await this.apiKeyService.validateApiKey(
+      apiKey,
+      ApiKeyPermission.SEND_MESSAGE,
+      clientIp,
+    );
+
+    const stats = await this.pendingMessageQueueService.getQueueStats();
+    const sessionPending = stats.bySession[sessionId] || 0;
+
+    return {
+      session: {
+        sessionId,
+        pending: sessionPending,
+      },
+      global: stats,
+    };
   }
 
   // ==========================================

@@ -23,7 +23,7 @@ import {
 import { api } from "@/lib/api"
 import { PhoneInput } from "@/components/ui/phone-input"
 
-// Plan data
+// Plan data with production prices
 const plans = [
   {
     id: "FREE",
@@ -42,10 +42,10 @@ const plans = [
     id: "STANDARD",
     name: "Standard",
     description: "Idéal pour les petites entreprises",
-    price: 2,
+    price: 29,
     features: [
       { name: "1 Agent WhatsApp", included: true },
-      { name: "2 000 messages/mois", included: true },
+      { name: "1 000 messages/mois", included: true },
       { name: "500MB de stockage", included: true },
       { name: "Support prioritaire", included: true },
     ],
@@ -55,11 +55,11 @@ const plans = [
     id: "PRO",
     name: "Pro",
     description: "Pour les équipes en croissance",
-    price: 3,
+    price: 49,
     features: [
       { name: "3 Agents WhatsApp", included: true },
-      { name: "8 000 messages/mois", included: true },
-      { name: "5GB de stockage", included: true },
+      { name: "5 000 messages/mois", included: true },
+      { name: "2GB de stockage", included: true },
       { name: "Support chat 24h/24", included: true },
     ],
     popular: true,
@@ -68,11 +68,11 @@ const plans = [
     id: "ENTERPRISE",
     name: "Entreprise",
     description: "Pour les grandes organisations",
-    price: 4,
+    price: 199,
     features: [
       { name: "10 Agents WhatsApp", included: true },
-      { name: "30 000 messages/mois", included: true },
-      { name: "20GB de stockage", included: true },
+      { name: "Messages illimités", included: true },
+      { name: "10GB de stockage", included: true },
       { name: "Support dédié", included: true },
     ],
     popular: false,

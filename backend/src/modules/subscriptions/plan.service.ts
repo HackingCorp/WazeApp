@@ -49,8 +49,8 @@ const DEFAULT_PLANS = [
     description: 'Great for small businesses',
     priceMonthlyXAF: 19000,
     priceAnnualXAF: 190000,
-    priceMonthlyUSD: 2900, // $29
-    priceAnnualUSD: 29000, // $290 (2 months free)
+    priceMonthlyUSD: 29, // $29/month
+    priceAnnualUSD: 290, // $290/year (2 months free)
     maxAgents: 1,
     maxKnowledgeBases: 3,
     maxDocumentsPerKb: 50,
@@ -87,8 +87,8 @@ const DEFAULT_PLANS = [
     description: 'For growing teams',
     priceMonthlyXAF: 32000,
     priceAnnualXAF: 320000,
-    priceMonthlyUSD: 4900, // $49
-    priceAnnualUSD: 49000, // $490 (2 months free)
+    priceMonthlyUSD: 49, // $49/month
+    priceAnnualUSD: 490, // $490/year (2 months free)
     maxAgents: 3,
     maxKnowledgeBases: 10,
     maxDocumentsPerKb: 200,
@@ -125,8 +125,8 @@ const DEFAULT_PLANS = [
     description: 'For large organizations',
     priceMonthlyXAF: 130000,
     priceAnnualXAF: 1300000,
-    priceMonthlyUSD: 19900, // $199
-    priceAnnualUSD: 199000, // $1990 (2 months free)
+    priceMonthlyUSD: 199, // $199/month
+    priceAnnualUSD: 1990, // $1990/year (2 months free)
     maxAgents: 10,
     maxKnowledgeBases: -1, // Unlimited
     maxDocumentsPerKb: -1, // Unlimited
@@ -175,24 +175,30 @@ export class PlanService implements OnModuleInit {
   }
 
   /**
-   * Seed default plans if they don't exist
+   * Seed default plans - creates new or updates existing plans with latest prices
    */
   async seedPlans(): Promise<void> {
-    this.logger.log('Checking plans...');
+    this.logger.log('Syncing plans with latest configuration...');
 
     for (const planData of DEFAULT_PLANS) {
       const existing = await this.planRepository.findOne({
         where: { code: planData.code },
       });
 
-      if (!existing) {
+      if (existing) {
+        // Update existing plan with latest prices and quotas
+        Object.assign(existing, planData);
+        await this.planRepository.save(existing);
+        this.logger.log(`Updated plan: ${planData.code}`);
+      } else {
+        // Create new plan
         const plan = this.planRepository.create(planData);
         await this.planRepository.save(plan);
         this.logger.log(`Created plan: ${planData.code}`);
       }
     }
 
-    this.logger.log('Plans check completed');
+    this.logger.log('Plans sync completed');
   }
 
   /**

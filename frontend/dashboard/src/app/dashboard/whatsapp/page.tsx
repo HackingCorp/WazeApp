@@ -338,50 +338,10 @@ export default function WhatsAppPage() {
         }
       }, 2000); // Wait 2 seconds for QR generation
       
-      // Poll for connection status using force-complete-connection endpoint
+      // Poll for connection status
         const pollInterval = setInterval(async () => {
           try {
-            // First check the force-complete-connection endpoint to see if connection is ready
-            const forceCompleteResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3100/api/v1'}/whatsapp/debug/force-complete-connection/${sessionId}`, {
-              method: 'POST'
-            });
-            
-            if (forceCompleteResponse.ok) {
-              const forceCompleteData = await forceCompleteResponse.json();
-              
-              if (forceCompleteData.success && forceCompleteData.status === 'connected') {
-                // Connection is now complete!
-                clearInterval(pollInterval);
-                setConnecting(null);
-                setQrData(null);
-                fetchSessions();
-                toast.success(`WhatsApp connected successfully! 🎉 Number: ${forceCompleteData.phoneNumber || 'Connected'}`);
-                
-                // Déclencher le modal d'assignation d'agent seulement si aucun agent n'est assigné
-                const connectedSession: WhatsAppSession = {
-                  id: sessionId,
-                  name: newSessionName || `Session ${forceCompleteData.phoneNumber || sessionId.slice(-4)}`,
-                  status: 'connected',
-                  phoneNumber: forceCompleteData.phoneNumber,
-                  isActive: true,
-                  autoReconnect: true,
-                  aiResponsesEnabled: true,
-                  retryCount: 0,
-                  lastSeenAt: new Date().toISOString(),
-                  createdAt: new Date().toISOString(),
-                };
-                
-                // Vérifier si la session a déjà un agent assigné
-                const currentSession = sessions.find(s => s.id === sessionId);
-                if (!currentSession?.agent) {
-                  setNewlyConnectedSession(connectedSession);
-                  setShowAssignAgentModal(true);
-                }
-                return;
-              }
-            }
-            
-            // Fallback: Check session status normally
+            // Check session status
             const sessionResponse = await api.get(`/whatsapp/sessions/${sessionId}`);
             const session = sessionResponse.data;
             
@@ -392,7 +352,7 @@ export default function WhatsAppPage() {
               fetchSessions();
               toast.success('WhatsApp connected successfully! 🎉');
               
-              // Déclencher le modal d'assignation d'agent seulement si aucun agent n'est assigné (fallback)
+              // Déclencher le modal d'assignation d'agent seulement si aucun agent n'est assigné
               const connectedSession: WhatsAppSession = {
                 id: sessionId,
                 name: newSessionName || `Session ${session.phoneNumber || sessionId.slice(-4)}`,

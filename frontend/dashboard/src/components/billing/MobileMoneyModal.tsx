@@ -26,11 +26,11 @@ interface MobileMoneyModalProps {
 type PaymentProvider = 'mtn' | 'orange';
 type PaymentStatus = 'idle' | 'processing' | 'pending' | 'success' | 'failed';
 
-// Plan pricing in FCFA - TEMP TEST PRICES
+// Plan pricing in FCFA (monthly)
 const PLAN_PRICES_FCFA: Record<string, number> = {
-  standard: 1300,  // TEMP TEST (was 19000 ~$29)
-  pro: 1950,       // TEMP TEST (was 45000 ~$69)
-  enterprise: 2600, // TEMP TEST (was 130000 ~$199)
+  standard: 19000,   // ~$29/month
+  pro: 32000,        // ~$49/month
+  enterprise: 130000, // ~$199/month
 };
 
 export function MobileMoneyModal({

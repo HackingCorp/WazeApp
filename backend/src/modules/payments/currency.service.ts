@@ -179,8 +179,8 @@ export class CurrencyService implements OnModuleInit {
       STANDARD: {
         id: 'STANDARD',
         name: 'Standard',
-        priceUSD: 2,
-        priceAnnualUSD: 20,
+        priceUSD: 29,
+        priceAnnualUSD: 290,
         messages: 1000,
         agents: 1,
         storage: '500MB',
@@ -195,8 +195,8 @@ export class CurrencyService implements OnModuleInit {
       PRO: {
         id: 'PRO',
         name: 'Pro',
-        priceUSD: 3,
-        priceAnnualUSD: 30,
+        priceUSD: 49,
+        priceAnnualUSD: 490,
         messages: 5000,
         agents: 3,
         storage: '2GB',
@@ -211,8 +211,8 @@ export class CurrencyService implements OnModuleInit {
       ENTERPRISE: {
         id: 'ENTERPRISE',
         name: 'Enterprise',
-        priceUSD: 4,
-        priceAnnualUSD: 40,
+        priceUSD: 199,
+        priceAnnualUSD: 1990,
         messages: -1,
         agents: 10,
         storage: '10GB',

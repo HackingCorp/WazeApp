@@ -47,10 +47,10 @@ const DEFAULT_PLANS = [
     code: 'standard',
     name: 'Standard',
     description: 'Great for small businesses',
-    priceMonthlyXAF: 1300, // TEMP TEST (real: 19000)
-    priceAnnualXAF: 13000, // TEMP TEST (real: 190000)
-    priceMonthlyUSD: 200, // ~$2 test (real: ~$29)
-    priceAnnualUSD: 2000,
+    priceMonthlyXAF: 19000,
+    priceAnnualXAF: 190000,
+    priceMonthlyUSD: 2900, // $29
+    priceAnnualUSD: 29000, // $290 (2 months free)
     maxAgents: 1,
     maxKnowledgeBases: 3,
     maxDocumentsPerKb: 50,
@@ -85,10 +85,10 @@ const DEFAULT_PLANS = [
     code: 'pro',
     name: 'Pro',
     description: 'For growing teams',
-    priceMonthlyXAF: 1950, // TEMP TEST (real: 32000)
-    priceAnnualXAF: 19500, // TEMP TEST (real: 320000)
-    priceMonthlyUSD: 300, // ~$3 test (real: ~$49)
-    priceAnnualUSD: 3000,
+    priceMonthlyXAF: 32000,
+    priceAnnualXAF: 320000,
+    priceMonthlyUSD: 4900, // $49
+    priceAnnualUSD: 49000, // $490 (2 months free)
     maxAgents: 3,
     maxKnowledgeBases: 10,
     maxDocumentsPerKb: 200,
@@ -123,10 +123,10 @@ const DEFAULT_PLANS = [
     code: 'enterprise',
     name: 'Enterprise',
     description: 'For large organizations',
-    priceMonthlyXAF: 2600, // TEMP TEST (real: 130000)
-    priceAnnualXAF: 26000, // TEMP TEST (real: 1300000)
-    priceMonthlyUSD: 400, // ~$4 test (real: ~$199)
-    priceAnnualUSD: 4000,
+    priceMonthlyXAF: 130000,
+    priceAnnualXAF: 1300000,
+    priceMonthlyUSD: 19900, // $199
+    priceAnnualUSD: 199000, // $1990 (2 months free)
     maxAgents: 10,
     maxKnowledgeBases: -1, // Unlimited
     maxDocumentsPerKb: -1, // Unlimited

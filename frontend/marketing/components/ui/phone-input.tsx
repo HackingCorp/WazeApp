@@ -241,13 +241,13 @@ export function PhoneInput({ value, onChange, placeholder = "6 12 34 56 78", cla
 
   return (
     <div className={`relative ${className}`}>
-      <div className="flex">
+      <div className="flex items-stretch">
         {/* Country Selector */}
         <div className="relative" ref={dropdownRef}>
           <button
             type="button"
             onClick={() => setIsOpen(!isOpen)}
-            className={`flex items-center px-3 py-2 border border-r-0 rounded-l-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 min-w-[100px] ${
+            className={`h-full flex items-center px-3 py-2 border border-r-0 rounded-l-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 min-w-[100px] ${
               error ? 'border-red-300 dark:border-red-600' : 'border-gray-300 dark:border-gray-600'
             }`}
           >

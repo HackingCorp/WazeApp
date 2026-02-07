@@ -2,6 +2,7 @@ import { Injectable, Logger, NotFoundException, BadRequestException, Inject, for
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, LessThanOrEqual, In } from 'typeorm';
 import { Cron, CronExpression } from '@nestjs/schedule';
+import { CACHE_MANAGER, Cache } from '@nestjs/cache-manager';
 import { Invoice, InvoiceStatus, Subscription, Organization, User, OrganizationMember } from '../../common/entities';
 import { SubscriptionStatus, UserRole } from '../../common/enums';
 import { PlanService } from './plan.service';
@@ -25,6 +26,8 @@ export class InvoiceService {
     @Inject(forwardRef(() => PlanService))
     private readonly planService: PlanService,
     private readonly emailService: EmailService,
+    @Inject(CACHE_MANAGER)
+    private readonly cacheManager: Cache,
   ) {}
 
   /**
@@ -149,6 +152,7 @@ export class InvoiceService {
 
   /**
    * Mark invoice as paid
+   * This also resets the billing cycle and clears quota caches
    */
   async markAsPaid(
     invoiceId: string,
@@ -175,17 +179,35 @@ export class InvoiceService {
 
     const savedInvoice = await this.invoiceRepository.save(invoice);
 
-    // Update subscription - reset quotas by updating nextBillingDate
+    // Update subscription - reset billing cycle properly
     if (invoice.subscription) {
-      const nextBillingDate = new Date(invoice.periodEnd);
-      nextBillingDate.setDate(nextBillingDate.getDate() + 1);
+      // Set startsAt to periodStart to properly reset the billing cycle
+      // This ensures quota counting starts fresh from the new period
+      invoice.subscription.startsAt = invoice.periodStart;
 
-      invoice.subscription.nextBillingDate = nextBillingDate;
+      // nextBillingDate is the end of the paid period (when next invoice is due)
+      invoice.subscription.nextBillingDate = invoice.periodEnd;
       invoice.subscription.status = SubscriptionStatus.ACTIVE;
+
       await this.subscriptionRepository.save(invoice.subscription);
 
+      // Clear subscription and quota caches to ensure fresh data is used
+      const organizationId = invoice.subscription.organizationId;
+      const userId = invoice.subscription.userId;
+
+      if (organizationId) {
+        await this.cacheManager.del(`subscription:org:${organizationId}`);
+        await this.cacheManager.del(`quota:whatsapp:org:${organizationId}`);
+        this.logger.log(`Cleared subscription and quota caches for organization ${organizationId}`);
+      }
+
+      if (userId) {
+        await this.cacheManager.del(`subscription:user:${userId}`);
+        this.logger.log(`Cleared subscription cache for user ${userId}`);
+      }
+
       this.logger.log(
-        `Updated subscription ${invoice.subscriptionId} next billing date to ${nextBillingDate}`,
+        `Updated subscription ${invoice.subscriptionId}: startsAt=${invoice.periodStart}, nextBillingDate=${invoice.periodEnd}`,
       );
     }
 

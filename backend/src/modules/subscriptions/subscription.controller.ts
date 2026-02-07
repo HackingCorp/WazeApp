@@ -354,4 +354,22 @@ export class SubscriptionController {
   async triggerQuotaAlerts(): Promise<{ checked: number; alertsSent: number }> {
     return this.quotaAlertService.triggerQuotaCheck();
   }
+
+  @Post("refresh-quotas")
+  @Roles(UserRole.OWNER, UserRole.ADMIN)
+  @AllowIndividualUsers()
+  @ApiOperation({ summary: "Refresh quotas by clearing caches and fetching fresh data" })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: "Quotas refreshed successfully",
+  })
+  async refreshQuotas(@CurrentUser() user: AuthenticatedRequest): Promise<any> {
+    if (user.organizationId) {
+      return this.quotaEnforcementService.refreshOrganizationQuotas(user.organizationId);
+    }
+
+    // For individual users
+    await this.quotaEnforcementService.clearUserCaches(user.userId);
+    return this.quotaEnforcementService.getUserUsageSummary(user.userId);
+  }
 }

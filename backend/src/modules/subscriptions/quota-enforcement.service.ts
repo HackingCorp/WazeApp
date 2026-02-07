@@ -1116,4 +1116,33 @@ export class QuotaEnforcementService {
 
     return SubscriptionPlan.ENTERPRISE;
   }
+
+  /**
+   * Clear all caches for an organization (use after payment or billing changes)
+   */
+  async clearOrganizationCaches(organizationId: string): Promise<void> {
+    await this.cacheManager.del(`subscription:org:${organizationId}`);
+    await this.cacheManager.del(`quota:whatsapp:org:${organizationId}`);
+    this.logger.log(`Cleared all caches for organization ${organizationId}`);
+  }
+
+  /**
+   * Clear all caches for a user (use after payment or billing changes)
+   */
+  async clearUserCaches(userId: string): Promise<void> {
+    await this.cacheManager.del(`subscription:user:${userId}`);
+    this.logger.log(`Cleared all caches for user ${userId}`);
+  }
+
+  /**
+   * Force refresh quota data for an organization
+   * This clears caches and returns fresh quota data
+   */
+  async refreshOrganizationQuotas(organizationId: string): Promise<any> {
+    // Clear caches first
+    await this.clearOrganizationCaches(organizationId);
+
+    // Get fresh data
+    return this.getUsageSummary(organizationId);
+  }
 }

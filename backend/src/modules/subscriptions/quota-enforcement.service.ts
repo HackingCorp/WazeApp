@@ -257,9 +257,10 @@ export class QuotaEnforcementService {
 
     const subscription = await this.getActiveSubscription(organizationId);
     const planLimit = subscription.limits.maxRequestsPerMonth; // Using requests limit for messages
+    const { start: periodStart } = this.getBillingPeriod(subscription);
 
     // Get bonus credits info from database (includes both active and exhausted credits)
-    const bonusCreditsInfo = await this.getBonusCreditsInfo(organizationId);
+    const bonusCreditsInfo = await this.getBonusCreditsInfo(organizationId, periodStart);
 
     // Get actual message count for this billing period
     const totalMessagesUsed = await this.getActualWhatsAppMessageCount(organizationId);
@@ -318,7 +319,7 @@ export class QuotaEnforcementService {
   /**
    * Get bonus credits information for an organization
    */
-  private async getBonusCreditsInfo(organizationId: string): Promise<{
+  private async getBonusCreditsInfo(organizationId: string, periodStart?: Date): Promise<{
     available: number;
     used: number;
     nextExpiration?: Date;
@@ -340,12 +341,17 @@ export class QuotaEnforcementService {
     const available = activeCredits.reduce((sum, c) => sum + c.remaining, 0);
     const used = activeCredits.reduce((sum, c) => sum + c.used, 0);
 
-    // Also count used credits from exhausted packs in current period
+    // Also count used credits from exhausted packs that expired during or after current billing period
+    // Packs that expired before the current period should not be counted
+    const exhaustedWhere: any = {
+      organizationId,
+      status: MessageCreditStatus.EXHAUSTED,
+    };
+    if (periodStart) {
+      exhaustedWhere.expiresAt = MoreThan(periodStart);
+    }
     const exhaustedCredits = await this.messageCreditRepository.find({
-      where: {
-        organizationId,
-        status: MessageCreditStatus.EXHAUSTED,
-      },
+      where: exhaustedWhere,
     });
     const exhaustedUsed = exhaustedCredits.reduce((sum, c) => sum + c.used, 0);
 

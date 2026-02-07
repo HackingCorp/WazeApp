@@ -419,70 +419,24 @@ export class QuotaEnforcementService {
     const subscription = await this.getActiveSubscription(organizationId);
     const { start: periodStart } = this.getBillingPeriod(subscription);
 
-    // Get all sessions for this organization
-    const sessions = await this.sessionRepository.find({
-      where: { organizationId },
-      relations: ['agent'],
-    });
-    const sessionIds = sessions.map(s => s.id);
-    const agentIdsFromSessions = sessions
-      .filter(s => s.agent?.id)
-      .map(s => s.agent.id);
-
-    // Also get agents directly assigned to this organization
-    const orgAgents = await this.aiAgentRepository.find({
-      where: { organizationId },
-    });
-    const orgAgentIds = orgAgents.map(a => a.id);
-
-    const allAgentIds = [...new Set([...agentIdsFromSessions, ...orgAgentIds])];
-
-    if (sessionIds.length === 0 && allAgentIds.length === 0) {
-      return 0;
-    }
-
-    // Build query to find conversations by sessionId OR agentId
-    const conversationQuery = this.conversationRepository
-      .createQueryBuilder('conv')
-      .select(['conv.id']);
-
-    const conditions: string[] = [];
-    const params: any = {};
-
-    // Cast sessionIds to strings to match VARCHAR column type
-    const sessionIdStrings = sessionIds.map(id => String(id));
-    const agentIdStrings = allAgentIds.map(id => String(id));
-
-    if (sessionIdStrings.length > 0) {
-      conditions.push('conv.sessionId IN (:...sessionIds)');
-      conditions.push("conv.context->>'sessionId' IN (:...contextSessionIds)");
-      params.sessionIds = sessionIdStrings;
-      params.contextSessionIds = sessionIdStrings;
-    }
-    if (agentIdStrings.length > 0) {
-      conditions.push('conv.agentId::text IN (:...agentIds)');
-      params.agentIds = agentIdStrings;
-    }
-
-    if (conditions.length === 0) {
-      return 0;
-    }
-
-    conversationQuery.where(`(${conditions.join(' OR ')})`, params);
-    const conversations = await conversationQuery.getMany();
-    const conversationIds = conversations.map(c => c.id);
-
-    if (conversationIds.length === 0) {
-      return 0;
-    }
-
-    // Count AI responses for quota
-    return this.messageRepository
+    // Use a single efficient SQL query with subqueries to count AI messages
+    // This avoids loading thousands of conversation IDs into memory
+    const result = await this.messageRepository
       .createQueryBuilder('msg')
-      .where('msg.conversationId IN (:...conversationIds)', { conversationIds })
-      .andWhere('msg.role = :role', { role: MessageRole.AGENT })
+      .innerJoin('msg.conversation', 'conv')
+      .where('msg.role = :role', { role: MessageRole.AGENT })
       .andWhere('msg.createdAt >= :periodStart', { periodStart })
+      .andWhere(
+        `(
+          conv."sessionId" IN (SELECT id::text FROM whatsapp_sessions WHERE "organizationId" = :orgId)
+          OR conv."agentId" IN (SELECT id FROM ai_agents WHERE "organizationId" = :orgId)
+          OR conv.context->>'sessionId' IN (SELECT id::text FROM whatsapp_sessions WHERE "organizationId" = :orgId)
+        )`,
+        { orgId: organizationId },
+      )
       .getCount();
+
+    return result;
   }
 
   /**

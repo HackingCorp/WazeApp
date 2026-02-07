@@ -970,56 +970,39 @@ export class QuotaEnforcementService {
   }
 
   /**
-   * Get the current billing period based on nextBillingDate
+   * Get the current billing period based on startsAt and nextBillingDate
    * Returns { start, end } dates for the current billing cycle
-   * Uses monthly intervals (not 30 days) for accurate billing period calculation
    *
-   * IMPORTANT: If the user paid their renewal invoice early (before the current period ends),
-   * nextBillingDate will be advanced but we should still count messages from the previous period
-   * if we haven't reached the period start date yet.
+   * startsAt is set to the period start when an invoice is paid
+   * nextBillingDate is the end of the current period (when next invoice is due)
    */
   private getBillingPeriod(subscription: Subscription): { start: Date; end: Date } {
-    const now = new Date();
-    now.setHours(0, 0, 0, 0); // Normalize to start of day for comparison
-
-    // Use nextBillingDate if available, otherwise fall back to calculation
-    if (subscription.nextBillingDate) {
-      let periodEnd = new Date(subscription.nextBillingDate);
-      periodEnd.setHours(23, 59, 59, 999);
-
-      // Period start is 1 MONTH before nextBillingDate (not 30 days)
-      // This handles varying month lengths correctly
-      let periodStart = new Date(periodEnd);
-      periodStart.setMonth(periodStart.getMonth() - 1);
+    // Use startsAt as the authoritative period start (set when invoice is paid)
+    // Use nextBillingDate as the period end
+    if (subscription.startsAt && subscription.nextBillingDate) {
+      const periodStart = new Date(subscription.startsAt);
       periodStart.setHours(0, 0, 0, 0);
 
-      // If today is BEFORE the calculated period start, it means the user paid early
-      // We need to use the PREVIOUS period instead
-      if (now < periodStart) {
-        periodEnd = new Date(periodStart);
-        periodEnd.setHours(23, 59, 59, 999);
-        periodStart = new Date(periodEnd);
-        periodStart.setMonth(periodStart.getMonth() - 1);
-        periodStart.setHours(0, 0, 0, 0);
-      }
+      const periodEnd = new Date(subscription.nextBillingDate);
+      periodEnd.setHours(23, 59, 59, 999);
 
       return { start: periodStart, end: periodEnd };
     }
 
-    // Fallback: calculate based on subscription start date using monthly intervals
-    const subscriptionStart = new Date(subscription.startsAt);
+    // Fallback: calculate based on nextBillingDate - 1 month
+    if (subscription.nextBillingDate) {
+      const periodEnd = new Date(subscription.nextBillingDate);
+      periodEnd.setHours(23, 59, 59, 999);
 
-    // Calculate how many complete months since subscription start
-    let monthsDiff = (now.getFullYear() - subscriptionStart.getFullYear()) * 12 +
-                     (now.getMonth() - subscriptionStart.getMonth());
+      const periodStart = new Date(periodEnd);
+      periodStart.setMonth(periodStart.getMonth() - 1);
+      periodStart.setHours(0, 0, 0, 0);
 
-    // If we haven't passed the billing day this month, we're still in the previous period
-    if (now.getDate() < subscriptionStart.getDate()) {
-      monthsDiff--;
+      return { start: periodStart, end: periodEnd };
     }
 
-    const periodStart = new Date(subscriptionStart);
-    periodStart.setMonth(periodStart.getMonth() + monthsDiff);
+    // Last fallback: use startsAt with 1 month period
+    const periodStart = new Date(subscription.startsAt);
     periodStart.setHours(0, 0, 0, 0);
 
     const periodEnd = new Date(periodStart);

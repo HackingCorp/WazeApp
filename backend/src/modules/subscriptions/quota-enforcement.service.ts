@@ -449,15 +449,19 @@ export class QuotaEnforcementService {
     const conditions: string[] = [];
     const params: any = {};
 
-    if (sessionIds.length > 0) {
+    // Cast sessionIds to strings to match VARCHAR column type
+    const sessionIdStrings = sessionIds.map(id => String(id));
+    const agentIdStrings = allAgentIds.map(id => String(id));
+
+    if (sessionIdStrings.length > 0) {
       conditions.push('conv.sessionId IN (:...sessionIds)');
       conditions.push("conv.context->>'sessionId' IN (:...contextSessionIds)");
-      params.sessionIds = sessionIds;
-      params.contextSessionIds = sessionIds;
+      params.sessionIds = sessionIdStrings;
+      params.contextSessionIds = sessionIdStrings;
     }
-    if (allAgentIds.length > 0) {
-      conditions.push('conv.agentId IN (:...agentIds)');
-      params.agentIds = allAgentIds;
+    if (agentIdStrings.length > 0) {
+      conditions.push('conv.agentId::text IN (:...agentIds)');
+      params.agentIds = agentIdStrings;
     }
 
     if (conditions.length === 0) {
@@ -526,13 +530,17 @@ export class QuotaEnforcementService {
     const conditions: string[] = [];
     const params: any = {};
 
-    if (sessionIds.length > 0) {
+    // Cast IDs to strings to match VARCHAR column type
+    const sessionIdStrings = sessionIds.map(id => String(id));
+    const agentIdStrings = allAgentIds.map(id => String(id));
+
+    if (sessionIdStrings.length > 0) {
       conditions.push('conv.sessionId IN (:...sessionIds)');
-      params.sessionIds = sessionIds;
+      params.sessionIds = sessionIdStrings;
     }
-    if (allAgentIds.length > 0) {
-      conditions.push('conv.agentId IN (:...agentIds)');
-      params.agentIds = allAgentIds;
+    if (agentIdStrings.length > 0) {
+      conditions.push('conv.agentId::text IN (:...agentIds)');
+      params.agentIds = agentIdStrings;
     }
 
     if (conditions.length === 0) {

@@ -25,6 +25,7 @@ import {
   AuthenticatedRequest,
 } from "../../common/decorators/current-user.decorator";
 import { Roles } from "../../common/decorators/roles.decorator";
+import { AllowIndividualUsers } from "../../common/decorators/allow-individual-users.decorator";
 import { UserRole } from "../../common/enums";
 import { User } from "../../common/entities";
 import { AiAgentService } from "./ai-agent.service";
@@ -41,6 +42,7 @@ import {
 @Controller("agents")
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
+@AllowIndividualUsers()
 export class AiAgentController {
   constructor(private readonly aiAgentService: AiAgentService) {}
 

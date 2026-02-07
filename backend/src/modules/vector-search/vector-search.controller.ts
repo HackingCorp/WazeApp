@@ -20,6 +20,7 @@ import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { RolesGuard } from "../../common/guards/roles.guard";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { Roles } from "../../common/decorators/roles.decorator";
+import { AllowIndividualUsers } from "../../common/decorators/allow-individual-users.decorator";
 import { UserRole } from "../../common/enums";
 import { User } from "../../common/entities";
 import { VectorSearchService } from "./vector-search.service";
@@ -38,6 +39,7 @@ import {
 @Controller("vector-search")
 @UseGuards(JwtAuthGuard, RolesGuard)
 @ApiBearerAuth()
+@AllowIndividualUsers()
 export class VectorSearchController {
   constructor(private readonly vectorSearchService: VectorSearchService) {}
 

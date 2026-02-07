@@ -23,6 +23,7 @@ import * as crypto from "crypto";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
 import { RolesGuard } from "../../../common/guards/roles.guard";
 import { Roles } from "../../../common/decorators/roles.decorator";
+import { AllowIndividualUsers } from "../../../common/decorators/allow-individual-users.decorator";
 import { CurrentUser } from "../../../common/decorators/current-user.decorator";
 import { UserRole } from "../../../common/enums";
 import { User } from "../../../common/entities";
@@ -33,6 +34,7 @@ import {
 
 @ApiTags("webhooks")
 @Controller("webhooks")
+@AllowIndividualUsers()
 export class WebhookController {
   private readonly logger = new Logger(WebhookController.name);
   private readonly webhookSecret: string;

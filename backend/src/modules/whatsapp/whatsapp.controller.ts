@@ -42,6 +42,7 @@ import { RolesGuard } from "@/common/guards/roles.guard";
 import { Roles } from "@/common/decorators/roles.decorator";
 import { UserRole } from "@/common/enums";
 import { Public } from "@/common/decorators/public.decorator";
+import { AllowIndividualUsers } from "@/common/decorators/allow-individual-users.decorator";
 import { SimpleConversationService } from "./simple-conversation.service";
 import { WhatsAppGateway } from "./whatsapp.gateway";
 import { BaileysService } from "./baileys.service";
@@ -50,6 +51,7 @@ import { VisionService } from "./vision.service";
 @ApiTags("WhatsApp")
 @Controller("whatsapp")
 @UseGuards(JwtAuthGuard)
+@AllowIndividualUsers()
 @ApiBearerAuth()
 export class WhatsAppController {
   constructor(

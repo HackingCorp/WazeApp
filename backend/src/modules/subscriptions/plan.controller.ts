@@ -17,12 +17,14 @@ import {
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { AllowIndividualUsers } from '../../common/decorators/allow-individual-users.decorator';
 import { UserRole } from '../../common/enums';
 import { PlanService } from './plan.service';
 import { Plan } from '../../common/entities';
 
 @ApiTags('Plans')
 @Controller('plans')
+@AllowIndividualUsers()
 export class PlanController {
   constructor(private readonly planService: PlanService) {}
 

@@ -25,6 +25,7 @@ import {
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
 import { RolesGuard } from "../../../common/guards/roles.guard";
 import { Roles } from "../../../common/decorators/roles.decorator";
+import { AllowIndividualUsers } from "../../../common/decorators/allow-individual-users.decorator";
 import { CurrentUser } from "../../../common/decorators/current-user.decorator";
 import { UserRole, MediaType, MediaQuality } from "../../../common/enums";
 import { User } from "../../../common/entities";
@@ -47,6 +48,7 @@ class ImportMediaDto {
 @ApiTags("media")
 @Controller("media")
 @UseGuards(JwtAuthGuard, RolesGuard)
+@AllowIndividualUsers()
 export class MediaController {
   constructor(
     private mediaHandlingService: MediaHandlingService,

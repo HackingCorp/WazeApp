@@ -22,6 +22,7 @@ import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { RolesGuard } from "../../common/guards/roles.guard";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { Roles } from "../../common/decorators/roles.decorator";
+import { AllowIndividualUsers } from "../../common/decorators/allow-individual-users.decorator";
 import { UserRole } from "../../common/enums";
 import { User } from "../../common/entities";
 import { ConversationService } from "./conversation.service";
@@ -37,6 +38,7 @@ import {
 @Controller("agent-conversations")
 @UseGuards(JwtAuthGuard, RolesGuard)
 @ApiBearerAuth()
+@AllowIndividualUsers()
 export class ConversationController {
   constructor(private readonly conversationService: ConversationService) {}
 

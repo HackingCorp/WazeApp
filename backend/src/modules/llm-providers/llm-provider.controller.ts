@@ -24,6 +24,7 @@ import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { RolesGuard } from "../../common/guards/roles.guard";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { Roles } from "../../common/decorators/roles.decorator";
+import { AllowIndividualUsers } from "../../common/decorators/allow-individual-users.decorator";
 import { UserRole } from "../../common/enums";
 import { User } from "../../common/entities";
 import { LlmProviderService } from "./llm-provider.service";
@@ -41,6 +42,7 @@ import {
 @Controller("llm-providers")
 @UseGuards(JwtAuthGuard, RolesGuard)
 @ApiBearerAuth()
+@AllowIndividualUsers()
 export class LlmProviderController {
   constructor(
     private readonly llmProviderService: LlmProviderService,

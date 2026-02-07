@@ -21,6 +21,7 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { CurrentUser, AuthenticatedRequest } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { AllowIndividualUsers } from '../../common/decorators/allow-individual-users.decorator';
 import { UserRole } from '../../common/enums';
 import { InvoiceService } from './invoice.service';
 import { Invoice } from '../../common/entities';
@@ -51,6 +52,7 @@ class PayMultipleInvoicesDto {
 @Controller('billing')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @ApiBearerAuth()
+@AllowIndividualUsers()
 export class BillingController {
   constructor(private readonly invoiceService: InvoiceService) {}
 

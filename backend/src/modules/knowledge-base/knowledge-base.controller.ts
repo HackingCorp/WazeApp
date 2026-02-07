@@ -24,6 +24,7 @@ import { RolesGuard } from "../../common/guards/roles.guard";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { Roles } from "../../common/decorators/roles.decorator";
 import { Public } from "../../common/decorators/public.decorator";
+import { AllowIndividualUsers } from "../../common/decorators/allow-individual-users.decorator";
 import { UserRole } from "../../common/enums";
 import { User } from "../../common/entities";
 import { KnowledgeBaseService } from "./knowledge-base.service";
@@ -38,6 +39,7 @@ import {
 @Controller("knowledge-bases")
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
+@AllowIndividualUsers()
 export class KnowledgeBaseController {
   constructor(private readonly knowledgeBaseService: KnowledgeBaseService) {}
 

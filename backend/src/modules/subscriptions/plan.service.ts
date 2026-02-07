@@ -1,9 +1,12 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Plan } from '../../common/entities';
 
-// Default plan configurations
+// Cache refresh interval in milliseconds - plans are refreshed from DB every 60 seconds
+const CACHE_REFRESH_INTERVAL = 60 * 1000;
+
+// Default plan configurations (only used for initial seeding if plans don't exist)
 const DEFAULT_PLANS = [
   {
     code: 'free',
@@ -49,8 +52,8 @@ const DEFAULT_PLANS = [
     description: 'Great for small businesses',
     priceMonthlyXAF: 19000,
     priceAnnualXAF: 190000,
-    priceMonthlyUSD: 29, // $29/month
-    priceAnnualUSD: 290, // $290/year (2 months free)
+    priceMonthlyUSD: 29,
+    priceAnnualUSD: 290,
     maxAgents: 1,
     maxKnowledgeBases: 3,
     maxDocumentsPerKb: 50,
@@ -87,8 +90,8 @@ const DEFAULT_PLANS = [
     description: 'For growing teams',
     priceMonthlyXAF: 32000,
     priceAnnualXAF: 320000,
-    priceMonthlyUSD: 49, // $49/month
-    priceAnnualUSD: 490, // $490/year (2 months free)
+    priceMonthlyUSD: 49,
+    priceAnnualUSD: 490,
     maxAgents: 3,
     maxKnowledgeBases: 10,
     maxDocumentsPerKb: 200,
@@ -125,8 +128,8 @@ const DEFAULT_PLANS = [
     description: 'For large organizations',
     priceMonthlyXAF: 130000,
     priceAnnualXAF: 1300000,
-    priceMonthlyUSD: 199, // $199/month
-    priceAnnualUSD: 1990, // $1990/year (2 months free)
+    priceMonthlyUSD: 199,
+    priceAnnualUSD: 1990,
     maxAgents: 10,
     maxKnowledgeBases: -1, // Unlimited
     maxDocumentsPerKb: -1, // Unlimited
@@ -160,9 +163,10 @@ const DEFAULT_PLANS = [
 ];
 
 @Injectable()
-export class PlanService implements OnModuleInit {
+export class PlanService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(PlanService.name);
   private plansCache: Map<string, Plan> = new Map();
+  private refreshInterval: NodeJS.Timeout | null = null;
 
   constructor(
     @InjectRepository(Plan)
@@ -172,6 +176,20 @@ export class PlanService implements OnModuleInit {
   async onModuleInit() {
     await this.seedPlans();
     await this.refreshCache();
+
+    // Start automatic cache refresh every 60 seconds
+    this.refreshInterval = setInterval(async () => {
+      await this.refreshCache();
+    }, CACHE_REFRESH_INTERVAL);
+
+    this.logger.log(`Plans cache auto-refresh enabled (every ${CACHE_REFRESH_INTERVAL / 1000}s)`);
+  }
+
+  onModuleDestroy() {
+    if (this.refreshInterval) {
+      clearInterval(this.refreshInterval);
+      this.refreshInterval = null;
+    }
   }
 
   /**
@@ -191,8 +209,6 @@ export class PlanService implements OnModuleInit {
         const plan = this.planRepository.create(planData);
         await this.planRepository.save(plan);
         this.logger.log(`Created plan: ${planData.code}`);
-      } else {
-        this.logger.log(`Plan already exists: ${planData.code} (not modified)`);
       }
     }
 
@@ -200,24 +216,28 @@ export class PlanService implements OnModuleInit {
   }
 
   /**
-   * Refresh the plans cache
+   * Refresh the plans cache from database
    */
   async refreshCache(): Promise<void> {
-    const plans = await this.planRepository.find({ where: { isActive: true } });
-    this.plansCache.clear();
-    plans.forEach(plan => this.plansCache.set(plan.code.toLowerCase(), plan));
-    this.logger.log(`Plans cache refreshed: ${this.plansCache.size} plans`);
+    try {
+      const plans = await this.planRepository.find({ where: { isActive: true } });
+      this.plansCache.clear();
+      plans.forEach(plan => this.plansCache.set(plan.code.toLowerCase(), plan));
+      this.logger.debug(`Plans cache refreshed from database: ${this.plansCache.size} plans`);
+    } catch (error) {
+      this.logger.error('Failed to refresh plans cache from database', error);
+    }
   }
 
   /**
-   * Get plan by code (uses cache)
+   * Get plan by code (uses in-memory cache, auto-refreshed from DB every 60s)
    */
   getPlanByCode(code: string): Plan | undefined {
     return this.plansCache.get(code.toLowerCase());
   }
 
   /**
-   * Get plan by code from database
+   * Get plan by code directly from database (bypasses cache)
    */
   async getPlanByCodeFromDb(code: string): Promise<Plan | null> {
     return this.planRepository.findOne({
@@ -277,7 +297,6 @@ export class PlanService implements OnModuleInit {
 
   /**
    * Get plan limits in the format expected by quota enforcement
-   * This replaces the hardcoded SUBSCRIPTION_LIMITS
    */
   getPlanLimits(code: string): {
     maxAgents: number;
@@ -313,7 +332,7 @@ export class PlanService implements OnModuleInit {
 
     return {
       maxAgents: plan.maxAgents,
-      maxRequestsPerMonth: plan.maxWhatsAppMessages, // Using WhatsApp messages as requests
+      maxRequestsPerMonth: plan.maxWhatsAppMessages,
       maxStorageBytes: Number(plan.maxStorageBytes),
       maxKnowledgeChars: plan.maxKnowledgeCharacters,
       maxKnowledgeBases: plan.maxKnowledgeBases,
@@ -328,7 +347,6 @@ export class PlanService implements OnModuleInit {
 
   /**
    * Get plan features in the format expected by quota enforcement
-   * This replaces the hardcoded SUBSCRIPTION_FEATURES
    */
   getPlanFeatures(code: string): {
     customBranding: boolean;

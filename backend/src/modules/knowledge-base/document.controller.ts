@@ -28,6 +28,7 @@ import { RolesGuard } from "../../common/guards/roles.guard";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { Roles } from "../../common/decorators/roles.decorator";
 import { Public } from "../../common/decorators/public.decorator";
+import { AllowIndividualUsers } from "../../common/decorators/allow-individual-users.decorator";
 import { UserRole } from "../../common/enums";
 import { User } from "../../common/entities";
 import { DocumentService } from "./document.service";
@@ -51,6 +52,7 @@ export class DocumentController {
   @Post("upload")
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.OWNER, UserRole.ADMIN, UserRole.MEMBER)
+  @AllowIndividualUsers()
   @UseInterceptors(FileInterceptor("file"))
   @ApiOperation({ summary: "Upload a document file" })
   @ApiConsumes("multipart/form-data")
@@ -163,6 +165,7 @@ export class DocumentController {
   @Post("upload-multiple-urls")
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.OWNER, UserRole.ADMIN, UserRole.MEMBER)
+  @AllowIndividualUsers()
   @ApiOperation({ summary: "Upload documents from multiple URLs" })
   @ApiResponse({
     status: HttpStatus.CREATED,
@@ -183,6 +186,7 @@ export class DocumentController {
   @Post("rich-text")
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.OWNER, UserRole.ADMIN, UserRole.MEMBER)
+  @AllowIndividualUsers()
   @ApiOperation({ summary: "Create rich text document" })
   @ApiResponse({
     status: HttpStatus.CREATED,

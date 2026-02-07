@@ -56,7 +56,7 @@ const DEFAULT_PLANS = [
     maxDocumentsPerKb: 50,
     maxStorageBytes: 524288000, // 500MB
     maxKnowledgeCharacters: 500000,
-    maxWhatsAppMessages: 1000,
+    maxWhatsAppMessages: 2000,
     maxApiRequests: 10000,
     maxLlmTokens: 200000,
     maxVectorSearches: 500,
@@ -94,7 +94,7 @@ const DEFAULT_PLANS = [
     maxDocumentsPerKb: 200,
     maxStorageBytes: 2147483648, // 2GB
     maxKnowledgeCharacters: 2000000,
-    maxWhatsAppMessages: 5000,
+    maxWhatsAppMessages: 8000,
     maxApiRequests: 50000,
     maxLlmTokens: 1000000,
     maxVectorSearches: 2000,
@@ -175,30 +175,28 @@ export class PlanService implements OnModuleInit {
   }
 
   /**
-   * Seed default plans - creates new or updates existing plans with latest prices
+   * Seed default plans - only creates plans if they don't exist
+   * Quotas are managed entirely from the database, not overwritten by code
    */
   async seedPlans(): Promise<void> {
-    this.logger.log('Syncing plans with latest configuration...');
+    this.logger.log('Checking for missing plans...');
 
     for (const planData of DEFAULT_PLANS) {
       const existing = await this.planRepository.findOne({
         where: { code: planData.code },
       });
 
-      if (existing) {
-        // Update existing plan with latest prices and quotas
-        Object.assign(existing, planData);
-        await this.planRepository.save(existing);
-        this.logger.log(`Updated plan: ${planData.code}`);
-      } else {
-        // Create new plan
+      if (!existing) {
+        // Create new plan only if it doesn't exist
         const plan = this.planRepository.create(planData);
         await this.planRepository.save(plan);
         this.logger.log(`Created plan: ${planData.code}`);
+      } else {
+        this.logger.log(`Plan already exists: ${planData.code} (not modified)`);
       }
     }
 
-    this.logger.log('Plans sync completed');
+    this.logger.log('Plans seed check completed');
   }
 
   /**

@@ -933,8 +933,20 @@ export class SimpleConversationService implements OnModuleDestroy {
 
   async getMessagesForConversation(
     conversationId: string,
+    userId?: string,
   ): Promise<MessageData[]> {
     try {
+      // Verify conversation ownership if userId provided
+      if (userId) {
+        const conversation = await this.conversationRepository.findOne({
+          where: { id: conversationId },
+        });
+        if (conversation && conversation.userId !== userId) {
+          this.logger.warn(`User ${userId} attempted to access conversation ${conversationId} owned by ${conversation.userId}`);
+          return [];
+        }
+      }
+
       // Get messages from database first
       const dbMessages = await this.messageRepository.find({
         where: { conversationId },

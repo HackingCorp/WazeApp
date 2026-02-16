@@ -60,50 +60,6 @@ export class SubscriptionController {
       user.userId,
     );
 
-    // Force Enterprise plan for enterprise@example.com
-    if (user.email === "enterprise@example.com") {
-      return {
-        plan: "enterprise",
-        status: "active",
-        usage: {
-          agents: {
-            allowed: usageSummary.usage.agents.current < 5,
-            limit: 5,
-            current: usageSummary.usage.agents.current,
-            remaining: Math.max(0, 5 - usageSummary.usage.agents.current),
-            percentUsed: Math.round(
-              (usageSummary.usage.agents.current / 5) * 100,
-            ),
-            message:
-              usageSummary.usage.agents.current >= 5
-                ? `WhatsApp agents limit exceeded (${usageSummary.usage.agents.current}/5 items)`
-                : undefined,
-          },
-          knowledgeBases: usageSummary.usage.knowledgeBases,
-          storage: usageSummary.usage.storage,
-          knowledgeCharacters: usageSummary.usage.knowledgeCharacters,
-          monthlyRequests: usageSummary.usage.monthlyRequests,
-          monthlyTokens: usageSummary.usage.monthlyTokens,
-          monthlyVectorSearches: usageSummary.usage.monthlyVectorSearches,
-          monthlyConversations: usageSummary.usage.monthlyConversations,
-        },
-        features: {
-          sso: true,
-          webhooks: true,
-          analytics: true,
-          apiAccess: true,
-          whiteLabel: true,
-          advancedLLMs: true,
-          imageAnalysis: true,
-          customBranding: true,
-          functionCalling: true,
-          prioritySupport: true,
-          customEmbeddings: true,
-          premiumVectorSearch: true,
-        },
-      } as any;
-    }
-
     return usageSummary;
   }
 

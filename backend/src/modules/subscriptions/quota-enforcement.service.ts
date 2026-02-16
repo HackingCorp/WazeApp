@@ -804,19 +804,8 @@ export class QuotaEnforcementService {
       },
     });
 
-    // Load user email for mapping demo/test accounts
-    const user = await this.userRepository.findOne({ where: { id: userId } });
-    const email = (user?.email || '').toLowerCase();
-
-    const mapEmailToPlan = (): SubscriptionPlan => {
-      if (email === 'standard.user@wazeapp.com') return SubscriptionPlan.STANDARD;
-      if (email === 'prouser@example.com' || email === 'pro.user@wazeapp.com') return SubscriptionPlan.PRO;
-      if (email === 'enterprise@example.com') return SubscriptionPlan.ENTERPRISE;
-      return SubscriptionPlan.FREE;
-    };
-
     if (!activeSubscription) {
-      const plan: SubscriptionPlan = mapEmailToPlan();
+      const plan: SubscriptionPlan = SubscriptionPlan.FREE;
       const planCode = plan.toLowerCase();
 
       activeSubscription = this.subscriptionRepository.create({
@@ -831,30 +820,20 @@ export class QuotaEnforcementService {
       activeSubscription = await this.subscriptionRepository.save(activeSubscription);
       this.logger.log(`Created subscription for user ${userId} with plan ${plan}`);
     } else {
-      // If an existing subscription exists but mapping expects a higher plan (demo accounts), adjust it
-      const desired = mapEmailToPlan();
-      if (desired !== activeSubscription.plan) {
-        const desiredCode = desired.toLowerCase();
-        activeSubscription.plan = desired;
-        activeSubscription.limits = this.planService.getPlanLimits(desiredCode);
-        activeSubscription.features = this.planService.getPlanFeatures(desiredCode);
+      // Always sync limits and features with the latest database values
+      // This ensures upgrades and plan updates in database are always reflected
+      const planCode = activeSubscription.plan.toLowerCase();
+      const currentLimits = this.planService.getPlanLimits(planCode);
+      const currentFeatures = this.planService.getPlanFeatures(planCode);
+
+      const limitsNeedUpdate = JSON.stringify(activeSubscription.limits) !== JSON.stringify(currentLimits);
+      const featuresNeedUpdate = JSON.stringify(activeSubscription.features) !== JSON.stringify(currentFeatures);
+
+      if (limitsNeedUpdate || featuresNeedUpdate) {
+        this.logger.log(`Syncing user subscription limits/features for plan ${activeSubscription.plan} from database`);
+        activeSubscription.limits = currentLimits;
+        activeSubscription.features = currentFeatures;
         await this.subscriptionRepository.save(activeSubscription);
-      } else {
-        // Always sync limits and features with the latest database values
-        // This ensures upgrades and plan updates in database are always reflected
-        const planCode = activeSubscription.plan.toLowerCase();
-        const currentLimits = this.planService.getPlanLimits(planCode);
-        const currentFeatures = this.planService.getPlanFeatures(planCode);
-
-        const limitsNeedUpdate = JSON.stringify(activeSubscription.limits) !== JSON.stringify(currentLimits);
-        const featuresNeedUpdate = JSON.stringify(activeSubscription.features) !== JSON.stringify(currentFeatures);
-
-        if (limitsNeedUpdate || featuresNeedUpdate) {
-          this.logger.log(`Syncing user subscription limits/features for plan ${activeSubscription.plan} from database`);
-          activeSubscription.limits = currentLimits;
-          activeSubscription.features = currentFeatures;
-          await this.subscriptionRepository.save(activeSubscription);
-        }
       }
     }
 

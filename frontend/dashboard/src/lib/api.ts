@@ -21,6 +21,7 @@ interface ApiResponse<T = any> {
 class ApiClient {
   private baseURL: string;
   private token: string | null = null;
+  private refreshPromise: Promise<boolean> | null = null;
 
   constructor(baseURL: string) {
     this.baseURL = baseURL;
@@ -92,6 +93,19 @@ class ApiClient {
   }
 
   private async tryRefreshToken(): Promise<boolean> {
+    // Deduplicate concurrent refresh attempts
+    if (this.refreshPromise) {
+      return this.refreshPromise;
+    }
+    this.refreshPromise = this._doRefreshToken();
+    try {
+      return await this.refreshPromise;
+    } finally {
+      this.refreshPromise = null;
+    }
+  }
+
+  private async _doRefreshToken(): Promise<boolean> {
     try {
       const refreshToken = localStorage.getItem('refresh-token');
       if (!refreshToken) {

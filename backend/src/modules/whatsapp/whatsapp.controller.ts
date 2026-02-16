@@ -419,7 +419,7 @@ export class WhatsAppController {
     @Param("id") id: string,
     @CurrentUser() user: AuthenticatedRequest,
   ) {
-    return this.conversationService.getMessagesForConversation(id);
+    return this.conversationService.getMessagesForConversation(id, user.userId);
   }
 
   @Post("conversations/:id/messages")

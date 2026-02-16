@@ -35,6 +35,7 @@ import { BaileysService } from "./baileys.service";
 import { WebSearchService } from "./web-search.service";
 import { MediaAnalysisService } from "./media-analysis.service";
 import { QuotaEnforcementService } from "../subscriptions/quota-enforcement.service";
+import { VectorSearchService } from "../vector-search/vector-search.service";
 
 interface WhatsAppMessageEvent {
   sessionId: string;
@@ -253,6 +254,7 @@ export class WhatsAppAIResponderService {
     private configService: ConfigService,
     private eventEmitter: EventEmitter2,
     private quotaEnforcementService: QuotaEnforcementService,
+    private vectorSearchService: VectorSearchService,
   ) {
     this.logger.log('WhatsAppAIResponderService initialized');
   }
@@ -995,35 +997,52 @@ Always respond directly in the user's language without any formatting.`,
         `Searching knowledge base ${knowledgeBase.id} for: "${userMessage}"`,
       );
 
-      // Mots-clés importants pour le contexte commercial/logistique
-      const importantKeywords = [
-        'prix', 'tarif', 'coût', 'cout', 'fcfa', 'xaf', 'usd', 'dollar', 'euro',
-        'kg', 'kilo', 'kilogramme', 'poids', 'cbm', 'volume',
-        'transport', 'fret', 'cargo', 'expédition', 'expedition', 'envoi', 'livraison',
-        'aérien', 'aerien', 'avion', 'maritime', 'bateau', 'mer',
-        'chine', 'china', 'guangzhou', 'canton', 'shenzhen', 'yiwu',
-        'cameroun', 'douala', 'yaoundé', 'yaounde',
-        'délai', 'delai', 'durée', 'duree', 'jours', 'semaines',
-        'douane', 'dédouanement', 'dedouanement',
-        'contact', 'téléphone', 'telephone', 'whatsapp', 'adresse'
-      ];
+      // Try vector search first (semantic search via embeddings)
+      try {
+        const vectorResults = await this.vectorSearchService.search({
+          query: userMessage,
+          organizationId: session.organizationId,
+          knowledgeBaseIds: [knowledgeBase.id],
+          limit: 5,
+          threshold: 0.5,
+          includeContent: true,
+        });
 
-      // Recherche élargie par mots-clés dans les documents
-      const lowerMessage = userMessage.toLowerCase();
+        if (vectorResults.length > 0) {
+          this.logger.log(`Vector search returned ${vectorResults.length} results`);
+          const MAX_KB_CHARS = 24000;
+          let totalChars = 0;
+          const contextParts: string[] = [];
+
+          for (const result of vectorResults) {
+            const entry = `**${result.document.title}** (score: ${result.score.toFixed(2)}):\n${result.chunk.content}`;
+            if (totalChars + entry.length > MAX_KB_CHARS) {
+              const remaining = MAX_KB_CHARS - totalChars;
+              if (remaining > 200) {
+                contextParts.push(`**${result.document.title}** (score: ${result.score.toFixed(2)}):\n${result.chunk.content.substring(0, remaining - 50)}...[tronqué]`);
+              }
+              break;
+            }
+            contextParts.push(entry);
+            totalChars += entry.length;
+          }
+
+          return `📚 INFORMATIONS TROUVÉES DANS LA BASE DE CONNAISSANCES (TRÈS IMPORTANT - UTILISE CES DONNÉES!):\n\n${contextParts.join("\n\n---\n\n")}`;
+        }
+        this.logger.log(`Vector search returned no results, falling back to keyword search`);
+      } catch (error) {
+        this.logger.warn(`Vector search failed, falling back to keyword search: ${error.message}`);
+      }
+
+      // Fallback: keyword-based search on full documents
       const searchTerms = userMessage
         .toLowerCase()
         .split(/[\s,.'?!]+/)
         .filter((term) => term.length > 2);
 
-      // Ajouter les mots-clés importants trouvés dans le message
-      const matchedImportantKeywords = importantKeywords.filter(kw =>
-        lowerMessage.includes(kw)
-      );
+      const allSearchTerms = [...new Set(searchTerms)];
 
-      // Combiner les termes de recherche
-      const allSearchTerms = [...new Set([...searchTerms, ...matchedImportantKeywords])];
-
-      this.logger.log(`Search terms: ${allSearchTerms.join(', ')}`);
+      this.logger.log(`Keyword search terms: ${allSearchTerms.join(', ')}`);
 
       // 🔴 REDIS CACHE: Vérifier si les documents sont en cache
       const cacheKey = `kb:docs:${knowledgeBase.id}`;
@@ -1092,13 +1111,6 @@ Always respond directly in the user's language without any formatting.`,
           const escapedTerm = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
           const contentMatches = (content.match(new RegExp(escapedTerm, 'gi')) || []).length;
           score += contentMatches * 2;
-        }
-
-        // Bonus pour les mots-clés importants
-        for (const kw of matchedImportantKeywords) {
-          if (content.includes(kw)) {
-            score += 5;
-          }
         }
 
         return { doc, score };

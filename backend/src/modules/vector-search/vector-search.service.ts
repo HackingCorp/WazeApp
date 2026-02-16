@@ -1,6 +1,6 @@
 import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
+import { Repository, In } from "typeorm";
 import { ConfigService } from "@nestjs/config";
 import { QdrantClient } from "@qdrant/js-client-rest";
 import {
@@ -74,27 +74,27 @@ export class VectorSearchService implements OnModuleInit {
   }
 
   private async detectEmbeddingProvider(): Promise<void> {
-    // Prefer OpenAI embeddings (most reliable)
-    if (this.openaiApiKey) {
-      this.embeddingProvider = 'openai';
-      this.logger.log('Using OpenAI text-embedding-3-small for embeddings');
-      return;
-    }
-
-    // Fallback to Ollama embeddings
+    // Prefer Ollama embeddings (free, open-source, local)
     try {
       const response = await fetch(`${this.ollamaBaseUrl}/api/tags`, { signal: AbortSignal.timeout(3000) });
       if (response.ok) {
         this.embeddingProvider = 'ollama';
-        this.logger.log('Using Ollama for embeddings (nomic-embed-text)');
+        this.logger.log('Using Ollama for embeddings (nomic-embed-text) - free/local');
         return;
       }
     } catch {
       // Ollama not available
     }
 
+    // Fallback to OpenAI embeddings (paid)
+    if (this.openaiApiKey) {
+      this.embeddingProvider = 'openai';
+      this.logger.log('Using OpenAI text-embedding-3-small for embeddings (Ollama not available)');
+      return;
+    }
+
     this.embeddingProvider = 'none';
-    this.logger.warn('No embedding provider available. Vector search will use text fallback only.');
+    this.logger.warn('No embedding provider available. Set up Ollama with nomic-embed-text or set OPENAI_API_KEY.');
   }
 
   async search(request: VectorSearchRequest): Promise<VectorSearchResult[]> {
@@ -408,36 +408,37 @@ export class VectorSearchService implements OnModuleInit {
     qdrantResults: any[],
     request: VectorSearchRequest,
   ): Promise<VectorSearchResult[]> {
+    if (qdrantResults.length === 0) return [];
+
+    // Batch fetch all chunks in a single query (avoids N+1)
+    const chunkIds = qdrantResults.map((r) => r.payload.chunkId);
+    const chunks = await this.chunkRepository.find({
+      where: { id: In(chunkIds) },
+      relations: ["document", "document.knowledgeBase"],
+    });
+
+    const chunkMap = new Map(chunks.map((c) => [c.id, c]));
     const results: VectorSearchResult[] = [];
 
     for (const result of qdrantResults) {
-      try {
-        // Get full chunk data from database
-        const chunk = await this.chunkRepository.findOne({
-          where: { id: result.payload.chunkId },
-          relations: ["document", "document.knowledgeBase"],
+      const chunk = chunkMap.get(result.payload.chunkId);
+      if (chunk && chunk.document) {
+        results.push({
+          chunk: request.includeContent
+            ? chunk
+            : ({ ...chunk, content: "" } as DocumentChunk),
+          score: result.score,
+          document: {
+            id: chunk.document.id,
+            title: chunk.document.title,
+            filename: chunk.document.filename,
+            type: chunk.document.type,
+          },
+          knowledgeBase: {
+            id: chunk.document.knowledgeBase.id,
+            name: chunk.document.knowledgeBase.name,
+          },
         });
-
-        if (chunk && chunk.document) {
-          results.push({
-            chunk: request.includeContent
-              ? chunk
-              : ({ ...chunk, content: "" } as DocumentChunk),
-            score: result.score,
-            document: {
-              id: chunk.document.id,
-              title: chunk.document.title,
-              filename: chunk.document.filename,
-              type: chunk.document.type,
-            },
-            knowledgeBase: {
-              id: chunk.document.knowledgeBase.id,
-              name: chunk.document.knowledgeBase.name,
-            },
-          });
-        }
-      } catch (error) {
-        this.logger.warn(`Failed to convert search result: ${error.message}`);
       }
     }
 
@@ -471,20 +472,20 @@ export class VectorSearchService implements OnModuleInit {
       );
     }
 
-    const chunks = await queryBuilder
+    const { entities, raw } = await queryBuilder
       .addSelect(
         "ts_rank(to_tsvector('simple', chunk.content), plainto_tsquery('simple', :query))",
         "score",
       )
       .orderBy("score", "DESC")
       .limit(request.limit || 10)
-      .getMany();
+      .getRawAndEntities();
 
-    return chunks.map((chunk) => ({
+    return entities.map((chunk, index) => ({
       chunk: request.includeContent
         ? chunk
         : ({ ...chunk, content: "" } as DocumentChunk),
-      score: 0.8, // Default score for text search
+      score: parseFloat(raw[index]?.score) || 0,
       document: {
         id: chunk.document.id,
         title: chunk.document.title,

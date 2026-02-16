@@ -37,6 +37,8 @@ export class LLMRouterService implements OnModuleInit {
     string,
     { requests: number; tokens: number; resetTime: number }
   >();
+  private healthCache = new Map<string, { status: string; checkedAt: number }>();
+  private readonly HEALTH_CACHE_TTL = 60000; // 1 minute
 
   constructor(
     @InjectRepository(LlmProvider)
@@ -374,15 +376,29 @@ export class LLMRouterService implements OnModuleInit {
       return adjustedPriorityA - adjustedPriorityB;
     });
 
-    // Select first healthy provider based on priority
+    // Select first healthy provider based on priority (using cached health status)
     for (const provider of sortedProviders) {
       try {
+        const name = provider.getName();
+        const cached = this.healthCache.get(name);
+        const now = Date.now();
+
+        if (cached && now - cached.checkedAt < this.HEALTH_CACHE_TTL) {
+          if (cached.status === "healthy") {
+            return provider;
+          }
+          continue;
+        }
+
         const health = await provider.checkHealth();
+        this.healthCache.set(name, { status: health.status, checkedAt: now });
+
         if (health.status === "healthy") {
-          this.logger.log(`Selected provider: ${provider.getName()} (${provider.getType()})`);
+          this.logger.log(`Selected provider: ${name} (${provider.getType()})`);
           return provider;
         }
       } catch (error) {
+        this.healthCache.set(provider.getName(), { status: "unhealthy", checkedAt: Date.now() });
         this.logger.warn(
           `Provider ${provider.getName()} health check failed: ${error.message}`,
         );
@@ -507,17 +523,19 @@ export class LLMRouterService implements OnModuleInit {
   }
 
   private startHealthChecks(): void {
-    // Run health checks every 5 minutes
+    // Run health checks every 5 minutes and update cache
     setInterval(async () => {
       for (const [name, provider] of this.providerInstances) {
         try {
           const health = await provider.checkHealth();
+          this.healthCache.set(name, { status: health.status, checkedAt: Date.now() });
           if (health.status !== "healthy") {
             this.logger.warn(
               `Provider ${name} is unhealthy: ${health.details?.message}`,
             );
           }
         } catch (error) {
+          this.healthCache.set(name, { status: "unhealthy", checkedAt: Date.now() });
           this.logger.error(
             `Health check failed for provider ${name}: ${error.message}`,
           );

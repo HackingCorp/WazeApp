@@ -218,7 +218,7 @@ export class DocumentProcessorService {
       .toFile(thumbnailPath);
 
     // OCR extraction
-    const worker = await createWorker("eng");
+    const worker = await createWorker("eng+fra");
     const {
       data: { text, confidence },
     } = await worker.recognize(document.filePath);
@@ -437,43 +437,91 @@ export class DocumentProcessorService {
         });
       }
     } else if (options.strategy === "recursive") {
-      // Implement recursive text splitting by sentences/paragraphs
-      const sentences = text.split(/[.!?]+/).filter((s) => s.trim().length > 0);
-      let currentChunk = "";
-      let currentStart = 0;
+      // Recursive text splitting: try separators in order of preference
+      const separators = ["\n\n", "\n", ". ", " "];
+      this.recursiveSplit(text, separators, options.chunkSize, options.overlap, chunks, 0);
+    }
 
-      for (const sentence of sentences) {
-        if (
-          currentChunk.length + sentence.length > options.chunkSize &&
-          currentChunk.length > 0
-        ) {
-          chunks.push({
-            content: currentChunk.trim(),
-            chunkOrder: chunks.length,
-            startPosition: currentStart,
-            endPosition: currentStart + currentChunk.length,
-          });
+    return chunks;
+  }
 
-          currentStart += currentChunk.length - options.overlap;
-          currentChunk =
-            currentChunk.substring(currentChunk.length - options.overlap) +
-            sentence;
-        } else {
-          currentChunk += sentence + ". ";
-        }
-      }
-
-      if (currentChunk.trim().length > 0) {
+  private recursiveSplit(
+    text: string,
+    separators: string[],
+    chunkSize: number,
+    overlap: number,
+    chunks: Array<{ content: string; chunkOrder: number; startPosition: number; endPosition: number }>,
+    globalOffset: number,
+  ): void {
+    if (text.length <= chunkSize) {
+      if (text.trim().length > 0) {
         chunks.push({
-          content: currentChunk.trim(),
+          content: text.trim(),
+          chunkOrder: chunks.length,
+          startPosition: globalOffset,
+          endPosition: globalOffset + text.length,
+        });
+      }
+      return;
+    }
+
+    // Find the best separator that produces splits
+    let bestSeparator = separators[separators.length - 1];
+    for (const sep of separators) {
+      if (text.includes(sep)) {
+        bestSeparator = sep;
+        break;
+      }
+    }
+
+    const parts = text.split(bestSeparator);
+    let currentChunk = "";
+    let currentStart = globalOffset;
+
+    for (let i = 0; i < parts.length; i++) {
+      const part = parts[i];
+      const withSep = i < parts.length - 1 ? part + bestSeparator : part;
+
+      if (currentChunk.length + withSep.length > chunkSize && currentChunk.length > 0) {
+        const trimmed = currentChunk.trim();
+        if (trimmed.length > 0) {
+          if (trimmed.length > chunkSize && separators.length > 1) {
+            // Chunk too large, recurse with next separator level
+            this.recursiveSplit(trimmed, separators.slice(1), chunkSize, overlap, chunks, currentStart);
+          } else {
+            chunks.push({
+              content: trimmed,
+              chunkOrder: chunks.length,
+              startPosition: currentStart,
+              endPosition: currentStart + currentChunk.length,
+            });
+          }
+        }
+        // Apply overlap: keep the tail of the previous chunk
+        const overlapText = currentChunk.length > overlap
+          ? currentChunk.substring(currentChunk.length - overlap)
+          : "";
+        currentStart += currentChunk.length - overlapText.length;
+        currentChunk = overlapText + withSep;
+      } else {
+        currentChunk += withSep;
+      }
+    }
+
+    // Flush remaining text
+    const trimmed = currentChunk.trim();
+    if (trimmed.length > 0) {
+      if (trimmed.length > chunkSize && separators.length > 1) {
+        this.recursiveSplit(trimmed, separators.slice(1), chunkSize, overlap, chunks, currentStart);
+      } else {
+        chunks.push({
+          content: trimmed,
           chunkOrder: chunks.length,
           startPosition: currentStart,
           endPosition: currentStart + currentChunk.length,
         });
       }
     }
-
-    return chunks;
   }
 
   private generateContentHash(content: string): string {

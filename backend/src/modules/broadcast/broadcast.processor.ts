@@ -58,7 +58,7 @@ export class BroadcastProcessor {
     this.apiUrl = this.configService.get('API_URL') || 'http://localhost:3100';
   }
 
-  @Process('send-message')
+  @Process({ name: 'send-message', concurrency: 5 })
   async handleSendMessage(job: Job<SendMessageJob>): Promise<void> {
     const { messageId, campaignId, organizationId } = job.data;
 

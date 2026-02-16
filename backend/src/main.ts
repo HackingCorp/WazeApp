@@ -15,8 +15,11 @@ import {
 import { BaileysService } from "./modules/whatsapp/baileys.service";
 
 async function bootstrap() {
+  const isProduction = process.env.NODE_ENV === "production";
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
-    logger: ["error", "warn", "log", "debug", "verbose"],
+    logger: isProduction
+      ? ["error", "warn", "log"]
+      : ["error", "warn", "log", "debug", "verbose"],
   });
 
   const configService = app.get(ConfigService);
@@ -113,26 +116,28 @@ async function bootstrap() {
   const apiPrefix = configService.get("API_PREFIX", "api/v1");
   app.setGlobalPrefix(apiPrefix);
 
-  // Swagger documentation
-  const config = new DocumentBuilder()
-    .setTitle("WazeApp API")
-    .setDescription("Production-ready WhatsApp AI Agents SaaS Platform API")
-    .setVersion("1.0")
-    .addBearerAuth()
-    .addTag("Authentication", "User authentication and authorization")
-    .addTag("Users", "User management")
-    .addTag("Organizations", "Organization and team management")
-    .addTag("Subscriptions", "Subscription and billing management")
-    .addTag("WhatsApp", "WhatsApp session and messaging")
-    .addTag("Health", "Health check endpoints")
-    .build();
+  // Swagger documentation (disabled in production)
+  if (!isProduction) {
+    const config = new DocumentBuilder()
+      .setTitle("WazeApp API")
+      .setDescription("Production-ready WhatsApp AI Agents SaaS Platform API")
+      .setVersion("1.0")
+      .addBearerAuth()
+      .addTag("Authentication", "User authentication and authorization")
+      .addTag("Users", "User management")
+      .addTag("Organizations", "Organization and team management")
+      .addTag("Subscriptions", "Subscription and billing management")
+      .addTag("WhatsApp", "WhatsApp session and messaging")
+      .addTag("Health", "Health check endpoints")
+      .build();
 
-  const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup(`${apiPrefix}/docs`, app, document, {
-    swaggerOptions: {
-      persistAuthorization: true,
-    },
-  });
+    const document = SwaggerModule.createDocument(app, config);
+    SwaggerModule.setup(`${apiPrefix}/docs`, app, document, {
+      swaggerOptions: {
+        persistAuthorization: true,
+      },
+    });
+  }
 
   // Setup graceful shutdown
   const baileysService = app.get(BaileysService);
@@ -170,9 +175,11 @@ async function bootstrap() {
   logger.log(
     `🚀 Application is running on: http://localhost:${port}/${apiPrefix}`,
   );
-  logger.log(
-    `📖 Swagger documentation: http://localhost:${port}/${apiPrefix}/docs`,
-  );
+  if (!isProduction) {
+    logger.log(
+      `📖 Swagger documentation: http://localhost:${port}/${apiPrefix}/docs`,
+    );
+  }
   logger.log(`🏥 Health check: http://localhost:${port}/${apiPrefix}/health`);
   logger.log(`🔄 WhatsApp sessions will auto-restore on startup`);
 }

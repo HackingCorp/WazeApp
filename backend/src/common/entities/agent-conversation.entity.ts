@@ -136,8 +136,6 @@ export class AgentConversation extends BaseEntity {
   @Column({ name: "userId", nullable: true })
   userId?: string;
 
-  @OneToMany(() => AgentMessage, (message) => message.conversation, {
-    cascade: true,
-  })
+  @OneToMany(() => AgentMessage, (message) => message.conversation)
   messages: AgentMessage[];
 }

@@ -240,7 +240,13 @@ export class WebhookController {
         .update(payload, "utf8")
         .digest("hex");
 
-    if (signature !== expectedSignature) {
+    if (
+      signature.length !== expectedSignature.length ||
+      !crypto.timingSafeEqual(
+        Buffer.from(signature),
+        Buffer.from(expectedSignature),
+      )
+    ) {
       throw new UnauthorizedException("Invalid webhook signature");
     }
   }

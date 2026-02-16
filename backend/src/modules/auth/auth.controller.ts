@@ -105,6 +105,7 @@ export class AuthController {
 
   @Public()
   @Post("verify-email")
+  @Throttle({ default: { limit: 5, ttl: 300000 } }) // 5 requests per 5 minutes - prevent token brute force
   @ApiOperation({ summary: "Verify email address" })
   @ApiResponse({ status: 200, description: "Email verified successfully" })
   async verifyEmail(@Body() dto: VerifyEmailDto): Promise<{ message: string }> {

@@ -41,6 +41,8 @@ import {
   DocumentSearchDto,
   DocumentStatsDto,
   CreateRichTextDocumentDto,
+  ScrapeUrlDto,
+  DeepCrawlUrlDto,
 } from "./dto/document.dto";
 
 @ApiTags("Knowledge Base - Documents")
@@ -132,7 +134,7 @@ export class DocumentController {
   @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: "Invalid URL or scraping failed" })
   async scrapeUrl(
     @CurrentUser() user: User,
-    @Body() body: { url: string; options?: any },
+    @Body() body: ScrapeUrlDto,
   ) {
     return this.documentService.scrapeUrlContent(body.url, body.options);
   }
@@ -147,17 +149,7 @@ export class DocumentController {
   @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: "Invalid URL or crawling failed" })
   async deepCrawlUrl(
     @CurrentUser() user: User,
-    @Body() body: { 
-      url: string; 
-      options?: {
-        maxPages?: number;
-        maxDepth?: number;
-        sameDomainOnly?: boolean;
-        excludePatterns?: string[];
-        includeImages?: boolean;
-        delay?: number;
-      }
-    },
+    @Body() body: DeepCrawlUrlDto,
   ) {
     return this.documentService.deepCrawlUrlContent(body.url, body.options);
   }

@@ -170,6 +170,35 @@ export class UpdateDocumentDto {
   metadata?: any;
 }
 
+export class ScrapeUrlDto {
+  @ApiProperty({ description: "URL to scrape" })
+  @IsUrl()
+  url: string;
+
+  @ApiPropertyOptional({ description: "Scraping options" })
+  @IsOptional()
+  @IsObject()
+  options?: Record<string, any>;
+}
+
+export class DeepCrawlUrlDto {
+  @ApiProperty({ description: "URL to deep crawl" })
+  @IsUrl()
+  url: string;
+
+  @ApiPropertyOptional({ description: "Crawl options" })
+  @IsOptional()
+  @IsObject()
+  options?: {
+    maxPages?: number;
+    maxDepth?: number;
+    sameDomainOnly?: boolean;
+    excludePatterns?: string[];
+    includeImages?: boolean;
+    delay?: number;
+  };
+}
+
 export class DocumentQueryDto {
   @ApiPropertyOptional({ description: "Search query" })
   @IsOptional()

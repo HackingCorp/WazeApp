@@ -8,22 +8,26 @@ import {
   ConnectedSocket,
   MessageBody,
 } from "@nestjs/websockets";
-import { Logger, UseGuards } from "@nestjs/common";
+import { Logger } from "@nestjs/common";
 import { Server, Socket } from "socket.io";
 import { JwtService } from "@nestjs/jwt";
-import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
 import { OnEvent, EventEmitter2 } from "@nestjs/event-emitter";
-import { User } from "@/common/entities";
 
 interface AuthenticatedSocket extends Socket {
   userId?: string;
-  user?: User;
 }
 
 @WebSocketGateway({
   cors: {
-    origin: process.env.FRONTEND_URL || "http://localhost:3002",
+    origin: [
+      process.env.FRONTEND_URL,
+      process.env.DASHBOARD_URL,
+      process.env.API_URL,
+      "http://localhost:3000",
+      "http://localhost:3100",
+      "http://localhost:3101",
+      "http://localhost:3102",
+    ].filter(Boolean),
     credentials: true,
   },
   namespace: "/whatsapp",
@@ -38,8 +42,6 @@ export class WhatsAppGateway
   private readonly connectedUsers = new Map<string, Set<string>>(); // userId -> socketIds
 
   constructor(
-    @InjectRepository(User)
-    private userRepository: Repository<User>,
     private jwtService: JwtService,
     private eventEmitter: EventEmitter2,
   ) {
@@ -66,34 +68,32 @@ export class WhatsAppGateway
       const payload = this.jwtService.verify(token, {
         secret: process.env.JWT_ACCESS_SECRET,
       });
-      const user = await this.userRepository.findOne({
-        where: { id: payload.sub },
-      });
 
-      if (!user) {
-        this.logger.warn("Connection rejected: User not found");
+      if (!payload.sub) {
+        this.logger.warn("Connection rejected: Invalid token payload");
         client.disconnect();
         return;
       }
 
-      // Set user information
-      client.userId = user.id;
-      client.user = user;
+      const userId = payload.sub;
+
+      // Set user information from JWT (avoid DB query on every connection)
+      client.userId = userId;
 
       // Track connection
-      if (!this.connectedUsers.has(user.id)) {
-        this.connectedUsers.set(user.id, new Set());
+      if (!this.connectedUsers.has(userId)) {
+        this.connectedUsers.set(userId, new Set());
       }
-      this.connectedUsers.get(user.id)!.add(client.id);
+      this.connectedUsers.get(userId)!.add(client.id);
 
       // Join user-specific room
-      client.join(`user:${user.id}`);
+      client.join(`user:${userId}`);
 
-      this.logger.log(`User ${user.email} connected (${client.id})`);
+      this.logger.log(`User ${payload.email || userId} connected (${client.id})`);
 
       // Send connection confirmation
       client.emit("connected", {
-        userId: user.id,
+        userId,
         timestamp: new Date(),
       });
     } catch (error) {
@@ -325,6 +325,7 @@ export class WhatsAppGateway
   @OnEvent("whatsapp.session.sync")
   async handleSessionSync(data: {
     sessionId: string;
+    userId?: string;
     status: "started" | "progress" | "completed" | "failed";
     totalChats?: number;
     syncedChats?: number;
@@ -332,12 +333,10 @@ export class WhatsAppGateway
     error?: string;
   }) {
     this.logger.log(
-      `📡 Broadcasting sync event: ${data.status} for session ${data.sessionId}`,
+      `📡 Sync event: ${data.status} for session ${data.sessionId}`,
     );
 
-    // Find users for this session
-    // For now, broadcast to all connected users (in production, you'd want to be more specific)
-    this.server.emit("whatsapp:sync-status", {
+    const syncPayload = {
       sessionId: data.sessionId,
       status: data.status,
       totalChats: data.totalChats,
@@ -345,7 +344,14 @@ export class WhatsAppGateway
       currentChat: data.currentChat,
       error: data.error,
       timestamp: new Date(),
-    });
+    };
+
+    if (data.userId) {
+      this.server.to(`user:${data.userId}`).emit("whatsapp:sync-status", syncPayload);
+    } else {
+      // Fallback: broadcast only if userId not available
+      this.server.emit("whatsapp:sync-status", syncPayload);
+    }
   }
 
   @OnEvent("broadcast.validation.progress")

@@ -26,8 +26,8 @@ COPY tsconfig*.json ./
 # Copy source code
 COPY src/ ./src/
 
-# Build with TypeScript compiler (more reliable for circular deps)
-RUN NODE_OPTIONS="--max-old-space-size=2048" npx nest build --builder tsc
+# Build with SWC (faster than tsc, configured in nest-cli.json)
+RUN NODE_OPTIONS="--max-old-space-size=2048" npx nest build
 
 # Stage 3: Production
 FROM node:20-alpine AS production

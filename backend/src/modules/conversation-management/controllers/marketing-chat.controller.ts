@@ -1,4 +1,5 @@
 import { Controller, Post, Body, HttpException, HttpStatus } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { Public } from '@/common/decorators/public.decorator';
 import { LLMRouterService } from '@/modules/llm-providers/llm-router.service';
 import { Logger } from '@nestjs/common';
@@ -31,6 +32,7 @@ export class MarketingChatController {
 
   @Public()
   @Post('chat')
+  @Throttle({ default: { limit: 10, ttl: 60000 } }) // 10 requests per minute per IP - prevent LLM cost abuse
   async sendMessage(@Body() chatRequest: MarketingChatRequest): Promise<MarketingChatResponse> {
     this.logger.log(`📢 MARKETING CHAT REQUEST RECEIVED: ${chatRequest.message.substring(0, 100)}...`);
     

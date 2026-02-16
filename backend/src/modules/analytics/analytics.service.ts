@@ -162,9 +162,9 @@ export class AnalyticsService {
         totalAgents: agents.length,
         activeAgents: connectedSessions.length,
         responseTime: responseTime,
-        satisfactionRate: 94.5, // TODO: Calculate from actual feedback
+        satisfactionRate: null, // Not yet tracked - requires feedback system
         messagesThisMonth: messages,
-        conversionRate: 12.8, // TODO: Calculate from actual conversions
+        conversionRate: null, // Not yet tracked - requires conversion events
       };
 
       // Get real agent statuses from AI Agents only (not WhatsApp sessions)
@@ -240,38 +240,84 @@ export class AnalyticsService {
   }
 
   async getOverview(organizationId: string, userId: string) {
-    return {
-      summary: {
-        totalAgents: 3,
-        activeAgents: 2,
-        totalConversations: 247,
-        todayConversations: 18,
-        totalMessages: 1854,
-        todayMessages: 127,
-        averageResponseTime: 1.2,
-        customerSatisfaction: 4.3,
-      },
-      recentActivity: [
-        {
-          time: "10:30 AM",
-          event: "New conversation started",
-          agent: "Customer Support Bot",
+    try {
+      const agentWhere = organizationId
+        ? [{ organizationId }, { createdBy: userId }]
+        : [{ createdBy: userId }];
+
+      const agents = await this.agentRepository.find({ where: agentWhere });
+      const agentIds = agents.map(a => a.id);
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const totalConversations = agentIds.length > 0
+        ? await this.conversationRepository.count({ where: agentIds.map(id => ({ agentId: id })) })
+        : 0;
+
+      const todayConversations = agentIds.length > 0
+        ? await this.conversationRepository.createQueryBuilder('c')
+            .where('c.agentId IN (:...agentIds)', { agentIds })
+            .andWhere('c.createdAt >= :today', { today })
+            .getCount()
+        : 0;
+
+      const totalMessages = agentIds.length > 0
+        ? await this.messageRepository.createQueryBuilder('m')
+            .innerJoin('m.conversation', 'c')
+            .where('c.agentId IN (:...agentIds)', { agentIds })
+            .getCount()
+        : 0;
+
+      const todayMessages = agentIds.length > 0
+        ? await this.messageRepository.createQueryBuilder('m')
+            .innerJoin('m.conversation', 'c')
+            .where('c.agentId IN (:...agentIds)', { agentIds })
+            .andWhere('m.createdAt >= :today', { today })
+            .getCount()
+        : 0;
+
+      // Recent activity from real messages
+      const recentMessages = agentIds.length > 0
+        ? await this.messageRepository.createQueryBuilder('m')
+            .innerJoinAndSelect('m.conversation', 'c')
+            .innerJoinAndSelect('c.agent', 'a')
+            .where('c.agentId IN (:...agentIds)', { agentIds })
+            .orderBy('m.createdAt', 'DESC')
+            .limit(5)
+            .getMany()
+        : [];
+
+      const recentActivity = recentMessages.map(m => ({
+        time: m.createdAt.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
+        event: m.role === 'user' ? 'Message received' : 'Response sent',
+        agent: m.conversation?.agent?.name || 'Unknown',
+      }));
+
+      return {
+        summary: {
+          totalAgents: agents.length,
+          activeAgents: agents.filter(a => a.status === 'active').length,
+          totalConversations,
+          todayConversations,
+          totalMessages,
+          todayMessages,
+          averageResponseTime: 0,
+          customerSatisfaction: null,
         },
-        { time: "10:15 AM", event: "Message sent", agent: "Sales Assistant" },
-        {
-          time: "09:45 AM",
-          event: "Conversation completed",
-          agent: "Technical Support",
-        },
-        {
-          time: "09:30 AM",
-          event: "Agent activated",
-          agent: "Customer Support Bot",
-        },
-      ],
-      organizationId,
-      generatedAt: new Date().toISOString(),
-    };
+        recentActivity,
+        organizationId,
+        generatedAt: new Date().toISOString(),
+      };
+    } catch (error) {
+      this.logger.error(`getOverview error: ${error.message}`);
+      return {
+        summary: { totalAgents: 0, activeAgents: 0, totalConversations: 0, todayConversations: 0, totalMessages: 0, todayMessages: 0, averageResponseTime: 0, customerSatisfaction: null },
+        recentActivity: [],
+        organizationId,
+        generatedAt: new Date().toISOString(),
+      };
+    }
   }
 
   async getAgentAnalytics(
@@ -279,43 +325,47 @@ export class AnalyticsService {
     userId: string,
     period?: string,
   ) {
-    return {
-      period: period || "7d",
-      agents: [
-        {
-          id: "1",
-          name: "Customer Support Bot",
-          status: "active",
-          conversations: 89,
-          messages: 634,
-          satisfaction: 4.5,
-          responseTime: 0.8,
-          resolutionRate: 92.1,
-        },
-        {
-          id: "2",
-          name: "Sales Assistant",
-          status: "active",
-          conversations: 76,
-          messages: 523,
-          satisfaction: 4.2,
-          responseTime: 1.1,
-          resolutionRate: 88.5,
-        },
-        {
-          id: "3",
-          name: "Technical Support",
-          status: "inactive",
-          conversations: 54,
-          messages: 367,
-          satisfaction: 4.3,
-          responseTime: 1.8,
-          resolutionRate: 85.2,
-        },
-      ],
-      organizationId,
-      generatedAt: new Date().toISOString(),
-    };
+    try {
+      const agentWhere = organizationId
+        ? [{ organizationId }, { createdBy: userId }]
+        : [{ createdBy: userId }];
+
+      const agents = await this.agentRepository.find({ where: agentWhere });
+      const dateFilter = this.getDateFilter(period || '7d');
+
+      const agentStats = await Promise.all(agents.map(async (agent) => {
+        const conversations = await this.conversationRepository.count({
+          where: { agentId: agent.id },
+        });
+
+        const messages = await this.messageRepository.createQueryBuilder('m')
+          .innerJoin('m.conversation', 'c')
+          .where('c.agentId = :agentId', { agentId: agent.id })
+          .andWhere('m.createdAt >= :dateFilter', { dateFilter })
+          .getCount();
+
+        return {
+          id: agent.id,
+          name: agent.name,
+          status: agent.status,
+          conversations,
+          messages,
+          satisfaction: null,
+          responseTime: 0,
+          resolutionRate: null,
+        };
+      }));
+
+      return {
+        period: period || "7d",
+        agents: agentStats,
+        organizationId,
+        generatedAt: new Date().toISOString(),
+      };
+    } catch (error) {
+      this.logger.error(`getAgentAnalytics error: ${error.message}`);
+      return { period: period || "7d", agents: [], organizationId, generatedAt: new Date().toISOString() };
+    }
   }
 
   async getConversationAnalytics(
@@ -323,28 +373,88 @@ export class AnalyticsService {
     userId: string,
     period?: string,
   ) {
-    return {
-      period: period || "7d",
-      totalConversations: 247,
-      completedConversations: 218,
-      averageDuration: 4.2, // minutes
-      conversionRate: 15.8,
-      channelBreakdown: {
-        whatsapp: 156,
-        web: 62,
-        api: 29,
-      },
-      hourlyDistribution: this.generateHourlyDistribution(),
-      conversationStages: {
-        greeting: 247,
-        inquiry: 198,
-        resolution: 156,
-        followUp: 89,
-        completed: 218,
-      },
-      organizationId,
-      generatedAt: new Date().toISOString(),
-    };
+    try {
+      const agentWhere = organizationId
+        ? [{ organizationId }, { createdBy: userId }]
+        : [{ createdBy: userId }];
+
+      const agents = await this.agentRepository.find({ where: agentWhere });
+      const agentIds = agents.map(a => a.id);
+      const dateFilter = this.getDateFilter(period || '7d');
+
+      if (agentIds.length === 0) {
+        return {
+          period: period || "7d",
+          totalConversations: 0, completedConversations: 0,
+          averageDuration: 0, conversionRate: null,
+          channelBreakdown: { whatsapp: 0, web: 0, api: 0 },
+          hourlyDistribution: [],
+          organizationId, generatedAt: new Date().toISOString(),
+        };
+      }
+
+      const totalConversations = await this.conversationRepository.createQueryBuilder('c')
+        .where('c.agentId IN (:...agentIds)', { agentIds })
+        .andWhere('c.createdAt >= :dateFilter', { dateFilter })
+        .getCount();
+
+      const completedConversations = await this.conversationRepository.createQueryBuilder('c')
+        .where('c.agentId IN (:...agentIds)', { agentIds })
+        .andWhere('c.createdAt >= :dateFilter', { dateFilter })
+        .andWhere('c.status = :status', { status: 'completed' })
+        .getCount();
+
+      // Real hourly distribution
+      const hourlyRaw = await this.conversationRepository.createQueryBuilder('c')
+        .select('EXTRACT(HOUR FROM c.createdAt)', 'hour')
+        .addSelect('COUNT(*)', 'count')
+        .where('c.agentId IN (:...agentIds)', { agentIds })
+        .andWhere('c.createdAt >= :dateFilter', { dateFilter })
+        .groupBy('EXTRACT(HOUR FROM c.createdAt)')
+        .getRawMany();
+
+      const hourlyMap = new Map(hourlyRaw.map(r => [parseInt(r.hour), parseInt(r.count)]));
+      const hourlyDistribution = Array.from({ length: 24 }, (_, i) => ({
+        hour: i,
+        conversations: hourlyMap.get(i) || 0,
+      }));
+
+      // Channel breakdown from real data
+      const channelRaw = await this.conversationRepository.createQueryBuilder('c')
+        .select('c.channel', 'channel')
+        .addSelect('COUNT(*)', 'count')
+        .where('c.agentId IN (:...agentIds)', { agentIds })
+        .andWhere('c.createdAt >= :dateFilter', { dateFilter })
+        .groupBy('c.channel')
+        .getRawMany();
+
+      const channelBreakdown = { whatsapp: 0, web: 0, api: 0 };
+      for (const row of channelRaw) {
+        const ch = (row.channel || '').toLowerCase();
+        if (ch in channelBreakdown) channelBreakdown[ch] = parseInt(row.count);
+        else channelBreakdown.whatsapp += parseInt(row.count); // default to whatsapp
+      }
+
+      return {
+        period: period || "7d",
+        totalConversations,
+        completedConversations,
+        averageDuration: 0,
+        conversionRate: null,
+        channelBreakdown,
+        hourlyDistribution,
+        organizationId,
+        generatedAt: new Date().toISOString(),
+      };
+    } catch (error) {
+      this.logger.error(`getConversationAnalytics error: ${error.message}`);
+      return {
+        period: period || "7d",
+        totalConversations: 0, completedConversations: 0, averageDuration: 0, conversionRate: null,
+        channelBreakdown: { whatsapp: 0, web: 0, api: 0 }, hourlyDistribution: [],
+        organizationId, generatedAt: new Date().toISOString(),
+      };
+    }
   }
 
   private getRelativeTime(date: Date): string {
@@ -361,34 +471,6 @@ export class AnalyticsService {
     return 'Just now';
   }
 
-  private generateMockTimeSeries(period: string) {
-    const days = period === "30d" ? 30 : period === "7d" ? 7 : 1;
-    const data = [];
-    const now = new Date();
-
-    for (let i = days - 1; i >= 0; i--) {
-      const date = new Date(now);
-      date.setDate(date.getDate() - i);
-      data.push({
-        date: date.toISOString().split("T")[0],
-        value: Math.floor(Math.random() * 50) + 10,
-      });
-    }
-
-    return data;
-  }
-
-  private generateHourlyDistribution() {
-    const hours = [];
-    for (let i = 0; i < 24; i++) {
-      hours.push({
-        hour: i,
-        conversations: Math.floor(Math.random() * 20) + 1,
-      });
-    }
-    return hours;
-  }
-
   private getDateFilter(period: string, startDate?: string, endDate?: string): Date {
     if (startDate && endDate) {
       return new Date(startDate);
@@ -400,7 +482,7 @@ export class AnalyticsService {
   }
 
   private calculateAverageResponseTime(messages: any[]): number {
-    if (messages.length === 0) return 1.2; // Default fallback
+    if (messages.length === 0) return 0;
 
     // Group messages by conversation and calculate response times
     const conversationMessages = new Map();
@@ -428,7 +510,7 @@ export class AnalyticsService {
       }
     });
 
-    if (responseTimes.length === 0) return 1.2;
+    if (responseTimes.length === 0) return 0;
     
     const average = responseTimes.reduce((sum, time) => sum + time, 0) / responseTimes.length;
     return Math.round(average * 10) / 10; // Round to 1 decimal
@@ -436,63 +518,56 @@ export class AnalyticsService {
 
   private async generateRealChartData(agents: any[], period: string) {
     const days = period === "30d" ? 30 : period === "7d" ? 7 : 1;
-    const chartData = [];
     const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     const agentIds = agents.map(agent => agent.id);
-    
+
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - (days - 1));
+    startDate.setHours(0, 0, 0, 0);
+
+    // Build date-indexed map for the period
+    const dateMap = new Map<string, { name: string; conversations: number; messages: number; responseTime: number }>();
     for (let i = days - 1; i >= 0; i--) {
-      const date = new Date();
-      date.setDate(date.getDate() - i);
-      date.setHours(0, 0, 0, 0);
-      
-      const nextDate = new Date(date);
-      nextDate.setDate(nextDate.getDate() + 1);
-
-      // Get conversations for this day
-      let dayConversationsQuery = this.conversationRepository.createQueryBuilder('conversation');
-      if (agentIds.length > 0) {
-        dayConversationsQuery = dayConversationsQuery
-          .where('conversation.agentId IN (:...agentIds)', { agentIds })
-          .andWhere('conversation.createdAt >= :date', { date })
-          .andWhere('conversation.createdAt < :nextDate', { nextDate });
-      } else {
-        dayConversationsQuery = dayConversationsQuery.where('1 = 0');
-      }
-      const dayConversations = await dayConversationsQuery.getCount();
-
-      // Get conversation IDs for this day
-      const dayConversationIds = agentIds.length > 0 
-        ? await dayConversationsQuery.select('conversation.id').getRawMany()
-            .then(results => results.map(r => r.conversation_id))
-        : [];
-
-      // Get messages for this day
-      let dayMessagesQuery = this.messageRepository.createQueryBuilder('message');
-      if (dayConversationIds.length > 0) {
-        dayMessagesQuery = dayMessagesQuery
-          .where('message.conversationId IN (:...dayConversationIds)', { dayConversationIds })
-          .andWhere('message.createdAt >= :date', { date })
-          .andWhere('message.createdAt < :nextDate', { nextDate });
-      } else {
-        dayMessagesQuery = dayMessagesQuery.where('1 = 0');
-      }
-      const dayMessages = await dayMessagesQuery.getCount();
-
-      // Get messages data for response time calculation
-      const dayMessagesData = dayConversationIds.length > 0 
-        ? await dayMessagesQuery.orderBy('message.createdAt', 'ASC').getMany()
-        : [];
-
-      const responseTime = this.calculateAverageResponseTime(dayMessagesData);
-      
-      chartData.push({
-        name: dayNames[date.getDay()],
-        conversations: dayConversations,
-        messages: dayMessages,
-        responseTime: responseTime
-      });
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      d.setHours(0, 0, 0, 0);
+      const key = d.toISOString().split('T')[0]; // YYYY-MM-DD
+      dateMap.set(key, { name: dayNames[d.getDay()], conversations: 0, messages: 0, responseTime: 0 });
     }
 
-    return chartData;
+    if (agentIds.length === 0) {
+      return Array.from(dateMap.values());
+    }
+
+    // Single aggregated query for conversations per day
+    const convByDay = await this.conversationRepository.createQueryBuilder('c')
+      .select("TO_CHAR(c.createdAt, 'YYYY-MM-DD')", 'day')
+      .addSelect('COUNT(*)', 'count')
+      .where('c.agentId IN (:...agentIds)', { agentIds })
+      .andWhere('c.createdAt >= :startDate', { startDate })
+      .groupBy("TO_CHAR(c.createdAt, 'YYYY-MM-DD')")
+      .getRawMany();
+
+    for (const row of convByDay) {
+      const entry = dateMap.get(row.day);
+      if (entry) entry.conversations = parseInt(row.count);
+    }
+
+    // Single aggregated query for messages per day (join through conversation)
+    const msgByDay = await this.messageRepository.createQueryBuilder('m')
+      .select("TO_CHAR(m.createdAt, 'YYYY-MM-DD')", 'day')
+      .addSelect('COUNT(*)', 'count')
+      .innerJoin('m.conversation', 'c')
+      .where('c.agentId IN (:...agentIds)', { agentIds })
+      .andWhere('m.createdAt >= :startDate', { startDate })
+      .groupBy("TO_CHAR(m.createdAt, 'YYYY-MM-DD')")
+      .getRawMany();
+
+    for (const row of msgByDay) {
+      const entry = dateMap.get(row.day);
+      if (entry) entry.messages = parseInt(row.count);
+    }
+
+    return Array.from(dateMap.values());
   }
 }

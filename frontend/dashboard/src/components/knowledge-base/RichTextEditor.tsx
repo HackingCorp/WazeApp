@@ -1,11 +1,12 @@
 'use client';
 
 import React, { useState, useRef } from 'react';
-import { 
-  Bold, 
-  Italic, 
-  Underline, 
-  List, 
+import DOMPurify from 'dompurify';
+import {
+  Bold,
+  Italic,
+  Underline,
+  List,
   ListOrdered,
   Link,
   Quote,
@@ -86,20 +87,20 @@ export function RichTextEditor({
   const execCommand = (command: string, value?: string) => {
     document.execCommand(command, false, value);
     if (editorRef.current) {
-      setContent(editorRef.current.innerHTML);
+      setContent(DOMPurify.sanitize(editorRef.current.innerHTML));
     }
   };
 
   const handleEditorChange = () => {
     if (editorRef.current) {
-      setContent(editorRef.current.innerHTML);
+      setContent(DOMPurify.sanitize(editorRef.current.innerHTML));
     }
   };
 
   const insertHTML = (html: string) => {
-    document.execCommand('insertHTML', false, html);
+    document.execCommand('insertHTML', false, DOMPurify.sanitize(html));
     if (editorRef.current) {
-      setContent(editorRef.current.innerHTML);
+      setContent(DOMPurify.sanitize(editorRef.current.innerHTML));
     }
   };
 

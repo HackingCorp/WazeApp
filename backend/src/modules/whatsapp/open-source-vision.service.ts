@@ -15,6 +15,8 @@ export interface OpenSourceVisionResult {
 export class OpenSourceVisionService {
   private readonly logger = new Logger(OpenSourceVisionService.name);
   private readonly ollamaBaseUrl: string;
+  private visionModelCache: { model: string | null; checkedAt: number } | null = null;
+  private readonly VISION_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
   constructor(private configService: ConfigService) {
     this.ollamaBaseUrl = this.configService.get('OLLAMA_BASE_URL', 'http://localhost:11434');
@@ -56,28 +58,42 @@ export class OpenSourceVisionService {
   /**
    * Analyser avec Ollama (LLaVA ou autres modèles vision)
    */
-  private async analyzeWithOllama(base64Image: string, prompt?: string): Promise<OpenSourceVisionResult | null> {
+  private async getAvailableVisionModel(): Promise<string | null> {
+    const now = Date.now();
+    if (this.visionModelCache && (now - this.visionModelCache.checkedAt) < this.VISION_CACHE_TTL) {
+      return this.visionModelCache.model;
+    }
+
     try {
-      // Vérifier si Ollama est disponible
       const healthResponse = await fetch(`${this.ollamaBaseUrl}/api/tags`, {
         method: 'GET',
-        signal: AbortSignal.timeout(5000)
+        signal: AbortSignal.timeout(5000),
       });
 
       if (!healthResponse.ok) {
-        throw new Error('Ollama not available');
+        this.visionModelCache = { model: null, checkedAt: now };
+        return null;
       }
 
       const models = await healthResponse.json();
-      
-      // Chercher un modèle de vision disponible
       const visionModels = ['llava:latest', 'llava:7b', 'llava:13b', 'bakllava:latest', 'moondream:latest'];
-      const availableModel = visionModels.find(model => 
+      const found = visionModels.find(model =>
         models.models?.some((m: any) => m.name === model)
-      );
+      ) || null;
+
+      this.visionModelCache = { model: found, checkedAt: now };
+      return found;
+    } catch {
+      this.visionModelCache = { model: null, checkedAt: now };
+      return null;
+    }
+  }
+
+  private async analyzeWithOllama(base64Image: string, prompt?: string): Promise<OpenSourceVisionResult | null> {
+    try {
+      const availableModel = await this.getAvailableVisionModel();
 
       if (!availableModel) {
-        this.logger.warn('No vision models available in Ollama');
         return null;
       }
 

@@ -68,6 +68,15 @@ export class AudioTranscriptionService {
       mimetype?: string;
     }
   ): Promise<AudioTranscriptionResult> {
+    const MAX_AUDIO_SIZE = 25 * 1024 * 1024; // 25MB (Groq/Whisper limit)
+    if (audioBuffer.length > MAX_AUDIO_SIZE) {
+      return {
+        success: false,
+        error: `Audio file too large (${(audioBuffer.length / 1024 / 1024).toFixed(1)}MB). Maximum is 25MB.`,
+        provider: 'none',
+      };
+    }
+
     let tempFilePath: string | null = null;
 
     try {

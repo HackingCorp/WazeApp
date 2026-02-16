@@ -30,6 +30,7 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
   const [isConnected, setIsConnected] = useState(false);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout>();
   const reconnectAttemptsRef = useRef(0);
+  const socketRef = useRef<Socket | null>(null);
   const maxReconnectAttempts = 5;
   const isRefreshingToken = useRef(false);
 
@@ -151,19 +152,21 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
         });
       });
 
+      socketRef.current = newSocket;
       setSocket(newSocket);
     };
 
     connectSocket();
 
     return () => {
-      if (socket) {
-        socket.disconnect();
+      if (socketRef.current) {
+        socketRef.current.removeAllListeners();
+        socketRef.current.disconnect();
+        socketRef.current = null;
       }
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current);
       }
-      // Reset refresh flag when cleaning up
       isRefreshingToken.current = false;
     };
   }, [user, token, refreshToken]);

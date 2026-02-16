@@ -46,7 +46,7 @@ import * as multer from "multer";
     MulterModule.register({
       storage: multer.memoryStorage(),
       limits: {
-        fileSize: 200 * 1024 * 1024, // 200MB max file size
+        fileSize: 50 * 1024 * 1024, // 50MB max file size
         files: 1,
       },
     }),

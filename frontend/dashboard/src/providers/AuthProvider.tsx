@@ -259,7 +259,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       setUser({
         ...userData,
-        role: 'owner', // Default role
+        role: userData.role || userData.currentOrganization?.role || 'member',
         organizationId: userData.currentOrganizationId || null,
         organization: planInfo.organization,
         preferences: {

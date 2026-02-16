@@ -755,22 +755,32 @@ export default function BroadcastPage() {
     clearCampaignMedia();
   };
 
-  // Handle campaign actions
+  // Handle campaign actions (with guard against double-clicks)
+  const campaignActionRef = useRef<Set<string>>(new Set());
+
   const handleStartCampaign = async (id: string) => {
+    if (campaignActionRef.current.has(id)) return;
+    campaignActionRef.current.add(id);
     try {
       await api.startBroadcastCampaign(id);
       await fetchCampaigns();
     } catch (error) {
       console.error('Failed to start campaign:', error);
+    } finally {
+      campaignActionRef.current.delete(id);
     }
   };
 
   const handlePauseCampaign = async (id: string) => {
+    if (campaignActionRef.current.has(id)) return;
+    campaignActionRef.current.add(id);
     try {
       await api.pauseBroadcastCampaign(id);
       await fetchCampaigns();
     } catch (error) {
       console.error('Failed to pause campaign:', error);
+    } finally {
+      campaignActionRef.current.delete(id);
     }
   };
 

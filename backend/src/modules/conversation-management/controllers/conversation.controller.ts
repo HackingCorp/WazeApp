@@ -103,6 +103,7 @@ export class ConversationController {
     @Query("status") status?: string,
     @Query("state") state?: ConversationState,
   ) {
+    limit = Math.min(Math.max(1, Number(limit) || 20), 100);
     const queryBuilder = this.conversationRepository
       .createQueryBuilder("conversation")
       .leftJoinAndSelect("conversation.agent", "agent");
@@ -239,6 +240,7 @@ export class ConversationController {
     @Query("page") page: number = 1,
     @Query("limit") limit: number = 50,
   ) {
+    limit = Math.min(Math.max(1, Number(limit) || 50), 200);
     // Verify conversation belongs to user's organization
     const conversation = await this.conversationRepository.findOne({
       where: {

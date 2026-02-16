@@ -61,6 +61,7 @@ export class WhatsAppGateway
       const token = this.extractTokenFromSocket(client);
       if (!token) {
         this.logger.warn("Connection rejected: No token provided");
+        client.emit("auth_error", { message: "No authentication token provided" });
         client.disconnect();
         return;
       }
@@ -71,6 +72,7 @@ export class WhatsAppGateway
 
       if (!payload.sub) {
         this.logger.warn("Connection rejected: Invalid token payload");
+        client.emit("auth_error", { message: "Invalid token payload" });
         client.disconnect();
         return;
       }
@@ -98,6 +100,7 @@ export class WhatsAppGateway
       });
     } catch (error) {
       this.logger.error(`Connection failed: ${error.message}`);
+      client.emit("auth_error", { message: "jwt authentication failed" });
       client.disconnect();
     }
   }

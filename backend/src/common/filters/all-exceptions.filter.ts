@@ -37,18 +37,22 @@ export class AllExceptionsFilter implements ExceptionFilter {
     }
 
     // Log error details
+    const errorType = exception instanceof Error ? exception.constructor.name : typeof exception;
+    const originalMessage = exception instanceof Error ? exception.message : String(exception);
     const errorInfo = {
       statusCode: status,
       timestamp: new Date().toISOString(),
       path: request.url,
       method: request.method,
       message,
+      errorType,
+      originalMessage,
       ...(errors && { errors }),
     };
 
     if (status >= 500) {
       this.logger.error(
-        `Server Error: ${JSON.stringify(errorInfo)}`,
+        `Server Error [${errorType}]: ${originalMessage} | ${request.method} ${request.url}`,
         exception instanceof Error ? exception.stack : "",
       );
     } else if (status >= 400) {

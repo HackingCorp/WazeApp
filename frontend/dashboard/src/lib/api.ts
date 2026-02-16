@@ -253,10 +253,10 @@ class ApiClient {
       };
     } catch (error) {
       console.error('Error fetching agents:', error);
-      // Return empty array on error
       return {
-        success: true,
-        data: []
+        success: false,
+        data: [],
+        error: error instanceof Error ? error.message : 'Failed to fetch agents',
       };
     }
   }

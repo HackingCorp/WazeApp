@@ -4,6 +4,7 @@ import axios from 'axios';
 import * as puppeteer from 'puppeteer';
 import { URL } from 'url';
 import * as net from 'net';
+import * as dns from 'dns/promises';
 
 export interface ScrapedContent {
   text: string;
@@ -51,7 +52,37 @@ export interface DeepCrawlResult {
 export class WebScrapingService {
   private readonly logger = new Logger(WebScrapingService.name);
 
-  private validateUrl(url: string): void {
+  private isPrivateIP(ip: string): boolean {
+    // IPv4 private ranges
+    if (net.isIPv4(ip)) {
+      const parts = ip.split('.').map(Number);
+      return (
+        parts[0] === 10 ||
+        parts[0] === 127 ||
+        parts[0] === 0 ||
+        (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31) ||
+        (parts[0] === 192 && parts[1] === 168) ||
+        (parts[0] === 169 && parts[1] === 254)
+      );
+    }
+    // IPv6 private ranges
+    if (net.isIPv6(ip)) {
+      const lower = ip.toLowerCase();
+      return (
+        lower === '::1' ||
+        lower.startsWith('fc') ||
+        lower.startsWith('fd') ||
+        lower.startsWith('fe80') ||
+        lower === '::' ||
+        lower.startsWith('::ffff:127.') ||
+        lower.startsWith('::ffff:10.') ||
+        lower.startsWith('::ffff:192.168.')
+      );
+    }
+    return false;
+  }
+
+  private async validateUrl(url: string): Promise<void> {
     let parsed: URL;
     try {
       parsed = new URL(url);
@@ -70,23 +101,32 @@ export class WebScrapingService {
       throw new BadRequestException('URLs pointing to localhost are not allowed');
     }
 
-    // Block private IP ranges
-    if (net.isIP(hostname)) {
-      const parts = hostname.split('.').map(Number);
-      if (
-        parts[0] === 10 ||
-        (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31) ||
-        (parts[0] === 192 && parts[1] === 168) ||
-        (parts[0] === 169 && parts[1] === 254) ||
-        hostname.startsWith('fc') || hostname.startsWith('fd') || hostname.startsWith('fe80')
-      ) {
-        throw new BadRequestException('URLs pointing to private networks are not allowed');
-      }
-    }
-
     // Block cloud metadata endpoints
     if (hostname === '169.254.169.254' || hostname === 'metadata.google.internal') {
       throw new BadRequestException('URLs pointing to cloud metadata services are not allowed');
+    }
+
+    // Block literal private IPs
+    if (net.isIP(hostname) && this.isPrivateIP(hostname)) {
+      throw new BadRequestException('URLs pointing to private networks are not allowed');
+    }
+
+    // DNS rebinding protection: resolve hostname and check resolved IPs
+    if (!net.isIP(hostname)) {
+      try {
+        const addresses = await dns.resolve4(hostname).catch(() => []);
+        const addresses6 = await dns.resolve6(hostname).catch(() => []);
+        const allAddresses = [...addresses, ...addresses6];
+
+        for (const addr of allAddresses) {
+          if (this.isPrivateIP(addr)) {
+            throw new BadRequestException('URL resolves to a private network address');
+          }
+        }
+      } catch (error) {
+        if (error instanceof BadRequestException) throw error;
+        // DNS resolution failed - allow the request (axios will fail anyway)
+      }
     }
   }
 
@@ -98,7 +138,7 @@ export class WebScrapingService {
     maxDepth?: number;
   }): Promise<ScrapedContent> {
     try {
-      this.validateUrl(url);
+      await this.validateUrl(url);
       this.logger.log(`Starting to scrape URL: ${url}`);
 
       // Fetch the page
@@ -111,7 +151,8 @@ export class WebScrapingService {
           'Connection': 'keep-alive',
         },
         timeout: 30000, // 30 seconds timeout
-        maxRedirects: 5,
+        maxRedirects: 3,
+        maxContentLength: 10 * 1024 * 1024, // 10MB max
       });
 
       const html = response.data;
@@ -399,7 +440,7 @@ export class WebScrapingService {
   }): Promise<ScrapedContent> {
     let browser = null;
     try {
-      this.validateUrl(url);
+      await this.validateUrl(url);
       this.logger.log(`Starting Puppeteer scrape for dynamic site: ${url}`);
       
       browser = await puppeteer.launch({
@@ -920,7 +961,7 @@ export class WebScrapingService {
       delay = 1000,
     } = options || {};
 
-    this.validateUrl(baseUrl);
+    await this.validateUrl(baseUrl);
     this.logger.log(`Starting deep crawl of ${baseUrl} - max pages: ${maxPages}, max depth: ${maxDepth}`);
 
     const baseDomain = new URL(baseUrl).hostname;

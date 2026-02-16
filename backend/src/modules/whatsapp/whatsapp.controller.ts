@@ -460,12 +460,15 @@ export class WhatsAppController {
   }
 
   @Post("test/simulate-message")
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.OWNER)
   @ApiOperation({ summary: "Simulate incoming WhatsApp message for testing" })
   @ApiResponse({ status: 200, description: "Message simulated successfully" })
   async simulateMessage(
     @Body() body: { phoneNumber: string; message: string },
     @CurrentUser() user: AuthenticatedRequest,
   ) {
+    this.ensureDebugMode();
     // Get user's first WhatsApp session
     const sessions = await this.whatsappService.findAll(
       {},
@@ -803,7 +806,7 @@ export class WhatsAppController {
   @ApiResponse({ status: 200, description: "Image download triggered" })
   async forceDownloadImages(
     @CurrentUser() user: AuthenticatedRequest,
-    @Param("sessionId") sessionId: string,
+    @Param("sessionId", ParseUUIDPipe) sessionId: string,
   ) {
     this.ensureDebugMode();
     if (!user?.userId) {
@@ -836,7 +839,7 @@ export class WhatsAppController {
   @ApiResponse({ status: 200, description: "Sync forced" })
   async forceSyncSession(
     @CurrentUser() user: AuthenticatedRequest,
-    @Param("sessionId") sessionId: string,
+    @Param("sessionId", ParseUUIDPipe) sessionId: string,
   ) {
     this.ensureDebugMode();
     if (!user?.userId) {
@@ -888,7 +891,7 @@ export class WhatsAppController {
   @ApiResponse({ status: 200, description: "Session reconnected" })
   async forceReconnectSession(
     @CurrentUser() user: AuthenticatedRequest,
-    @Param("sessionId") sessionId: string,
+    @Param("sessionId", ParseUUIDPipe) sessionId: string,
   ) {
     this.ensureDebugMode();
     if (!user?.userId) {
@@ -943,7 +946,7 @@ export class WhatsAppController {
   @ApiResponse({ status: 200, description: "Session reset and reconnected" })
   async forceResetReconnectSession(
     @CurrentUser() user: AuthenticatedRequest,
-    @Param("sessionId") sessionId: string,
+    @Param("sessionId", ParseUUIDPipe) sessionId: string,
   ) {
     this.ensureDebugMode();
     if (!user?.userId) {
@@ -992,7 +995,7 @@ export class WhatsAppController {
   @ApiResponse({ status: 200, description: "Duplicates cleaned up" })
   async cleanupDuplicates(
     @CurrentUser() user: AuthenticatedRequest,
-    @Param("userId") userId: string,
+    @Param("userId", ParseUUIDPipe) userId: string,
   ) {
     this.ensureDebugMode();
     if (!user?.userId) {
@@ -1216,7 +1219,7 @@ export class WhatsAppController {
   @ApiResponse({ status: 200, description: "Session forcefully logged out" })
   async forceLogoutSession(
     @CurrentUser() user: AuthenticatedRequest,
-    @Param("sessionId") sessionId: string,
+    @Param("sessionId", ParseUUIDPipe) sessionId: string,
   ) {
     this.ensureDebugMode();
     if (!user?.userId) {
@@ -1273,7 +1276,7 @@ export class WhatsAppController {
   @ApiResponse({ status: 200, description: "Connection test initiated" })
   async testConnectSession(
     @CurrentUser() user: AuthenticatedRequest,
-    @Param("sessionId") sessionId: string,
+    @Param("sessionId", ParseUUIDPipe) sessionId: string,
   ) {
     this.ensureDebugMode();
     if (!user?.userId) {
@@ -1326,7 +1329,7 @@ export class WhatsAppController {
   @ApiResponse({ status: 200, description: "Connection success simulated" })
   async simulateConnectionSuccess(
     @CurrentUser() user: AuthenticatedRequest,
-    @Param("sessionId") sessionId: string,
+    @Param("sessionId", ParseUUIDPipe) sessionId: string,
   ) {
     this.ensureDebugMode();
     if (!user?.userId) {
@@ -1547,9 +1550,12 @@ export class WhatsAppController {
   }
 
   @Post("vision/install/:model")
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.OWNER)
   @ApiOperation({ summary: "Install Ollama vision model" })
   @ApiResponse({ status: 200, description: "Model installation initiated" })
   async installVisionModel(@Param("model") model: string) {
+    this.ensureDebugMode();
     const success = await this.visionService.installOllamaVisionModel(model);
     return { 
       success, 
@@ -1888,6 +1894,7 @@ export class WhatsAppController {
   @Throttle({ default: { limit: 50, ttl: 60000 } })
   @ApiOperation({ summary: "Test DeepSeek integration" })
   async testDeepSeekIntegration(@Body() body: any): Promise<any> {
+    this.ensureDebugMode();
     try {
       // Test message pour DeepSeek
       const testMessage = body?.message || 'Hello DeepSeek! Can you respond to this test message for our WhatsApp bot?';

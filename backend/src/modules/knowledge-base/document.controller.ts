@@ -106,7 +106,9 @@ export class DocumentController {
   }
 
   @Post("upload-url")
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.OWNER, UserRole.ADMIN, UserRole.MEMBER)
+  @AllowIndividualUsers()
   @ApiOperation({ summary: "Upload document from URL" })
   @ApiResponse({
     status: HttpStatus.CREATED,
@@ -125,7 +127,9 @@ export class DocumentController {
   }
 
   @Post("scrape-url")
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.OWNER, UserRole.ADMIN, UserRole.MEMBER)
+  @AllowIndividualUsers()
   @ApiOperation({ summary: "Scrape URL content in real-time" })
   @ApiResponse({
     status: HttpStatus.OK,
@@ -140,7 +144,9 @@ export class DocumentController {
   }
 
   @Post("deep-crawl-url")
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.OWNER, UserRole.ADMIN, UserRole.MEMBER)
+  @AllowIndividualUsers()
   @ApiOperation({ summary: "Deep crawl website to get all pages content" })
   @ApiResponse({
     status: HttpStatus.OK,

@@ -306,9 +306,10 @@ export class AuthService {
       throw new BadRequestException("Invalid or expired reset token");
     }
 
-    // Update password and clear reset token
+    // Update password (hash manually since update() doesn't trigger @BeforeUpdate hooks)
+    const hashedPassword = await bcrypt.hash(dto.password, 12);
     await this.userRepository.update(user.id, {
-      password: dto.password,
+      password: hashedPassword,
       passwordResetToken: null,
       passwordResetExpires: null,
     });

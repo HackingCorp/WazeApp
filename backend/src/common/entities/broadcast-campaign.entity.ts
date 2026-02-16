@@ -31,6 +31,8 @@ export enum RecurrenceType {
 }
 
 @Entity('broadcast_campaigns')
+@Index('IDX_CAMPAIGN_ORG', ['organizationId'])
+@Index('IDX_CAMPAIGN_SESSION', ['sessionId'])
 export class BroadcastCampaign {
   @PrimaryGeneratedColumn('uuid')
   id: string;

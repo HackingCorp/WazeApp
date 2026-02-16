@@ -2,6 +2,7 @@
 
 import React, { useMemo, useState, useRef, useCallback } from 'react';
 import dynamic from 'next/dynamic';
+import DOMPurify from 'dompurify';
 import { 
   Bold, 
   Italic, 
@@ -242,7 +243,7 @@ export function RichTextEditor({
   const PreviewContent = () => (
     <div 
       className="prose prose-sm max-w-none dark:prose-invert p-6 min-h-[400px]"
-      dangerouslySetInnerHTML={{ __html: content }}
+      dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(content) }}
     />
   );
 

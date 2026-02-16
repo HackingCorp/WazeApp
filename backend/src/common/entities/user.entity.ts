@@ -19,6 +19,9 @@ import { WhatsAppSession } from "./whatsapp-session.entity";
 
 @Entity("users")
 @Index("IDX_USER_EMAIL", ["email"])
+@Index("IDX_USER_GOOGLE", ["googleId"])
+@Index("IDX_USER_MICROSOFT", ["microsoftId"])
+@Index("IDX_USER_FACEBOOK", ["facebookId"])
 export class User extends BaseEntity {
   @ApiProperty({ description: "User email address" })
   @Column({ unique: true })

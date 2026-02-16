@@ -11,7 +11,9 @@ import {
   ParseUUIDPipe,
   Headers,
   UnauthorizedException,
+  ForbiddenException,
 } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import { Throttle } from "@nestjs/throttler";
 import {
   ApiTags,
@@ -61,7 +63,14 @@ export class WhatsAppController {
     private whatsappGateway: WhatsAppGateway,
     private baileysService: BaileysService,
     private visionService: VisionService,
+    private configService: ConfigService,
   ) {}
+
+  private ensureDebugMode() {
+    if (this.configService.get("NODE_ENV") === "production") {
+      throw new ForbiddenException("Debug endpoints are disabled in production");
+    }
+  }
 
   @Post("sessions")
   @ApiOperation({ summary: "Create new WhatsApp session" })
@@ -500,6 +509,7 @@ export class WhatsAppController {
   @ApiOperation({ summary: "Check WebSocket connection status" })
   @ApiResponse({ status: 200, description: "WebSocket status retrieved" })
   async getWebSocketStatus(@CurrentUser() user: AuthenticatedRequest) {
+    this.ensureDebugMode();
     const connectedUsers = this.whatsappGateway.getConnectedUsers();
     const isUserOnline = this.whatsappGateway.isUserOnline(user.userId);
 
@@ -555,6 +565,7 @@ export class WhatsAppController {
   @ApiOperation({ summary: "Debug: Get active Baileys sessions (Admin only)" })
   @ApiResponse({ status: 200, description: "Active sessions retrieved" })
   async getActiveSessions(@CurrentUser() user: AuthenticatedRequest) {
+    this.ensureDebugMode();
     if (!user?.userId) {
       throw new UnauthorizedException("Authentication required");
     }
@@ -571,6 +582,7 @@ export class WhatsAppController {
   @ApiOperation({ summary: "Debug: Get all conversations (Admin only)" })
   @ApiResponse({ status: 200, description: "Conversations retrieved" })
   async getDebugConversations(@CurrentUser() user: AuthenticatedRequest) {
+    this.ensureDebugMode();
     if (!user?.userId) {
       throw new UnauthorizedException("Authentication required");
     }
@@ -614,6 +626,7 @@ export class WhatsAppController {
     @CurrentUser() user: AuthenticatedRequest,
     @Query("sessionId") sessionId?: string,
   ) {
+    this.ensureDebugMode();
     if (!user?.userId) {
       throw new UnauthorizedException("Authentication required");
     }
@@ -674,6 +687,7 @@ export class WhatsAppController {
   @ApiOperation({ summary: "Debug: Get current authenticated user" })
   @ApiResponse({ status: 200, description: "Current user retrieved" })
   async getCurrentUser(@CurrentUser() user: AuthenticatedRequest) {
+    this.ensureDebugMode();
     return {
       success: true,
       user: {
@@ -690,6 +704,7 @@ export class WhatsAppController {
   @ApiOperation({ summary: "Debug: Get all sessions from database (Admin only)" })
   @ApiResponse({ status: 200, description: "Sessions retrieved" })
   async getSessionsFromDB(@CurrentUser() user: AuthenticatedRequest) {
+    this.ensureDebugMode();
     if (!user?.userId) {
       throw new UnauthorizedException("Authentication required");
     }
@@ -720,6 +735,7 @@ export class WhatsAppController {
     @CurrentUser() user: AuthenticatedRequest,
     @Param("conversationId") conversationId: string,
   ) {
+    this.ensureDebugMode();
     if (!user?.userId) {
       throw new UnauthorizedException("Authentication required");
     }
@@ -754,6 +770,7 @@ export class WhatsAppController {
   })
   @ApiResponse({ status: 200, description: "Conversations persisted" })
   async persistMemoryConversations(@CurrentUser() user: AuthenticatedRequest) {
+    this.ensureDebugMode();
     if (!user?.userId) {
       throw new UnauthorizedException("Authentication required");
     }
@@ -788,6 +805,7 @@ export class WhatsAppController {
     @CurrentUser() user: AuthenticatedRequest,
     @Param("sessionId") sessionId: string,
   ) {
+    this.ensureDebugMode();
     if (!user?.userId) {
       throw new UnauthorizedException("Authentication required");
     }
@@ -820,6 +838,7 @@ export class WhatsAppController {
     @CurrentUser() user: AuthenticatedRequest,
     @Param("sessionId") sessionId: string,
   ) {
+    this.ensureDebugMode();
     if (!user?.userId) {
       throw new UnauthorizedException("Authentication required");
     }
@@ -871,6 +890,7 @@ export class WhatsAppController {
     @CurrentUser() user: AuthenticatedRequest,
     @Param("sessionId") sessionId: string,
   ) {
+    this.ensureDebugMode();
     if (!user?.userId) {
       throw new UnauthorizedException("Authentication required");
     }
@@ -925,6 +945,7 @@ export class WhatsAppController {
     @CurrentUser() user: AuthenticatedRequest,
     @Param("sessionId") sessionId: string,
   ) {
+    this.ensureDebugMode();
     if (!user?.userId) {
       throw new UnauthorizedException("Authentication required");
     }
@@ -973,6 +994,7 @@ export class WhatsAppController {
     @CurrentUser() user: AuthenticatedRequest,
     @Param("userId") userId: string,
   ) {
+    this.ensureDebugMode();
     if (!user?.userId) {
       throw new UnauthorizedException("Authentication required");
     }
@@ -1002,6 +1024,7 @@ export class WhatsAppController {
   })
   @ApiResponse({ status: 200, description: "All duplicates cleaned up" })
   async forceCleanupAllDuplicates(@CurrentUser() user: AuthenticatedRequest) {
+    this.ensureDebugMode();
     if (!user?.userId) {
       throw new UnauthorizedException("Authentication required");
     }
@@ -1121,6 +1144,7 @@ export class WhatsAppController {
       isGroup?: boolean;
     },
   ) {
+    this.ensureDebugMode();
     if (!user?.userId) {
       throw new UnauthorizedException("Authentication required");
     }
@@ -1194,6 +1218,7 @@ export class WhatsAppController {
     @CurrentUser() user: AuthenticatedRequest,
     @Param("sessionId") sessionId: string,
   ) {
+    this.ensureDebugMode();
     if (!user?.userId) {
       throw new UnauthorizedException("Authentication required");
     }
@@ -1250,6 +1275,7 @@ export class WhatsAppController {
     @CurrentUser() user: AuthenticatedRequest,
     @Param("sessionId") sessionId: string,
   ) {
+    this.ensureDebugMode();
     if (!user?.userId) {
       throw new UnauthorizedException("Authentication required");
     }
@@ -1302,6 +1328,7 @@ export class WhatsAppController {
     @CurrentUser() user: AuthenticatedRequest,
     @Param("sessionId") sessionId: string,
   ) {
+    this.ensureDebugMode();
     if (!user?.userId) {
       throw new UnauthorizedException("Authentication required");
     }
@@ -1351,6 +1378,7 @@ export class WhatsAppController {
     @CurrentUser() user: AuthenticatedRequest,
     @Param("id", ParseUUIDPipe) id: string,
   ): Promise<{ message: string; status: any }> {
+    this.ensureDebugMode();
     if (!user?.userId) {
       throw new UnauthorizedException("Authentication required");
     }
@@ -1400,6 +1428,7 @@ export class WhatsAppController {
     @CurrentUser() user: AuthenticatedRequest,
     @Param("id", ParseUUIDPipe) id: string,
   ): Promise<{ message: string; status: any }> {
+    this.ensureDebugMode();
     if (!user?.userId) {
       throw new UnauthorizedException("Authentication required");
     }
@@ -1449,6 +1478,7 @@ export class WhatsAppController {
     @CurrentUser() user: AuthenticatedRequest,
     @Param("id", ParseUUIDPipe) id: string,
   ): Promise<{ message: string; status: any; baileysInfo: any }> {
+    this.ensureDebugMode();
     if (!user?.userId) {
       throw new UnauthorizedException("Authentication required");
     }

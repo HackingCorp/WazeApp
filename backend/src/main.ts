@@ -40,7 +40,7 @@ async function bootstrap() {
         return callback(null, true);
       }
       // Check if origin is in allowed list
-      if (allowedOrigins.some(allowed => origin.startsWith(allowed))) {
+      if (allowedOrigins.includes(origin)) {
         return callback(null, true);
       }
       // Reject other origins

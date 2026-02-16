@@ -4,11 +4,19 @@ import * as fs from 'fs/promises';
 import * as fsSync from 'fs';
 import * as path from 'path';
 import * as crypto from 'crypto';
-import { exec } from 'child_process';
+import { exec, execFile } from 'child_process';
 import { promisify } from 'util';
 import Groq from 'groq-sdk';
 
 const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
+
+const ALLOWED_WHISPER_LANGUAGES = [
+  'auto', 'en', 'fr', 'de', 'es', 'it', 'pt', 'nl', 'pl', 'ru', 'zh', 'ja',
+  'ko', 'ar', 'tr', 'vi', 'th', 'id', 'ms', 'hi', 'bn', 'ta', 'te', 'ur',
+  'sw', 'uk', 'cs', 'ro', 'hu', 'el', 'bg', 'sr', 'hr', 'sk', 'sl', 'lt',
+  'lv', 'et', 'fi', 'da', 'no', 'sv', 'is', 'he', 'fa', 'af',
+];
 
 export interface AudioTranscriptionResult {
   success: boolean;
@@ -191,17 +199,17 @@ export class AudioTranscriptionService {
       const whisperCmd = this.configService.get('WHISPER_CPP_PATH', 'whisper');
       const modelPath = this.whisperModelPath;
 
-      let cmd = `${whisperCmd} -m "${modelPath}" -f "${audioPath}" --output-txt`;
+      const args = ['-m', modelPath, '-f', audioPath, '--output-txt'];
 
-      if (language) {
-        cmd += ` -l ${language}`;
+      if (language && ALLOWED_WHISPER_LANGUAGES.includes(language)) {
+        args.push('-l', language);
       }
 
-      cmd += ' --threads 4 --best-of 5 --beam-size 5';
+      args.push('--threads', '4', '--best-of', '5', '--beam-size', '5');
 
-      this.logger.debug(`Running whisper.cpp command: ${cmd}`);
+      this.logger.debug(`Running whisper.cpp command: ${whisperCmd} ${args.join(' ')}`);
 
-      const { stdout } = await execAsync(cmd, {
+      const { stdout } = await execFileAsync(whisperCmd, args, {
         timeout: 60000,
         maxBuffer: 1024 * 1024
       });
@@ -299,8 +307,7 @@ export class AudioTranscriptionService {
     const outputPath = inputPath.replace(/\.[^/.]+$/, '') + '.wav';
 
     try {
-      const ffmpegCmd = `ffmpeg -i "${inputPath}" -ar 16000 -ac 1 -c:a pcm_s16le "${outputPath}" -y`;
-      await execAsync(ffmpegCmd, { timeout: 30000 });
+      await execFileAsync('ffmpeg', ['-i', inputPath, '-ar', '16000', '-ac', '1', '-c:a', 'pcm_s16le', outputPath, '-y'], { timeout: 30000 });
 
       this.logger.debug(`Audio converted to WAV: ${outputPath}`);
       return outputPath;

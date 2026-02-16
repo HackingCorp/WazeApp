@@ -30,8 +30,6 @@
   "exclude": [
     "dashboard/**/*",
     "wazeapp-marketing/**/*",
-    "src/modules/conversation-management/**/*",
-    "src/modules/knowledge-base/**/*",
     "node_modules",
     "dist"
   ]

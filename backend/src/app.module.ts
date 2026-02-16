@@ -82,8 +82,8 @@ import { AppController } from "./app.controller";
           },
           password: configService.get("REDIS_PASSWORD"),
         }),
-        ttl: configService.get("REDIS_TTL", 3600) * 1000, // Convert to milliseconds
-        max: 100,
+        ttl: configService.get("REDIS_TTL", 3600), // TTL in seconds (cache-manager-redis-yet expects seconds)
+        max: 10000,
       }),
     }),
 

@@ -78,7 +78,7 @@ import {
           MessageCredit,
         ],
         synchronize:
-          configService.get("DATABASE_SYNCHRONIZE", "true") === "true",
+          configService.get("DATABASE_SYNCHRONIZE", "false") === "true",
         migrationsRun: true,
         logging: configService.get("NODE_ENV") === "development",
         ssl:

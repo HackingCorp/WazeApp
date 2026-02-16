@@ -64,7 +64,7 @@ export class WhatsAppGateway
       }
 
       const payload = this.jwtService.verify(token, {
-        secret: process.env.JWT_ACCESS_SECRET || "your-access-secret",
+        secret: process.env.JWT_ACCESS_SECRET,
       });
       const user = await this.userRepository.findOne({
         where: { id: payload.sub },

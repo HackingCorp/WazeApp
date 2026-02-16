@@ -15,6 +15,7 @@ import { UsageMetric } from "./usage-metric.entity";
 @Entity("subscriptions")
 @Index("IDX_SUBSCRIPTION_ORG", ["organizationId"])
 @Index("IDX_SUBSCRIPTION_STATUS", ["status"])
+@Index("IDX_SUBSCRIPTION_USER", ["userId"])
 export class Subscription extends BaseEntity {
   @ApiProperty({ description: "Subscription plan", enum: SubscriptionPlan })
   @Column({

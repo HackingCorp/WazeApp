@@ -1,7 +1,9 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import * as cheerio from 'cheerio';
 import axios from 'axios';
 import * as puppeteer from 'puppeteer';
+import { URL } from 'url';
+import * as net from 'net';
 
 export interface ScrapedContent {
   text: string;
@@ -49,6 +51,45 @@ export interface DeepCrawlResult {
 export class WebScrapingService {
   private readonly logger = new Logger(WebScrapingService.name);
 
+  private validateUrl(url: string): void {
+    let parsed: URL;
+    try {
+      parsed = new URL(url);
+    } catch {
+      throw new BadRequestException('Invalid URL format');
+    }
+
+    if (!['http:', 'https:'].includes(parsed.protocol)) {
+      throw new BadRequestException('Only HTTP and HTTPS protocols are allowed');
+    }
+
+    const hostname = parsed.hostname;
+
+    // Block localhost and loopback
+    if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1' || hostname === '0.0.0.0') {
+      throw new BadRequestException('URLs pointing to localhost are not allowed');
+    }
+
+    // Block private IP ranges
+    if (net.isIP(hostname)) {
+      const parts = hostname.split('.').map(Number);
+      if (
+        parts[0] === 10 ||
+        (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31) ||
+        (parts[0] === 192 && parts[1] === 168) ||
+        (parts[0] === 169 && parts[1] === 254) ||
+        hostname.startsWith('fc') || hostname.startsWith('fd') || hostname.startsWith('fe80')
+      ) {
+        throw new BadRequestException('URLs pointing to private networks are not allowed');
+      }
+    }
+
+    // Block cloud metadata endpoints
+    if (hostname === '169.254.169.254' || hostname === 'metadata.google.internal') {
+      throw new BadRequestException('URLs pointing to cloud metadata services are not allowed');
+    }
+  }
+
   async scrapeUrl(url: string, options?: {
     waitForSelector?: string;
     removeSelectors?: string[];
@@ -57,8 +98,9 @@ export class WebScrapingService {
     maxDepth?: number;
   }): Promise<ScrapedContent> {
     try {
+      this.validateUrl(url);
       this.logger.log(`Starting to scrape URL: ${url}`);
-      
+
       // Fetch the page
       const response = await axios.get(url, {
         headers: {
@@ -357,6 +399,7 @@ export class WebScrapingService {
   }): Promise<ScrapedContent> {
     let browser = null;
     try {
+      this.validateUrl(url);
       this.logger.log(`Starting Puppeteer scrape for dynamic site: ${url}`);
       
       browser = await puppeteer.launch({
@@ -371,7 +414,6 @@ export class WebScrapingService {
           '--disable-gpu',
           '--disable-extensions',
           '--disable-plugins',
-          '--disable-web-security',
           '--disable-features=VizDisplayCompositor',
           '--disable-ipc-flooding-protection',
           '--disable-renderer-backgrounding',
@@ -379,7 +421,6 @@ export class WebScrapingService {
           '--disable-field-trial-config',
           '--disable-hang-monitor',
           '--disable-component-extensions-with-background-pages',
-          '--allow-running-insecure-content',
           '--no-zygote'
         ],
         timeout: 60000,
@@ -879,6 +920,7 @@ export class WebScrapingService {
       delay = 1000,
     } = options || {};
 
+    this.validateUrl(baseUrl);
     this.logger.log(`Starting deep crawl of ${baseUrl} - max pages: ${maxPages}, max depth: ${maxDepth}`);
 
     const baseDomain = new URL(baseUrl).hostname;

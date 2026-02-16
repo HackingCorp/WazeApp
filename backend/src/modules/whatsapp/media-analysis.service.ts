@@ -749,13 +749,13 @@ export class MediaAnalysisService implements OnModuleInit {
     videoBuffer: Buffer,
     mimetype?: string
   ): Promise<string | null> {
-    const { exec } = require('child_process');
+    const { execFile } = require('child_process');
     const { promisify } = require('util');
     const fs = require('fs/promises');
     const path = require('path');
     const crypto = require('crypto');
 
-    const execAsync = promisify(exec);
+    const execFileAsync = promisify(execFile);
     const tempDir = path.join(process.cwd(), 'temp', 'video');
 
     try {
@@ -775,14 +775,12 @@ export class MediaAnalysisService implements OnModuleInit {
 
       // Extraire l'audio avec FFmpeg
       try {
-        const ffmpegCmd = `ffmpeg -i "${videoPath}" -vn -acodec libopus -b:a 64k "${audioPath}" -y`;
-        await execAsync(ffmpegCmd, { timeout: 60000 });
+        await execFileAsync('ffmpeg', ['-i', videoPath, '-vn', '-acodec', 'libopus', '-b:a', '64k', audioPath, '-y'], { timeout: 60000 });
         this.logger.log(`Audio extracted to: ${audioPath}`);
       } catch (ffmpegError) {
         // Essayer une autre méthode d'extraction
         try {
-          const altCmd = `ffmpeg -i "${videoPath}" -vn -acodec copy "${audioPath}" -y`;
-          await execAsync(altCmd, { timeout: 60000 });
+          await execFileAsync('ffmpeg', ['-i', videoPath, '-vn', '-acodec', 'copy', audioPath, '-y'], { timeout: 60000 });
         } catch {
           this.logger.warn(`FFmpeg audio extraction failed: ${ffmpegError.message}`);
           await this.cleanupFiles([videoPath]);

@@ -182,16 +182,10 @@ export function ConversationInterface({
                   src={mediaSource}
                   alt={message.mediaCaption || "Image"}
                   className="rounded-lg max-w-[280px] max-h-[300px] object-cover cursor-pointer hover:opacity-90 transition-opacity"
-                  onClick={() => window.open(mediaSource, '_blank')}
+                  onClick={() => window.open(mediaSource, '_blank', 'noopener,noreferrer')}
                   onError={(e) => {
-                    // Fallback if image fails to load
+                    // Fallback if image fails to load - hide broken image
                     (e.target as HTMLImageElement).style.display = 'none';
-                    (e.target as HTMLImageElement).parentElement!.innerHTML = `
-                      <div class="flex items-center gap-2 bg-black/10 rounded-lg p-3">
-                        <span class="text-2xl">🖼️</span>
-                        <span class="text-sm opacity-80">Image not available</span>
-                      </div>
-                    `;
                   }}
                 />
                 {message.mediaCaption && (

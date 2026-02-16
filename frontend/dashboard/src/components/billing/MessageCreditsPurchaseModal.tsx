@@ -189,6 +189,18 @@ export function MessageCreditsPurchaseModal({
               amount: amount,
               totalXaf: calculatedPrice.xaf,
             }));
+            // Validate payment URL against known payment providers
+            const ALLOWED_PAYMENT_HOSTS = ['pay.enkap.cm', 'enkap.cm', 'pay.s3pmaviance.com', 's3pmaviance.com'];
+            try {
+              const paymentHost = new URL(data.paymentUrl).hostname;
+              if (!ALLOWED_PAYMENT_HOSTS.some(h => paymentHost === h || paymentHost.endsWith('.' + h))) {
+                throw new Error('Unexpected payment redirect');
+              }
+            } catch {
+              setStatus('failed');
+              setError('URL de paiement invalide');
+              return;
+            }
             // Redirect to E-nkap payment page
             window.location.href = data.paymentUrl;
           } else {

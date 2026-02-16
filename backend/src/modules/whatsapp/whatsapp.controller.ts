@@ -789,7 +789,7 @@ export class WhatsAppController {
       return {
         success: false,
         message: error.message,
-        error: error.stack,
+        error: error.message,
       };
     }
   }
@@ -824,7 +824,7 @@ export class WhatsAppController {
       return {
         success: false,
         message: error.message,
-        error: error.stack,
+        error: error.message,
       };
     }
   }
@@ -873,7 +873,7 @@ export class WhatsAppController {
       return {
         success: false,
         message: error.message,
-        error: error.stack,
+        error: error.message,
       };
     }
   }
@@ -929,7 +929,7 @@ export class WhatsAppController {
       return {
         success: false,
         message: error.message,
-        error: error.stack,
+        error: error.message,
       };
     }
   }
@@ -980,7 +980,7 @@ export class WhatsAppController {
       return {
         success: false,
         message: error.message,
-        error: error.stack,
+        error: error.message,
       };
     }
   }
@@ -1011,7 +1011,7 @@ export class WhatsAppController {
       return {
         success: false,
         message: error.message,
-        error: error.stack,
+        error: error.message,
       };
     }
   }
@@ -1124,7 +1124,7 @@ export class WhatsAppController {
       return {
         success: false,
         message: error.message,
-        error: error.stack,
+        error: error.message,
       };
     }
   }
@@ -1201,7 +1201,7 @@ export class WhatsAppController {
       return {
         success: false,
         message: error.message,
-        error: error.stack,
+        error: error.message,
       };
     }
   }
@@ -1259,7 +1259,7 @@ export class WhatsAppController {
       return {
         success: false,
         message: error.message,
-        error: error.stack,
+        error: error.message,
       };
     }
   }
@@ -1311,7 +1311,7 @@ export class WhatsAppController {
       return {
         success: false,
         message: error.message,
-        error: error.stack,
+        error: error.message,
       };
     }
   }
@@ -1366,7 +1366,7 @@ export class WhatsAppController {
       return {
         success: false,
         message: error.message,
-        error: error.stack,
+        error: error.message,
       };
     }
   }
@@ -1601,11 +1601,12 @@ export class WhatsAppController {
   @Roles(UserRole.ADMIN, UserRole.OWNER)
   @ApiOperation({ summary: "Test Facebook link analysis like E-Market scenario" })
   @ApiResponse({ status: 200, description: "Facebook link test completed" })
-  async testFacebookLink(@Body() body: { 
-    sessionId: string; 
-    url: string; 
-    followUpMessage?: string 
+  async testFacebookLink(@Body() body: {
+    sessionId: string;
+    url: string;
+    followUpMessage?: string
   }) {
+    this.ensureDebugMode();
     try {
       // Simuler l'analyse du lien Facebook
       const mediaAnalysisService = this.visionService['mediaAnalysisService'] || 
@@ -1654,12 +1655,13 @@ export class WhatsAppController {
   @Roles(UserRole.ADMIN, UserRole.OWNER)
   @ApiOperation({ summary: "Test WhatsApp reply message context understanding" })
   @ApiResponse({ status: 200, description: "Reply message test completed" })
-  async testReplyMessage(@Body() body: { 
-    sessionId: string; 
+  async testReplyMessage(@Body() body: {
+    sessionId: string;
     originalMessage: string;
     originalType?: 'text' | 'image' | 'video' | 'document';
     replyText: string;
   }) {
+    this.ensureDebugMode();
     try {
       // Simuler un message de réponse WhatsApp avec contextInfo
       const mockReplyMessage = {

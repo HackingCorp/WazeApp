@@ -159,7 +159,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         setUser({
           ...userData,
-          role: 'owner', // Default role for users without organizations
+          role: userData.role || userData.currentOrganization?.role || 'member',
           organizationId: userData.currentOrganizationId || null,
           organization: planInfo.organization,
           preferences: {
@@ -201,7 +201,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 const planInfo = await getUserPlanInfo(userData);
                 setUser({
                   ...userData,
-                  role: 'owner',
+                  role: userData.role || userData.currentOrganization?.role || 'member',
                   organizationId: userData.currentOrganizationId || null,
                   organization: planInfo.organization,
                   preferences: {

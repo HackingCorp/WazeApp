@@ -302,7 +302,7 @@ export class KnowledgeBaseController {
       const result = await this.knowledgeBaseService.testSearchForAI(body.knowledgeBaseId, body.query);
       return result;
     } catch (error) {
-      return { error: error.message, stack: error.stack };
+      return { error: error.message };
     }
   }
 

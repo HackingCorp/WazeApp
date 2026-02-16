@@ -13,6 +13,7 @@ import {
   RawBodyRequest,
   Req,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { Request } from 'express';
 import * as crypto from 'crypto';
 import {
@@ -124,6 +125,7 @@ export class MobileMoneyController {
   }
 
   @Post('initiate')
+  @Throttle({ default: { limit: 5, ttl: 60000 } }) // 5 payment initiations per minute
   @ApiOperation({ summary: 'Initiate Mobile Money payment for subscription' })
   @ApiBody({ type: MobileMoneyPaymentDto })
   @ApiResponse({
@@ -199,8 +201,9 @@ export class MobileMoneyController {
 
     // If payment is successful, upgrade subscription
     if (paymentStatus.status === 'SUCCESS' || paymentStatus.status === 'SUCCESSFUL') {
-      const userId = verificationDto.userId || user?.id;
-      const organizationId = verificationDto.organizationId || user?.currentOrganizationId;
+      // SECURITY: Always use the authenticated user's ID, never trust caller-supplied userId
+      const userId = user?.id;
+      const organizationId = user?.currentOrganizationId;
       // Use plan from frontend request (not from S3P response which doesn't have it)
       const plan = verificationDto.plan;
       const amount = verificationDto.amount || paymentStatus.amount || 0;
@@ -703,10 +706,10 @@ export class MobileMoneyController {
         error: result.error,
       };
     } catch (error) {
+      this.logger.error(`E-nkap token test failed: ${error.message}`, error.stack);
       return {
         success: false,
         error: error.message,
-        stack: error.stack,
       };
     }
   }

@@ -18,11 +18,6 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3100/a
 
 // Fonction pour appeler l'API WazeApp AI avec support de langues
 async function getAIResponse(message: string, userLanguage: string = 'en'): Promise<string> {
-  // TEST TEMPORAIRE - Force un message de succès pour voir si le problème vient de l'API
-  if (message.toLowerCase().includes('test')) {
-    return "✅ TEST RÉUSSI ! L'API fonctionne parfaitement. Message reçu: " + message;
-  }
-  
   try {
     const response = await fetch(`${API_BASE_URL}/marketing/chat`, {
       method: 'POST',

@@ -6,6 +6,10 @@ import {
   IsArray,
   IsNumber,
   IsUrl,
+  IsBoolean,
+  Max,
+  Min,
+  ValidateNested,
 } from "class-validator";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { Type, Transform } from "class-transformer";
@@ -181,6 +185,48 @@ export class ScrapeUrlDto {
   options?: Record<string, any>;
 }
 
+export class DeepCrawlOptionsDto {
+  @ApiPropertyOptional({ description: "Maximum pages to crawl", default: 50 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  @Max(200)
+  maxPages?: number;
+
+  @ApiPropertyOptional({ description: "Maximum crawl depth", default: 3 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  @Max(5)
+  maxDepth?: number;
+
+  @ApiPropertyOptional({ description: "Only crawl same domain", default: true })
+  @IsOptional()
+  @IsBoolean()
+  sameDomainOnly?: boolean;
+
+  @ApiPropertyOptional({ description: "URL patterns to exclude" })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  excludePatterns?: string[];
+
+  @ApiPropertyOptional({ description: "Include images", default: false })
+  @IsOptional()
+  @IsBoolean()
+  includeImages?: boolean;
+
+  @ApiPropertyOptional({ description: "Delay between requests in ms", default: 1000 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(200)
+  @Max(10000)
+  delay?: number;
+}
+
 export class DeepCrawlUrlDto {
   @ApiProperty({ description: "URL to deep crawl" })
   @IsUrl()
@@ -188,15 +234,9 @@ export class DeepCrawlUrlDto {
 
   @ApiPropertyOptional({ description: "Crawl options" })
   @IsOptional()
-  @IsObject()
-  options?: {
-    maxPages?: number;
-    maxDepth?: number;
-    sameDomainOnly?: boolean;
-    excludePatterns?: string[];
-    includeImages?: boolean;
-    delay?: number;
-  };
+  @ValidateNested()
+  @Type(() => DeepCrawlOptionsDto)
+  options?: DeepCrawlOptionsDto;
 }
 
 export class DocumentQueryDto {

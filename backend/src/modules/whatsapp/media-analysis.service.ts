@@ -129,14 +129,44 @@ export class MediaAnalysisService implements OnModuleInit {
       let extractedText = "";
       let description = `Document reçu: ${filename}`;
 
+      // Skip text extraction if buffer is empty (download failed)
+      if (documentBuffer.length === 0) {
+        description = `Document reçu: ${filename} (contenu non téléchargé)`;
+        return {
+          type: 'document',
+          description,
+          extractedText: "",
+          filename,
+          metadata: { size: 0, mimetype },
+        };
+      }
+
       // Extraire le texte selon le type de document
       if (mimetype === 'application/pdf') {
-        // TODO: Intégrer pdf2text ou similar
-        description = `Document PDF reçu: ${filename}`;
+        try {
+          const pdfParse = require('pdf-parse');
+          const pdfData = await pdfParse(documentBuffer);
+          extractedText = pdfData.text || "";
+          description = `Document PDF: ${filename} (${pdfData.numpages} pages, ${extractedText.length} caractères extraits)`;
+          this.logger.log(`PDF text extracted: ${extractedText.length} chars from ${filename}`);
+        } catch (pdfError) {
+          this.logger.warn(`PDF text extraction failed: ${pdfError.message}`);
+          description = `Document PDF reçu: ${filename} (extraction de texte échouée)`;
+        }
       } else if (mimetype.includes('text/')) {
         // Fichier texte simple
         extractedText = documentBuffer.toString('utf-8');
         description = `Fichier texte reçu: ${filename}`;
+      } else if (mimetype.includes('word') || mimetype.includes('docx') || mimetype.includes('officedocument')) {
+        try {
+          const mammoth = require('mammoth');
+          const result = await mammoth.extractRawText({ buffer: documentBuffer });
+          extractedText = result.value || "";
+          description = `Document Word: ${filename} (${extractedText.length} caractères extraits)`;
+        } catch (docError) {
+          this.logger.warn(`DOCX text extraction failed: ${docError.message}`);
+          description = `Document Word reçu: ${filename}`;
+        }
       } else {
         description = `Document reçu: ${filename} (${mimetype})`;
       }
@@ -579,8 +609,30 @@ export class MediaAnalysisService implements OnModuleInit {
       // Document
       if (message.message?.documentMessage) {
         const docMsg = message.message.documentMessage;
+        let docBuffer = Buffer.from('');
+
+        // Download the actual document from WhatsApp
+        if (sock) {
+          try {
+            this.logger.log(`Downloading document: ${docMsg.fileName || 'document'}`);
+            const downloadedMedia = await downloadMediaMessage(
+              message,
+              'buffer',
+              {},
+              {
+                logger: this.logger as any,
+                reuploadRequest: sock.updateMediaMessage,
+              }
+            );
+            docBuffer = Buffer.from(downloadedMedia);
+            this.logger.log(`Document downloaded successfully: ${docBuffer.length} bytes`);
+          } catch (downloadError) {
+            this.logger.warn(`Failed to download document: ${downloadError.message}`);
+          }
+        }
+
         return this.analyzeDocument(
-          Buffer.from(''), // Placeholder
+          docBuffer,
           docMsg.fileName || 'document',
           docMsg.mimetype || 'application/octet-stream'
         );

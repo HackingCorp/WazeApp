@@ -277,14 +277,24 @@ export class DocumentProcessorService {
         .run();
     });
 
-    // Placeholder transcript (would integrate with Google Speech API or similar)
-    const transcript = "[Video transcript would be generated here]";
+    // Transcribe audio track using Groq Whisper API
+    let transcript = "";
+    let transcriptionConfidence = 0;
+    try {
+      transcript = await this.transcribeAudioFile(audioPath);
+      transcriptionConfidence = transcript ? 0.85 : 0;
+      if (transcript) {
+        this.logger.log(`Video audio transcribed: ${transcript.length} chars`);
+      }
+    } catch (error) {
+      this.logger.warn(`Video transcription failed: ${error.message}`);
+    }
 
     const metadata = {
       thumbnailUrl: thumbnailPath,
-      transcript,
+      transcript: transcript || `[Video: ${document.filename}]`,
       duration: await this.getVideoDuration(document.filePath),
-      confidence: 0.8,
+      confidence: transcriptionConfidence,
     };
 
     const chunks = transcript
@@ -305,17 +315,26 @@ export class DocumentProcessorService {
   private async processAudio(
     document: KnowledgeDocument,
   ): Promise<ProcessingResult> {
-    // Generate waveform visualization (placeholder)
     const waveformPath = document.filePath.replace(/\.[^.]+$/, "_waveform.png");
 
-    // Placeholder transcript (would integrate with Google Speech API or similar)
-    const transcript = "[Audio transcript would be generated here]";
+    // Transcribe audio using Groq Whisper API
+    let transcript = "";
+    let transcriptionConfidence = 0;
+    try {
+      transcript = await this.transcribeAudioFile(document.filePath);
+      transcriptionConfidence = transcript ? 0.85 : 0;
+      if (transcript) {
+        this.logger.log(`Audio transcribed: ${transcript.length} chars`);
+      }
+    } catch (error) {
+      this.logger.warn(`Audio transcription failed: ${error.message}`);
+    }
 
     const metadata = {
       waveformUrl: waveformPath,
-      transcript,
+      transcript: transcript || `[Audio: ${document.filename}]`,
       duration: await this.getAudioDuration(document.filePath),
-      confidence: 0.8,
+      confidence: transcriptionConfidence,
     };
 
     const chunks = transcript
@@ -484,5 +503,45 @@ export class DocumentProcessorService {
 
   private async getAudioDuration(filePath: string): Promise<number> {
     return this.getVideoDuration(filePath); // Same method works for audio
+  }
+
+  /**
+   * Transcribe an audio file using Groq Whisper API
+   */
+  private async transcribeAudioFile(audioFilePath: string): Promise<string> {
+    const groqApiKey = process.env.GROQ_API_KEY;
+    if (!groqApiKey) {
+      this.logger.warn('GROQ_API_KEY not set, skipping audio transcription');
+      return "";
+    }
+
+    const audioBuffer = await fs.readFile(audioFilePath);
+    if (audioBuffer.length === 0) {
+      return "";
+    }
+
+    // Use Groq Whisper API via native fetch FormData
+    const ext = path.extname(audioFilePath).replace('.', '') || 'wav';
+    const blob = new Blob([new Uint8Array(audioBuffer)], { type: `audio/${ext}` });
+    const formData = new globalThis.FormData();
+    formData.append('file', blob, `audio.${ext}`);
+    formData.append('model', 'whisper-large-v3');
+    formData.append('language', 'fr');
+
+    const response = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${groqApiKey}`,
+      },
+      body: formData,
+      signal: AbortSignal.timeout(60000),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Groq transcription API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data?.text || "";
   }
 }

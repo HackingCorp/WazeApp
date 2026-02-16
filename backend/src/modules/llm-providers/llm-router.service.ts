@@ -462,9 +462,7 @@ export class LLMRouterService implements OnModuleInit {
       }
     }
 
-    // Add minimum delay between requests (500ms) to avoid bursting
-    const minDelayMs = 500;
-    await new Promise(resolve => setTimeout(resolve, minDelayMs));
+    // Note: removed unconditional 500ms delay that was artificially limiting throughput
 
     rateLimiter.requests += 1;
     rateLimiter.tokens += estimatedTokens;

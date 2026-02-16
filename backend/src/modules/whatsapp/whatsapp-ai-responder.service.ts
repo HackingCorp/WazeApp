@@ -1089,7 +1089,8 @@ Always respond directly in the user's language without any formatting.`,
             score += 10;
           }
           // Score pour le contenu
-          const contentMatches = (content.match(new RegExp(term, 'gi')) || []).length;
+          const escapedTerm = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          const contentMatches = (content.match(new RegExp(escapedTerm, 'gi')) || []).length;
           score += contentMatches * 2;
         }
 
@@ -1106,31 +1107,55 @@ Always respond directly in the user's language without any formatting.`,
       .sort((a, b) => b.score - a.score)
       .slice(0, 5); // Top 5 documents les plus pertinents
 
+      // Token budget management: cap KB context to ~6000 tokens (~24000 chars)
+      const MAX_KB_CHARS = 24000;
+
       if (scoredDocuments.length === 0) {
-        // Si aucun document pertinent, retourner TOUT le contenu de la KB pour contexte général
-        this.logger.log(`No specific matches, returning all KB content for context`);
+        // No specific matches - include general KB content but within budget
+        this.logger.log(`No specific matches, returning KB content within token budget`);
 
-        const allContent = documents
-          .filter(doc => doc.content && doc.content.length > 50)
-          .map(doc => {
-            const content = doc.content || "";
-            // Envoyer le contenu COMPLET sans aucune limite
-            return `**${doc.title}**:\n${content}`;
-          });
+        let totalChars = 0;
+        const budgetedContent: string[] = [];
 
-        if (allContent.length > 0) {
-          return `📚 BASE DE CONNAISSANCES DISPONIBLE:\n\n${allContent.join("\n\n---\n\n")}\n\n⚠️ UTILISE CES INFORMATIONS POUR RÉPONDRE AU CLIENT!`;
+        for (const doc of documents.filter(d => d.content && d.content.length > 50)) {
+          const content = doc.content || "";
+          const entry = `**${doc.title}**:\n${content}`;
+          if (totalChars + entry.length > MAX_KB_CHARS) {
+            // Add truncated version if we have room
+            const remaining = MAX_KB_CHARS - totalChars;
+            if (remaining > 200) {
+              budgetedContent.push(`**${doc.title}**:\n${content.substring(0, remaining - 50)}...[tronqué]`);
+            }
+            break;
+          }
+          budgetedContent.push(entry);
+          totalChars += entry.length;
+        }
+
+        if (budgetedContent.length > 0) {
+          return `📚 BASE DE CONNAISSANCES DISPONIBLE:\n\n${budgetedContent.join("\n\n---\n\n")}\n\n⚠️ UTILISE CES INFORMATIONS POUR RÉPONDRE AU CLIENT!`;
         }
         return "";
       }
 
-      // Construire le contexte à partir des documents trouvés - ENVOYER LE CONTENU COMPLET
-      // AUCUNE LIMITE - l'IA doit avoir accès à 100% de la KB pour trouver toutes les infos
-      const contextParts = scoredDocuments.map(({ doc, score }) => {
+      // Build context from scored documents within token budget
+      let totalChars = 0;
+      const contextParts: string[] = [];
+
+      for (const { doc, score } of scoredDocuments) {
         const content = doc.content || "";
-        // Envoyer le contenu COMPLET sans aucune limite
-        return `**${doc.title}** (pertinence: ${score}):\n${content}`;
-      });
+        const entry = `**${doc.title}** (pertinence: ${score}):\n${content}`;
+
+        if (totalChars + entry.length > MAX_KB_CHARS) {
+          const remaining = MAX_KB_CHARS - totalChars;
+          if (remaining > 200) {
+            contextParts.push(`**${doc.title}** (pertinence: ${score}):\n${content.substring(0, remaining - 50)}...[tronqué]`);
+          }
+          break;
+        }
+        contextParts.push(entry);
+        totalChars += entry.length;
+      }
 
       const context = `📚 INFORMATIONS TROUVÉES DANS LA BASE DE CONNAISSANCES (TRÈS IMPORTANT - UTILISE CES DONNÉES!):\n\n${contextParts.join("\n\n---\n\n")}`;
 
@@ -1405,7 +1430,7 @@ EXEMPLES DE CONTEXTE:
    - Si le client a dit "CBM maritime", tu SAIS que c'est du maritime
 
 5. 📞 Si tu n'as PAS l'info dans la base de connaissances:
-   - Dis: "Pour le tarif exact, contactez-nous: Yaoundé +237 691 371 922 / Douala +237 694 562 409"
+   - Dis: "Pour le tarif exact, veuillez nous contacter directement."
    - NE DONNE PAS de prix approximatif inventé
 
 EXEMPLE DE RÉPONSE INCORRECTE (INTERDIT):
@@ -1419,7 +1444,7 @@ EXEMPLE DE RÉPONSE CORRECTE:
 
 ⚠️ ATTENTION: Aucune base de connaissances n'est disponible pour cette session.
 - NE DONNE PAS de prix spécifiques - tu ne les connais pas
-- Redirige le client vers les contacts: Yaoundé +237 691 371 922 / Douala +237 694 562 409
+- Invite le client à contacter l'entreprise directement pour obtenir des informations précises
 - Tu peux donner des informations générales sur les services, mais PAS de tarifs`;
       }
       if (webContext) {

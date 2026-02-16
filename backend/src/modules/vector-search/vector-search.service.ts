@@ -1,6 +1,7 @@
 import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
+import { ConfigService } from "@nestjs/config";
 import { QdrantClient } from "@qdrant/js-client-rest";
 import {
   DocumentChunk,
@@ -44,6 +45,9 @@ export class VectorSearchService implements OnModuleInit {
   private readonly logger = new Logger(VectorSearchService.name);
   private qdrantClient: QdrantClient;
   private isConnected = false;
+  private readonly openaiApiKey: string;
+  private readonly ollamaBaseUrl: string;
+  private embeddingProvider: 'openai' | 'ollama' | 'none' = 'none';
 
   constructor(
     @InjectRepository(DocumentChunk)
@@ -57,10 +61,40 @@ export class VectorSearchService implements OnModuleInit {
 
     @InjectRepository(UsageMetric)
     private readonly usageMetricRepository: Repository<UsageMetric>,
-  ) {}
+
+    private readonly configService: ConfigService,
+  ) {
+    this.openaiApiKey = this.configService.get('OPENAI_API_KEY') || '';
+    this.ollamaBaseUrl = this.configService.get('OLLAMA_BASE_URL') || 'http://localhost:11434';
+  }
 
   async onModuleInit() {
     await this.initializeQdrant();
+    await this.detectEmbeddingProvider();
+  }
+
+  private async detectEmbeddingProvider(): Promise<void> {
+    // Prefer OpenAI embeddings (most reliable)
+    if (this.openaiApiKey) {
+      this.embeddingProvider = 'openai';
+      this.logger.log('Using OpenAI text-embedding-3-small for embeddings');
+      return;
+    }
+
+    // Fallback to Ollama embeddings
+    try {
+      const response = await fetch(`${this.ollamaBaseUrl}/api/tags`, { signal: AbortSignal.timeout(3000) });
+      if (response.ok) {
+        this.embeddingProvider = 'ollama';
+        this.logger.log('Using Ollama for embeddings (nomic-embed-text)');
+        return;
+      }
+    } catch {
+      // Ollama not available
+    }
+
+    this.embeddingProvider = 'none';
+    this.logger.warn('No embedding provider available. Vector search will use text fallback only.');
   }
 
   async search(request: VectorSearchRequest): Promise<VectorSearchResult[]> {
@@ -422,7 +456,7 @@ export class VectorSearchService implements OnModuleInit {
         organizationId: request.organizationId,
       })
       .andWhere(
-        "to_tsvector('english', chunk.content) @@ plainto_tsquery('english', :query)",
+        "to_tsvector('simple', chunk.content) @@ plainto_tsquery('simple', :query)",
         {
           query: request.query,
         },
@@ -439,7 +473,7 @@ export class VectorSearchService implements OnModuleInit {
 
     const chunks = await queryBuilder
       .addSelect(
-        "ts_rank(to_tsvector('english', chunk.content), plainto_tsquery('english', :query))",
+        "ts_rank(to_tsvector('simple', chunk.content), plainto_tsquery('simple', :query))",
         "score",
       )
       .orderBy("score", "DESC")
@@ -467,19 +501,63 @@ export class VectorSearchService implements OnModuleInit {
   private async generateEmbedding(
     request: EmbeddingRequest,
   ): Promise<number[]> {
-    // This would integrate with a sentence transformer service
-    // For now, return a mock embedding of the right size
-    const mockEmbedding = new Array(384).fill(0).map(() => Math.random() - 0.5);
+    if (this.embeddingProvider === 'openai') {
+      return this.generateOpenAIEmbedding(request.text);
+    }
 
-    // In production, this would call something like:
-    // const response = await fetch('http://embedding-service:8000/embed', {
-    //   method: 'POST',
-    //   headers: { 'Content-Type': 'application/json' },
-    //   body: JSON.stringify(request),
-    // });
-    // return response.json().embedding;
+    if (this.embeddingProvider === 'ollama') {
+      return this.generateOllamaEmbedding(request.text);
+    }
 
-    return mockEmbedding;
+    throw new Error('No embedding provider configured. Set OPENAI_API_KEY or ensure Ollama is running.');
+  }
+
+  private async generateOpenAIEmbedding(text: string): Promise<number[]> {
+    const response = await fetch('https://api.openai.com/v1/embeddings', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${this.openaiApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'text-embedding-3-small',
+        input: text.substring(0, 8000), // Truncate to avoid token limits
+        dimensions: 384, // Match existing Qdrant collection size
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.text();
+      throw new Error(`OpenAI embedding API error: ${response.status} ${errorData}`);
+    }
+
+    const data = await response.json();
+    return data.data[0].embedding;
+  }
+
+  private async generateOllamaEmbedding(text: string): Promise<number[]> {
+    const response = await fetch(`${this.ollamaBaseUrl}/api/embeddings`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'nomic-embed-text',
+        prompt: text.substring(0, 8000),
+      }),
+      signal: AbortSignal.timeout(30000),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Ollama embedding error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const embedding = data.embedding;
+
+    // nomic-embed-text produces 768 dims, truncate to 384 if needed
+    if (embedding.length > 384) {
+      return embedding.slice(0, 384);
+    }
+    return embedding;
   }
 
   private async trackVectorSearchUsage(

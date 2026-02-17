@@ -785,14 +785,16 @@ export class DocumentService {
       ],
       [DocumentType.VIDEO]: [
         "video/mp4",
-        "video/avi",
-        "video/mov",
-        "video/mkv",
+        "video/x-msvideo",
+        "video/quicktime",
+        "video/x-matroska",
       ],
       [DocumentType.AUDIO]: [
+        "audio/mpeg",
         "audio/mp3",
         "audio/wav",
-        "audio/m4a",
+        "audio/x-m4a",
+        "audio/mp4",
         "audio/ogg",
       ],
     };

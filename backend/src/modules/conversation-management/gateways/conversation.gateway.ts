@@ -89,6 +89,7 @@ export class ConversationGateway
       // Authenticate user
       const token = this.extractTokenFromSocket(client);
       if (!token) {
+        client.emit("auth_error", { message: "No authentication token provided" });
         client.disconnect();
         return;
       }
@@ -99,6 +100,7 @@ export class ConversationGateway
       });
 
       if (!user) {
+        client.emit("auth_error", { message: "User not found" });
         client.disconnect();
         return;
       }
@@ -128,6 +130,7 @@ export class ConversationGateway
       this.logger.log(`User ${user.email} connected (${client.id})`);
     } catch (error) {
       this.logger.error(`Connection failed: ${error.message}`);
+      client.emit("auth_error", { message: "Authentication failed" });
       client.disconnect();
     }
   }

@@ -444,6 +444,9 @@ export class WhatsAppSessionMonitorService {
       // Check if this is a temporary disconnect that will auto-reconnect (428 = Connection Terminated by Server)
       const isTemporaryDisconnect = statusCode === 428;
 
+      // For permanent disconnects, clean up cache immediately after handling
+      const cleanupCacheAfter = isPermanentDisconnect;
+
       try {
         // Get the session from database
         const session = await this.sessionRepository.findOne({
@@ -540,6 +543,11 @@ export class WhatsAppSessionMonitorService {
           });
         } else {
           this.logger.log(`Skipping alert for session ${sessionId} - already sent or not previously connected`);
+        }
+
+        // Clean up cache for permanent disconnects to avoid stale entries
+        if (cleanupCacheAfter) {
+          this.sessionStatusCache.delete(sessionId);
         }
 
       } catch (error) {

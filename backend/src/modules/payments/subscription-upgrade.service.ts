@@ -7,6 +7,7 @@ import { InvoiceStatus } from '../../common/entities/invoice.entity';
 import { CurrencyService } from './currency.service';
 import { EmailService } from '../email/email.service';
 import { PlanService } from '../subscriptions/plan.service';
+import { QuotaEnforcementService } from '../subscriptions/quota-enforcement.service';
 
 export interface PaymentDetails {
   transactionId: string;
@@ -49,6 +50,7 @@ export class SubscriptionUpgradeService {
     private readonly emailService: EmailService,
     @Inject(forwardRef(() => PlanService))
     private readonly planService: PlanService,
+    private readonly quotaEnforcementService: QuotaEnforcementService,
   ) {}
 
   /**
@@ -172,6 +174,9 @@ export class SubscriptionUpgradeService {
       }
 
       await this.subscriptionRepository.save(subscription);
+
+      // Clear cached quota data so new limits take effect immediately
+      await this.quotaEnforcementService.clearUserCaches(userId);
 
       this.logger.log(`Subscription upgraded successfully: ${previousPlan} -> ${newPlan} for user ${userId}`);
 
@@ -441,6 +446,9 @@ export class SubscriptionUpgradeService {
 
       await this.subscriptionRepository.save(subscription);
 
+      // Clear cached quota data so new limits take effect immediately
+      await this.quotaEnforcementService.clearOrganizationCaches(organizationId);
+
       this.logger.log(`Subscription upgraded successfully: ${previousPlan} -> ${newPlan} for organization ${organizationId}`);
 
       // Create invoice for the payment (don't block the response)
@@ -505,6 +513,14 @@ export class SubscriptionUpgradeService {
       };
 
       await this.subscriptionRepository.save(subscription);
+
+      // Clear cached quota data so new limits take effect immediately
+      if (organizationId) {
+        await this.quotaEnforcementService.clearOrganizationCaches(organizationId);
+      }
+      if (userId) {
+        await this.quotaEnforcementService.clearUserCaches(userId);
+      }
 
       this.logger.log(`Subscription cancelled: ${previousPlan} -> FREE`);
 

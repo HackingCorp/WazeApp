@@ -499,7 +499,8 @@ export class SimpleConversationService implements OnModuleDestroy {
           userId: userId,
           channel: ConversationChannel.WHATSAPP,
         },
-        relations: ["messages"],
+        order: { updatedAt: "DESC" },
+        take: 100,
       });
 
       // Find matching conversation by normalizing the externalId
@@ -511,9 +512,16 @@ export class SimpleConversationService implements OnModuleDestroy {
       });
 
       if (dbConversation) {
+        // Get last message and unread count with targeted queries instead of loading all messages
+        const lastMessage = await this.messageRepository.findOne({
+          where: { conversationId: dbConversation.id },
+          order: { createdAt: "DESC" },
+        });
+        const unreadCount = await this.messageRepository.count({
+          where: { conversationId: dbConversation.id, status: MessageStatus.DELIVERED },
+        });
+
         // Convert to ConversationData format and cache in memory
-        const lastMessage =
-          dbConversation.messages?.[dbConversation.messages.length - 1];
         const conversationData: ConversationData = {
           id: dbConversation.id,
           phoneNumber: dbConversation.externalId || "Unknown",
@@ -523,10 +531,7 @@ export class SimpleConversationService implements OnModuleDestroy {
             "Unknown",
           lastMessage: lastMessage?.content || "",
           lastMessageTime: lastMessage?.createdAt || dbConversation.updatedAt,
-          unreadCount:
-            dbConversation.messages?.filter(
-              (m) => m.status === MessageStatus.DELIVERED,
-            ).length || 0,
+          unreadCount,
           isOnline: true, // Default to online for found conversations
           userId: dbConversation.userId || "",
           sessionId: dbConversation.context?.sessionId || "",
@@ -947,10 +952,11 @@ export class SimpleConversationService implements OnModuleDestroy {
         }
       }
 
-      // Get messages from database first
+      // Get messages from database (limited to last 500)
       const dbMessages = await this.messageRepository.find({
         where: { conversationId },
-        order: { createdAt: "ASC" }, // Oldest first
+        order: { createdAt: "ASC" },
+        take: 500,
       });
 
       // Convert database messages to MessageData format

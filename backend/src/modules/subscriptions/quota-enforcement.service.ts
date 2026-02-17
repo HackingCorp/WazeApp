@@ -372,35 +372,37 @@ export class QuotaEnforcementService {
   async consumeBonusCredit(organizationId: string): Promise<boolean> {
     const now = new Date();
 
-    // Find the oldest active credit with remaining balance (FIFO)
-    const credit = await this.messageCreditRepository.findOne({
-      where: {
-        organizationId,
-        status: MessageCreditStatus.ACTIVE,
-        expiresAt: MoreThan(now),
-      },
-      order: {
-        expiresAt: 'ASC',
-      },
+    // Use a transaction with pessimistic lock to prevent concurrent deductions
+    return this.messageCreditRepository.manager.transaction(async (em) => {
+      const credit = await em.findOne(
+        this.messageCreditRepository.target,
+        {
+          where: {
+            organizationId,
+            status: MessageCreditStatus.ACTIVE,
+            expiresAt: MoreThan(now),
+          },
+          order: { expiresAt: 'ASC' },
+          lock: { mode: 'pessimistic_write' },
+        },
+      );
+
+      if (!credit || credit.remaining <= 0) {
+        return false;
+      }
+
+      credit.remaining -= 1;
+      credit.used += 1;
+
+      if (credit.remaining <= 0) {
+        credit.status = MessageCreditStatus.EXHAUSTED;
+      }
+
+      await em.save(credit);
+      this.logger.debug(`Consumed 1 bonus credit for org ${organizationId}, ${credit.remaining} remaining in pack ${credit.id}`);
+
+      return true;
     });
-
-    if (!credit || credit.remaining <= 0) {
-      return false; // No bonus credits available
-    }
-
-    // Consume one credit
-    credit.remaining -= 1;
-    credit.used += 1;
-
-    // Mark as exhausted if no more remaining
-    if (credit.remaining <= 0) {
-      credit.status = MessageCreditStatus.EXHAUSTED;
-    }
-
-    await this.messageCreditRepository.save(credit);
-    this.logger.debug(`Consumed 1 bonus credit for org ${organizationId}, ${credit.remaining} remaining in pack ${credit.id}`);
-
-    return true;
   }
 
   /**
@@ -412,7 +414,16 @@ export class QuotaEnforcementService {
 
     const current = await this.getUserActualWhatsAppMessageCount(userId);
 
-    return this.buildQuotaCheck(current, limit, "monthly WhatsApp messages");
+    const quotaCheck = this.buildQuotaCheck(current, limit, "monthly WhatsApp messages");
+
+    // Add reset date from subscription
+    if (subscription.nextBillingDate) {
+      quotaCheck.resetDate = typeof subscription.nextBillingDate === 'string'
+        ? subscription.nextBillingDate
+        : subscription.nextBillingDate.toISOString();
+    }
+
+    return quotaCheck;
   }
 
   /**

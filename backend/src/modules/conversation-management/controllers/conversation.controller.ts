@@ -569,14 +569,17 @@ export class ConversationController {
   }
 
   /**
-   * Helper method to get next sequence number for messages
+   * Helper method to get next sequence number for messages (atomic)
    */
   private async getNextSequenceNumber(conversationId: string): Promise<number> {
-    const lastMessage = await this.messageRepository.findOne({
-      where: { conversationId },
-      order: { sequenceNumber: "DESC" },
+    const result = await this.messageRepository.manager.transaction(async (em) => {
+      const last = await em.findOne(AgentMessage, {
+        where: { conversationId },
+        order: { sequenceNumber: "DESC" },
+        lock: { mode: "pessimistic_write" },
+      });
+      return (last?.sequenceNumber || 0) + 1;
     });
-
-    return (lastMessage?.sequenceNumber || 0) + 1;
+    return result;
   }
 }

@@ -134,7 +134,7 @@ export class S3PService {
    */
   private generateAuthHeader(method: string, url: string, params: any = {}): string {
     const timestamp = Date.now();
-    const nonce = Date.now();
+    const nonce = randomBytes(16).toString('hex');
     const signatureMethod = 'HMAC-SHA1';
 
     const s3pParams = {
@@ -590,8 +590,8 @@ export class S3PService {
       this.logger.log(`Paiement initié - PTN: ${ptn}`);
       this.logger.log(`S3P Collect Response: ${JSON.stringify(collectResponse.data, null, 2)}`);
 
-      // ÉTAPE 4: Vérification après délai
-      await new Promise((resolve) => setTimeout(resolve, 15000)); // Attendre 15 secondes
+      // ÉTAPE 4: Vérification après court délai
+      await new Promise((resolve) => setTimeout(resolve, 3000)); // Attendre 3 secondes
 
       const verifyResponse = await this.verifyPayment(ptn, trid);
 

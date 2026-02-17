@@ -221,13 +221,10 @@ export class ResponseGenerationService {
     const knowledgeBases: KnowledgeBase[] = [];
     const sources: string[] = [];
 
-    // Get agent's knowledge bases
-    // TODO: Fix knowledge base query - need proper relation
-    const agentKnowledgeBases = await this.knowledgeBaseRepository.find({
-      where: {
-        status: KnowledgeBaseStatus.ACTIVE,
-      },
-    });
+    // Get agent's knowledge bases (filtered by agent's own relation loaded at line 146)
+    const agentKnowledgeBases = agent.knowledgeBases?.filter(
+      kb => kb.status === KnowledgeBaseStatus.ACTIVE
+    ) || [];
 
     for (const kb of agentKnowledgeBases) {
       knowledgeBases.push(kb);

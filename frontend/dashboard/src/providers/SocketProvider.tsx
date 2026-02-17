@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { useAuth } from './AuthProvider';
 import toast from 'react-hot-toast';
@@ -10,7 +10,7 @@ interface SocketContextType {
   isConnected: boolean;
   emit: (event: string, data: any) => void;
   subscribe: (event: string, callback: (data: any) => void) => () => void;
-  on: (event: string, callback: (data: any) => void) => void;
+  on: (event: string, callback: (data: any) => void) => () => void;
   off: (event: string, callback?: (data: any) => void) => void;
 }
 
@@ -122,13 +122,6 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
         });
       });
 
-      // WhatsApp specific events - handled by conversation components
-      newSocket.on('whatsapp:message', () => {});
-      newSocket.on('whatsapp:message-sent', () => {});
-      newSocket.on('whatsapp:session-status', () => {});
-      newSocket.on('whatsapp:typing', () => {});
-      newSocket.on('whatsapp:online-status', () => {});
-
       newSocket.on('agent:status', (data) => {
         if (data.status === 'offline') {
           toast.error(`Agent "${data.name}" is offline`, {
@@ -140,10 +133,6 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
           });
         }
       });
-
-      // Handled by specific components
-      newSocket.on('conversation:updated', () => {});
-      newSocket.on('analytics:updated', () => {});
 
       newSocket.on('notification', (data) => {
         toast(data.message, {
@@ -189,11 +178,13 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
     };
   };
 
-  const on = (event: string, callback: (data: any) => void) => {
+  const on = useCallback((event: string, callback: (...args: any[]) => void) => {
     if (socket) {
       socket.on(event, callback);
+      return () => { socket.off(event, callback); };
     }
-  };
+    return () => {};
+  }, [socket]);
 
   const off = (event: string, callback?: (data: any) => void) => {
     if (socket) {

@@ -46,25 +46,34 @@ import {
 import { ConversationStateService } from "../services/conversation-state.service";
 import { MessageProcessingService } from "../services/message-processing.service";
 import { ResponseGenerationService } from "../services/response-generation.service";
+import { IsString, IsNotEmpty, IsOptional, IsObject, IsArray, IsEnum, IsNumber } from "class-validator";
 
 class CreateConversationDto {
-  agentId: string;
-  phoneNumber: string;
-  initialMessage?: string;
-  metadata?: Record<string, any>;
+  @IsString() @IsNotEmpty() agentId: string;
+  @IsString() @IsNotEmpty() phoneNumber: string;
+  @IsOptional() @IsString() initialMessage?: string;
+  @IsOptional() @IsObject() metadata?: Record<string, any>;
 }
 
 class SendMessageDto {
-  content: string;
-  mediaUrls?: string[];
-  priority?: MessagePriority;
-  metadata?: Record<string, any>;
+  @IsString() @IsNotEmpty() content: string;
+  @IsOptional() @IsArray() mediaUrls?: string[];
+  @IsOptional() @IsEnum(MessagePriority) priority?: MessagePriority;
+  @IsOptional() @IsObject() metadata?: Record<string, any>;
 }
 
 class TransitionStateDto {
-  newState: ConversationState;
-  reason?: string;
-  metadata?: Record<string, any>;
+  @IsEnum(ConversationState) newState: ConversationState;
+  @IsOptional() @IsString() reason?: string;
+  @IsOptional() @IsObject() metadata?: Record<string, any>;
+}
+
+class UpdateContextDto {
+  @IsOptional() @IsObject() sessionData?: Partial<ConversationContext["sessionData"]>;
+  @IsOptional() @IsString() currentIntent?: string;
+  @IsOptional() @IsString() detectedLanguage?: string;
+  @IsOptional() @IsNumber() sentimentScore?: number;
+  @IsOptional() @IsNumber() unresolvedCount?: number;
 }
 
 @ApiTags("conversations")
@@ -430,7 +439,7 @@ export class ConversationController {
   async updateContext(
     @CurrentUser() user: User,
     @Param("id") id: string,
-    @Body() updates: Partial<ConversationContext>,
+    @Body() updates: UpdateContextDto,
   ) {
     // Verify conversation belongs to user's organization
     const conversation = await this.conversationRepository.findOne({

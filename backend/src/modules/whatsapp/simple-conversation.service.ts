@@ -699,17 +699,8 @@ export class SimpleConversationService implements OnModuleDestroy {
           channel: ConversationChannel.WHATSAPP,
           userId: userId,
         },
-        relations: ["messages"],
         order: { updatedAt: "DESC" },
-      });
-
-      // Sort messages by createdAt for each conversation to ensure proper order
-      dbConversations.forEach((conv) => {
-        if (conv.messages) {
-          conv.messages.sort(
-            (a, b) => a.createdAt.getTime() - b.createdAt.getTime(),
-          );
-        }
+        take: 100,
       });
 
       this.logger.log(
@@ -754,10 +745,42 @@ export class SimpleConversationService implements OnModuleDestroy {
         }
       }
 
+      // Get last messages and unread counts for all conversations with targeted queries
+      const convIds = dbConversations.map(c => c.id);
+
+      // Batch query: last message per conversation
+      const lastMessagesMap = new Map<string, AgentMessage>();
+      if (convIds.length > 0) {
+        const lastMessages = await this.messageRepository
+          .createQueryBuilder('m')
+          .where('m.conversationId IN (:...convIds)', { convIds })
+          .andWhere('m.id = (SELECT m2.id FROM agent_message m2 WHERE m2."conversationId" = m."conversationId" ORDER BY m2."createdAt" DESC LIMIT 1)')
+          .getMany();
+        for (const msg of lastMessages) {
+          lastMessagesMap.set(msg.conversationId, msg);
+        }
+      }
+
+      // Batch query: unread count per conversation
+      const unreadCountsMap = new Map<string, number>();
+      if (convIds.length > 0) {
+        const unreadCounts = await this.messageRepository
+          .createQueryBuilder('m')
+          .select('m.conversationId', 'conversationId')
+          .addSelect('COUNT(*)', 'count')
+          .where('m.conversationId IN (:...convIds)', { convIds })
+          .andWhere('m.status = :status', { status: MessageStatus.DELIVERED })
+          .groupBy('m.conversationId')
+          .getRawMany();
+        for (const row of unreadCounts) {
+          unreadCountsMap.set(row.conversationId, parseInt(row.count));
+        }
+      }
+
       // Convert to ConversationData format and filter by sessionId if provided
       let persistedConversations: ConversationData[] = dbConversations.map(
         (dbConv) => {
-          const lastMessage = dbConv.messages?.[dbConv.messages.length - 1];
+          const lastMessage = lastMessagesMap.get(dbConv.id);
 
           // Get phone number from externalId or context
           let rawPhone =
@@ -816,10 +839,7 @@ export class SimpleConversationService implements OnModuleDestroy {
             name: displayName,
             lastMessage: lastMessage?.content || "",
             lastMessageTime: lastMessage?.createdAt || dbConv.updatedAt,
-            unreadCount:
-              dbConv.messages?.filter(
-                (m) => m.status === MessageStatus.DELIVERED,
-              ).length || 0,
+            unreadCount: unreadCountsMap.get(dbConv.id) || 0,
             isOnline: false, // Default to offline for historical conversations
             userId: dbConv.userId || "",
             sessionId: dbConv.context?.sessionId || "",
@@ -1152,13 +1172,42 @@ export class SimpleConversationService implements OnModuleDestroy {
       // Load conversations from AgentConversation table
       const persistedConversations = await this.conversationRepository.find({
         where: { channel: ConversationChannel.WHATSAPP },
-        relations: ["messages"],
         order: { updatedAt: "DESC" },
+        take: 500,
       });
 
+      // Batch query: get last message per conversation
+      const convIds = persistedConversations.map(c => c.id);
+      const lastMessagesMap = new Map<string, AgentMessage>();
+      if (convIds.length > 0) {
+        const lastMessages = await this.messageRepository
+          .createQueryBuilder('m')
+          .where('m.conversationId IN (:...convIds)', { convIds })
+          .andWhere('m.id = (SELECT m2.id FROM agent_message m2 WHERE m2."conversationId" = m."conversationId" ORDER BY m2."createdAt" DESC LIMIT 1)')
+          .getMany();
+        for (const msg of lastMessages) {
+          lastMessagesMap.set(msg.conversationId, msg);
+        }
+      }
+
+      // Batch query: unread count per conversation
+      const unreadCountsMap = new Map<string, number>();
+      if (convIds.length > 0) {
+        const unreadCounts = await this.messageRepository
+          .createQueryBuilder('m')
+          .select('m.conversationId', 'conversationId')
+          .addSelect('COUNT(*)', 'count')
+          .where('m.conversationId IN (:...convIds)', { convIds })
+          .andWhere('m.status = :status', { status: MessageStatus.DELIVERED })
+          .groupBy('m.conversationId')
+          .getRawMany();
+        for (const row of unreadCounts) {
+          unreadCountsMap.set(row.conversationId, parseInt(row.count));
+        }
+      }
+
       for (const dbConversation of persistedConversations) {
-        const lastMessage =
-          dbConversation.messages?.[dbConversation.messages.length - 1];
+        const lastMessage = lastMessagesMap.get(dbConversation.id);
         const normalizedPhone = this.normalizePhoneNumber(
           dbConversation.externalId || "",
         );
@@ -1182,51 +1231,13 @@ export class SimpleConversationService implements OnModuleDestroy {
           name: displayName,
           lastMessage: lastMessage?.content || "",
           lastMessageTime: lastMessage?.createdAt || dbConversation.updatedAt,
-          unreadCount:
-            dbConversation.messages?.filter(
-              (m) => m.status === MessageStatus.DELIVERED,
-            ).length || 0,
+          unreadCount: unreadCountsMap.get(dbConversation.id) || 0,
           isOnline: true, // Default to online
           userId: dbConversation.userId || "",
           sessionId: dbConversation.context?.sessionId || "",
         };
 
         this.conversations.set(conversationData.id, conversationData);
-
-        // Load messages for this conversation
-        const messages: MessageData[] = (dbConversation.messages || []).map(
-          (dbMessage) => {
-            // Determine sender based on role and metadata/externalMessageId
-            let sender: "user" | "agent" | "client";
-            if (dbMessage.role === MessageRole.AGENT) {
-              sender = "agent";
-            } else if (dbMessage.role === MessageRole.USER) {
-              // Check if message comes from WhatsApp (has external ID or specific metadata)
-              if (
-                dbMessage.externalMessageId ||
-                (dbMessage.metadata as any)?.fromWhatsApp ||
-                (dbMessage.metadata as any)?.originalSender === "client"
-              ) {
-                sender = "client"; // Message from WhatsApp client
-              } else {
-                sender = "user"; // Message from web interface
-              }
-            } else {
-              sender = "user"; // Default fallback
-            }
-
-            return {
-              id: dbMessage.id,
-              content: dbMessage.content,
-              timestamp: dbMessage.createdAt,
-              sender,
-              type: "text", // Default to text
-              status: this.mapMessageStatus(dbMessage.status),
-            };
-          },
-        );
-
-        this.messages.set(conversationData.id, messages);
       }
 
       this.logger.log(
@@ -1561,7 +1572,6 @@ export class SimpleConversationService implements OnModuleDestroy {
           userId: userId,
           channel: ConversationChannel.WHATSAPP,
         },
-        relations: ["messages"],
         order: { createdAt: "ASC" }, // Oldest first
       });
 
@@ -1590,16 +1600,13 @@ export class SimpleConversationService implements OnModuleDestroy {
           const conversationToKeep = conversations[0];
           const conversationsToDelete = conversations.slice(1);
 
-          // Move messages from duplicate conversations to the main one
+          // Move messages from duplicate conversations to the main one using bulk update
           for (const duplicateConv of conversationsToDelete) {
-            if (duplicateConv.messages && duplicateConv.messages.length > 0) {
-              // Update messages to point to the conversation we're keeping
-              for (const message of duplicateConv.messages) {
-                await this.messageRepository.update(message.id, {
-                  conversationId: conversationToKeep.id,
-                });
-              }
-            }
+            await this.messageRepository.createQueryBuilder()
+              .update(AgentMessage)
+              .set({ conversationId: conversationToKeep.id })
+              .where("conversationId = :dupId", { dupId: duplicateConv.id })
+              .execute();
 
             // Delete the duplicate conversation
             await this.conversationRepository.remove(duplicateConv);

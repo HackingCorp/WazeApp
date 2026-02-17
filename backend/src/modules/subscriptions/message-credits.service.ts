@@ -152,35 +152,53 @@ export class MessageCreditsService {
   /**
    * Consume bonus credits (call this BEFORE using subscription quota)
    * Returns the number of messages consumed from bonus credits
+   * Uses a transaction with pessimistic write lock to prevent concurrent deductions
    */
   async consumeCredits(organizationId: string, count: number = 1): Promise<number> {
-    const activeCredits = await this.getActiveCredits(organizationId);
+    return this.creditRepository.manager.transaction(async (em) => {
+      const now = new Date();
 
-    let remaining = count;
-    let consumed = 0;
+      const activeCredits = await em.find(
+        this.creditRepository.target,
+        {
+          where: {
+            organizationId,
+            status: MessageCreditStatus.ACTIVE,
+            expiresAt: MoreThan(now),
+          },
+          order: {
+            expiresAt: 'ASC',
+          },
+          lock: { mode: 'pessimistic_write' },
+        },
+      );
 
-    for (const credit of activeCredits) {
-      if (remaining <= 0) break;
+      let remaining = count;
+      let consumed = 0;
 
-      const toConsume = Math.min(remaining, credit.remaining);
-      credit.remaining -= toConsume;
-      credit.used += toConsume;
-      consumed += toConsume;
-      remaining -= toConsume;
+      for (const credit of activeCredits) {
+        if (remaining <= 0) break;
 
-      // Update status if exhausted
-      if (credit.remaining <= 0) {
-        credit.status = MessageCreditStatus.EXHAUSTED;
+        const toConsume = Math.min(remaining, credit.remaining);
+        credit.remaining -= toConsume;
+        credit.used += toConsume;
+        consumed += toConsume;
+        remaining -= toConsume;
+
+        // Update status if exhausted
+        if (credit.remaining <= 0) {
+          credit.status = MessageCreditStatus.EXHAUSTED;
+        }
+
+        await em.save(credit);
       }
 
-      await this.creditRepository.save(credit);
-    }
+      if (consumed > 0) {
+        this.logger.debug(`Consumed ${consumed} bonus credits for org ${organizationId}`);
+      }
 
-    if (consumed > 0) {
-      this.logger.debug(`Consumed ${consumed} bonus credits for org ${organizationId}`);
-    }
-
-    return consumed;
+      return consumed;
+    });
   }
 
   /**

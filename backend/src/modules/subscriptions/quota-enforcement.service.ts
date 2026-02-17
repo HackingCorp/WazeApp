@@ -1,6 +1,6 @@
 import { Injectable, ForbiddenException, Logger, Inject, forwardRef } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository, IsNull, MoreThan, Not } from "typeorm";
+import { Repository, IsNull, MoreThan, Not, In } from "typeorm";
 import { CACHE_MANAGER, Cache } from "@nestjs/cache-manager";
 import {
   Organization,
@@ -799,6 +799,7 @@ export class QuotaEnforcementService {
       where: {
         userId,
         organizationId: Not(IsNull()),
+        status: In([SubscriptionStatus.ACTIVE, SubscriptionStatus.TRIALING]),
       },
     });
 
@@ -812,6 +813,7 @@ export class QuotaEnforcementService {
       where: {
         userId,
         organizationId: IsNull(),
+        status: In([SubscriptionStatus.ACTIVE, SubscriptionStatus.TRIALING]),
       },
     });
 
@@ -860,6 +862,11 @@ export class QuotaEnforcementService {
     resource: string,
     unit: string = "items",
   ): QuotaCheck {
+    // Negative limit means unlimited (e.g., Enterprise plan uses -1)
+    if (limit < 0) {
+      return { allowed: true, limit, current, remaining: Number.MAX_SAFE_INTEGER, percentUsed: 0, message: undefined };
+    }
+
     const remaining = Math.max(0, limit - current);
     const percentUsed = limit > 0 ? Math.round((current / limit) * 100) : 0;
     const allowed = current < limit;

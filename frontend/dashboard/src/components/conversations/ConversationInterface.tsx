@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Send, Phone, Video, MoreVertical, Paperclip, Smile, Mic, Search, Archive, Settings, MessageCircle, Check, CheckCheck } from 'lucide-react';
 import { formatDistanceToNow, format, isToday, isYesterday } from 'date-fns';
 import clsx from 'clsx';
@@ -62,10 +62,10 @@ export function ConversationInterface({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const selectedContact = contacts.find(c => c.id === selectedContactId);
-  const filteredContacts = contacts.filter(contact =>
+  const filteredContacts = useMemo(() => contacts.filter(contact =>
     contact.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     contact.phone.includes(searchQuery)
-  );
+  ), [contacts, searchQuery]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -377,9 +377,8 @@ export function ConversationInterface({
     </button>
   );
 
-  const messageGroups = groupMessagesByDate(
-    [...messages].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime())
-  );
+  const sortedMessages = useMemo(() => [...messages].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime()), [messages]);
+  const messageGroups = groupMessagesByDate(sortedMessages);
 
   return (
     <div className="flex h-full overflow-hidden">

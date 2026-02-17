@@ -331,29 +331,42 @@ export class AnalyticsService {
         : [{ createdBy: userId }];
 
       const agents = await this.agentRepository.find({ where: agentWhere });
+      const agentIds = agents.map(a => a.id);
+
+      if (agentIds.length === 0) {
+        return { period: period || "7d", agents: [], organizationId, generatedAt: new Date().toISOString() };
+      }
+
       const dateFilter = this.getDateFilter(period || '7d');
 
-      const agentStats = await Promise.all(agents.map(async (agent) => {
-        const conversations = await this.conversationRepository.count({
-          where: { agentId: agent.id },
-        });
+      const convCounts = await this.conversationRepository.createQueryBuilder('c')
+        .select('c.agentId', 'agentId')
+        .addSelect('COUNT(*)', 'count')
+        .where('c.agentId IN (:...agentIds)', { agentIds })
+        .groupBy('c.agentId')
+        .getRawMany();
 
-        const messages = await this.messageRepository.createQueryBuilder('m')
-          .innerJoin('m.conversation', 'c')
-          .where('c.agentId = :agentId', { agentId: agent.id })
-          .andWhere('m.createdAt >= :dateFilter', { dateFilter })
-          .getCount();
+      const msgCounts = await this.messageRepository.createQueryBuilder('m')
+        .select('c.agentId', 'agentId')
+        .addSelect('COUNT(*)', 'count')
+        .innerJoin('m.conversation', 'c')
+        .where('c.agentId IN (:...agentIds)', { agentIds })
+        .andWhere('m.createdAt >= :dateFilter', { dateFilter })
+        .groupBy('c.agentId')
+        .getRawMany();
 
-        return {
-          id: agent.id,
-          name: agent.name,
-          status: agent.status,
-          conversations,
-          messages,
-          satisfaction: null,
-          responseTime: 0,
-          resolutionRate: null,
-        };
+      const convMap = new Map(convCounts.map(r => [r.agentId, parseInt(r.count)]));
+      const msgMap = new Map(msgCounts.map(r => [r.agentId, parseInt(r.count)]));
+
+      const agentStats = agents.map(agent => ({
+        id: agent.id,
+        name: agent.name,
+        status: agent.status,
+        conversations: convMap.get(agent.id) || 0,
+        messages: msgMap.get(agent.id) || 0,
+        satisfaction: null,
+        responseTime: 0,
+        resolutionRate: null,
       }));
 
       return {

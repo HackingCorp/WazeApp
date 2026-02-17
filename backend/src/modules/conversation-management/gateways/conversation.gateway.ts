@@ -48,7 +48,15 @@ interface JoinRoomData {
 
 @WebSocketGateway({
   cors: {
-    origin: process.env.FRONTEND_URL || "http://localhost:3100",
+    origin: [
+      process.env.FRONTEND_URL,
+      process.env.DASHBOARD_URL,
+      process.env.API_URL,
+      "http://localhost:3000",
+      "http://localhost:3100",
+      "http://localhost:3101",
+      "http://localhost:3102",
+    ].filter(Boolean),
     credentials: true,
   },
   namespace: "/conversations",
@@ -94,30 +102,30 @@ export class ConversationGateway
         return;
       }
 
-      const payload = this.jwtService.verify(token);
-      const user = await this.userRepository.findOne({
-        where: { id: payload.sub },
+      const payload = this.jwtService.verify(token, {
+        secret: process.env.JWT_ACCESS_SECRET,
       });
 
-      if (!user) {
-        client.emit("auth_error", { message: "User not found" });
+      if (!payload.sub) {
+        client.emit("auth_error", { message: "Invalid token payload" });
         client.disconnect();
         return;
       }
 
-      // Set user information
-      client.userId = user.id;
+      // Set user information from JWT (avoid DB query on every connection)
+      client.userId = payload.sub;
       client.organizationId = payload.organizationId;
-      client.user = user;
+
+      const userId = payload.sub;
 
       // Track connection
-      if (!this.connectedUsers.has(user.id)) {
-        this.connectedUsers.set(user.id, new Set());
+      if (!this.connectedUsers.has(userId)) {
+        this.connectedUsers.set(userId, new Set());
       }
-      this.connectedUsers.get(user.id)!.add(client.id);
+      this.connectedUsers.get(userId)!.add(client.id);
 
       // Update presence
-      this.userPresence.set(user.id, "online");
+      this.userPresence.set(userId, "online");
 
       // Join user to their organization room
       if (payload.organizationId) {
@@ -125,9 +133,9 @@ export class ConversationGateway
       }
 
       // Emit presence update
-      this.emitPresenceUpdate(user.id, "online", payload.organizationId);
+      this.emitPresenceUpdate(userId, "online", payload.organizationId);
 
-      this.logger.log(`User ${user.email} connected (${client.id})`);
+      this.logger.log(`User ${payload.email || userId} connected (${client.id})`);
     } catch (error) {
       this.logger.error(`Connection failed: ${error.message}`);
       client.emit("auth_error", { message: "Authentication failed" });
@@ -260,7 +268,6 @@ export class ConversationGateway
     client.to(`conversation:${conversationId}`).emit("user_typing", {
       conversationId,
       userId: client.userId,
-      userName: client.user?.fullName,
       isTyping,
       typingUsers: Array.from(typingInConversation),
     });
@@ -538,11 +545,9 @@ export class ConversationGateway
         const socket = this.server.sockets.sockets.get(
           socketId,
         ) as AuthenticatedSocket;
-        if (socket?.user) {
+        if (socket?.userId) {
           participants.push({
             userId: socket.userId,
-            name: socket.user.fullName,
-            email: socket.user.email,
             status: this.userPresence.get(socket.userId!) || "online",
           });
         }

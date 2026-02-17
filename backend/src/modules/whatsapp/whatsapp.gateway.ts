@@ -352,8 +352,7 @@ export class WhatsAppGateway
     if (data.userId) {
       this.server.to(`user:${data.userId}`).emit("whatsapp:sync-status", syncPayload);
     } else {
-      // Fallback: broadcast only if userId not available
-      this.server.emit("whatsapp:sync-status", syncPayload);
+      this.logger.warn(`Sync event for session ${data.sessionId} has no userId, skipping broadcast`);
     }
   }
 

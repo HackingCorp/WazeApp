@@ -1,4 +1,6 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Inject } from '@nestjs/common';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { Cache } from 'cache-manager';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull, Not, In } from 'typeorm';
@@ -21,8 +23,8 @@ interface QuotaAlertRecord {
 export class QuotaAlertService {
   private readonly logger = new Logger(QuotaAlertService.name);
 
-  // In-memory cache of sent alerts (in production, use Redis or database)
-  private sentAlerts: Map<string, Set<number>> = new Map();
+  // TTL for quota alert cache entries (24 hours in milliseconds)
+  private readonly ALERT_CACHE_TTL = 24 * 60 * 60 * 1000;
 
   constructor(
     @InjectRepository(Subscription)
@@ -33,17 +35,10 @@ export class QuotaAlertService {
     private organizationRepository: Repository<Organization>,
     private quotaEnforcementService: QuotaEnforcementService,
     private emailService: EmailService,
+    @Inject(CACHE_MANAGER)
+    private cacheManager: Cache,
   ) {
-    // Clear sent alerts at the start of each month
-    this.initializeMonthlyReset();
-  }
-
-  private initializeMonthlyReset() {
-    const now = new Date();
-    const currentMonth = this.getCurrentMonth();
-
-    // Check if we need to reset (first run or new month)
-    this.logger.log(`Quota Alert Service initialized for month: ${currentMonth}`);
+    this.logger.log(`Quota Alert Service initialized for month: ${this.getCurrentMonth()}`);
   }
 
   private getCurrentMonth(): string {
@@ -51,24 +46,21 @@ export class QuotaAlertService {
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   }
 
-  private getAlertKey(organizationId: string | null, userId: string | null): string {
+  private getAlertCacheKey(organizationId: string | null, userId: string | null, threshold: number): string {
     const month = this.getCurrentMonth();
-    if (organizationId) {
-      return `org:${organizationId}:${month}`;
-    }
-    return `user:${userId}:${month}`;
+    const entityKey = organizationId ? `org:${organizationId}` : `user:${userId}`;
+    return `quota-alert:${entityKey}:${threshold}:${month}`;
   }
 
-  private hasAlertBeenSent(key: string, threshold: number): boolean {
-    const alerts = this.sentAlerts.get(key);
-    return alerts?.has(threshold) || false;
+  private async hasAlertBeenSent(organizationId: string | null, userId: string | null, threshold: number): Promise<boolean> {
+    const key = this.getAlertCacheKey(organizationId, userId, threshold);
+    const sent = await this.cacheManager.get<boolean>(key);
+    return sent === true;
   }
 
-  private markAlertAsSent(key: string, threshold: number): void {
-    if (!this.sentAlerts.has(key)) {
-      this.sentAlerts.set(key, new Set());
-    }
-    this.sentAlerts.get(key)!.add(threshold);
+  private async markAlertAsSent(organizationId: string | null, userId: string | null, threshold: number): Promise<void> {
+    const key = this.getAlertCacheKey(organizationId, userId, threshold);
+    await this.cacheManager.set(key, true, this.ALERT_CACHE_TTL);
   }
 
   /**
@@ -180,8 +172,6 @@ export class QuotaAlertService {
     limit: number,
     planName: string,
   ): Promise<void> {
-    const alertKey = this.getAlertKey(organizationId, userId);
-
     // Find the highest threshold that has been crossed
     const crossedThresholds = QUOTA_ALERT_THRESHOLDS.filter(
       (threshold) => percentUsed >= threshold,
@@ -195,7 +185,7 @@ export class QuotaAlertService {
     const highestThreshold = Math.max(...crossedThresholds);
 
     // Check if we already sent an alert for this threshold
-    if (this.hasAlertBeenSent(alertKey, highestThreshold)) {
+    if (await this.hasAlertBeenSent(organizationId, userId, highestThreshold)) {
       return; // Already sent
     }
 
@@ -247,7 +237,7 @@ export class QuotaAlertService {
 
       // Mark all thresholds up to this one as sent
       for (const threshold of crossedThresholds) {
-        this.markAlertAsSent(alertKey, threshold);
+        await this.markAlertAsSent(organizationId, userId, threshold);
       }
 
       this.logger.log(`✅ Quota alert (${highestThreshold}%) sent to ${email}`);
@@ -271,31 +261,11 @@ export class QuotaAlertService {
    */
   async triggerQuotaCheck(): Promise<{ checked: number; alertsSent: number }> {
     this.logger.log('Manual quota check triggered');
-
-    const beforeAlerts = this.countTotalAlerts();
     await this.checkQuotasAndSendAlerts();
-    const afterAlerts = this.countTotalAlerts();
 
     return {
       checked: 1,
-      alertsSent: afterAlerts - beforeAlerts,
+      alertsSent: 0,
     };
-  }
-
-  private countTotalAlerts(): number {
-    let total = 0;
-    this.sentAlerts.forEach((thresholds) => {
-      total += thresholds.size;
-    });
-    return total;
-  }
-
-  /**
-   * Reset alerts for a new month
-   */
-  @Cron('0 0 1 * *') // First day of each month at midnight
-  resetMonthlyAlerts(): void {
-    this.logger.log('🔄 Resetting monthly quota alerts');
-    this.sentAlerts.clear();
   }
 }

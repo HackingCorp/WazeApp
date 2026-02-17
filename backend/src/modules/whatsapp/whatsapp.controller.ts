@@ -12,6 +12,7 @@ import {
   Headers,
   UnauthorizedException,
   ForbiddenException,
+  Logger,
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { Throttle } from "@nestjs/throttler";
@@ -42,7 +43,7 @@ import {
 import { JwtAuthGuard } from "@/common/guards/jwt-auth.guard";
 import { RolesGuard } from "@/common/guards/roles.guard";
 import { Roles } from "@/common/decorators/roles.decorator";
-import { UserRole } from "@/common/enums";
+import { UserRole, WhatsAppSessionStatus, ConversationChannel } from "@/common/enums";
 import { Public } from "@/common/decorators/public.decorator";
 import { AllowIndividualUsers } from "@/common/decorators/allow-individual-users.decorator";
 import { SimpleConversationService } from "./simple-conversation.service";
@@ -56,6 +57,8 @@ import { VisionService } from "./vision.service";
 @AllowIndividualUsers()
 @ApiBearerAuth()
 export class WhatsAppController {
+  private readonly logger = new Logger(WhatsAppController.name);
+
   constructor(
     private whatsappService: WhatsAppService,
     private conversationService: SimpleConversationService,
@@ -509,6 +512,8 @@ export class WhatsAppController {
   }
 
   @Get("debug/websocket-status")
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.OWNER)
   @ApiOperation({ summary: "Check WebSocket connection status" })
   @ApiResponse({ status: 200, description: "WebSocket status retrieved" })
   async getWebSocketStatus(@CurrentUser() user: AuthenticatedRequest) {
@@ -593,7 +598,7 @@ export class WhatsAppController {
     const allConversations = await this.conversationService[
       "conversationRepository"
     ].find({
-      where: { channel: "whatsapp" as any },
+      where: { channel: ConversationChannel.WHATSAPP },
       relations: ["messages"],
       order: { updatedAt: "DESC" },
     });
@@ -788,7 +793,7 @@ export class WhatsAppController {
         message: "Memory conversations persistence triggered",
       };
     } catch (error) {
-      console.error(`[PERSIST-CONVERSATIONS] Error:`, error);
+      this.logger.error(`[PERSIST-CONVERSATIONS] Error:`, error);
       return {
         success: false,
         message: error.message,
@@ -823,7 +828,7 @@ export class WhatsAppController {
         message: `Image download triggered for session ${sessionId}`,
       };
     } catch (error) {
-      console.error(`[FORCE-IMAGES] Error:`, error);
+      this.logger.error(`[FORCE-IMAGES] Error:`, error);
       return {
         success: false,
         message: error.message,
@@ -872,7 +877,7 @@ export class WhatsAppController {
         },
       };
     } catch (error) {
-      console.error(`[FORCE-SYNC] Error:`, error);
+      this.logger.error(`[FORCE-SYNC] Error:`, error);
       return {
         success: false,
         message: error.message,
@@ -928,7 +933,7 @@ export class WhatsAppController {
         needsQR: result.needsQR,
       };
     } catch (error) {
-      console.error(`[FORCE-RECONNECT] Error:`, error);
+      this.logger.error(`[FORCE-RECONNECT] Error:`, error);
       return {
         success: false,
         message: error.message,
@@ -979,7 +984,7 @@ export class WhatsAppController {
         note: "This session will require scanning a new QR code",
       };
     } catch (error) {
-      console.error(`[FORCE-RESET-RECONNECT] Error:`, error);
+      this.logger.error(`[FORCE-RESET-RECONNECT] Error:`, error);
       return {
         success: false,
         message: error.message,
@@ -1010,7 +1015,7 @@ export class WhatsAppController {
         message: `Duplicate conversations cleaned up for user ${userId}`,
       };
     } catch (error) {
-      console.error(`[CLEANUP-DUPLICATES] Error:`, error);
+      this.logger.error(`[CLEANUP-DUPLICATES] Error:`, error);
       return {
         success: false,
         message: error.message,
@@ -1036,7 +1041,7 @@ export class WhatsAppController {
       const allConversations = await this.conversationService[
         "conversationRepository"
       ].find({
-        where: { channel: "whatsapp" as any },
+        where: { channel: ConversationChannel.WHATSAPP },
         relations: ["messages"],
         order: { createdAt: "ASC" },
       });
@@ -1123,7 +1128,7 @@ export class WhatsAppController {
         },
       };
     } catch (error) {
-      console.error(`[FORCE-CLEANUP-ALL] Error:`, error);
+      this.logger.error(`[FORCE-CLEANUP-ALL] Error:`, error);
       return {
         success: false,
         message: error.message,
@@ -1200,7 +1205,7 @@ export class WhatsAppController {
         },
       };
     } catch (error) {
-      console.error(`[SIMULATE-INCOMING] Error:`, error);
+      this.logger.error(`[SIMULATE-INCOMING] Error:`, error);
       return {
         success: false,
         message: error.message,
@@ -1240,7 +1245,7 @@ export class WhatsAppController {
 
       // Update database status
       await this.whatsappService["sessionRepository"].update(sessionId, {
-        status: "disconnected" as any,
+        status: WhatsAppSessionStatus.DISCONNECTED,
         isActive: false,
         qrCode: null,
         qrCodeExpiresAt: null,
@@ -1258,7 +1263,7 @@ export class WhatsAppController {
         note: "This should remove the device from WhatsApp mobile app",
       };
     } catch (error) {
-      console.error(`[FORCE-LOGOUT] Error:`, error);
+      this.logger.error(`[FORCE-LOGOUT] Error:`, error);
       return {
         success: false,
         message: error.message,
@@ -1310,7 +1315,7 @@ export class WhatsAppController {
         },
       };
     } catch (error) {
-      console.error(`[TEST-CONNECT] Error:`, error);
+      this.logger.error(`[TEST-CONNECT] Error:`, error);
       return {
         success: false,
         message: error.message,
@@ -1365,7 +1370,7 @@ export class WhatsAppController {
         },
       };
     } catch (error) {
-      console.error(`[SIMULATE-CONNECTION] Error:`, error);
+      this.logger.error(`[SIMULATE-CONNECTION] Error:`, error);
       return {
         success: false,
         message: error.message,
@@ -1400,7 +1405,7 @@ export class WhatsAppController {
 
       // Force the database status to connected regardless of actual Baileys state
       await this.whatsappService["sessionRepository"].update(id, {
-        status: "connected" as any,
+        status: WhatsAppSessionStatus.CONNECTED,
         isActive: true,
         lastSeenAt: new Date(),
         qrCode: null,
@@ -1454,7 +1459,7 @@ export class WhatsAppController {
       delete newMetadata.forcedAt;
 
       await this.whatsappService["sessionRepository"].update(id, {
-        status: "disconnected" as any,
+        status: WhatsAppSessionStatus.DISCONNECTED,
         isActive: false,
         qrCode: null,
         qrCodeExpiresAt: null,
@@ -1502,7 +1507,7 @@ export class WhatsAppController {
       if (sessionInfo?.phoneNumber) {
         // Session has a phone number, it's connected!
         await this.whatsappService["sessionRepository"].update(id, {
-          status: "connected" as any,
+          status: WhatsAppSessionStatus.CONNECTED,
           isActive: true,
           phoneNumber: sessionInfo.phoneNumber,
           lastSeenAt: new Date(),

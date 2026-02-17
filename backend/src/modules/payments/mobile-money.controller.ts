@@ -204,6 +204,16 @@ export class MobileMoneyController {
       // SECURITY: Always use the authenticated user's ID, never trust caller-supplied userId
       const userId = user?.id;
       const organizationId = user?.currentOrganizationId;
+
+      // Check for duplicate payment processing
+      const existingSubscription = organizationId
+        ? await this.subscriptionUpgradeService.getSubscription(userId, organizationId)
+        : await this.subscriptionUpgradeService.getSubscription(userId);
+
+      if (existingSubscription?.metadata?.lastPayment?.transactionId === (verificationDto.transactionId || paymentStatus.ptn)) {
+        this.logger.warn(`Duplicate payment detected for transaction ${verificationDto.transactionId}`);
+        return { ...paymentStatus, subscription: existingSubscription, message: 'Payment already processed' };
+      }
       // Use plan from frontend request (not from S3P response which doesn't have it)
       const plan = verificationDto.plan;
       const amount = verificationDto.amount || paymentStatus.amount || 0;
@@ -591,10 +601,9 @@ export class MobileMoneyController {
       ? webhookSignature.slice(7)
       : webhookSignature;
 
-    if (!crypto.timingSafeEqual(
-      Buffer.from(normalizedSignature, 'hex'),
-      Buffer.from(expectedSignature, 'hex')
-    )) {
+    const sigBuffer = Buffer.from(normalizedSignature, 'hex');
+    const expectedBuffer = Buffer.from(expectedSignature, 'hex');
+    if (sigBuffer.length !== expectedBuffer.length || !crypto.timingSafeEqual(sigBuffer, expectedBuffer)) {
       this.logger.warn('E-nkap webhook rejected: invalid signature');
       throw new UnauthorizedException('Invalid webhook signature');
     }

@@ -494,7 +494,7 @@ export class VectorEmbeddingService {
       return {
         totalChunks: collectionInfo.points_count || 0,
         totalSize: collectionInfo.segments_count || 0,
-        dimensions: (collectionInfo.config?.params?.vectors as any)?.size || 0,
+        dimensions: (collectionInfo.config?.params?.vectors as Record<string, unknown>)?.size as number || 0,
         lastIndexed: new Date(), // Could be tracked in metadata
       };
     } catch (error) {

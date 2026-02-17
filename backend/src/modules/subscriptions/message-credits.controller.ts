@@ -88,7 +88,7 @@ export class MessageCreditsController {
     }
 
     // Get userId from various possible sources
-    const userId = user.userId || (user.user as any)?.id;
+    const userId = user.userId || (user as unknown as { user?: { id?: string } }).user?.id;
 
     if (!userId) {
       return null;

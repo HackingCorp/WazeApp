@@ -1072,7 +1072,7 @@ export class WhatsAppService {
             "buffer",
             {},
             {
-              logger: this.logger as any,
+              logger: this.logger as never,
               reuploadRequest: () => Promise.resolve(message),
             },
           );

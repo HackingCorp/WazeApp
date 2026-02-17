@@ -126,7 +126,7 @@ export class VectorSearchService implements OnModuleInit {
 
       // Convert results to our format
       const results = await this.convertSearchResults(
-        searchResults as any[],
+        searchResults,
         request,
       );
 

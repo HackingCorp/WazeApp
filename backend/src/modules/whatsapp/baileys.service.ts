@@ -11,6 +11,12 @@ import { WhatsAppSession } from "@/common/entities";
 import { WhatsAppSessionStatus } from "@/common/enums";
 import { usePostgresAuthState, PostgresAuthStateResult } from "./postgres-auth-state";
 
+interface WhatsAppError extends Error {
+  code?: string;
+  recoverable?: boolean;
+  action?: string;
+}
+
 // Baileys v7 requires dynamic imports (ESM)
 let makeWASocket: any;
 let DisconnectReason: any;
@@ -274,7 +280,7 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
                     "buffer",
                     {},
                     {
-                      logger: this.logger as any,
+                      logger: this.logger as never,
                       reuploadRequest: sock.updateMediaMessage,
                     },
                   );
@@ -603,7 +609,7 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
             try {
               await this.sessionRepository.update(sessionId, {
                 authData: {},
-                status: 'disconnected' as any,
+                status: WhatsAppSessionStatus.DISCONNECTED,
               });
               this.logger.log(`🗄️ Cleared database authData for ${sessionId}`);
             } catch (error) {
@@ -757,7 +763,7 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
           // 🔧 FIX: Update database status to CONNECTED immediately
           try {
             await this.sessionRepository.update(sessionId, {
-              status: 'connected' as any, // Cast to avoid enum type issues
+              status: WhatsAppSessionStatus.CONNECTED,
               isActive: true,
               lastSeenAt: new Date(),
             });
@@ -1124,7 +1130,7 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
           // 🔧 FIX: Update database status to CONNECTED immediately
           try {
             await this.sessionRepository.update(sessionId, {
-              status: 'connected' as any, // Cast to avoid enum type issues
+              status: WhatsAppSessionStatus.CONNECTED,
               isActive: true,
               lastSeenAt: new Date(),
             });
@@ -1498,55 +1504,55 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
 
       // PreKeyError - encryption key issues
       if (errorName === 'PreKeyError' || errorMessage.includes('PreKey') || errorMessage.includes('Invalid PreKey')) {
-        const customError = new Error(
+        const customError: WhatsAppError = new Error(
           'WhatsApp encryption error: Session keys are out of sync. Please disconnect and reconnect the WhatsApp session to regenerate encryption keys.'
         );
-        (customError as any).code = 'PREKEY_ERROR';
-        (customError as any).recoverable = true;
-        (customError as any).action = 'RECONNECT_SESSION';
+        customError.code = 'PREKEY_ERROR';
+        customError.recoverable = true;
+        customError.action = 'RECONNECT_SESSION';
         throw customError;
       }
 
       // Session closed/disconnected errors
       if (errorMessage.includes('Connection Closed') || errorMessage.includes('connection closed') || errorMessage.includes('not connected')) {
-        const customError = new Error(
+        const customError: WhatsAppError = new Error(
           'WhatsApp session is disconnected. Please reconnect the session from the dashboard.'
         );
-        (customError as any).code = 'SESSION_DISCONNECTED';
-        (customError as any).recoverable = true;
-        (customError as any).action = 'RECONNECT_SESSION';
+        customError.code = 'SESSION_DISCONNECTED';
+        customError.recoverable = true;
+        customError.action = 'RECONNECT_SESSION';
         throw customError;
       }
 
       // Rate limit errors
       if (errorMessage.includes('rate') || errorMessage.includes('too many') || errorMessage.includes('spam')) {
-        const customError = new Error(
+        const customError: WhatsAppError = new Error(
           'WhatsApp rate limit reached. Please wait a few minutes before sending more messages.'
         );
-        (customError as any).code = 'RATE_LIMITED';
-        (customError as any).recoverable = true;
-        (customError as any).action = 'WAIT_AND_RETRY';
+        customError.code = 'RATE_LIMITED';
+        customError.recoverable = true;
+        customError.action = 'WAIT_AND_RETRY';
         throw customError;
       }
 
       // Invalid JID/phone number
       if (errorMessage.includes('invalid jid') || errorMessage.includes('JID') || errorMessage.includes('not a valid')) {
-        const customError = new Error(
+        const customError: WhatsAppError = new Error(
           'Invalid phone number format. Please use international format without + or spaces (e.g., 237612345678).'
         );
-        (customError as any).code = 'INVALID_PHONE';
-        (customError as any).recoverable = false;
+        customError.code = 'INVALID_PHONE';
+        customError.recoverable = false;
         throw customError;
       }
 
       // Logged out errors
       if (errorMessage.includes('logged out') || errorMessage.includes('Logged out') || errorMessage.includes('401')) {
-        const customError = new Error(
+        const customError: WhatsAppError = new Error(
           'WhatsApp session was logged out. Please scan the QR code again to reconnect.'
         );
-        (customError as any).code = 'SESSION_LOGGED_OUT';
-        (customError as any).recoverable = true;
-        (customError as any).action = 'SCAN_QR_CODE';
+        customError.code = 'SESSION_LOGGED_OUT';
+        customError.recoverable = true;
+        customError.action = 'SCAN_QR_CODE';
         throw customError;
       }
 
@@ -1940,7 +1946,7 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
                 "buffer",
                 {},
                 {
-                  logger: this.logger as any,
+                  logger: this.logger as never,
                   reuploadRequest: sock.updateMediaMessage,
                 },
               );
@@ -2527,7 +2533,7 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
               if (!result.needsQR) {
                 this.logger.log(`✅ Session ${sessionId} restored successfully`);
                 await this.sessionRepository.update(sessionId, {
-                  status: "connected" as any,
+                  status: WhatsAppSessionStatus.CONNECTED,
                   isActive: true,
                   lastSeenAt: new Date(),
                 });

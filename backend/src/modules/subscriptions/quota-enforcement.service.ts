@@ -616,7 +616,7 @@ export class QuotaEnforcementService {
     organizationId: string,
     feature: string,
   ): Promise<void> {
-    const check = await this.checkFeatureAccess(organizationId, feature as any);
+    const check = await this.checkFeatureAccess(organizationId, feature);
     if (!check.enabled) {
       throw new ForbiddenException(check.message);
     }

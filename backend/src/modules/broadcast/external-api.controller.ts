@@ -374,7 +374,7 @@ export class ExternalApiController {
           organizationId,
           to: dto.to,
           message: dto.message,
-          type: (dto.type as any) || 'text',
+          type: (dto.type || 'text') as 'text' | 'image' | 'video' | 'audio' | 'document',
           mediaUrl: dto.mediaUrl,
           caption: dto.caption,
           source: 'external-api',
@@ -410,7 +410,7 @@ export class ExternalApiController {
       const result = await this.baileysService.sendMessage(sessionId, {
         to: dto.to,
         message: dto.message,
-        type: (dto.type as any) || 'text',
+        type: (dto.type || 'text') as 'text' | 'image' | 'video' | 'audio' | 'document',
         mediaUrl: dto.mediaUrl,
         caption: dto.caption,
       });
@@ -430,7 +430,7 @@ export class ExternalApiController {
         status: 'sent',
       };
     } catch (error) {
-      const errorCode = (error as any)?.code;
+      const errorCode = (error as Error & { code?: string })?.code;
       const errorMessage = error?.message || 'Failed to send message';
 
       // Check if error is due to connection issue - queue the message
@@ -448,7 +448,7 @@ export class ExternalApiController {
           organizationId,
           to: dto.to,
           message: dto.message,
-          type: (dto.type as any) || 'text',
+          type: (dto.type || 'text') as 'text' | 'image' | 'video' | 'audio' | 'document',
           mediaUrl: dto.mediaUrl,
           caption: dto.caption,
           source: 'external-api',

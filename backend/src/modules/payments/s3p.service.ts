@@ -119,11 +119,11 @@ export class S3PService {
   ) {
     // Production S3P Configuration
     this.baseUrl = this.configService.get<string>('S3P_BASE_URL', 'https://s3pv2cm.smobilpay.com/v2');
-    this.apiKey = this.configService.get<string>('S3P_API_KEY', '9183eee1-bf8b-49cb-bffc-d466706d3aef');
-    this.apiSecret = this.configService.get<string>('S3P_API_SECRET', 'c5821829-a9db-4cf1-9894-65e3caffaa62');
+    this.apiKey = this.configService.get<string>('S3P_API_KEY', '');
+    this.apiSecret = this.configService.get<string>('S3P_API_SECRET', '');
 
     if (!this.apiKey || !this.apiSecret) {
-      this.logger.warn('S3P credentials not configured. Mobile Money payments will not be available.');
+      this.logger.warn('S3P_API_KEY and/or S3P_API_SECRET not configured. Mobile Money payments will not be available.');
     }
 
     this.logger.log(`S3P Service initialized - URL: ${this.baseUrl}`);
@@ -483,7 +483,7 @@ export class S3PService {
     const formattedPhone = this.formatPhoneNumber(customerPhone);
 
     // Générer un TRID unique
-    const trid = `WAZEAPP-${Date.now()}`;
+    const trid = `WAZEAPP-${Date.now()}-${randomBytes(4).toString('hex')}`;
 
     this.logger.log(`=== S3P PAYMENT DEBUG ===`);
     this.logger.log(`Original customerPhone: ${customerPhone}`);

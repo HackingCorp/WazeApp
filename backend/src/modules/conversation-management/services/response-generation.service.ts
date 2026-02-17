@@ -667,7 +667,7 @@ ${agent.systemPrompt || "Be helpful, accurate, and professional."}`;
 
     const response = await this.openai.chat.completions.create({
       model: provider.config.model || "gpt-3.5-turbo",
-      messages: messages as any,
+      messages: messages as unknown as Array<{ role: 'system' | 'user' | 'assistant'; content: string }>,
       temperature,
       max_tokens: provider.config.maxTokens || 1000,
       presence_penalty: provider.config.presencePenalty || 0,

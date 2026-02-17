@@ -227,7 +227,7 @@ export class WebScrapingService {
         // Try to extract from ANY text-containing elements
         $('*').each((_, element) => {
           const elementText = $(element).text().trim();
-          const tagName = (element as any).tagName?.toLowerCase();
+          const tagName = (element as unknown as { tagName?: string }).tagName?.toLowerCase();
           
           // Skip script, style, and navigation elements
           if (!tagName || ['script', 'style', 'nav', 'footer'].includes(tagName)) {
@@ -490,7 +490,7 @@ export class WebScrapingService {
 
       // Detect if this is a Next.js site and wait appropriately
       const isNextJs = await page.evaluate(() => {
-        return (window as any).__NEXT_DATA__ !== undefined || 
+        return (window as unknown as Record<string, unknown>).__NEXT_DATA__ !== undefined ||
                document.querySelector('script[id="__NEXT_DATA__"]') !== null ||
                document.body.innerHTML.includes('__next') ||
                document.body.innerHTML.includes('self.__next_f');
@@ -817,7 +817,7 @@ export class WebScrapingService {
         // Extract links
         const links = [];
         document.querySelectorAll('a[href]').forEach(link => {
-          const href = (link as any).href;
+          const href = (link as HTMLAnchorElement).href;
           const linkText = link.textContent?.trim();
           
           if (href && linkText && linkText.length > 0 && linkText.length < 100) {

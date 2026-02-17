@@ -175,7 +175,7 @@ export class WebhookProcessorService {
         processingStatus: result.success
           ? ProcessingStatus.COMPLETED
           : ProcessingStatus.FAILED,
-        processedData: result as any,
+        processedData: result as unknown as Record<string, any>,
         processingError: result.error,
         processingCompletedAt: new Date(),
       });
@@ -320,9 +320,9 @@ export class WebhookProcessorService {
       // Find message by WhatsApp message ID
       const message = await this.messageRepository.findOne({
         where: {
-          metadata: {
+          metadata: JSON.parse(JSON.stringify({
             whatsappMessageId: status.id,
-          } as any,
+          })),
         },
       });
 
@@ -610,7 +610,7 @@ export class WebhookProcessorService {
                       : ("document" as const),
                 url: message.media.url,
                 name: message.media.filename || "attachment",
-                size: (message.media as any).filesize || 0,
+                size: (message.media as Record<string, unknown>)?.filesize as number || 0,
               },
             ]
           : [],

@@ -99,6 +99,7 @@ export class KnowledgeDocument extends BaseEntity {
     wordCount?: number;
     extractionMethod?: string;
     confidence?: number;
+    [key: string]: unknown;
   };
 
   @ApiProperty({ description: "Processing error details" })

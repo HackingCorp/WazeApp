@@ -142,7 +142,7 @@ export class BroadcastProcessor {
           const result = await this.baileysService.sendMessage(campaign.sessionId, {
             to: phoneNumber,
             message: caption,
-            type: mediaType as any,
+            type: mediaType,
             mediaUrl: mediaUrl,
             caption: caption,
           });
@@ -163,7 +163,7 @@ export class BroadcastProcessor {
         const result = await this.baileysService.sendMessage(campaign.sessionId, {
           to: phoneNumber,
           message: messageContent.text || messageContent.caption || '',
-          type: messageContent.type as any,
+          type: messageContent.type,
           mediaUrl: messageContent.mediaUrl,
           caption: messageContent.caption,
           filename: messageContent.filename,
@@ -236,7 +236,7 @@ export class BroadcastProcessor {
       const result = await this.baileysService.sendMessage(sessionId, {
         to: messageContent.to,
         message: messageContent.message,
-        type: messageContent.type as any,
+        type: messageContent.type,
         mediaUrl: messageContent.mediaUrl,
         caption: messageContent.caption,
         filename: messageContent.filename,

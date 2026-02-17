@@ -180,7 +180,7 @@ export class MobileMoneyController {
         currency,
         billingPeriod,
       },
-    } as any;
+    } as typeof paymentResult & { metadata: Record<string, unknown> };
   }
 
   @Post('verify')
@@ -205,19 +205,11 @@ export class MobileMoneyController {
       const userId = user?.id;
       const organizationId = user?.currentOrganizationId;
 
-      // Check for duplicate payment processing
-      const existingSubscription = organizationId
-        ? await this.subscriptionUpgradeService.getSubscription(userId, organizationId)
-        : await this.subscriptionUpgradeService.getSubscription(userId);
-
-      if (existingSubscription?.metadata?.lastPayment?.transactionId === (verificationDto.transactionId || paymentStatus.ptn)) {
-        this.logger.warn(`Duplicate payment detected for transaction ${verificationDto.transactionId}`);
-        return { ...paymentStatus, subscription: existingSubscription, message: 'Payment already processed' };
-      }
       // Use plan from frontend request (not from S3P response which doesn't have it)
       const plan = verificationDto.plan;
       const amount = verificationDto.amount || paymentStatus.amount || 0;
       const billingPeriod = verificationDto.billingPeriod || 'monthly';
+      const txId = verificationDto.transactionId || paymentStatus.ptn;
 
       this.logger.log(`Payment verified successfully for user ${userId}, org: ${organizationId}, plan: ${plan}, amount: ${amount}`);
 
@@ -230,7 +222,7 @@ export class MobileMoneyController {
           const paidInvoice = await this.invoiceService.markAsPaid(
             invoiceId,
             'mobile_money',
-            verificationDto.transactionId || paymentStatus.ptn || '',
+            txId || '',
           );
 
           this.logger.log(`Invoice ${invoiceId} marked as paid`);
@@ -247,55 +239,48 @@ export class MobileMoneyController {
           };
         }
       }
-      // Handle subscription upgrades
+      // Handle subscription upgrades with atomic idempotency check
       else if (plan && ['STANDARD', 'PRO', 'ENTERPRISE'].includes(plan.toUpperCase())) {
         try {
-          let upgradeResult;
-
-          // If user has an organization, upgrade the organization subscription
-          // Otherwise, upgrade the user subscription
           const validPlan = plan.toUpperCase() as 'STANDARD' | 'PRO' | 'ENTERPRISE';
+          const paymentDetails: PaymentDetails = {
+            transactionId: txId,
+            ptn: verificationDto.ptn,
+            plan: validPlan,
+            amount: amount,
+            currency: 'XAF',
+            billingPeriod: billingPeriod,
+            paymentMethod: 'mobile_money',
+            paymentProvider: 's3p',
+          };
 
-          if (organizationId) {
-            this.logger.log(`Upgrading ORGANIZATION subscription for org ${organizationId}`);
-            upgradeResult = await this.subscriptionUpgradeService.upgradeOrganizationSubscription(
-              organizationId,
-              {
-                transactionId: verificationDto.transactionId || paymentStatus.ptn,
-                ptn: verificationDto.ptn,
-                plan: validPlan,
-                amount: amount,
-                currency: 'XAF',
-                billingPeriod: billingPeriod,
-                paymentMethod: 'mobile_money',
-                paymentProvider: 's3p',
-              },
-            );
-          } else if (userId) {
-            this.logger.log(`Upgrading USER subscription for user ${userId}`);
-            upgradeResult = await this.subscriptionUpgradeService.upgradeUserSubscription(
-              userId,
-              {
-                transactionId: verificationDto.transactionId || paymentStatus.ptn,
-                ptn: verificationDto.ptn,
-                plan: validPlan,
-                amount: amount,
-                currency: 'XAF',
-                billingPeriod: billingPeriod,
-                paymentMethod: 'mobile_money',
-                paymentProvider: 's3p',
-              },
-            );
-          } else {
+          if (!userId && !organizationId) {
             this.logger.warn(`Cannot upgrade subscription: no userId or organizationId`);
             return paymentStatus;
           }
 
-          this.logger.log(`Subscription upgraded successfully: ${JSON.stringify(upgradeResult)}`);
+          // Atomic idempotency check + upgrade in a single database transaction
+          const upgradeType = organizationId ? 'organization' : 'user';
+          this.logger.log(`Upgrading ${upgradeType.toUpperCase()} subscription for ${organizationId ? `org ${organizationId}` : `user ${userId}`}`);
+
+          const atomicResult = await this.subscriptionUpgradeService.atomicCheckAndUpgrade(
+            userId,
+            organizationId,
+            txId,
+            paymentDetails,
+            upgradeType,
+          );
+
+          if (atomicResult.alreadyProcessed) {
+            this.logger.warn(`Duplicate payment detected for transaction ${txId}`);
+            return { ...paymentStatus, subscription: atomicResult.subscription, message: 'Payment already processed' };
+          }
+
+          this.logger.log(`Subscription upgraded successfully: ${JSON.stringify(atomicResult.result)}`);
 
           return {
             ...paymentStatus,
-            subscriptionUpgrade: upgradeResult,
+            subscriptionUpgrade: atomicResult.result,
           };
         } catch (upgradeError) {
           this.logger.error(`Failed to upgrade subscription: ${upgradeError.message}`);
@@ -612,6 +597,9 @@ export class MobileMoneyController {
 
     const result = this.enkapService.processWebhook(webhookData);
 
+    // Extract the transactionId early for idempotency check
+    const webhookTransactionId = webhookData.transactionId || webhookData.txid || webhookData.merchantReference;
+
     // Process subscription upgrade if payment is successful
     if (result.status === 'SUCCESS' || webhookData.status === 'COMPLETED') {
       this.logger.log(`E-nkap payment successful, processing subscription upgrade`);
@@ -627,6 +615,18 @@ export class MobileMoneyController {
           const userId = parts[1];
           const planOrInvoice = parts[2].toUpperCase();
 
+          // Idempotency check: verify this transaction hasn't already been processed
+          const existingSubscription = await this.subscriptionUpgradeService.getSubscription(userId);
+          if (existingSubscription?.metadata?.lastPayment?.transactionId === webhookTransactionId) {
+            this.logger.warn(`E-nkap webhook duplicate detected for transaction ${webhookTransactionId}, skipping`);
+            return {
+              status: 'success',
+              message: 'Payment already processed',
+              webhookResult: result,
+              subscription: existingSubscription,
+            };
+          }
+
           // Handle invoice payments: WAZEAPP-{userId}-INVOICE-{invoiceId}-{timestamp}
           if (planOrInvoice === 'INVOICE' && parts.length >= 4) {
             const invoiceId = parts[3];
@@ -636,7 +636,7 @@ export class MobileMoneyController {
               const paidInvoice = await this.invoiceService.markAsPaid(
                 invoiceId,
                 'card',
-                webhookData.transactionId || webhookData.txid || merchantRef,
+                webhookTransactionId || merchantRef,
               );
 
               this.logger.log(`Invoice ${invoiceId} marked as paid via E-nkap`);
@@ -662,7 +662,7 @@ export class MobileMoneyController {
             const upgradeResult = await this.subscriptionUpgradeService.upgradeUserSubscription(
               userId,
               {
-                transactionId: webhookData.transactionId || merchantRef,
+                transactionId: webhookTransactionId || merchantRef,
                 ptn: webhookData.txid || result.txid,
                 plan: planOrInvoice as 'STANDARD' | 'PRO' | 'ENTERPRISE',
                 amount: webhookData.amount || webhookData.totalAmount || 0,

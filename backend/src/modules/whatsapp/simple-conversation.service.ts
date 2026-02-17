@@ -984,10 +984,10 @@ export class SimpleConversationService implements OnModuleDestroy {
         // Check if this is a message from WhatsApp client by examining metadata
         const isFromWhatsAppClient =
           msg.metadata &&
-          ((msg.metadata as any).fromWhatsApp === true ||
-            (msg.metadata as any).messageId ||
-            (msg.metadata as any).fromNumber ||
-            (msg.metadata as any).originalSender === "client");
+          ((msg.metadata as Record<string, unknown>).fromWhatsApp === true ||
+            (msg.metadata as Record<string, unknown>).messageId ||
+            (msg.metadata as Record<string, unknown>).fromNumber ||
+            (msg.metadata as Record<string, unknown>).originalSender === "client");
 
         let sender: "user" | "agent" | "client";
         if (msg.role === "agent") {
@@ -1454,9 +1454,9 @@ export class SimpleConversationService implements OnModuleDestroy {
             ? {
                 fromWhatsApp: true,
                 originalSender: "client",
-                ...((message as any).metadata || {}),
+                ...((message as unknown as Record<string, unknown>).metadata as Record<string, unknown> || {}),
               }
-            : (message as any).metadata || {},
+            : (message as unknown as Record<string, unknown>).metadata || {},
       });
 
       await this.messageRepository.save(dbMessage);

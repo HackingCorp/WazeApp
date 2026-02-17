@@ -181,8 +181,8 @@ export class AudioTranscriptionService {
       return {
         success: true,
         text,
-        language: (transcription as any).language || language,
-        duration: (transcription as any).duration,
+        language: (transcription as unknown as Record<string, unknown>).language as string || language,
+        duration: (transcription as unknown as Record<string, unknown>).duration as number,
         confidence: 0.95, // Groq Whisper est très précis
         provider: 'groq-whisper'
       };

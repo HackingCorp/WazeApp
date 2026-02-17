@@ -296,7 +296,7 @@ export class SubscriptionController {
   ): Promise<FeatureCheckDto> {
     return this.quotaEnforcementService.checkFeatureAccess(
       user.organizationId,
-      feature as any,
+      feature,
     );
   }
 

@@ -187,10 +187,9 @@ export class LlmProviderService {
     // If config is being updated, validate it
     if (updateDto.config) {
       const testProvider = this.createProviderInstance({
-        type: provider.type,
-        deploymentType: provider.deploymentType,
+        ...provider,
         config: { ...provider.config, ...updateDto.config },
-      } as any);
+      });
 
       const isValid = await testProvider.validateConfig();
       if (!isValid) {

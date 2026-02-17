@@ -323,7 +323,7 @@ export class DocumentService {
             batchUpload: true,
             batchIndex: i + 1,
             totalBatch: validUrls.length,
-          } as any,
+          },
         });
 
         const saved = await this.documentRepository.save(document);

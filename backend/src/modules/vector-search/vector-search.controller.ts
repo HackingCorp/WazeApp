@@ -280,7 +280,7 @@ export class VectorSearchController {
     // Only allow access to own organization or admin
     if (
       organizationId !== user.currentOrganizationId &&
-      !user.roles.includes("admin" as any)
+      !user.roles?.includes("admin")
     ) {
       return { error: "Access denied" };
     }

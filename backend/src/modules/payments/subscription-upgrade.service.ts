@@ -1,4 +1,5 @@
 import { Injectable, Logger, Inject, forwardRef } from '@nestjs/common';
+import { randomBytes } from 'crypto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull } from 'typeorm';
 import { Subscription, User, Organization, Invoice } from '../../common/entities';
@@ -483,6 +484,30 @@ export class SubscriptionUpgradeService {
    */
   async cancelSubscription(userId: string, organizationId?: string): Promise<UpgradeResult> {
     try {
+      // When organizationId is provided, verify the user is the owner of the organization
+      if (organizationId) {
+        const organization = await this.organizationRepository.findOne({
+          where: { id: organizationId },
+        });
+
+        if (!organization) {
+          return {
+            success: false,
+            message: 'Organization not found',
+            error: `Organization with ID ${organizationId} not found`,
+          };
+        }
+
+        if (organization.ownerId !== userId) {
+          this.logger.warn(`User ${userId} attempted to cancel subscription for organization ${organizationId} they do not own`);
+          return {
+            success: false,
+            message: 'Unauthorized: you are not the owner of this organization',
+            error: 'FORBIDDEN',
+          };
+        }
+      }
+
       const whereClause = organizationId
         ? { organizationId }
         : { userId, organizationId: IsNull() };
@@ -551,6 +576,48 @@ export class SubscriptionUpgradeService {
 
     return this.subscriptionRepository.findOne({
       where: whereClause,
+    });
+  }
+
+  /**
+   * Atomically check for duplicate transaction and upgrade subscription if not already processed.
+   * Uses a database transaction with pessimistic read lock to prevent race conditions.
+   * Returns { alreadyProcessed: true, subscription } if the transaction was already handled,
+   * or delegates to the appropriate upgrade method otherwise.
+   */
+  async atomicCheckAndUpgrade(
+    userId: string,
+    organizationId: string | undefined,
+    transactionId: string,
+    paymentDetails: PaymentDetails,
+    upgradeType: 'user' | 'organization',
+  ): Promise<{ alreadyProcessed: boolean; result: UpgradeResult | null; subscription?: Subscription }> {
+    return this.subscriptionRepository.manager.transaction(async (manager) => {
+      const whereClause = organizationId
+        ? { organizationId }
+        : { userId, organizationId: IsNull() };
+
+      // Acquire pessimistic read lock on the subscription row
+      const lockedSubscription = await manager.findOne(Subscription, {
+        where: whereClause,
+        lock: { mode: 'pessimistic_read' },
+      });
+
+      // Check if this transaction was already processed
+      if (lockedSubscription?.metadata?.lastPayment?.transactionId === transactionId) {
+        this.logger.warn(`Atomic duplicate check: transaction ${transactionId} already processed`);
+        return { alreadyProcessed: true, result: null, subscription: lockedSubscription };
+      }
+
+      // Not a duplicate - proceed with upgrade (outside the lock, the upgrade method handles its own save)
+      let upgradeResult: UpgradeResult;
+      if (upgradeType === 'organization' && organizationId) {
+        upgradeResult = await this.upgradeOrganizationSubscription(organizationId, paymentDetails);
+      } else {
+        upgradeResult = await this.upgradeUserSubscription(userId, paymentDetails);
+      }
+
+      return { alreadyProcessed: false, result: upgradeResult };
     });
   }
 
@@ -634,7 +701,7 @@ export class SubscriptionUpgradeService {
     const date = new Date();
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
-    const random = Math.random().toString(36).substring(2, 8).toUpperCase();
+    const random = randomBytes(4).toString('hex').toUpperCase();
     return `INV-${year}${month}-${random}`;
   }
 

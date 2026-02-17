@@ -587,7 +587,7 @@ export class MediaAnalysisService implements OnModuleInit {
               'buffer',
               {},
               {
-                logger: this.logger as any,
+                logger: this.logger as never,
                 reuploadRequest: sock.updateMediaMessage,
               }
             );
@@ -620,7 +620,7 @@ export class MediaAnalysisService implements OnModuleInit {
               'buffer',
               {},
               {
-                logger: this.logger as any,
+                logger: this.logger as never,
                 reuploadRequest: sock.updateMediaMessage,
               }
             );
@@ -654,7 +654,7 @@ export class MediaAnalysisService implements OnModuleInit {
               'buffer',
               {},
               {
-                logger: this.logger as any,
+                logger: this.logger as never,
                 reuploadRequest: sock.updateMediaMessage,
               }
             );
@@ -727,7 +727,7 @@ export class MediaAnalysisService implements OnModuleInit {
               'buffer',
               {},
               {
-                logger: this.logger as any,
+                logger: this.logger as never,
                 reuploadRequest: sock.updateMediaMessage,
               }
             );

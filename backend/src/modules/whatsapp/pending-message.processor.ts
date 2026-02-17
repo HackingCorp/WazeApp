@@ -100,7 +100,7 @@ export class PendingMessageProcessor {
       const result = await this.baileysService.sendMessage(sessionId, {
         to,
         message,
-        type: type as any,
+        type: type,
         mediaUrl,
         caption,
       });

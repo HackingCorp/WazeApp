@@ -30,9 +30,9 @@ export class OpenAIProvider extends BaseLLMProvider {
     try {
       const payload = this.buildOpenAIPayload(request);
 
-      const response = (await this.client.chat.completions.create(
+      const response = await this.client.chat.completions.create(
         payload,
-      )) as any;
+      ) as OpenAI.Chat.Completions.ChatCompletion;
 
       const responseTime = Date.now() - startTime;
 
@@ -49,9 +49,9 @@ export class OpenAIProvider extends BaseLLMProvider {
     try {
       const payload = { ...this.buildOpenAIPayload(request), stream: true };
 
-      const stream = (await this.client.chat.completions.create(
+      const stream = await this.client.chat.completions.create(
         payload,
-      )) as any;
+      ) as AsyncIterable<OpenAI.Chat.Completions.ChatCompletionChunk>;
 
       for await (const chunk of stream) {
         yield this.parseOpenAIStreamResponse(chunk);

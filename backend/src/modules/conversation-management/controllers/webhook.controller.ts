@@ -25,7 +25,7 @@ import { RolesGuard } from "../../../common/guards/roles.guard";
 import { Roles } from "../../../common/decorators/roles.decorator";
 import { AllowIndividualUsers } from "../../../common/decorators/allow-individual-users.decorator";
 import { CurrentUser } from "../../../common/decorators/current-user.decorator";
-import { UserRole } from "../../../common/enums";
+import { UserRole, WebhookEventType } from "../../../common/enums";
 import { User } from "../../../common/entities";
 import {
   WebhookProcessorService,
@@ -167,7 +167,7 @@ export class WebhookController {
   @Roles(UserRole.ADMIN, UserRole.OWNER)
   async testWebhook(@CurrentUser() user: User, @Body() testPayload?: any) {
     const samplePayload: WhatsAppWebhookPayload = testPayload || {
-      type: "message" as any,
+      type: WebhookEventType.MESSAGE_RECEIVED,
       timestamp: Date.now() / 1000,
       from: "1234567890",
       to: "0987654321",
@@ -278,7 +278,7 @@ export class WebhookController {
     if (value.messages && Array.isArray(value.messages)) {
       for (const message of value.messages) {
         events.push({
-          type: "message_received" as any,
+          type: WebhookEventType.MESSAGE_RECEIVED,
           timestamp: message.timestamp,
           from: message.from,
           to: value.metadata?.phone_number_id || "unknown",
@@ -300,7 +300,7 @@ export class WebhookController {
     if (value.statuses && Array.isArray(value.statuses)) {
       for (const status of value.statuses) {
         events.push({
-          type: "message_status" as any,
+          type: WebhookEventType.MESSAGE_STATUS,
           timestamp: status.timestamp,
           from: status.recipient_id,
           to: value.metadata?.phone_number_id || "unknown",
@@ -318,7 +318,7 @@ export class WebhookController {
       for (const contact of value.contacts) {
         if (contact.wa_id) {
           events.push({
-            type: "presence_update" as any,
+            type: WebhookEventType.PRESENCE_UPDATE,
             timestamp: Date.now() / 1000,
             from: contact.wa_id,
             to: value.metadata?.phone_number_id || "unknown",

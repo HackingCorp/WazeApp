@@ -111,7 +111,7 @@ export class WhatsAppController {
     // Add isConnected field for frontend compatibility
     const enhancedData = result.data.map(session => ({
       ...session,
-      isConnected: session.status === 'connected'
+      isConnected: session.status === WhatsAppSessionStatus.CONNECTED
     }));
     
     return {
@@ -270,7 +270,7 @@ export class WhatsAppController {
 
     return {
       messageId: result.messageId,
-      status: result.status as any,
+      status: result.status as MessageResponseDto['status'],
       timestamp: new Date(),
     };
   }
@@ -560,7 +560,7 @@ export class WhatsAppController {
     }
 
     // Check if session is connected
-    if (session.status !== "connected") {
+    if (session.status !== WhatsAppSessionStatus.CONNECTED) {
       return { success: false, message: "Session must be connected to sync" };
     }
 
@@ -1422,7 +1422,7 @@ export class WhatsAppController {
           ...(session.metadata || {}),
           forcedConnected: true,
           forcedAt: new Date().toISOString(),
-        } as any,
+        } as Record<string, any>,
       });
 
       return {
@@ -1471,7 +1471,7 @@ export class WhatsAppController {
         isActive: false,
         qrCode: null,
         qrCodeExpiresAt: null,
-        metadata: newMetadata as any,
+        metadata: newMetadata as Record<string, any>,
       });
 
       return {

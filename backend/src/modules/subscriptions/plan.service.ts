@@ -270,7 +270,7 @@ export class PlanService implements OnModuleInit, OnModuleDestroy {
   getPlanQuota(code: string, quotaName: string): number {
     const plan = this.getPlanByCode(code);
     if (!plan) return 0;
-    return (plan as any)[quotaName] ?? 0;
+    return (plan as unknown as Record<string, unknown>)[quotaName] as number ?? 0;
   }
 
   /**
@@ -279,7 +279,7 @@ export class PlanService implements OnModuleInit, OnModuleDestroy {
   planHasFeature(code: string, featureName: string): boolean {
     const plan = this.getPlanByCode(code);
     if (!plan) return false;
-    return (plan as any)[featureName] ?? false;
+    return (plan as unknown as Record<string, unknown>)[featureName] as boolean ?? false;
   }
 
   /**

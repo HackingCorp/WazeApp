@@ -23,7 +23,7 @@ import { RolesGuard } from "../../common/guards/roles.guard";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { Roles } from "../../common/decorators/roles.decorator";
 import { AllowIndividualUsers } from "../../common/decorators/allow-individual-users.decorator";
-import { UserRole } from "../../common/enums";
+import { UserRole, ConversationStatus } from "../../common/enums";
 import { User } from "../../common/entities";
 import { ConversationService } from "./conversation.service";
 import {
@@ -229,7 +229,7 @@ export class ConversationController {
       user.id,
       id,
       {
-        status: "completed" as any,
+        status: ConversationStatus.COMPLETED,
         context: {
           summary: body?.summary,
           satisfactionScore: body?.satisfactionScore,
@@ -254,7 +254,7 @@ export class ConversationController {
       user.currentOrganizationId,
       user.id,
       id,
-      { status: "active" as any },
+      { status: ConversationStatus.ACTIVE },
     );
   }
 

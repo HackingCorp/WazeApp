@@ -36,6 +36,7 @@ import {
   MessageRole,
   MessageStatus,
   ConversationStatus,
+  ConversationChannel,
 } from "../../../common/enums";
 import {
   User,
@@ -172,9 +173,9 @@ export class ConversationController {
     const conversation = this.conversationRepository.create({
       agentId: createDto.agentId,
       userId: user.id,
-      channel: "whatsapp" as any,
+      channel: ConversationChannel.WHATSAPP,
       externalId: createDto.phoneNumber,
-      status: "active" as any,
+      status: ConversationStatus.ACTIVE,
       startedAt: new Date(),
       context: {
         userProfile: { phone: createDto.phoneNumber },

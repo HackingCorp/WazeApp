@@ -409,7 +409,6 @@ export class WhatsAppAIResponderService {
       // Get the conversation
       let conversation = await this.conversationRepository.findOne({
         where: { id: conversationId },
-        relations: ["messages"],
       });
 
       if (!conversation) {
@@ -867,7 +866,6 @@ Always respond directly in the user's language without any formatting.`,
         userId: session.userId,
         title: conversationTitle,
       },
-      relations: ["messages"],
     });
 
     if (!conversation) {

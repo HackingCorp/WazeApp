@@ -68,7 +68,7 @@ export class AnalyticsService {
       // Get AI Agents
       const agents = await this.agentRepository.find({
         where: agentWhereConditions,
-        relations: ['organization', 'conversations']
+        relations: ['organization']
       });
 
       // Get WhatsApp Sessions
@@ -150,7 +150,7 @@ export class AnalyticsService {
           .andWhere('message.createdAt > :last24h', { last24h })
           .orderBy('message.createdAt', 'ASC');
       }
-      const recentMessages = conversationIds.length > 0 ? await recentMessagesQuery.getMany() : [];
+      const recentMessages = conversationIds.length > 0 ? await recentMessagesQuery.take(500).getMany() : [];
 
       const responseTime = this.calculateAverageResponseTime(recentMessages);
       

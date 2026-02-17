@@ -12,6 +12,7 @@ import {
   Headers,
   UnauthorizedException,
   ForbiddenException,
+  NotFoundException,
   Logger,
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
@@ -322,9 +323,15 @@ export class WhatsAppController {
     description: "Contact name retrieved",
   })
   async lookupContactName(
+    @CurrentUser() user: AuthenticatedRequest,
     @Query("sessionId") sessionId: string,
     @Query("phoneNumber") phoneNumber: string,
   ) {
+    // Verify the session belongs to the authenticated user
+    const session = await this.baileysService.getSessionInfo(sessionId);
+    if (!session || session.userId !== user.userId) {
+      throw new NotFoundException("Session not found");
+    }
     const name = await this.whatsappService.getContactName(sessionId, phoneNumber);
     return {
       success: true,
@@ -599,8 +606,8 @@ export class WhatsAppController {
       "conversationRepository"
     ].find({
       where: { channel: ConversationChannel.WHATSAPP },
-      relations: ["messages"],
       order: { updatedAt: "DESC" },
+      take: 100,
     });
 
     // Show user info for each conversation
@@ -608,7 +615,6 @@ export class WhatsAppController {
       id: conv.id,
       userId: conv.userId,
       externalId: conv.externalId,
-      messageCount: conv.messages?.length || 0,
       updatedAt: conv.updatedAt,
       context: conv.context,
     }));
@@ -692,6 +698,8 @@ export class WhatsAppController {
   }
 
   @Get("debug/current-user")
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.OWNER)
   @ApiOperation({ summary: "Debug: Get current authenticated user" })
   @ApiResponse({ status: 200, description: "Current user retrieved" })
   async getCurrentUser(@CurrentUser() user: AuthenticatedRequest) {
@@ -1042,8 +1050,8 @@ export class WhatsAppController {
         "conversationRepository"
       ].find({
         where: { channel: ConversationChannel.WHATSAPP },
-        relations: ["messages"],
         order: { createdAt: "ASC" },
+        take: 200,
       });
 
       // Group conversations by normalized phone number and user

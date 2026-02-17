@@ -378,7 +378,7 @@ export function ConversationInterface({
   );
 
   const sortedMessages = useMemo(() => [...messages].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime()), [messages]);
-  const messageGroups = groupMessagesByDate(sortedMessages);
+  const messageGroups = useMemo(() => groupMessagesByDate(sortedMessages), [sortedMessages]);
 
   return (
     <div className="flex h-full overflow-hidden">

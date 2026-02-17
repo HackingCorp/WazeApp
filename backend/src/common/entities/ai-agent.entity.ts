@@ -109,14 +109,6 @@ export class AiAgent extends BaseEntity {
     topP?: number;
     frequencyPenalty?: number;
     presencePenalty?: number;
-    contextWindow?: number;
-    memorySize?: number;
-    responseFormat?: "text" | "json" | "markdown";
-    enableFunctionCalling?: boolean;
-    enableWebSearch?: boolean;
-    enableImageAnalysis?: boolean;
-    confidenceThreshold?: number;
-    maxRetries?: number;
     // Response style options
     avoidRepetition?: boolean;
     useListsWhenAppropriate?: boolean;

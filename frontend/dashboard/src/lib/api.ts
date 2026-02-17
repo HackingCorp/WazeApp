@@ -230,22 +230,27 @@ class ApiClient {
           name: agent.name,
           description: agent.description || '',
           status: agent.status,
-          model: 'GPT-4', // Default model for display
-          language: agent.primaryLanguage || 'French',
-          personality: agent.tone || 'Professional',
+          primaryLanguage: agent.primaryLanguage || 'en',
+          tone: agent.tone || 'professional',
           conversationsCount: agent.metrics?.totalConversations || 0,
           averageResponseTime: agent.metrics?.averageResponseTime || 0,
-          satisfactionRate: agent.metrics?.satisfactionScore || 0,
+          satisfactionScore: agent.metrics?.satisfactionScore || 0,
           createdAt: agent.createdAt,
-          lastActive: 'Recently active', // Could be calculated from lastActive field
+          lastActive: agent.metrics?.lastActive || agent.updatedAt,
+          systemPrompt: agent.systemPrompt,
+          config: agent.config,
+          welcomeMessage: agent.welcomeMessage,
+          fallbackMessage: agent.fallbackMessage,
+          tags: agent.tags || [],
+          knowledgeBases: agent.knowledgeBases || [],
         }));
-        
+
         return {
           success: true,
           data: agents
         };
       }
-      
+
       // If no data, return empty array instead of mock data
       return {
         success: true,
@@ -1273,9 +1278,16 @@ export const api = new ApiClient(API_BASE_URL);
 export const apiHelpers = {
   agents: {
     getAll: () => api.getAgents(),
+    get: (id: string) => api.get(`/agents/${id}`),
     create: (data: any) => api.createAgent(data),
     update: (id: string, data: any) => api.updateAgent(id, data),
     delete: (id: string) => api.deleteAgent(id),
+    clone: (id: string, name?: string) => api.cloneAgent(id, name),
+    test: (id: string, data: any) => api.testAgent(id, data),
+    generateFaq: (id: string, data?: any) => api.generateFaq(id, data),
+    getConversations: (id: string, page?: number, limit?: number) => api.getAgentConversations(id, page, limit),
+    getPromptHistory: (id: string) => api.getPromptHistory(id),
+    rollbackPrompt: (id: string, version: number) => api.rollbackPrompt(id, version),
   },
   analytics: {
     getDashboard: () => api.getAnalytics(),

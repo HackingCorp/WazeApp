@@ -34,9 +34,10 @@ interface Agent {
   name: string;
   description?: string;
   primaryLanguage: string;
+  supportedLanguages?: string[];
   tone: string;
   systemPrompt: string;
-  status: 'active' | 'inactive';
+  status: 'active' | 'inactive' | 'training' | 'maintenance';
   knowledgeBases?: any[];
   responseLength?: string;
   verbosity?: string;
@@ -44,6 +45,7 @@ interface Agent {
   maxResponseChars?: number;
   welcomeMessage?: string;
   fallbackMessage?: string;
+  tags?: string[];
   config?: {
     temperature?: number;
     maxTokens?: number;
@@ -61,14 +63,17 @@ interface AgentFormData {
   name: string;
   description: string;
   primaryLanguage: string;
+  supportedLanguages?: string[];
   tone: string;
   systemPrompt: string;
+  status?: 'active' | 'inactive' | 'training' | 'maintenance';
   responseLength: string;
   verbosity: string;
   useEmojis: boolean;
   maxResponseChars: number;
   welcomeMessage?: string;
   fallbackMessage?: string;
+  tags?: string[];
   config?: {
     temperature?: number;
     maxTokens?: number;
@@ -92,9 +97,14 @@ const TONES = [
 ];
 
 const LANGUAGES = [
-  { value: 'fr', label: 'Français' },
   { value: 'en', label: 'Anglais' },
+  { value: 'fr', label: 'Français' },
   { value: 'es', label: 'Espagnol' },
+  { value: 'de', label: 'Allemand' },
+  { value: 'it', label: 'Italien' },
+  { value: 'pt', label: 'Portugais' },
+  { value: 'zh', label: 'Chinois' },
+  { value: 'ja', label: 'Japonais' },
   { value: 'ar', label: 'Arabe' },
 ];
 
@@ -131,14 +141,17 @@ export default function EditAgentPage() {
     name: '',
     description: '',
     primaryLanguage: 'fr',
+    supportedLanguages: [],
     tone: 'friendly',
     systemPrompt: '',
+    status: 'active',
     responseLength: 'medium',
     verbosity: 'balanced',
     useEmojis: false,
     maxResponseChars: 0,
     welcomeMessage: '',
     fallbackMessage: '',
+    tags: [],
     config: {
       temperature: 0.7,
       maxTokens: 2000,
@@ -164,15 +177,19 @@ export default function EditAgentPage() {
             name: agentData.name || '',
             description: agentData.description || '',
             primaryLanguage: agentData.primaryLanguage || 'fr',
+            supportedLanguages: agentData.supportedLanguages || [agentData.primaryLanguage || 'fr'],
             tone: agentData.tone || 'friendly',
             systemPrompt: agentData.systemPrompt || '',
+            status: agentData.status || 'active',
             responseLength: agentData.responseLength || 'medium',
             verbosity: agentData.verbosity || 'balanced',
             useEmojis: agentData.useEmojis || false,
             maxResponseChars: agentData.maxResponseChars || 0,
             welcomeMessage: agentData.welcomeMessage || '',
             fallbackMessage: agentData.fallbackMessage || '',
+            tags: agentData.tags || [],
             config: {
+              ...agentData.config,
               temperature: agentData.config?.temperature ?? 0.7,
               maxTokens: agentData.config?.maxTokens ?? 2000,
               topP: agentData.config?.topP ?? 0.9,
@@ -214,7 +231,14 @@ export default function EditAgentPage() {
 
     setSaving(true);
     try {
-      const response = await api.patch(`/agents/${agentId}`, formData);
+      const payload = {
+        ...formData,
+        config: {
+          ...agent?.config,
+          ...formData.config,
+        },
+      };
+      const response = await api.patch(`/agents/${agentId}`, payload);
       if (response.success) {
         toast.success('Agent mis à jour avec succès !');
         router.push('/agents');
@@ -382,6 +406,22 @@ export default function EditAgentPage() {
               />
             </div>
 
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Statut de l'agent
+              </label>
+              <select
+                value={formData.status}
+                onChange={(e) => updateFormData({ status: e.target.value as any })}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="active">Actif</option>
+                <option value="inactive">Inactif</option>
+                <option value="training">En formation</option>
+                <option value="maintenance">Maintenance</option>
+              </select>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -412,6 +452,57 @@ export default function EditAgentPage() {
                   ))}
                 </select>
               </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Langues supportées
+              </label>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-2 p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800">
+                {LANGUAGES.map(lang => (
+                  <label key={lang.value} className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.supportedLanguages?.includes(lang.value) || false}
+                      onChange={(e) => {
+                        const currentLangs = formData.supportedLanguages || [];
+                        if (e.target.checked) {
+                          updateFormData({ supportedLanguages: [...currentLangs, lang.value] });
+                        } else {
+                          updateFormData({
+                            supportedLanguages: currentLangs.filter(l => l !== lang.value)
+                          });
+                        }
+                      }}
+                      className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                    />
+                    <span className="text-sm text-gray-700 dark:text-gray-300">{lang.label}</span>
+                  </label>
+                ))}
+              </div>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                Sélectionnez toutes les langues que l'agent peut comprendre et répondre
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Tags
+              </label>
+              <input
+                type="text"
+                value={formData.tags?.join(', ') || ''}
+                onChange={(e) => {
+                  const tagsString = e.target.value;
+                  const tagsArray = tagsString.split(',').map(t => t.trim()).filter(t => t);
+                  updateFormData({ tags: tagsArray });
+                }}
+                placeholder="Ex: support, ventes, technique"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                Séparez les tags par des virgules
+              </p>
             </div>
 
             <div>
@@ -550,10 +641,10 @@ export default function EditAgentPage() {
                           </div>
                         </div>
 
-                        {expandedVersion === item.version && item.systemPrompt && (
+                        {expandedVersion === item.version && item.prompt && (
                           <div className="mt-3 p-3 bg-gray-50 dark:bg-gray-900 rounded-md">
                             <pre className="text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap font-mono">
-                              {item.systemPrompt}
+                              {item.prompt}
                             </pre>
                           </div>
                         )}
@@ -893,14 +984,14 @@ export default function EditAgentPage() {
                   <input
                     type="number"
                     min="0"
-                    max="5000"
+                    max="10000"
                     value={formData.maxResponseChars}
                     onChange={(e) => updateFormData({ maxResponseChars: parseInt(e.target.value) || 0 })}
                     placeholder="0 = illimité"
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   />
                   <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                    0 = pas de limite. Ex: 500 pour des messages courts
+                    0 = pas de limite. Maximum: 10000 caractères
                   </p>
                 </div>
 

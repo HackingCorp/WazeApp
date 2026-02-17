@@ -352,6 +352,11 @@ export class AiAgentService {
       );
     }
 
+    // Deep merge config if present to avoid replacing entire config object
+    if (updateDto.config) {
+      updateDto.config = { ...agent.config, ...updateDto.config };
+    }
+
     Object.assign(agent, updateDto);
     agent.version += 1;
 
@@ -418,6 +423,11 @@ export class AiAgentService {
         userId,
         updateDto.knowledgeBaseIds,
       );
+    }
+
+    // Deep merge config if present to avoid replacing entire config object
+    if (updateDto.config) {
+      updateDto.config = { ...agent.config, ...updateDto.config };
     }
 
     Object.assign(agent, updateDto);

@@ -20,9 +20,10 @@ import {
   MoreVertical,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { apiHelpers } from '@/lib/api';
+import { apiHelpers, api } from '@/lib/api';
 import { useI18n } from '@/providers/I18nProvider';
 import clsx from 'clsx';
+import toast from 'react-hot-toast';
 
 interface Agent {
   id: string;
@@ -64,84 +65,12 @@ export default function AgentsPage() {
     } catch (error) {
       console.error('Failed to load agents:', error);
       setAgents([]); // Ensure agents is always an array
+      toast.error('Erreur lors du chargement des agents');
     } finally {
       setLoading(false);
     }
   };
 
-  // Mock data for development
-  const mockAgents: Agent[] = [
-    {
-      id: '1',
-      name: 'Customer Support Bot',
-      description: 'Handles general customer inquiries and support tickets',
-      status: 'active',
-      model: 'GPT-4',
-      language: 'English',
-      personality: 'Helpful and Professional',
-      conversationsCount: 342,
-      averageResponseTime: 1.2,
-      satisfactionRate: 94.5,
-      createdAt: '2024-01-15T10:30:00Z',
-      lastActive: '2 minutes ago',
-    },
-    {
-      id: '2',
-      name: 'Sales Assistant',
-      description: 'Qualifies leads and provides product information',
-      status: 'active',
-      model: 'Claude-3.5',
-      language: 'English',
-      personality: 'Enthusiastic and Persuasive',
-      conversationsCount: 156,
-      averageResponseTime: 0.8,
-      satisfactionRate: 92.1,
-      createdAt: '2024-02-01T14:20:00Z',
-      lastActive: '5 minutes ago',
-    },
-    {
-      id: '3',
-      name: 'Technical Support',
-      description: 'Provides technical assistance and troubleshooting',
-      status: 'inactive',
-      model: 'GPT-4',
-      language: 'English',
-      personality: 'Patient and Technical',
-      conversationsCount: 89,
-      averageResponseTime: 2.1,
-      satisfactionRate: 96.8,
-      createdAt: '2024-01-20T09:15:00Z',
-      lastActive: '2 hours ago',
-    },
-    {
-      id: '4',
-      name: 'Onboarding Guide',
-      description: 'Helps new users get started with the platform',
-      status: 'training',
-      model: 'Claude-3.5',
-      language: 'English',
-      personality: 'Friendly and Encouraging',
-      conversationsCount: 23,
-      averageResponseTime: 1.5,
-      satisfactionRate: 89.2,
-      createdAt: '2024-02-10T16:45:00Z',
-      lastActive: '1 hour ago',
-    },
-    {
-      id: '5',
-      name: 'FAQ Bot',
-      description: 'Answers frequently asked questions',
-      status: 'error',
-      model: 'GPT-3.5',
-      language: 'English',
-      personality: 'Concise and Direct',
-      conversationsCount: 67,
-      averageResponseTime: 0.5,
-      satisfactionRate: 87.3,
-      createdAt: '2024-01-10T11:00:00Z',
-      lastActive: '3 hours ago',
-    },
-  ];
 
   const currentAgents = agents || [];
 
@@ -153,10 +82,20 @@ export default function AgentsPage() {
   });
 
   const toggleAgentStatus = async (agentId: string, currentStatus: string) => {
+    // Don't toggle if agent is in training or error status
+    if (currentStatus === 'training') {
+      toast.error('Impossible de changer le statut: l\'agent est en formation');
+      return;
+    }
+    if (currentStatus === 'error') {
+      toast.error('Impossible de changer le statut: l\'agent est en erreur');
+      return;
+    }
+
     try {
       const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
       await apiHelpers.agents.update(agentId, { status: newStatus });
-      
+
       setAgents(prev =>
         prev.map(agent =>
           agent.id === agentId
@@ -164,26 +103,29 @@ export default function AgentsPage() {
             : agent
         )
       );
+
+      toast.success(`Agent ${newStatus === 'active' ? 'activé' : 'désactivé'} avec succès`);
     } catch (error) {
       console.error('Failed to toggle agent status:', error);
+      toast.error('Erreur lors du changement de statut');
     }
   };
 
   const duplicateAgent = async (agentId: string) => {
+    const agent = currentAgents.find(a => a.id === agentId);
+    if (!agent) return;
+
     try {
-      const agent = currentAgents.find(a => a.id === agentId);
-      if (!agent) return;
-
-      const duplicatedAgent = {
-        ...agent,
-        name: `${agent.name} (Copy)`,
-        status: 'inactive' as const,
-      };
-
-      const response = await apiHelpers.agents.create(duplicatedAgent);
-      setAgents(prev => [...prev, response.data]);
+      const response = await api.cloneAgent(agentId, `${agent.name} (Copy)`);
+      if (response.success) {
+        toast.success('Agent dupliqué avec succès');
+        loadAgents(); // Refresh the list to show the cloned agent
+      } else {
+        toast.error('Erreur lors de la duplication');
+      }
     } catch (error) {
-      console.error('Failed to duplicate agent:', error);
+      console.error('Error cloning agent:', error);
+      toast.error('Erreur lors de la duplication');
     }
   };
 
@@ -193,8 +135,14 @@ export default function AgentsPage() {
     try {
       await apiHelpers.agents.delete(agentId);
       setAgents(prev => prev.filter(agent => agent.id !== agentId));
-    } catch (error) {
+      toast.success('Agent supprimé avec succès');
+    } catch (error: any) {
       console.error('Failed to delete agent:', error);
+      if (error?.response?.status === 400) {
+        toast.error('Impossible de supprimer: l\'agent a des conversations actives');
+      } else {
+        toast.error('Erreur lors de la suppression');
+      }
     }
   };
 

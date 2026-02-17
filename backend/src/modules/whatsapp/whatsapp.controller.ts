@@ -607,7 +607,7 @@ export class WhatsAppController {
     ].find({
       where: { channel: ConversationChannel.WHATSAPP },
       order: { updatedAt: "DESC" },
-      take: 100,
+      take: 50,
     });
 
     // Show user info for each conversation
@@ -1051,7 +1051,7 @@ export class WhatsAppController {
       ].find({
         where: { channel: ConversationChannel.WHATSAPP },
         order: { createdAt: "ASC" },
-        take: 200,
+        take: 50,
       });
 
       // Group conversations by normalized phone number and user
@@ -1556,9 +1556,12 @@ export class WhatsAppController {
 
   // Vision Service Endpoints
   @Get("vision/status")
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.OWNER)
   @ApiOperation({ summary: "Check vision services availability" })
   @ApiResponse({ status: 200, description: "Vision services status" })
   async getVisionStatus() {
+    this.ensureDebugMode();
     return this.visionService.getVisionServicesStatus();
   }
 

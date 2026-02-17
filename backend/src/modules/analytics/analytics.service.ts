@@ -150,7 +150,7 @@ export class AnalyticsService {
           .andWhere('message.createdAt > :last24h', { last24h })
           .orderBy('message.createdAt', 'ASC');
       }
-      const recentMessages = conversationIds.length > 0 ? await recentMessagesQuery.take(500).getMany() : [];
+      const recentMessages = conversationIds.length > 0 ? await recentMessagesQuery.take(1000).getMany() : [];
 
       const responseTime = this.calculateAverageResponseTime(recentMessages);
       

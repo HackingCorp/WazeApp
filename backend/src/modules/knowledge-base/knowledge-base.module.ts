@@ -18,6 +18,7 @@ import { KnowledgeBaseController } from "./knowledge-base.controller";
 import { DocumentController } from "./document.controller";
 import { DocumentProcessorConsumer } from "./processors/document-processor.consumer";
 import { AuditModule } from "../audit/audit.module";
+import { VectorSearchModule } from "../vector-search/vector-search.module";
 import * as multer from "multer";
 
 @Module({
@@ -31,6 +32,7 @@ import * as multer from "multer";
       AiAgent,
     ]),
     AuditModule,
+    VectorSearchModule,
     BullModule.registerQueue({
       name: "document-processing",
       defaultJobOptions: {

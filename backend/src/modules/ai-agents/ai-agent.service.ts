@@ -67,6 +67,11 @@ export class AiAgentService {
     // Check agent limits for all users (by organization or by user)
     await this.checkAgentLimit(organizationId, userId);
 
+    // Validate system prompt if provided
+    if (createDto.systemPrompt) {
+      this.validateSystemPrompt(createDto.systemPrompt);
+    }
+
     // Validate knowledge bases for all users
     if (createDto.knowledgeBaseIds?.length) {
       await this.validateKnowledgeBases(
@@ -312,6 +317,26 @@ export class AiAgentService {
   ): Promise<AiAgent> {
     const agent = await this.findOne(organizationId, id);
 
+    // Validate system prompt if being updated
+    if (updateDto.systemPrompt) {
+      this.validateSystemPrompt(updateDto.systemPrompt);
+    }
+
+    // Track prompt version history
+    if (updateDto.systemPrompt && updateDto.systemPrompt !== agent.systemPrompt) {
+      if (!agent.promptHistory) agent.promptHistory = [];
+      agent.promptHistory.push({
+        prompt: agent.systemPrompt,
+        version: agent.version,
+        updatedAt: new Date().toISOString(),
+        updatedBy: userId,
+      });
+      // Keep only last 10 versions
+      if (agent.promptHistory.length > 10) {
+        agent.promptHistory = agent.promptHistory.slice(-10);
+      }
+    }
+
     // Validate knowledge bases if being updated
     if (updateDto.knowledgeBaseIds?.length) {
       await this.validateKnowledgeBases(
@@ -359,6 +384,26 @@ export class AiAgentService {
     updateDto: UpdateAiAgentDto,
   ): Promise<AiAgent> {
     const agent = await this.findOneForUser(organizationId, userId, id);
+
+    // Validate system prompt if being updated
+    if (updateDto.systemPrompt) {
+      this.validateSystemPrompt(updateDto.systemPrompt);
+    }
+
+    // Track prompt version history
+    if (updateDto.systemPrompt && updateDto.systemPrompt !== agent.systemPrompt) {
+      if (!agent.promptHistory) agent.promptHistory = [];
+      agent.promptHistory.push({
+        prompt: agent.systemPrompt,
+        version: agent.version,
+        updatedAt: new Date().toISOString(),
+        updatedBy: userId,
+      });
+      // Keep only last 10 versions
+      if (agent.promptHistory.length > 10) {
+        agent.promptHistory = agent.promptHistory.slice(-10);
+      }
+    }
 
     // Validate knowledge bases if being updated
     if (updateDto.knowledgeBaseIds?.length) {
@@ -680,5 +725,121 @@ export class AiAgentService {
         "One or more knowledge bases not found or not accessible",
       );
     }
+  }
+
+  private validateSystemPrompt(prompt: string): { warnings: string[] } {
+    const warnings: string[] = [];
+
+    // Check length
+    if (prompt.length < 10) {
+      throw new BadRequestException(
+        "System prompt is too short (minimum 10 characters)",
+      );
+    }
+    if (prompt.length > 10000) {
+      throw new BadRequestException(
+        "System prompt is too long (maximum 10,000 characters)",
+      );
+    }
+
+    // Check for injection patterns
+    const injectionPatterns = [
+      /ignore\s+(all\s+)?previous\s+instructions/i,
+      /ignore\s+(all\s+)?instructions/i,
+      /disregard\s+(your\s+)?instructions/i,
+      /forget\s+(your\s+)?rules/i,
+      /you\s+are\s+now\s+a/i,
+      /new\s+instructions\s*:/i,
+      /system\s+override/i,
+      /jailbreak/i,
+    ];
+
+    for (const pattern of injectionPatterns) {
+      if (pattern.test(prompt)) {
+        throw new BadRequestException(
+          `System prompt contains a potentially dangerous instruction pattern. Please remove phrases like "${prompt.match(pattern)?.[0]}" from your prompt.`,
+        );
+      }
+    }
+
+    // Check for PII (warn only)
+    if (/\b\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}\b/.test(prompt)) {
+      warnings.push(
+        "Your prompt appears to contain a credit card number. Consider removing sensitive data.",
+      );
+    }
+
+    return { warnings };
+  }
+
+  async getPromptHistory(
+    organizationId: string | null,
+    userId: string,
+    id: string,
+  ): Promise<
+    Array<{
+      prompt: string;
+      version: number;
+      updatedAt: string;
+      updatedBy?: string;
+    }>
+  > {
+    const agent = await this.findOneForUser(organizationId, userId, id);
+    return agent.promptHistory || [];
+  }
+
+  async rollbackPrompt(
+    organizationId: string | null,
+    userId: string,
+    id: string,
+    version: number,
+  ): Promise<AiAgent> {
+    const agent = await this.findOneForUser(organizationId, userId, id);
+
+    if (!agent.promptHistory || agent.promptHistory.length === 0) {
+      throw new BadRequestException("No prompt history available");
+    }
+
+    const historicalEntry = agent.promptHistory.find(
+      (entry) => entry.version === version,
+    );
+
+    if (!historicalEntry) {
+      throw new BadRequestException(
+        `Prompt version ${version} not found in history`,
+      );
+    }
+
+    // Save current prompt to history before rolling back
+    if (!agent.promptHistory) agent.promptHistory = [];
+    agent.promptHistory.push({
+      prompt: agent.systemPrompt,
+      version: agent.version,
+      updatedAt: new Date().toISOString(),
+      updatedBy: userId,
+    });
+
+    // Keep only last 10 versions
+    if (agent.promptHistory.length > 10) {
+      agent.promptHistory = agent.promptHistory.slice(-10);
+    }
+
+    // Set agent system prompt to the historical version
+    agent.systemPrompt = historicalEntry.prompt;
+    agent.version += 1;
+
+    const updated = await this.agentRepository.save(agent);
+
+    await this.auditService.log({
+      organizationId,
+      userId,
+      action: AuditAction.UPDATE,
+      resourceType: "ai_agent",
+      resourceId: id,
+      description: `Rolled back AI agent prompt to version ${version}`,
+      metadata: { rollbackToVersion: version },
+    });
+
+    return updated;
   }
 }

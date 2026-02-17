@@ -119,7 +119,7 @@ export class VectorSearchService implements OnModuleInit {
         {
           vector: queryEmbedding,
           limit: request.limit || 10,
-          score_threshold: request.threshold || 0.7,
+          score_threshold: request.threshold || 0.6, // Increased from 0.7 to 0.6
           filter,
         },
       );
@@ -142,6 +142,160 @@ export class VectorSearchService implements OnModuleInit {
       this.logger.error(`Vector search failed: ${error.message}`);
 
       // Fall back to text search
+      return this.fallbackTextSearch(request);
+    }
+  }
+
+  async keywordSearch(request: VectorSearchRequest): Promise<VectorSearchResult[]> {
+    let queryBuilder = this.chunkRepository
+      .createQueryBuilder("chunk")
+      .leftJoinAndSelect("chunk.document", "document")
+      .leftJoinAndSelect("document.knowledgeBase", "knowledgeBase")
+      .where("knowledgeBase.organizationId = :organizationId", {
+        organizationId: request.organizationId,
+      })
+      .andWhere(
+        "to_tsvector('simple', chunk.content) @@ plainto_tsquery('simple', :query)",
+        {
+          query: request.query,
+        },
+      );
+
+    if (request.knowledgeBaseIds && request.knowledgeBaseIds.length > 0) {
+      queryBuilder = queryBuilder.andWhere(
+        "document.knowledgeBaseId IN (:...kbIds)",
+        {
+          kbIds: request.knowledgeBaseIds,
+        },
+      );
+    }
+
+    const { entities, raw } = await queryBuilder
+      .addSelect(
+        "ts_rank(to_tsvector('simple', chunk.content), plainto_tsquery('simple', :query))",
+        "score",
+      )
+      .orderBy("score", "DESC")
+      .limit(request.limit || 10)
+      .getRawAndEntities();
+
+    return entities.map((chunk, index) => ({
+      chunk: request.includeContent
+        ? chunk
+        : ({ ...chunk, content: "" } as DocumentChunk),
+      score: parseFloat(raw[index]?.score) || 0,
+      document: {
+        id: chunk.document.id,
+        title: chunk.document.title,
+        filename: chunk.document.filename,
+        type: chunk.document.type,
+      },
+      knowledgeBase: {
+        id: chunk.document.knowledgeBase.id,
+        name: chunk.document.knowledgeBase.name,
+      },
+    }));
+  }
+
+  async hybridSearch(request: VectorSearchRequest): Promise<VectorSearchResult[]> {
+    if (!this.isConnected) {
+      this.logger.warn("Qdrant not connected, using keyword search only");
+      return this.keywordSearch(request);
+    }
+
+    try {
+      const limit = request.limit || 10;
+
+      // Run both searches in parallel
+      const [vectorResults, keywordResults] = await Promise.all([
+        this.search({ ...request, limit: limit * 2 }), // Get more results for better fusion
+        this.keywordSearch({ ...request, limit: limit * 2 }),
+      ]);
+
+      this.logger.log(`Hybrid search: ${vectorResults.length} vector, ${keywordResults.length} keyword results`);
+
+      // Use Reciprocal Rank Fusion (RRF) to combine results
+      const k = 60; // RRF constant
+      const scoreMap = new Map<string, { result: VectorSearchResult; score: number }>();
+
+      // Add vector results with RRF scoring
+      vectorResults.forEach((result, index) => {
+        const rrrScore = 1 / (k + index + 1);
+        scoreMap.set(result.chunk.id, {
+          result,
+          score: rrrScore,
+        });
+      });
+
+      // Add keyword results with RRF scoring
+      keywordResults.forEach((result, index) => {
+        const rrrScore = 1 / (k + index + 1);
+        const existing = scoreMap.get(result.chunk.id);
+
+        if (existing) {
+          // Combine scores if chunk appears in both results
+          existing.score += rrrScore;
+        } else {
+          scoreMap.set(result.chunk.id, {
+            result,
+            score: rrrScore,
+          });
+        }
+      });
+
+      // Convert to array and apply re-ranking
+      let combinedResults = Array.from(scoreMap.values()).map(item => {
+        const result = item.result;
+        let score = item.score;
+
+        // Re-ranking boosts
+        const query = request.query.toLowerCase();
+        const title = result.document.title.toLowerCase();
+        const content = result.chunk.content.toLowerCase();
+
+        // Boost for exact title match
+        if (title.includes(query)) {
+          score += 0.2;
+          this.logger.debug(`Title match boost for chunk ${result.chunk.id}`);
+        }
+
+        // Boost for exact phrase match in content
+        if (content.includes(query)) {
+          score += 0.15;
+          this.logger.debug(`Exact phrase match boost for chunk ${result.chunk.id}`);
+        }
+
+        // Penalize very short chunks
+        if (result.chunk.characterCount < 50) {
+          score -= 0.1;
+          this.logger.debug(`Short chunk penalty for chunk ${result.chunk.id}`);
+        }
+
+        return {
+          ...result,
+          score,
+        };
+      });
+
+      // Sort by combined score and apply threshold
+      const threshold = request.threshold || 0.6;
+      combinedResults = combinedResults
+        .filter(r => r.score >= threshold / 10) // Adjust threshold for RRF scores
+        .sort((a, b) => b.score - a.score)
+        .slice(0, limit);
+
+      this.logger.log(`Hybrid search: returning ${combinedResults.length} results after fusion and re-ranking`);
+
+      // Track usage
+      await this.trackVectorSearchUsage(
+        request.organizationId,
+        request.query,
+        combinedResults.length,
+      );
+
+      return combinedResults;
+    } catch (error) {
+      this.logger.error(`Hybrid search failed: ${error.message}`);
       return this.fallbackTextSearch(request);
     }
   }

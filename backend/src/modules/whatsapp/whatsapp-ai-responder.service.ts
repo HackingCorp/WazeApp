@@ -929,6 +929,57 @@ Always respond directly in the user's language without any formatting.`,
     return savedMessage;
   }
 
+
+  /**
+   * Generate a summary of older conversation messages using LLM
+   * Caches the summary in Redis to avoid re-summarizing on every message
+   */
+  private async getConversationSummary(
+    conversationId: string,
+    olderMessages: Array<{role: string, content: string}>,
+    agent: AiAgent,
+  ): Promise<string | null> {
+    try {
+      // Check Redis cache first
+      const cacheKey = `conv:summary:${conversationId}`;
+      const cached = await this.cacheManager.get<string>(cacheKey);
+      if (cached) {
+        this.logger.log(`📝 Using cached conversation summary for ${conversationId}`);
+        return cached;
+      }
+
+      // Format older messages for summarization
+      const messagesText = olderMessages
+        .map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`)
+        .join('\n');
+
+      // Generate summary using LLM with low temperature for consistency
+      const summaryPrompt = `Summarize this conversation concisely in 2-3 sentences. Preserve key facts, user preferences, names, and unresolved questions:\n\n${messagesText}`;
+
+      this.logger.log(`📝 Generating conversation summary for ${conversationId} (${olderMessages.length} older messages)`);
+
+      const result = await this.llmRouterService.generateResponse({
+        messages: [{ role: 'user', content: summaryPrompt }],
+        temperature: 0.3,
+        maxTokens: 200,
+        organizationId: agent.organizationId,
+        priority: 'low',
+      });
+
+      const summary = result.content;
+
+      // Cache for 30 minutes (1800000 ms)
+      await this.cacheManager.set(cacheKey, summary, 1800000);
+
+      this.logger.log(`📝 Summary generated and cached: ${summary.substring(0, 100)}...`);
+
+      return summary;
+    } catch (error) {
+      this.logger.warn(`Failed to generate conversation summary: ${error.message}`);
+      return null;
+    }
+  }
+
   private async searchKnowledgeBase(
     session: WhatsAppSession,
     userMessage: string,
@@ -947,11 +998,11 @@ Always respond directly in the user's language without any formatting.`,
       this.logger.log(`🔍 KB Search: Organization ID = ${session.organizationId}`);
 
       // Priorité :
-      // 1. Agent passé en paramètre (source de vérité)
-      // 2. Agent de la session
+      // 1. Agent passé en paramètre (source de vérité) - search ALL KBs
+      // 2. Agent de la session - search ALL KBs
       // 3. Base de connaissances directe de la session (legacy)
       // 4. Base de connaissances de l'organisation (fallback)
-      let knowledgeBase: any = null;
+      let knowledgeBases: any[] = [];
       const effectiveAgent = agent || session.agent;
 
       if (
@@ -959,60 +1010,62 @@ Always respond directly in the user's language without any formatting.`,
         effectiveAgent.knowledgeBases &&
         effectiveAgent.knowledgeBases.length > 0
       ) {
-        // Utiliser la première base de connaissances de l'agent effectif
-        knowledgeBase = effectiveAgent.knowledgeBases[0];
+        // Use ALL knowledge bases from the agent
+        knowledgeBases = effectiveAgent.knowledgeBases;
         this.logger.log(
-          `✅ Using agent's knowledge base: ${knowledgeBase.name} (${knowledgeBase.id}) from agent ${effectiveAgent.name}`,
+          `✅ Using agent's ${knowledgeBases.length} knowledge base(s): ${knowledgeBases.map(kb => `${kb.name} (${kb.id})`).join(', ')} from agent ${effectiveAgent.name}`,
         );
       } else if (session.knowledgeBase) {
         // Fallback: base de connaissances directement associée à la session (legacy)
-        knowledgeBase = session.knowledgeBase;
+        knowledgeBases = [session.knowledgeBase];
         this.logger.log(
-          `✅ Using session's direct knowledge base: ${knowledgeBase.name} (${knowledgeBase.id})`,
+          `✅ Using session's direct knowledge base: ${session.knowledgeBase.name} (${session.knowledgeBase.id})`,
         );
       } else {
         // Fallback: chercher par organisation
         this.logger.log(`⚠️ No agent KB or session KB, searching by organization...`);
-        knowledgeBase = await this.knowledgeBaseRepository.findOne({
+        const orgKb = await this.knowledgeBaseRepository.findOne({
           where: { organizationId: session.organizationId },
           relations: ["documents"],
         });
-        if (knowledgeBase) {
+        if (orgKb) {
+          knowledgeBases = [orgKb];
           this.logger.log(
-            `✅ Using organization's default knowledge base: ${knowledgeBase.name} (${knowledgeBase.id})`,
+            `✅ Using organization's default knowledge base: ${orgKb.name} (${orgKb.id})`,
           );
         } else {
           this.logger.warn(`❌ No knowledge base found for organization ${session.organizationId}`);
         }
       }
 
-      if (!knowledgeBase) {
+      if (knowledgeBases.length === 0) {
         this.logger.debug(`No knowledge base found for session ${session.id}`);
         return "";
       }
 
+      const knowledgeBaseIds = knowledgeBases.map(kb => kb.id);
       this.logger.log(
-        `Searching knowledge base ${knowledgeBase.id} for: "${userMessage}"`,
+        `Searching ${knowledgeBaseIds.length} knowledge base(s) for: "${userMessage}"`,
       );
 
-      // Try vector search first (semantic search via embeddings)
+      // Try hybrid search (combines vector + keyword search with re-ranking)
       try {
-        const vectorResults = await this.vectorSearchService.search({
+        const hybridResults = await this.vectorSearchService.hybridSearch({
           query: userMessage,
           organizationId: session.organizationId,
-          knowledgeBaseIds: [knowledgeBase.id],
+          knowledgeBaseIds: knowledgeBaseIds,
           limit: 5,
-          threshold: 0.5,
+          threshold: 0.6,
           includeContent: true,
         });
 
-        if (vectorResults.length > 0) {
-          this.logger.log(`Vector search returned ${vectorResults.length} results`);
+        if (hybridResults.length > 0) {
+          this.logger.log(`Hybrid search returned ${hybridResults.length} results`);
           const MAX_KB_CHARS = 24000;
           let totalChars = 0;
           const contextParts: string[] = [];
 
-          for (const result of vectorResults) {
+          for (const result of hybridResults) {
             const entry = `**${result.document.title}** (score: ${result.score.toFixed(2)}):\n${result.chunk.content}`;
             if (totalChars + entry.length > MAX_KB_CHARS) {
               const remaining = MAX_KB_CHARS - totalChars;
@@ -1025,14 +1078,17 @@ Always respond directly in the user's language without any formatting.`,
             totalChars += entry.length;
           }
 
-          return `📚 INFORMATIONS TROUVÉES DANS LA BASE DE CONNAISSANCES (TRÈS IMPORTANT - UTILISE CES DONNÉES!):\n\n${contextParts.join("\n\n---\n\n")}`;
+          // Use localized KB header
+          const lang = agent?.primaryLanguage || AgentLanguage.FRENCH;
+          const i18n = this.getLocalizedInstructions(lang);
+          return `${i18n.kbHeader}\n\n${contextParts.join("\n\n---\n\n")}`;
         }
-        this.logger.log(`Vector search returned no results, falling back to keyword search`);
+        this.logger.log(`Hybrid search returned no results, falling back to full document search`);
       } catch (error) {
-        this.logger.warn(`Vector search failed, falling back to keyword search: ${error.message}`);
+        this.logger.warn(`Hybrid search failed, falling back to full document search: ${error.message}`);
       }
 
-      // Fallback: keyword-based search on full documents
+      // Fallback: keyword-based search on full documents from ALL knowledge bases
       const searchTerms = userMessage
         .toLowerCase()
         .split(/[\s,.'?!]+/)
@@ -1042,42 +1098,49 @@ Always respond directly in the user's language without any formatting.`,
 
       this.logger.log(`Keyword search terms: ${allSearchTerms.join(', ')}`);
 
-      // 🔴 REDIS CACHE: Vérifier si les documents sont en cache
-      const cacheKey = `kb:docs:${knowledgeBase.id}`;
-      let documents: KnowledgeDocument[] | null = null;
+      // Query documents from ALL knowledge bases
+      let documents: KnowledgeDocument[] = [];
 
-      try {
-        const cachedDocs = await this.cacheManager.get<string>(cacheKey);
-        if (cachedDocs) {
-          documents = JSON.parse(cachedDocs);
-          this.logger.log(`📦 KB Cache HIT: ${documents.length} documents from Redis cache`);
-        }
-      } catch (cacheError) {
-        this.logger.warn(`Cache read error: ${cacheError.message}`);
-      }
+      for (const kb of knowledgeBases) {
+        // 🔴 REDIS CACHE: Vérifier si les documents sont en cache
+        const cacheKey = `kb:docs:${kb.id}`;
+        let kbDocuments: KnowledgeDocument[] | null = null;
 
-      // Si pas en cache, charger depuis la DB
-      if (!documents) {
-        this.logger.log(`📦 KB Cache MISS: Loading from database...`);
-        documents = await this.knowledgeDocumentRepository
-          .createQueryBuilder("doc")
-          .where("doc.knowledgeBaseId = :kbId", { kbId: knowledgeBase.id })
-          .andWhere("doc.status IN (:...statuses)", { statuses: ["processed", "uploaded"] })
-          .andWhere("doc.content IS NOT NULL")
-          .andWhere("LENGTH(doc.content) > 10")
-          .orderBy("doc.createdAt", "DESC")
-          .getMany();
-
-        // Mettre en cache pour 5 minutes (300000 ms)
         try {
-          await this.cacheManager.set(cacheKey, JSON.stringify(documents), 300000);
-          this.logger.log(`📦 KB Cache SET: ${documents.length} documents cached for 5 minutes`);
+          const cachedDocs = await this.cacheManager.get<string>(cacheKey);
+          if (cachedDocs) {
+            kbDocuments = JSON.parse(cachedDocs);
+            this.logger.log(`📦 KB Cache HIT: ${kbDocuments.length} documents from Redis cache for KB ${kb.id}`);
+          }
         } catch (cacheError) {
-          this.logger.warn(`Cache write error: ${cacheError.message}`);
+          this.logger.warn(`Cache read error: ${cacheError.message}`);
         }
+
+        // Si pas en cache, charger depuis la DB
+        if (!kbDocuments) {
+          this.logger.log(`📦 KB Cache MISS: Loading from database for KB ${kb.id}...`);
+          kbDocuments = await this.knowledgeDocumentRepository
+            .createQueryBuilder("doc")
+            .where("doc.knowledgeBaseId = :kbId", { kbId: kb.id })
+            .andWhere("doc.status IN (:...statuses)", { statuses: ["processed", "uploaded"] })
+            .andWhere("doc.content IS NOT NULL")
+            .andWhere("LENGTH(doc.content) > 10")
+            .orderBy("doc.createdAt", "DESC")
+            .getMany();
+
+          // Mettre en cache pour 5 minutes (300000 ms)
+          try {
+            await this.cacheManager.set(cacheKey, JSON.stringify(kbDocuments), 300000);
+            this.logger.log(`📦 KB Cache SET: ${kbDocuments.length} documents cached for 5 minutes for KB ${kb.id}`);
+          } catch (cacheError) {
+            this.logger.warn(`Cache write error: ${cacheError.message}`);
+          }
+        }
+
+        documents.push(...kbDocuments);
       }
 
-      this.logger.log(`Found ${documents.length} documents in knowledge base`);
+      this.logger.log(`Found ${documents.length} total documents across ${knowledgeBases.length} knowledge base(s)`);
 
       // Log document details for debugging
       documents.forEach((doc, idx) => {
@@ -1089,7 +1152,7 @@ Always respond directly in the user's language without any formatting.`,
 
       if (documents.length === 0) {
         this.logger.debug(
-          `No documents found in knowledge base ${knowledgeBase.id}`,
+          `No documents found in ${knowledgeBases.length} knowledge base(s)`,
         );
         return "";
       }
@@ -1167,7 +1230,10 @@ Always respond directly in the user's language without any formatting.`,
         totalChars += entry.length;
       }
 
-      const context = `📚 INFORMATIONS TROUVÉES DANS LA BASE DE CONNAISSANCES (TRÈS IMPORTANT - UTILISE CES DONNÉES!):\n\n${contextParts.join("\n\n---\n\n")}`;
+      // Use localized KB header
+      const lang = agent?.primaryLanguage || AgentLanguage.FRENCH;
+      const i18n = this.getLocalizedInstructions(lang);
+      const context = `${i18n.kbHeader}\n\n${contextParts.join("\n\n---\n\n")}`;
 
       this.logger.log(
         `Found ${scoredDocuments.length} relevant documents in knowledge base (top scores: ${scoredDocuments.slice(0, 3).map(d => d.score).join(', ')})`,
@@ -1306,16 +1372,18 @@ Always respond directly in the user's language without any formatting.`,
     mediaAnalysis?: any,
     replyContext?: any,
   ): Promise<void> {
+    const startTime = Date.now();
+
     try {
       this.logger.log(
         `Generating AI response for conversation: ${conversation.id}`,
       );
 
-      // Get conversation history (last 20 messages for better context)
+      // Get conversation history (last 30 messages for hybrid buffer approach)
       const recentMessages = await this.messageRepository.find({
         where: { conversationId: conversation.id },
         order: { createdAt: "DESC" },
-        take: 20,
+        take: 30,
       });
 
       // Search knowledge base for relevant information
@@ -1354,7 +1422,16 @@ Always respond directly in the user's language without any formatting.`,
       this.logger.log(`📷 Available media for AI: ${availableMedia.length} items`);
 
       // Create enhanced system prompt with knowledge base, web context, and media context
+      // Get localized strings based on agent's language
+      const i18n = this.getLocalizedInstructions(agent.primaryLanguage);
+
       let systemPrompt = agent.systemPrompt || "Tu es un assistant IA utile.";
+
+      // FIX 5: Move KB context to the BEGINNING (right after user's system prompt)
+      // to avoid "lost in the middle" problem
+      if (knowledgeContext) {
+        systemPrompt += `\n\n${knowledgeContext}`;
+      }
 
       // Add response style instructions based on agent configuration
       systemPrompt += this.buildResponseStyleInstructions(agent);
@@ -1417,76 +1494,86 @@ EXEMPLES DE CONTEXTE:
 
 ⚠️ NE PAS ignorer le contexte du message cité - c'est crucial pour comprendre ce que veut le client.`;
       }
-      
+
+      // FIX 4: More concise KB rules (save tokens)
       if (knowledgeContext) {
-        systemPrompt += `\n\n${knowledgeContext}
-
-🚨🚨🚨 RÈGLES ABSOLUES - VIOLATION = ERREUR GRAVE 🚨🚨🚨
-
-1. ⛔ NE JAMAIS INVENTER DE PRIX ⛔
-   - Si un prix N'EST PAS dans la base de connaissances ci-dessus, dis "Je n'ai pas le tarif exact, contactez-nous"
-   - N'INVENTE JAMAIS de fourchettes de prix comme "140-180 USD/CBM" si ce n'est pas écrit ci-dessus
-   - Les prix inventés = MENSONGE au client = INTERDIT
-
-2. ✅ UTILISE UNIQUEMENT les informations EXACTES ci-dessus
-   - Cite les prix EXACTEMENT comme ils sont écrits
-   - Si le prix est "850 USD/CBM", dis "850 USD/CBM", pas "environ 850" ou "140-180"
-
-3. 🔄 Conversion FCFA:
-   - Si le client demande en FCFA et que tu as le prix en USD: multiplie par 600
-   - Exemple: 850 USD = 510 000 FCFA
-
-4. ❌ NE REDEMANDE PAS les infos déjà fournies
-   - Si le client a dit "CBM maritime", tu SAIS que c'est du maritime
-
-5. 📞 Si tu n'as PAS l'info dans la base de connaissances:
-   - Dis: "Pour le tarif exact, veuillez nous contacter directement."
-   - NE DONNE PAS de prix approximatif inventé
-
-EXEMPLE DE RÉPONSE INCORRECTE (INTERDIT):
-"Le tarif maritime est d'environ 140-180 USD/CBM" ← SI CE PRIX N'EST PAS DANS LA KB CI-DESSUS = MENSONGE!
-
-EXEMPLE DE RÉPONSE CORRECTE:
-"Voici nos tarifs [COPIE EXACTE DE LA KB]. Pour plus de détails, contactez-nous."`;
+        const rules = i18n.absoluteRules;
+        systemPrompt += `\n\n${rules.title}
+1. ${rules.neverInventPrices}
+2. ${rules.useExactInfo}
+3. ${rules.fcfaConversion}
+4. ${rules.noRedundantQuestions}
+5. ${rules.redirectIfMissing}`;
       } else {
-        // Pas de base de connaissances trouvée - être honnête
-        systemPrompt += `
-
-⚠️ ATTENTION: Aucune base de connaissances n'est disponible pour cette session.
-- NE DONNE PAS de prix spécifiques - tu ne les connais pas
-- Invite le client à contacter l'entreprise directement pour obtenir des informations précises
-- Tu peux donner des informations générales sur les services, mais PAS de tarifs`;
+        // FIX 1: Add fallback message instruction when no KB context
+        systemPrompt += `\n\n⚠️ ${i18n.noKbWarning}`;
+        if (agent.fallbackMessage) {
+          systemPrompt += `\n\n${i18n.fallbackInstruction} "${agent.fallbackMessage}"`;
+        }
       }
       if (webContext) {
         systemPrompt += `\n\n${webContext}`;
       }
 
-      // Create a simple context for the LLM Router
-      // Use last 15 messages for better conversation context
-      // NOTE: recentMessages is ordered DESC (newest first), so we take first 15 then reverse for chronological order
-      const messages = [
+      // Hybrid buffer approach: keep last 10 messages verbatim, summarize older ones
+      const VERBATIM_COUNT = 10;
+      const recentForLLM = recentMessages.slice(0, VERBATIM_COUNT);
+      let conversationSummary: string | null = null;
+
+      // Generate summary of older messages if conversation is long
+      if (recentMessages.length > VERBATIM_COUNT) {
+        const olderMessages = recentMessages.slice(VERBATIM_COUNT).reverse().map((msg) => ({
+          role: msg.role === MessageRole.USER ? 'user' : 'assistant',
+          content: msg.content,
+        }));
+        conversationSummary = await this.getConversationSummary(
+          conversation.id,
+          olderMessages,
+          agent,
+        );
+      }
+
+      // Build messages array with summary and recent messages
+      const messages: Array<{ role: 'system' | 'user' | 'assistant', content: string }> = [
         {
           role: "system" as const,
           content: systemPrompt,
         },
-        ...recentMessages.slice(0, 15).reverse().map((msg) => ({
+      ];
+
+      // Add conversation summary if available
+      if (conversationSummary) {
+        messages.push({
+          role: "system" as const,
+          content: `Previous conversation summary: ${conversationSummary}`,
+        });
+      }
+
+      // Add recent messages in chronological order (reverse DESC to ASC)
+      messages.push(
+        ...recentForLLM.reverse().map((msg) => ({
           role:
             msg.role === MessageRole.USER
               ? ("user" as const)
               : ("assistant" as const),
           content: msg.content,
         })),
-        {
-          role: "user" as const,
-          content: userMessage,
-        },
-      ];
+      );
+
+      // Add current user message
+      messages.push({
+        role: "user" as const,
+        content: userMessage,
+      });
 
       // Debug log conversation history being sent to LLM
-      this.logger.log(`📜 Conversation history: ${recentMessages.length} total messages, sending ${Math.min(recentMessages.length, 15)} to LLM`);
+      this.logger.log(`📜 Conversation history: ${recentMessages.length} total messages, ${conversationSummary ? 'with summary of older messages, ' : ''}sending last ${VERBATIM_COUNT} verbatim to LLM`);
       if (recentMessages.length > 0) {
         const historyPreview = recentMessages.slice(0, 3).map(m => `[${m.role}]: ${m.content?.substring(0, 50)}...`).join(' | ');
         this.logger.log(`📜 Recent messages preview (newest first): ${historyPreview}`);
+      }
+      if (conversationSummary) {
+        this.logger.log(`📜 Summary: ${conversationSummary.substring(0, 100)}...`);
       }
 
       // Détecter la langue du message utilisateur
@@ -1525,14 +1612,14 @@ EXEMPLE DE RÉPONSE CORRECTE:
         this.logger.warn(`⚠️ NO KNOWLEDGE BASE CONTEXT AVAILABLE - AI will redirect to contacts`);
       }
 
-      // Use LLM router directly with enhanced parameters for better quality
+      // FIX 3: Use agent's configured LLM parameters with proper fallbacks
       const response = await this.llmRouterService.generateResponse({
         messages: enhancedMessages,
-        temperature: agent.config.temperature || 0.5, // Lower for more consistent/accurate responses
-        maxTokens: agent.config.maxTokens || 600, // Increased for more detailed responses
-        topP: 0.85, // For balanced response diversity
-        frequencyPenalty: 0.2, // Reduce repetition more
-        presencePenalty: 0.1, // Encourage topic diversity
+        temperature: agent.config?.temperature ?? 0.7,
+        maxTokens: agent.config?.maxTokens ?? 2000,
+        topP: agent.config?.topP ?? 0.9,
+        frequencyPenalty: agent.config?.frequencyPenalty ?? 0,
+        presencePenalty: agent.config?.presencePenalty ?? 0,
         organizationId: agent.organizationId,
         agentId: agent.id,
         priority: "high", // Higher priority for better response quality
@@ -1579,6 +1666,21 @@ EXEMPLE DE RÉPONSE CORRECTE:
 
         // Track sent message for usage statistics
         await this.trackSentMessage(session.organizationId);
+
+        // Track conversation quality metrics
+        this.eventEmitter.emit('analytics.conversation.metric', {
+          conversationId: conversation.id,
+          agentId: agent.id,
+          organizationId: agent.organizationId,
+          metrics: {
+            responseTimeMs: Date.now() - startTime,
+            kbHit: !!knowledgeContext && knowledgeContext.length > 100,
+            webSearchUsed: !!webContext,
+            summaryUsed: !!conversationSummary,
+            messageCount: recentMessages.length,
+            tokensUsed: response.usage?.totalTokens || 0,
+          }
+        });
 
         this.logger.log(
           `AI response sent successfully to ${fromNumber}: "${cleanText.substring(0, 50)}..."`,
@@ -2131,6 +2233,62 @@ EXEMPLE DE BONNE RÉPONSE AUTOMATIQUE:
   }
 
   /**
+   * Get localized instruction strings based on agent's primary language
+   */
+  private getLocalizedInstructions(lang: AgentLanguage) {
+    const instructions = {
+      [AgentLanguage.FRENCH]: {
+        styleHeader: '📝 STYLE DE RÉPONSE:',
+        kbHeader: '📚 INFORMATIONS DE LA BASE DE CONNAISSANCES:',
+        rulesHeader: 'RÈGLES IMPORTANTES:',
+        noKbWarning: 'Aucune base de connaissances configurée.',
+        fallbackInstruction: 'Si vous ne trouvez pas d\'information spécifique pour répondre à la question, répondez avec ce message exact:',
+        absoluteRules: {
+          title: 'RÈGLES IMPORTANTES:',
+          neverInventPrices: 'Ne jamais inventer de prix. Si un prix n\'est pas dans la base de connaissances, dire "Je n\'ai pas le tarif exact, contactez-nous".',
+          useExactInfo: 'Utiliser uniquement les informations exactes de la base de connaissances ci-dessus.',
+          fcfaConversion: 'Conversion FCFA: Si le client demande en FCFA et que vous avez le prix en USD, multipliez par 600 (exemple: 850 USD = 510 000 FCFA).',
+          noRedundantQuestions: 'Ne redemandez pas les informations déjà fournies.',
+          redirectIfMissing: 'Si l\'information n\'est pas dans la base de connaissances, dire: "Pour le tarif exact, veuillez nous contacter directement."'
+        }
+      },
+      [AgentLanguage.ENGLISH]: {
+        styleHeader: '📝 RESPONSE STYLE:',
+        kbHeader: '📚 KNOWLEDGE BASE INFORMATION:',
+        rulesHeader: 'IMPORTANT RULES:',
+        noKbWarning: 'No knowledge base configured.',
+        fallbackInstruction: 'If you cannot find specific information to answer the question, respond with this exact message:',
+        absoluteRules: {
+          title: 'IMPORTANT RULES:',
+          neverInventPrices: 'Never invent prices. If a price is not in the knowledge base, say "I don\'t have the exact price, please contact us".',
+          useExactInfo: 'Use only exact information from the knowledge base above.',
+          fcfaConversion: 'FCFA conversion: If the customer asks in FCFA and you have the price in USD, multiply by 600 (example: 850 USD = 510,000 FCFA).',
+          noRedundantQuestions: 'Do not ask for information already provided.',
+          redirectIfMissing: 'If information is not in the knowledge base, say: "For the exact details, please contact us directly."'
+        }
+      },
+      [AgentLanguage.SPANISH]: {
+        styleHeader: '📝 ESTILO DE RESPUESTA:',
+        kbHeader: '📚 INFORMACIÓN DE LA BASE DE CONOCIMIENTOS:',
+        rulesHeader: 'REGLAS IMPORTANTES:',
+        noKbWarning: 'No hay base de conocimientos configurada.',
+        fallbackInstruction: 'Si no puede encontrar información específica para responder a la pregunta, responda con este mensaje exacto:',
+        absoluteRules: {
+          title: 'REGLAS IMPORTANTES:',
+          neverInventPrices: 'Nunca invente precios. Si un precio no está en la base de conocimientos, diga "No tengo el precio exacto, contáctenos".',
+          useExactInfo: 'Use solo información exacta de la base de conocimientos anterior.',
+          fcfaConversion: 'Conversión FCFA: Si el cliente pregunta en FCFA y tiene el precio en USD, multiplique por 600 (ejemplo: 850 USD = 510,000 FCFA).',
+          noRedundantQuestions: 'No vuelva a preguntar información ya proporcionada.',
+          redirectIfMissing: 'Si la información no está en la base de conocimientos, diga: "Para los detalles exactos, contáctenos directamente."'
+        }
+      }
+    };
+
+    // Default to English if language not found
+    return instructions[lang] || instructions[AgentLanguage.ENGLISH];
+  }
+
+  /**
    * Build response style instructions based on agent configuration
    */
   private buildResponseStyleInstructions(agent: AiAgent): string {
@@ -2199,7 +2357,8 @@ EXEMPLE DE BONNE RÉPONSE AUTOMATIQUE:
       return "";
     }
 
-    return `\n\n📝 STYLE DE RÉPONSE:\n${instructions.map(i => `- ${i}`).join('\n')}`;
+    const i18n = this.getLocalizedInstructions(agent.primaryLanguage);
+    return `\n\n${i18n.styleHeader}\n${instructions.map(i => `- ${i}`).join('\n')}`;
   }
 
   /**

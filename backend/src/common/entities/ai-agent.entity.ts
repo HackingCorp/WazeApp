@@ -68,6 +68,15 @@ export class AiAgent extends BaseEntity {
   @Column({ type: "text" })
   systemPrompt: string;
 
+  @ApiProperty({ description: "System prompt version history" })
+  @Column({ type: "jsonb", default: [] })
+  promptHistory: Array<{
+    prompt: string;
+    version: number;
+    updatedAt: string;
+    updatedBy?: string;
+  }>;
+
   @ApiProperty({ description: "Welcome message" })
   @Column({ type: "text", nullable: true })
   welcomeMessage?: string;

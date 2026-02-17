@@ -271,4 +271,52 @@ export class AiAgentController {
     // This would clone an existing agent with all its settings
     return { message: "Agent cloning endpoint - implementation pending" };
   }
+
+  @Get(":id/prompt/history")
+  @ApiOperation({ summary: "Get agent system prompt version history" })
+  @ApiParam({ name: "id", description: "AI agent ID" })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: "Prompt history retrieved successfully",
+  })
+  async getPromptHistory(
+    @CurrentUser() user: any,
+    @Param("id", ParseUUIDPipe) id: string,
+  ) {
+    const organizationId =
+      user.currentOrganizationId || user.organizationId || null;
+    const userId = user.id || user.userId || user.sub;
+
+    return this.aiAgentService.getPromptHistory(organizationId, userId, id);
+  }
+
+  @Post(":id/prompt/rollback")
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.OWNER, UserRole.ADMIN)
+  @ApiOperation({ summary: "Rollback agent system prompt to a previous version" })
+  @ApiParam({ name: "id", description: "AI agent ID" })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: "Prompt rolled back successfully",
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: "Version not found or no history available",
+  })
+  async rollbackPrompt(
+    @CurrentUser() user: any,
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body() body: { version: number },
+  ) {
+    const organizationId =
+      user.currentOrganizationId || user.organizationId || null;
+    const userId = user.id || user.userId || user.sub;
+
+    return this.aiAgentService.rollbackPrompt(
+      organizationId,
+      userId,
+      id,
+      body.version,
+    );
+  }
 }

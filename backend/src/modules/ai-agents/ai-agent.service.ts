@@ -352,9 +352,9 @@ export class AiAgentService {
       );
     }
 
-    // Deep merge config if present to avoid replacing entire config object
+    // Deep merge config and strip deprecated properties from database
     if (updateDto.config) {
-      updateDto.config = { ...agent.config, ...updateDto.config };
+      updateDto.config = this.stripInvalidConfigKeys({ ...agent.config, ...updateDto.config });
     }
 
     Object.assign(agent, updateDto);
@@ -425,9 +425,9 @@ export class AiAgentService {
       );
     }
 
-    // Deep merge config if present to avoid replacing entire config object
+    // Deep merge config and strip deprecated properties from database
     if (updateDto.config) {
-      updateDto.config = { ...agent.config, ...updateDto.config };
+      updateDto.config = this.stripInvalidConfigKeys({ ...agent.config, ...updateDto.config });
     }
 
     Object.assign(agent, updateDto);
@@ -975,6 +975,20 @@ Guidelines:
         "One or more knowledge bases not found or not accessible",
       );
     }
+  }
+
+  private static readonly VALID_CONFIG_KEYS = [
+    'maxTokens', 'temperature', 'topP', 'frequencyPenalty', 'presencePenalty',
+    'avoidRepetition', 'useListsWhenAppropriate', 'includeGreetings', 'signOffStyle',
+  ];
+
+  private stripInvalidConfigKeys(config: any): any {
+    if (!config) return config;
+    const cleaned: any = {};
+    for (const key of AiAgentService.VALID_CONFIG_KEYS) {
+      if (key in config) cleaned[key] = config[key];
+    }
+    return cleaned;
   }
 
   private validateSystemPrompt(prompt: string): { warnings: string[] } {

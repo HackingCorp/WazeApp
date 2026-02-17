@@ -231,12 +231,19 @@ export default function EditAgentPage() {
 
     setSaving(true);
     try {
+      // Strip deprecated config properties that may exist in database
+      const validConfigKeys = [
+        'maxTokens', 'temperature', 'topP', 'frequencyPenalty', 'presencePenalty',
+        'avoidRepetition', 'useListsWhenAppropriate', 'includeGreetings', 'signOffStyle',
+      ];
+      const mergedConfig = { ...agent?.config, ...formData.config };
+      const cleanConfig: Record<string, any> = {};
+      for (const key of validConfigKeys) {
+        if (key in mergedConfig) cleanConfig[key] = (mergedConfig as any)[key];
+      }
       const payload = {
         ...formData,
-        config: {
-          ...agent?.config,
-          ...formData.config,
-        },
+        config: cleanConfig,
       };
       const response = await api.patch(`/agents/${agentId}`, payload);
       if (response.success) {

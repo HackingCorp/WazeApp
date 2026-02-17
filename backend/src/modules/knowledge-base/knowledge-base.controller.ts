@@ -28,6 +28,7 @@ import { AllowIndividualUsers } from "../../common/decorators/allow-individual-u
 import { UserRole } from "../../common/enums";
 import { User } from "../../common/entities";
 import { KnowledgeBaseService } from "./knowledge-base.service";
+import { VectorSearchService } from "../vector-search/vector-search.service";
 import {
   CreateKnowledgeBaseDto,
   UpdateKnowledgeBaseDto,
@@ -41,7 +42,10 @@ import {
 @ApiBearerAuth()
 @AllowIndividualUsers()
 export class KnowledgeBaseController {
-  constructor(private readonly knowledgeBaseService: KnowledgeBaseService) {}
+  constructor(
+    private readonly knowledgeBaseService: KnowledgeBaseService,
+    private readonly vectorSearchService: VectorSearchService,
+  ) {}
 
   @Post()
   @Roles(UserRole.OWNER, UserRole.ADMIN, UserRole.MEMBER)
@@ -243,9 +247,17 @@ export class KnowledgeBaseController {
     @CurrentUser() user: User,
     @Param("id", ParseUUIDPipe) id: string,
   ) {
-    // This would trigger reprocessing of all documents in the knowledge base
-    // Implementation would go in the service
-    return { message: "Knowledge base rebuild started" };
+    // Verify the knowledge base exists and user has access
+    await this.knowledgeBaseService.findOne(user.currentOrganizationId, id);
+
+    // Trigger vector index rebuild
+    const success = await this.vectorSearchService.rebuildKnowledgeBase(id);
+
+    return {
+      message: "Knowledge base rebuild completed",
+      success,
+      knowledgeBaseId: id,
+    };
   }
 
   @Post(":id/refresh-stats")

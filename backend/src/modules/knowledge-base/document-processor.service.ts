@@ -1,7 +1,7 @@
 import { Injectable, Logger, BadRequestException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
-import { KnowledgeDocument, DocumentChunk } from "../../common/entities";
+import { KnowledgeDocument, DocumentChunk, KnowledgeBase } from "../../common/entities";
 import { DocumentType, DocumentStatus } from "../../common/enums";
 import * as fs from "fs/promises";
 import * as path from "path";
@@ -38,15 +38,27 @@ export class DocumentProcessorService {
 
     @InjectRepository(DocumentChunk)
     private readonly chunkRepository: Repository<DocumentChunk>,
+
+    @InjectRepository(KnowledgeBase)
+    private readonly knowledgeBaseRepository: Repository<KnowledgeBase>,
   ) {}
 
   async processDocument(documentId: string): Promise<KnowledgeDocument> {
     const document = await this.documentRepository.findOne({
       where: { id: documentId },
+      relations: ["knowledgeBase"],
     });
 
     if (!document) {
       throw new BadRequestException("Document not found");
+    }
+
+    // Load KB settings for chunking configuration
+    let knowledgeBase = document.knowledgeBase;
+    if (!knowledgeBase && document.knowledgeBaseId) {
+      knowledgeBase = await this.knowledgeBaseRepository.findOne({
+        where: { id: document.knowledgeBaseId },
+      });
     }
 
     try {
@@ -58,26 +70,26 @@ export class DocumentProcessorService {
 
       switch (document.type) {
         case DocumentType.PDF:
-          result = await this.processPDF(document);
+          result = await this.processPDF(document, knowledgeBase);
           break;
         case DocumentType.DOCX:
-          result = await this.processDOCX(document);
+          result = await this.processDOCX(document, knowledgeBase);
           break;
         case DocumentType.TXT:
         case DocumentType.MD:
-          result = await this.processText(document);
+          result = await this.processText(document, knowledgeBase);
           break;
         case DocumentType.IMAGE:
-          result = await this.processImage(document);
+          result = await this.processImage(document, knowledgeBase);
           break;
         case DocumentType.VIDEO:
-          result = await this.processVideo(document);
+          result = await this.processVideo(document, knowledgeBase);
           break;
         case DocumentType.AUDIO:
-          result = await this.processAudio(document);
+          result = await this.processAudio(document, knowledgeBase);
           break;
         case DocumentType.URL:
-          result = await this.processURL(document);
+          result = await this.processURL(document, knowledgeBase);
           break;
         default:
           throw new BadRequestException(
@@ -138,6 +150,7 @@ export class DocumentProcessorService {
 
   private async processPDF(
     document: KnowledgeDocument,
+    knowledgeBase?: KnowledgeBase,
   ): Promise<ProcessingResult> {
     const buffer = await fs.readFile(document.filePath);
     const data = await pdfParse(buffer);
@@ -148,11 +161,13 @@ export class DocumentProcessorService {
       confidence: 0.9,
     };
 
-    const chunks = this.chunkText(data.text, {
+    const chunkingSettings = knowledgeBase?.settings?.chunking || {
       strategy: "recursive",
       chunkSize: 1000,
       overlap: 100,
-    });
+    };
+
+    const chunks = this.chunkText(data.text, chunkingSettings);
 
     return {
       content: data.text,
@@ -163,6 +178,7 @@ export class DocumentProcessorService {
 
   private async processDOCX(
     document: KnowledgeDocument,
+    knowledgeBase?: KnowledgeBase,
   ): Promise<ProcessingResult> {
     const buffer = await fs.readFile(document.filePath);
     const result = await mammoth.extractRawText({ buffer });
@@ -171,11 +187,13 @@ export class DocumentProcessorService {
       confidence: 0.95,
     };
 
-    const chunks = this.chunkText(result.value, {
+    const chunkingSettings = knowledgeBase?.settings?.chunking || {
       strategy: "recursive",
       chunkSize: 1000,
       overlap: 100,
-    });
+    };
+
+    const chunks = this.chunkText(result.value, chunkingSettings);
 
     return {
       content: result.value,
@@ -186,6 +204,7 @@ export class DocumentProcessorService {
 
   private async processText(
     document: KnowledgeDocument,
+    knowledgeBase?: KnowledgeBase,
   ): Promise<ProcessingResult> {
     const content = await fs.readFile(document.filePath, "utf-8");
 
@@ -194,11 +213,13 @@ export class DocumentProcessorService {
       encoding: "utf-8",
     };
 
-    const chunks = this.chunkText(content, {
+    const chunkingSettings = knowledgeBase?.settings?.chunking || {
       strategy: "recursive",
       chunkSize: 1000,
       overlap: 100,
-    });
+    };
+
+    const chunks = this.chunkText(content, chunkingSettings);
 
     return {
       content,
@@ -209,6 +230,7 @@ export class DocumentProcessorService {
 
   private async processImage(
     document: KnowledgeDocument,
+    knowledgeBase?: KnowledgeBase,
   ): Promise<ProcessingResult> {
     // Generate thumbnail
     const thumbnailPath = document.filePath.replace(/\.[^.]+$/, "_thumb.jpg");
@@ -231,12 +253,14 @@ export class DocumentProcessorService {
       dimensions: await this.getImageDimensions(document.filePath),
     };
 
+    const chunkingSettings = knowledgeBase?.settings?.chunking || {
+      strategy: "fixed",
+      chunkSize: 500,
+      overlap: 50,
+    };
+
     const chunks = text.trim()
-      ? this.chunkText(text, {
-          strategy: "fixed",
-          chunkSize: 500,
-          overlap: 50,
-        })
+      ? this.chunkText(text, chunkingSettings)
       : [];
 
     return {
@@ -248,6 +272,7 @@ export class DocumentProcessorService {
 
   private async processVideo(
     document: KnowledgeDocument,
+    knowledgeBase?: KnowledgeBase,
   ): Promise<ProcessingResult> {
     const thumbnailPath = document.filePath.replace(/\.[^.]+$/, "_thumb.jpg");
 
@@ -297,12 +322,14 @@ export class DocumentProcessorService {
       confidence: transcriptionConfidence,
     };
 
+    const chunkingSettings = knowledgeBase?.settings?.chunking || {
+      strategy: "recursive",
+      chunkSize: 1000,
+      overlap: 100,
+    };
+
     const chunks = transcript
-      ? this.chunkText(transcript, {
-          strategy: "recursive",
-          chunkSize: 1000,
-          overlap: 100,
-        })
+      ? this.chunkText(transcript, chunkingSettings)
       : [];
 
     return {
@@ -314,6 +341,7 @@ export class DocumentProcessorService {
 
   private async processAudio(
     document: KnowledgeDocument,
+    knowledgeBase?: KnowledgeBase,
   ): Promise<ProcessingResult> {
     const waveformPath = document.filePath.replace(/\.[^.]+$/, "_waveform.png");
 
@@ -337,12 +365,14 @@ export class DocumentProcessorService {
       confidence: transcriptionConfidence,
     };
 
+    const chunkingSettings = knowledgeBase?.settings?.chunking || {
+      strategy: "recursive",
+      chunkSize: 1000,
+      overlap: 100,
+    };
+
     const chunks = transcript
-      ? this.chunkText(transcript, {
-          strategy: "recursive",
-          chunkSize: 1000,
-          overlap: 100,
-        })
+      ? this.chunkText(transcript, chunkingSettings)
       : [];
 
     return {
@@ -354,6 +384,7 @@ export class DocumentProcessorService {
 
   private async processURL(
     document: KnowledgeDocument,
+    knowledgeBase?: KnowledgeBase,
   ): Promise<ProcessingResult> {
     try {
       // Fetch the URL content using axios instead of puppeteer
@@ -386,11 +417,13 @@ export class DocumentProcessorService {
         confidence: 0.9,
       };
 
-      const chunks = this.chunkText(content, {
+      const chunkingSettings = knowledgeBase?.settings?.chunking || {
         strategy: "recursive",
         chunkSize: 1000,
         overlap: 100,
-      });
+      };
+
+      const chunks = this.chunkText(content, chunkingSettings);
 
       return {
         content,

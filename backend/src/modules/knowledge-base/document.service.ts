@@ -35,6 +35,7 @@ import {
 import { AuditService } from "../audit/audit.service";
 import { KnowledgeBaseService } from "./knowledge-base.service";
 import { WebScrapingService } from "./web-scraping.service";
+import { VectorSearchService } from "../vector-search/vector-search.service";
 import * as fs from "fs/promises";
 import * as path from "path";
 import * as crypto from "crypto";
@@ -116,6 +117,7 @@ export class DocumentService {
     private readonly auditService: AuditService,
     private readonly knowledgeBaseService: KnowledgeBaseService,
     private readonly webScrapingService: WebScrapingService,
+    private readonly vectorSearchService: VectorSearchService,
   ) {}
 
   /**
@@ -608,6 +610,26 @@ export class DocumentService {
   ): Promise<void> {
     const document = await this.findOne(organizationId, id);
 
+    // Find all chunks for this document
+    const chunks = await this.chunkRepository.find({
+      where: { documentId: id },
+    });
+
+    // Delete vectors from Qdrant for chunks that have been indexed
+    if (chunks.length > 0 && organizationId) {
+      const chunkIds = chunks.map(chunk => chunk.id);
+      try {
+        await this.vectorSearchService.deleteChunkVectors(chunkIds, organizationId);
+      } catch (error) {
+        console.warn(`Could not delete chunk vectors: ${error.message}`);
+      }
+    }
+
+    // Delete chunks from PostgreSQL
+    if (chunks.length > 0) {
+      await this.chunkRepository.remove(chunks);
+    }
+
     // Delete physical file if it exists
     if (document.type !== DocumentType.URL && document.filePath) {
       try {
@@ -618,6 +640,7 @@ export class DocumentService {
       }
     }
 
+    // Delete the document
     await this.documentRepository.remove(document);
 
     // Update knowledge base stats
@@ -632,7 +655,7 @@ export class DocumentService {
       resourceType: "document",
       resourceId: id,
       description: `Deleted document: ${document.filename}`,
-      metadata: { filename: document.filename },
+      metadata: { filename: document.filename, deletedChunks: chunks.length },
     });
 
     // Invalider le cache Redis pour cette KB

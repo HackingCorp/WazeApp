@@ -3,6 +3,8 @@ import {
   NotFoundException,
   BadRequestException,
   ForbiddenException,
+  Inject,
+  forwardRef,
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository, In, IsNull } from "typeorm";
@@ -14,6 +16,7 @@ import {
   AgentMessage,
   User,
   Subscription,
+  KnowledgeDocument,
 } from "../../common/entities";
 import {
   AgentStatus,
@@ -31,6 +34,8 @@ import {
   TestAgentDto,
 } from "./dto/ai-agent.dto";
 import { AuditService } from "../audit/audit.service";
+import { LLMRouterService } from "../llm-providers/llm-router.service";
+import { VectorSearchService } from "../vector-search/vector-search.service";
 
 @Injectable()
 export class AiAgentService {
@@ -40,6 +45,9 @@ export class AiAgentService {
 
     @InjectRepository(KnowledgeBase)
     private readonly knowledgeBaseRepository: Repository<KnowledgeBase>,
+
+    @InjectRepository(KnowledgeDocument)
+    private readonly knowledgeDocumentRepository: Repository<KnowledgeDocument>,
 
     @InjectRepository(Organization)
     private readonly organizationRepository: Repository<Organization>,
@@ -57,6 +65,12 @@ export class AiAgentService {
     private readonly messageRepository: Repository<AgentMessage>,
 
     private readonly auditService: AuditService,
+
+    @Inject(forwardRef(() => LLMRouterService))
+    private readonly llmRouter: LLMRouterService,
+
+    @Inject(forwardRef(() => VectorSearchService))
+    private readonly vectorSearch: VectorSearchService,
   ) {}
 
   async create(
@@ -89,17 +103,9 @@ export class AiAgentService {
         createDto.primaryLanguage,
       ],
       config: {
-        maxTokens: 2000,
         temperature: 0.7,
+        maxTokens: 2000,
         topP: 0.9,
-        contextWindow: 4000,
-        memorySize: 10,
-        responseFormat: "text",
-        enableFunctionCalling: false,
-        enableWebSearch: false,
-        enableImageAnalysis: false,
-        confidenceThreshold: 0.7,
-        maxRetries: 3,
         ...createDto.config,
       },
       metrics: {
@@ -588,27 +594,153 @@ export class AiAgentService {
       sourceDocuments: string[];
     }>
   > {
-    const agent = await this.findOne(organizationId, agentId);
+    // Load agent with knowledge bases
+    const agent = await this.agentRepository.findOne({
+      where: { id: agentId, organizationId },
+      relations: ["knowledgeBases", "knowledgeBases.documents"],
+    });
 
-    // This would use the LLM to generate FAQ items from knowledge base content
-    // For now, return placeholder data
-    const faqItems = [
-      {
-        question: "How do I reset my password?",
-        answer:
-          "To reset your password, click on the 'Forgot Password' link on the login page and follow the instructions.",
-        confidence: 0.95,
-        sourceDocuments: ["user-guide.pdf", "help-center.md"],
-        lastUpdated: new Date(),
-      },
-      {
-        question: "What are your business hours?",
-        answer: "Our business hours are Monday to Friday, 9 AM to 6 PM EST.",
-        confidence: 0.9,
-        sourceDocuments: ["company-info.md"],
-        lastUpdated: new Date(),
-      },
-    ];
+    if (!agent) {
+      throw new NotFoundException("AI Agent not found");
+    }
+
+    if (!agent.knowledgeBases || agent.knowledgeBases.length === 0) {
+      throw new BadRequestException(
+        "Agent must have at least one knowledge base to generate FAQ",
+      );
+    }
+
+    // Collect content from knowledge base documents (up to 5 documents, 8000 chars total)
+    let combinedContent = "";
+    const documentTitles: string[] = [];
+    const maxChars = 8000;
+
+    for (const kb of agent.knowledgeBases) {
+      if (combinedContent.length >= maxChars) break;
+
+      // Load documents for this KB
+      const documents = await this.knowledgeDocumentRepository.find({
+        where: { knowledgeBaseId: kb.id },
+        order: { createdAt: "DESC" },
+        take: 5,
+      });
+
+      for (const doc of documents) {
+        if (combinedContent.length >= maxChars) break;
+
+        if (doc.content) {
+          const remainingChars = maxChars - combinedContent.length;
+          const contentToAdd = doc.content.substring(0, remainingChars);
+          combinedContent += `\n\n## ${doc.title}\n${contentToAdd}`;
+          documentTitles.push(doc.title);
+        }
+      }
+    }
+
+    if (!combinedContent) {
+      throw new BadRequestException(
+        "No content found in knowledge bases to generate FAQ",
+      );
+    }
+
+    // Generate FAQ using LLM
+    const maxItems = generateDto.maxItems || 10;
+    const language = generateDto.language || agent.primaryLanguage;
+
+    const systemPrompt = `You are a helpful assistant that generates FAQ (Frequently Asked Questions) from documentation.
+Your task is to analyze the provided content and create ${maxItems} useful FAQ items.
+
+IMPORTANT: Return ONLY a valid JSON array with no additional text, markdown formatting, or code blocks.
+The response must be a plain JSON array that can be parsed directly.
+
+Format:
+[
+  {
+    "question": "Question text here?",
+    "answer": "Detailed answer here."
+  }
+]
+
+Guidelines:
+- Generate ${maxItems} FAQ items
+- Questions should be natural and user-focused
+- Answers should be clear, concise, and helpful
+- Use ${language} language
+- Focus on the most important information`;
+
+    const userPrompt = `Based on the following knowledge base content, generate ${maxItems} FAQ items:\n\n${combinedContent}`;
+
+    let faqItems: Array<{
+      question: string;
+      answer: string;
+      confidence: number;
+      sourceDocuments: string[];
+      lastUpdated: Date;
+    }> = [];
+
+    try {
+      const llmResponse = await this.llmRouter.generateResponse({
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+        organizationId,
+        agentId,
+        temperature: 0.3, // Lower temperature for more consistent output
+        maxTokens: 2000,
+      });
+
+      // Parse LLM response as JSON
+      let parsedFaq: Array<{ question: string; answer: string }>;
+
+      try {
+        // Try to parse the response directly
+        parsedFaq = JSON.parse(llmResponse.content);
+      } catch (parseError) {
+        // Try to extract JSON from markdown code blocks
+        const jsonMatch = llmResponse.content.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+        if (jsonMatch) {
+          parsedFaq = JSON.parse(jsonMatch[1]);
+        } else {
+          // Try to find JSON array in the response
+          const arrayMatch = llmResponse.content.match(/\[[\s\S]*\]/);
+          if (arrayMatch) {
+            parsedFaq = JSON.parse(arrayMatch[0]);
+          } else {
+            throw new Error("Could not parse FAQ from LLM response");
+          }
+        }
+      }
+
+      // Validate and format FAQ items
+      if (Array.isArray(parsedFaq)) {
+        faqItems = parsedFaq.map((item) => ({
+          question: item.question || "",
+          answer: item.answer || "",
+          confidence: 0.85,
+          sourceDocuments: documentTitles,
+          lastUpdated: new Date(),
+        }));
+      }
+    } catch (error) {
+      // Fallback to some default FAQs if LLM fails
+      faqItems = [
+        {
+          question: `What is ${agent.name}?`,
+          answer: agent.description || `${agent.name} is an AI-powered assistant.`,
+          confidence: 0.7,
+          sourceDocuments: documentTitles,
+          lastUpdated: new Date(),
+        },
+        {
+          question: "How can I get help?",
+          answer: agent.welcomeMessage || "Feel free to ask me any questions!",
+          confidence: 0.7,
+          sourceDocuments: documentTitles,
+          lastUpdated: new Date(),
+        },
+      ];
+    }
 
     // Update agent with generated FAQ
     agent.faq = faqItems;
@@ -626,13 +758,78 @@ export class AiAgentService {
     sources?: Array<{ document: string; chunk: string; confidence: number }>;
     metrics: { responseTime: number; tokensUsed: number; confidence: number };
   }> {
-    const agent = await this.findOne(organizationId, agentId);
-
     const startTime = Date.now();
 
-    // This would integrate with the LLM service to generate a response
-    // For now, return a mock response
-    const response = `Hello! This is a test response from ${agent.name}. Your message was: "${testDto.message}"`;
+    // Load agent with knowledge bases
+    const agent = await this.agentRepository.findOne({
+      where: { id: agentId, organizationId },
+      relations: ["knowledgeBases"],
+    });
+
+    if (!agent) {
+      throw new NotFoundException("AI Agent not found");
+    }
+
+    let knowledgeBaseSources: Array<{ document: string; chunk: string; confidence: number }> = [];
+    let contextFromKB = "";
+
+    // If includeSources is true, run knowledge base search
+    if (testDto.includeSources && agent.knowledgeBases?.length > 0) {
+      try {
+        const kbIds = agent.knowledgeBases.map((kb) => kb.id);
+        const searchResults = await this.vectorSearch.hybridSearch({
+          query: testDto.message,
+          organizationId,
+          knowledgeBaseIds: kbIds,
+          limit: 5,
+          threshold: 0.6,
+          includeContent: true,
+        });
+
+        knowledgeBaseSources = searchResults.map((result) => ({
+          document: result.document.title,
+          chunk: result.chunk.content.substring(0, 200) + "...",
+          confidence: result.score,
+        }));
+
+        // Build context from search results
+        if (searchResults.length > 0) {
+          contextFromKB = searchResults
+            .map((r) => `[From ${r.document.title}]: ${r.chunk.content}`)
+            .join("\n\n");
+        }
+      } catch (error) {
+        // Log error but continue with test
+        console.warn("KB search failed during agent test:", error.message);
+      }
+    }
+
+    // Build system prompt with agent's configuration
+    const systemPrompt = this.buildSystemPrompt(agent, contextFromKB);
+
+    // Call LLM to get actual response
+    let response: string;
+    let tokensUsed = 0;
+
+    try {
+      const llmResponse = await this.llmRouter.generateResponse({
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: testDto.message },
+        ],
+        organizationId,
+        agentId,
+        temperature: agent.config?.temperature || 0.7,
+        maxTokens: agent.config?.maxTokens || 2000,
+      });
+
+      response = llmResponse.content;
+      tokensUsed = llmResponse.usage?.totalTokens || 0;
+    } catch (error) {
+      // Fallback response if LLM fails
+      response = `Error generating response: ${error.message}. Agent test mode - system prompt: "${agent.systemPrompt.substring(0, 100)}..."`;
+      tokensUsed = Math.ceil(response.length / 4);
+    }
 
     const responseTime = Date.now() - startTime;
 
@@ -640,23 +837,66 @@ export class AiAgentService {
       response,
       metrics: {
         responseTime,
-        tokensUsed: Math.ceil(response.length / 4), // Rough estimation
-        confidence: 0.85,
+        tokensUsed,
+        confidence: knowledgeBaseSources.length > 0 ? knowledgeBaseSources[0].confidence : 0.85,
       },
     };
 
-    if (testDto.includeSources) {
-      result["sources"] = [
-        {
-          document: "sample-document.pdf",
-          chunk:
-            "Sample chunk content that was used to generate this response...",
-          confidence: 0.85,
-        },
-      ];
+    if (testDto.includeSources && knowledgeBaseSources.length > 0) {
+      result["sources"] = knowledgeBaseSources;
     }
 
     return result;
+  }
+
+  /**
+   * Build system prompt for agent based on configuration
+   */
+  private buildSystemPrompt(agent: AiAgent, context?: string): string {
+    let prompt = agent.systemPrompt;
+
+    // Add tone instructions
+    const toneInstructions = {
+      professional: "Maintain a professional and formal tone.",
+      friendly: "Be warm, friendly, and approachable in your responses.",
+      casual: "Use a casual and conversational tone.",
+      technical: "Use technical language and be precise in your explanations.",
+      empathetic: "Show empathy and understanding in your responses.",
+    };
+
+    if (agent.tone && toneInstructions[agent.tone]) {
+      prompt += `\n\n${toneInstructions[agent.tone]}`;
+    }
+
+    // Add language instructions
+    if (agent.primaryLanguage) {
+      prompt += `\n\nRespond primarily in ${agent.primaryLanguage}.`;
+    }
+
+    // Add emoji instructions
+    if (agent.useEmojis) {
+      prompt += "\n\nYou may use emojis when appropriate to make the conversation more engaging.";
+    } else {
+      prompt += "\n\nDo not use emojis in your responses.";
+    }
+
+    // Add response length guidance
+    const lengthGuidance = {
+      short: "Keep responses concise and brief (1-2 sentences when possible).",
+      medium: "Provide balanced responses with adequate detail.",
+      long: "Provide comprehensive and detailed responses.",
+    };
+
+    if (agent.responseLength && lengthGuidance[agent.responseLength]) {
+      prompt += `\n\n${lengthGuidance[agent.responseLength]}`;
+    }
+
+    // Add knowledge base context if provided
+    if (context) {
+      prompt += `\n\n## Relevant Knowledge Base Context:\n${context}\n\nUse the above context to answer the user's question accurately.`;
+    }
+
+    return prompt;
   }
 
   private async checkAgentLimit(
@@ -841,5 +1081,143 @@ export class AiAgentService {
     });
 
     return updated;
+  }
+
+  /**
+   * Clone an existing agent with all its settings
+   */
+  async cloneAgent(
+    organizationId: string | null,
+    userId: string,
+    id: string,
+    customName?: string,
+  ): Promise<AiAgent> {
+    // Load source agent with knowledge bases
+    const sourceAgent = await this.agentRepository.findOne({
+      where: organizationId
+        ? { id, organizationId }
+        : { id, createdBy: userId },
+      relations: ["knowledgeBases"],
+    });
+
+    if (!sourceAgent) {
+      throw new NotFoundException("Source agent not found");
+    }
+
+    // Check agent limits before cloning
+    await this.checkAgentLimit(organizationId, userId);
+
+    // Create new agent with copied settings
+    const clonedAgent = this.agentRepository.create({
+      name: customName || `${sourceAgent.name} (Copy)`,
+      description: sourceAgent.description,
+      avatarUrl: sourceAgent.avatarUrl,
+      primaryLanguage: sourceAgent.primaryLanguage,
+      supportedLanguages: sourceAgent.supportedLanguages,
+      tone: sourceAgent.tone,
+      systemPrompt: sourceAgent.systemPrompt,
+      welcomeMessage: sourceAgent.welcomeMessage,
+      fallbackMessage: sourceAgent.fallbackMessage,
+      responseLength: sourceAgent.responseLength,
+      verbosity: sourceAgent.verbosity,
+      useEmojis: sourceAgent.useEmojis,
+      maxResponseChars: sourceAgent.maxResponseChars,
+      config: { ...sourceAgent.config },
+      tags: [...(sourceAgent.tags || [])],
+      organizationId: organizationId || undefined,
+      createdBy: userId,
+      status: AgentStatus.INACTIVE, // Start as inactive
+      metrics: {
+        totalConversations: 0,
+        totalMessages: 0,
+        averageResponseTime: 0,
+        satisfactionScore: 0,
+        successfulResponses: 0,
+        failedResponses: 0,
+        knowledgeBaseHits: 0,
+      },
+      faq: [],
+      version: 1,
+      promptHistory: [],
+    });
+
+    const saved = await this.agentRepository.save(clonedAgent);
+
+    // Link the same knowledge bases
+    if (sourceAgent.knowledgeBases && sourceAgent.knowledgeBases.length > 0) {
+      saved.knowledgeBases = sourceAgent.knowledgeBases;
+      await this.agentRepository.save(saved);
+    }
+
+    await this.auditService.log({
+      organizationId,
+      userId,
+      action: AuditAction.CREATE,
+      resourceType: "ai_agent",
+      resourceId: saved.id,
+      description: `Cloned AI agent from: ${sourceAgent.name}`,
+      metadata: { sourceAgentId: sourceAgent.id, clonedName: saved.name },
+    });
+
+    return saved;
+  }
+
+  /**
+   * Get conversations for a specific agent with pagination
+   */
+  async getAgentConversations(
+    organizationId: string | null,
+    userId: string,
+    agentId: string,
+    page: number = 1,
+    limit: number = 20,
+  ): Promise<{
+    data: Array<AgentConversation & { latestMessage?: AgentMessage }>;
+    total: number;
+    page: number;
+    limit: number;
+  }> {
+    // Verify agent exists and user has access
+    const agent = await this.findOneForUser(organizationId, userId, agentId);
+
+    if (!agent) {
+      throw new NotFoundException("Agent not found");
+    }
+
+    // Build query for conversations
+    const queryBuilder = this.conversationRepository
+      .createQueryBuilder("conversation")
+      .where("conversation.agentId = :agentId", { agentId })
+      .orderBy("conversation.updatedAt", "DESC");
+
+    // Get total count
+    const total = await queryBuilder.getCount();
+
+    // Get paginated data
+    const conversations = await queryBuilder
+      .skip((page - 1) * limit)
+      .take(limit)
+      .getMany();
+
+    // Load latest message for each conversation
+    const conversationsWithMessages: Array<AgentConversation & { latestMessage?: AgentMessage }> = [];
+
+    for (const conv of conversations) {
+      const latestMessage = await this.messageRepository.findOne({
+        where: { conversationId: conv.id },
+        order: { createdAt: "DESC" },
+      });
+
+      conversationsWithMessages.push(
+        Object.assign(conv, { latestMessage })
+      );
+    }
+
+    return {
+      data: conversationsWithMessages,
+      total,
+      page,
+      limit,
+    };
   }
 }

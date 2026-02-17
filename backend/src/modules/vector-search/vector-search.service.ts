@@ -391,6 +391,27 @@ export class VectorSearchService implements OnModuleInit {
     }
   }
 
+  async deleteChunkVectors(chunkIds: string[], organizationId: string): Promise<void> {
+    if (!this.isConnected || chunkIds.length === 0) {
+      return;
+    }
+
+    try {
+      const collectionName = this.getCollectionName(organizationId);
+
+      await this.qdrantClient.delete(collectionName, {
+        points: chunkIds,
+      });
+
+      this.logger.log(
+        `Deleted ${chunkIds.length} chunk vectors from collection ${collectionName}`,
+      );
+    } catch (error) {
+      this.logger.error(`Failed to delete chunk vectors: ${error.message}`);
+      throw error;
+    }
+  }
+
   async rebuildKnowledgeBase(knowledgeBaseId: string): Promise<boolean> {
     try {
       const knowledgeBase = await this.knowledgeBaseRepository.findOne({

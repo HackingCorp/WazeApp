@@ -1,10 +1,11 @@
-import { Module } from "@nestjs/common";
+import { Module, forwardRef } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import {
   AiAgent,
   AgentConversation,
   AgentMessage,
   KnowledgeBase,
+  KnowledgeDocument,
   Organization,
   User,
   AuditLog,
@@ -15,6 +16,8 @@ import { ConversationService } from "./conversation.service";
 import { AiAgentController } from "./ai-agent.controller";
 import { ConversationController } from "./conversation.controller";
 import { AuditModule } from "../audit/audit.module";
+import { LlmProvidersModule } from "../llm-providers/llm-providers.module";
+import { VectorSearchModule } from "../vector-search/vector-search.module";
 
 @Module({
   imports: [
@@ -23,12 +26,15 @@ import { AuditModule } from "../audit/audit.module";
       AgentConversation,
       AgentMessage,
       KnowledgeBase,
+      KnowledgeDocument,
       Organization,
       User,
       AuditLog,
       Subscription,
     ]),
     AuditModule,
+    forwardRef(() => LlmProvidersModule),
+    forwardRef(() => VectorSearchModule),
   ],
   controllers: [AiAgentController, ConversationController],
   providers: [AiAgentService, ConversationService],

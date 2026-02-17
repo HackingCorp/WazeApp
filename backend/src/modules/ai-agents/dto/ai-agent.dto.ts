@@ -7,10 +7,71 @@ import {
   IsNumber,
   IsUrl,
   IsBoolean,
+  ValidateNested,
+  Min,
+  Max,
+  IsIn,
 } from "class-validator";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { Type, Transform } from "class-transformer";
 import { AgentStatus, AgentLanguage, AgentTone, ResponseLength, VerbosityLevel } from "../../../common/enums";
+
+export class AgentConfigDto {
+  @ApiPropertyOptional({ description: "Temperature for LLM (0-2)", minimum: 0, maximum: 2, default: 0.7 })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(2)
+  temperature?: number;
+
+  @ApiPropertyOptional({ description: "Maximum tokens to generate (1-32000)", minimum: 1, maximum: 32000, default: 2000 })
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  @Max(32000)
+  maxTokens?: number;
+
+  @ApiPropertyOptional({ description: "Top P sampling (0-1)", minimum: 0, maximum: 1, default: 0.9 })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(1)
+  topP?: number;
+
+  @ApiPropertyOptional({ description: "Frequency penalty (-2 to 2)", minimum: -2, maximum: 2, default: 0 })
+  @IsOptional()
+  @IsNumber()
+  @Min(-2)
+  @Max(2)
+  frequencyPenalty?: number;
+
+  @ApiPropertyOptional({ description: "Presence penalty (-2 to 2)", minimum: -2, maximum: 2, default: 0 })
+  @IsOptional()
+  @IsNumber()
+  @Min(-2)
+  @Max(2)
+  presencePenalty?: number;
+
+  @ApiPropertyOptional({ description: "Avoid repetition in responses", default: false })
+  @IsOptional()
+  @IsBoolean()
+  avoidRepetition?: boolean;
+
+  @ApiPropertyOptional({ description: "Use lists when appropriate", default: true })
+  @IsOptional()
+  @IsBoolean()
+  useListsWhenAppropriate?: boolean;
+
+  @ApiPropertyOptional({ description: "Include greetings in responses", default: true })
+  @IsOptional()
+  @IsBoolean()
+  includeGreetings?: boolean;
+
+  @ApiPropertyOptional({ description: "Sign-off style", enum: ['none', 'simple', 'formal'], default: 'none' })
+  @IsOptional()
+  @IsIn(['none', 'simple', 'formal'])
+  signOffStyle?: 'none' | 'simple' | 'formal';
+}
 
 export class CreateAiAgentDto {
   @ApiProperty({ description: "Agent name" })
@@ -60,9 +121,11 @@ export class CreateAiAgentDto {
   @IsBoolean()
   useEmojis?: boolean;
 
-  @ApiPropertyOptional({ description: "Maximum response characters (0 = unlimited)", default: 0 })
+  @ApiPropertyOptional({ description: "Maximum response characters (0 = unlimited)", default: 0, minimum: 0, maximum: 10000 })
   @IsOptional()
   @IsNumber()
+  @Min(0)
+  @Max(10000)
   maxResponseChars?: number;
 
   @ApiProperty({ description: "System prompt template" })
@@ -83,35 +146,12 @@ export class CreateAiAgentDto {
 
   @ApiPropertyOptional({
     description: "Agent configuration",
-    example: {
-      maxTokens: 2000,
-      temperature: 0.7,
-      topP: 0.9,
-      contextWindow: 4000,
-      memorySize: 10,
-      responseFormat: "text",
-      enableFunctionCalling: false,
-      enableWebSearch: false,
-      confidenceThreshold: 0.7,
-    },
+    type: AgentConfigDto,
   })
   @IsOptional()
-  @IsObject()
-  config?: {
-    maxTokens?: number;
-    temperature?: number;
-    topP?: number;
-    frequencyPenalty?: number;
-    presencePenalty?: number;
-    contextWindow?: number;
-    memorySize?: number;
-    responseFormat?: "text" | "json" | "markdown";
-    enableFunctionCalling?: boolean;
-    enableWebSearch?: boolean;
-    enableImageAnalysis?: boolean;
-    confidenceThreshold?: number;
-    maxRetries?: number;
-  };
+  @ValidateNested()
+  @Type(() => AgentConfigDto)
+  config?: AgentConfigDto;
 
   @ApiPropertyOptional({ description: "Knowledge base IDs to associate" })
   @IsOptional()
@@ -178,9 +218,11 @@ export class UpdateAiAgentDto {
   @IsBoolean()
   useEmojis?: boolean;
 
-  @ApiPropertyOptional({ description: "Maximum response characters (0 = unlimited)" })
+  @ApiPropertyOptional({ description: "Maximum response characters (0 = unlimited)", minimum: 0, maximum: 10000 })
   @IsOptional()
   @IsNumber()
+  @Min(0)
+  @Max(10000)
   maxResponseChars?: number;
 
   @ApiPropertyOptional({ description: "System prompt template" })
@@ -200,10 +242,11 @@ export class UpdateAiAgentDto {
   @IsString()
   fallbackMessage?: string;
 
-  @ApiPropertyOptional({ description: "Agent configuration" })
+  @ApiPropertyOptional({ description: "Agent configuration", type: AgentConfigDto })
   @IsOptional()
-  @IsObject()
-  config?: any;
+  @ValidateNested()
+  @Type(() => AgentConfigDto)
+  config?: AgentConfigDto;
 
   @ApiPropertyOptional({ description: "Knowledge base IDs to associate" })
   @IsOptional()

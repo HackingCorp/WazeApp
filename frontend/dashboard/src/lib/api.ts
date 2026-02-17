@@ -285,6 +285,48 @@ class ApiClient {
     return this.request(`/conversations/stats?agentId=${agentId}`);
   }
 
+  // Agent Testing
+  async testAgent(agentId: string, data: { message: string; includeSources?: boolean }) {
+    return this.request(`/agents/${agentId}/test`, {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  }
+
+  // FAQ Generation
+  async generateFaq(agentId: string, data?: { maxItems?: number }) {
+    return this.request(`/agents/${agentId}/generate-faq`, {
+      method: 'POST',
+      body: JSON.stringify(data || {})
+    });
+  }
+
+  // Agent Cloning
+  async cloneAgent(agentId: string, name?: string) {
+    return this.request(`/agents/${agentId}/clone`, {
+      method: 'POST',
+      body: JSON.stringify({ name })
+    });
+  }
+
+  // Agent Conversations
+  async getAgentConversations(agentId: string, page = 1, limit = 20) {
+    return this.request(`/agents/${agentId}/conversations?page=${page}&limit=${limit}`);
+  }
+
+  // Prompt History
+  async getPromptHistory(agentId: string) {
+    return this.request(`/agents/${agentId}/prompt/history`);
+  }
+
+  // Prompt Rollback
+  async rollbackPrompt(agentId: string, version: number) {
+    return this.request(`/agents/${agentId}/prompt/rollback`, {
+      method: 'POST',
+      body: JSON.stringify({ version })
+    });
+  }
+
   // WhatsApp endpoints
   async getWhatsAppSessions() {
     return this.request('/whatsapp/sessions');

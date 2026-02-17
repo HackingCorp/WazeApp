@@ -245,13 +245,22 @@ export class AiAgentController {
     description: "Agent conversations retrieved successfully",
   })
   async getConversations(
-    @CurrentUser() user: User,
+    @CurrentUser() user: any,
     @Param("id", ParseUUIDPipe) id: string,
     @Query("page") page: number = 1,
     @Query("limit") limit: number = 20,
   ) {
-    // This would be implemented to return conversations for a specific agent
-    return { message: "Agent conversations endpoint - implementation pending" };
+    const organizationId =
+      user.currentOrganizationId || user.organizationId || null;
+    const userId = user.id || user.userId || user.sub;
+
+    return this.aiAgentService.getAgentConversations(
+      organizationId,
+      userId,
+      id,
+      page,
+      limit,
+    );
   }
 
   @Post(":id/clone")
@@ -264,12 +273,15 @@ export class AiAgentController {
     description: "AI agent cloned successfully",
   })
   async cloneAgent(
-    @CurrentUser() user: User,
+    @CurrentUser() user: any,
     @Param("id", ParseUUIDPipe) id: string,
     @Body("name") name?: string,
   ) {
-    // This would clone an existing agent with all its settings
-    return { message: "Agent cloning endpoint - implementation pending" };
+    const organizationId =
+      user.currentOrganizationId || user.organizationId || null;
+    const userId = user.id || user.userId || user.sub;
+
+    return this.aiAgentService.cloneAgent(organizationId, userId, id, name);
   }
 
   @Get(":id/prompt/history")

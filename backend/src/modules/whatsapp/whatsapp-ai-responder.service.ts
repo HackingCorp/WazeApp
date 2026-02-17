@@ -868,6 +868,7 @@ Always respond directly in the user's language without any formatting.`,
       },
     });
 
+    let isNewConversation = false;
     if (!conversation) {
       conversation = this.conversationRepository.create({
         title: conversationTitle,
@@ -887,7 +888,38 @@ Always respond directly in the user's language without any formatting.`,
       });
 
       conversation = await this.conversationRepository.save(conversation);
+      isNewConversation = true;
       this.logger.log(`Created new conversation: ${conversation.id}`);
+
+      // Send welcome message if configured
+      if (agent.welcomeMessage && agent.welcomeMessage.trim()) {
+        try {
+          this.logger.log(`Sending welcome message for new conversation`);
+          await this.baileysService.sendMessage(session.id, {
+            to: fromNumber,
+            message: agent.welcomeMessage,
+            type: "text",
+          });
+
+          // Save the welcome message to conversation history
+          const message = this.messageRepository.create({
+            conversationId: conversation.id,
+            role: MessageRole.AGENT,
+            content: agent.welcomeMessage,
+            status: MessageStatus.SENT,
+            sequenceNumber: 1,
+            metadata: {
+              fromWhatsApp: true,
+              originalSender: "agent",
+              welcomeMessage: true,
+            } as any,
+          });
+          await this.messageRepository.save(message);
+          this.logger.log(`Welcome message sent and saved`);
+        } catch (error) {
+          this.logger.error(`Failed to send welcome message: ${error.message}`);
+        }
+      }
     }
 
     return conversation;
@@ -1059,6 +1091,18 @@ Always respond directly in the user's language without any formatting.`,
           includeContent: true,
         });
 
+        // Track KB search analytics
+        this.eventEmitter.emit('analytics.kb.search', {
+          agentId: agent?.id || session.agentId,
+          organizationId: session.organizationId,
+          query: userMessage,
+          resultsCount: hybridResults.length,
+          kbHit: hybridResults.length > 0,
+          searchType: 'hybrid',
+          topScore: hybridResults[0]?.score || 0,
+          knowledgeBaseIds,
+        });
+
         if (hybridResults.length > 0) {
           this.logger.log(`Hybrid search returned ${hybridResults.length} results`);
           const MAX_KB_CHARS = 24000;
@@ -1205,6 +1249,18 @@ Always respond directly in the user's language without any formatting.`,
           totalChars += entry.length;
         }
 
+        // Track KB search analytics - no specific matches but general content
+        this.eventEmitter.emit('analytics.kb.search', {
+          agentId: agent?.id || session.agentId,
+          organizationId: session.organizationId,
+          query: userMessage,
+          resultsCount: budgetedContent.length,
+          kbHit: budgetedContent.length > 0,
+          searchType: 'keyword_fallback_general',
+          topScore: 0,
+          knowledgeBaseIds,
+        });
+
         if (budgetedContent.length > 0) {
           return `📚 BASE DE CONNAISSANCES DISPONIBLE:\n\n${budgetedContent.join("\n\n---\n\n")}\n\n⚠️ UTILISE CES INFORMATIONS POUR RÉPONDRE AU CLIENT!`;
         }
@@ -1229,6 +1285,18 @@ Always respond directly in the user's language without any formatting.`,
         contextParts.push(entry);
         totalChars += entry.length;
       }
+
+      // Track KB search analytics for keyword fallback
+      this.eventEmitter.emit('analytics.kb.search', {
+        agentId: agent?.id || session.agentId,
+        organizationId: session.organizationId,
+        query: userMessage,
+        resultsCount: scoredDocuments.length,
+        kbHit: scoredDocuments.length > 0,
+        searchType: 'keyword_fallback',
+        topScore: scoredDocuments[0]?.score || 0,
+        knowledgeBaseIds,
+      });
 
       // Use localized KB header
       const lang = agent?.primaryLanguage || AgentLanguage.FRENCH;

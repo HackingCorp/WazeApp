@@ -136,6 +136,12 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
       return { shouldRetry: false, isPermanent: true, retryDelay: 0, errorType: 'device_removed' };
     }
 
+    // Forbidden (403) - session banned or credentials permanently rejected by WhatsApp
+    // Retrying will never succeed; user must re-scan QR code
+    if (statusCode === 403) {
+      return { shouldRetry: false, isPermanent: true, retryDelay: 0, errorType: 'forbidden' };
+    }
+
     // Conflict errors (409, 440) - session conflict, might resolve
     if (statusCode === 409 || statusCode === 440) {
       return { shouldRetry: true, isPermanent: false, retryDelay: 30000, errorType: 'conflict' };
@@ -575,17 +581,18 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
           // Check for various disconnect reasons
           const isLoggedOut = statusCode === DisconnectReason.loggedOut;
           const isDeviceRemoved = statusCode === 401 || errorMessage.includes('device_removed');
+          const isForbidden = statusCode === 403;
           const isConflict = statusCode === 409 || statusCode === 440;
-          const isPermanentError = isLoggedOut || isDeviceRemoved || isConflict;
+          const isPermanentError = isLoggedOut || isDeviceRemoved || isForbidden || isConflict;
 
           this.logger.log(
             `Connection closed for session ${sessionId}, statusCode: ${statusCode}, isDeviceRemoved: ${isDeviceRemoved}, isPermanent: ${isPermanentError}`,
           );
 
-          if (isDeviceRemoved) {
-            // 401/device_removed: Clear credentials and require new QR scan
-            this.logger.warn(`⚠️ Session ${sessionId} received device_removed (401) - clearing credentials`);
-            this.logger.warn(`💡 User needs to unlink old devices from WhatsApp > Linked Devices and scan QR again`);
+          if (isDeviceRemoved || isForbidden) {
+            // 401/device_removed or 403/forbidden: Clear credentials and require new QR scan
+            this.logger.warn(`⚠️ Session ${sessionId} received ${isForbidden ? 'forbidden (403)' : 'device_removed (401)'} - clearing credentials`);
+            this.logger.warn(`💡 User needs to scan QR code again to reconnect`);
 
             // Update connection state to disconnected
             this.connectionStates.set(sessionId, 'disconnected');
@@ -632,10 +639,12 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
             this.authStates.delete(sessionId);
             this.connectionStates.delete(sessionId);
 
-            // Emit specific event for device removed
+            // Emit specific event for device removed / forbidden
             this.eventEmitter.emit("whatsapp.device.removed", {
               sessionId,
-              message: "Session was removed by WhatsApp. Please unlink old devices and scan QR code again.",
+              message: isForbidden
+                ? "Session was rejected by WhatsApp (403 Forbidden). Please scan QR code again."
+                : "Session was removed by WhatsApp. Please unlink old devices and scan QR code again.",
               statusCode,
             });
           } else if (isPermanentError) {

@@ -1,7 +1,6 @@
 import { Module } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { ConfigModule, ConfigService } from "@nestjs/config";
-import * as path from "path";
 import {
   User,
   Organization,
@@ -78,10 +77,9 @@ import {
           Plan,
           MessageCredit,
         ],
-        migrations: [path.join(__dirname, "./migrations/*{.ts,.js}")],
         synchronize:
           configService.get("DATABASE_SYNCHRONIZE", "false") === "true",
-        migrationsRun: true,
+        migrationsRun: false,
         logging: configService.get("NODE_ENV") === "development",
         ssl:
           configService.get("DATABASE_SSL_ENABLED") === "true"

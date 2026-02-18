@@ -8,7 +8,7 @@ export class UpdatePlanPricesToProduction1770000000000
   public async up(queryRunner: QueryRunner): Promise<void> {
     // Update Standard plan prices
     await queryRunner.query(`
-      UPDATE "plan"
+      UPDATE "plans"
       SET "priceMonthlyXAF" = 19000,
           "priceAnnualXAF" = 190000,
           "priceMonthlyUSD" = 29,
@@ -18,7 +18,7 @@ export class UpdatePlanPricesToProduction1770000000000
 
     // Update Pro plan prices
     await queryRunner.query(`
-      UPDATE "plan"
+      UPDATE "plans"
       SET "priceMonthlyXAF" = 32000,
           "priceAnnualXAF" = 320000,
           "priceMonthlyUSD" = 49,
@@ -28,7 +28,7 @@ export class UpdatePlanPricesToProduction1770000000000
 
     // Update Enterprise plan prices
     await queryRunner.query(`
-      UPDATE "plan"
+      UPDATE "plans"
       SET "priceMonthlyXAF" = 130000,
           "priceAnnualXAF" = 1300000,
           "priceMonthlyUSD" = 199,
@@ -40,7 +40,7 @@ export class UpdatePlanPricesToProduction1770000000000
   public async down(queryRunner: QueryRunner): Promise<void> {
     // Revert to previous test prices (if needed)
     await queryRunner.query(`
-      UPDATE "plan"
+      UPDATE "plans"
       SET "priceMonthlyXAF" = 2000,
           "priceAnnualXAF" = 20000,
           "priceMonthlyUSD" = 2,
@@ -49,7 +49,7 @@ export class UpdatePlanPricesToProduction1770000000000
     `);
 
     await queryRunner.query(`
-      UPDATE "plan"
+      UPDATE "plans"
       SET "priceMonthlyXAF" = 3000,
           "priceAnnualXAF" = 30000,
           "priceMonthlyUSD" = 3,
@@ -58,7 +58,7 @@ export class UpdatePlanPricesToProduction1770000000000
     `);
 
     await queryRunner.query(`
-      UPDATE "plan"
+      UPDATE "plans"
       SET "priceMonthlyXAF" = 5000,
           "priceAnnualXAF" = 50000,
           "priceMonthlyUSD" = 5,

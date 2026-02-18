@@ -87,6 +87,23 @@ export class AuthController {
     return { message: "Logout successful" };
   }
 
+  @UseGuards(JwtAuthGuard)
+  @Post("create-redirect-code")
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  @ApiOperation({ summary: "Create a temporary redirect code for cross-domain auth" })
+  @ApiResponse({ status: 200, description: "Redirect code generated" })
+  async createRedirectCode(
+    @CurrentUser() user: any,
+  ): Promise<{ code: string }> {
+    const userId = user.userId || user.sub || user.id;
+    const code = await this.authService.createRedirectCode(
+      userId,
+      user.organizationId,
+      user.role,
+    );
+    return { code };
+  }
+
   @Public()
   @Post("forgot-password")
   @Throttle({ default: { limit: 3, ttl: 300000 } }) // 3 requests per 5 minutes - prevent email spam

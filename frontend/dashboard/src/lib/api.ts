@@ -171,10 +171,23 @@ class ApiClient {
     if (!refreshToken) {
       throw new Error('No refresh token available');
     }
-    
+
     return this.request('/auth/refresh', {
       method: 'POST',
       body: JSON.stringify({ refreshToken }),
+    });
+  }
+
+  async exchangeCode(code: string) {
+    return this.request('/auth/exchange-code', {
+      method: 'POST',
+      body: JSON.stringify({ code }),
+    });
+  }
+
+  async logout() {
+    return this.request('/auth/logout', {
+      method: 'POST',
     });
   }
 

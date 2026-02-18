@@ -40,7 +40,7 @@ interface AuthContextType {
   token: string | null;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
   updateUser: (updates: Partial<User>) => void;
   hasPermission: (permission: string) => boolean;
   refreshAuth: () => Promise<void>;
@@ -123,18 +123,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const initAuth = async () => {
     try {
-      // Check for token in URL first (from marketing site login)
+      // Check for OAuth temp code in URL (from OAuth callback)
       const urlParams = new URLSearchParams(window.location.search);
-      const urlToken = urlParams.get('token');
-      const urlRefresh = urlParams.get('refresh');
+      const authCode = urlParams.get('code');
 
-      if (urlToken) {
-        localStorage.setItem('auth-token', urlToken);
-        if (urlRefresh) {
-          localStorage.setItem('refresh-token', urlRefresh);
-        }
-        // Clean up URL
+      if (authCode) {
+        // Clean up URL immediately to prevent code reuse
         window.history.replaceState(null, '', window.location.pathname);
+
+        // Exchange the temporary code for actual tokens
+        const exchangeResponse = await api.exchangeCode(authCode);
+        if (exchangeResponse.success && exchangeResponse.data?.accessToken) {
+          localStorage.setItem('auth-token', exchangeResponse.data.accessToken);
+          if (exchangeResponse.data.refreshToken) {
+            localStorage.setItem('refresh-token', exchangeResponse.data.refreshToken);
+          }
+        }
       }
 
       const savedToken = localStorage.getItem('auth-token');
@@ -283,13 +287,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const logout = () => {
+  const logout = async () => {
+    // Invalidate refresh token on the backend (best-effort)
+    try {
+      await api.logout();
+    } catch {
+      // Ignore errors - still clear local state
+    }
+
     setUser(null);
     setToken(null);
     localStorage.removeItem('auth-token');
     localStorage.removeItem('refresh-token');
     api.setToken(null);
-    
+
     toast.success('Logged out successfully');
     // Redirect to local login page
     window.location.href = '/login';

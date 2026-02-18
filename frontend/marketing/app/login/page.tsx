@@ -29,15 +29,21 @@ export default function LoginPage() {
       if (response.success && response.data) {
         // Authentication successful
         const { user, accessToken, refreshToken } = response.data
-        
-        // Store tokens
+
+        // Store tokens locally
         localStorage.setItem('accessToken', accessToken)
         localStorage.setItem('refreshToken', refreshToken)
         localStorage.setItem('user', JSON.stringify(user))
-        
-        // Redirect to dashboard with token
+
+        // Generate a temporary redirect code for cross-domain auth
         const dashboardUrl = process.env.NEXT_PUBLIC_DASHBOARD_URL || 'http://localhost:3101'
-        window.location.href = `${dashboardUrl}?token=${encodeURIComponent(accessToken)}&refresh=${encodeURIComponent(refreshToken)}`
+        const codeResponse = await api.createRedirectCode(accessToken)
+        if (codeResponse.success && codeResponse.data?.code) {
+          window.location.href = `${dashboardUrl}?code=${encodeURIComponent(codeResponse.data.code)}`
+        } else {
+          // Fallback: redirect to dashboard login page
+          window.location.href = `${dashboardUrl}/login`
+        }
         return
       } else {
         const msg = response.error || "Invalid email or password"

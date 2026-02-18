@@ -647,6 +647,19 @@ export class AuthService {
   }
 
   /**
+   * Create a redirect code for cross-domain auth (e.g., marketing site -> dashboard)
+   * Loads the user, generates fresh tokens, and wraps them in a temp code
+   */
+  async createRedirectCode(userId: string, organizationId?: string, role?: UserRole): Promise<string> {
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new UnauthorizedException("User not found");
+    }
+    const tokens = await this.generateTokens(user, organizationId, role);
+    return this.generateTempCode(tokens);
+  }
+
+  /**
    * Generate a temporary auth code for OAuth callbacks
    * The code expires in 60 seconds and can only be used once
    */

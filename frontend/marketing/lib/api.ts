@@ -152,6 +152,17 @@ class ApiClient {
     return `${this.baseURL}/auth/facebook`;
   }
 
+  // Create a redirect code for cross-domain auth (requires access token)
+  async createRedirectCode(accessToken: string): Promise<ApiResponse<{ code: string }>> {
+    return this.request('/auth/create-redirect-code', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+  }
+
   // Health check
   async health(): Promise<ApiResponse<any>> {
     return this.request('/health');

@@ -83,51 +83,6 @@ export default function DashboardPage() {
   const socket = useSocket();
   const searchParams = useSearchParams();
 
-  // Handle tokens from URL parameters (from marketing site login)
-  useEffect(() => {
-    const token = searchParams?.get('token');
-    const refreshToken = searchParams?.get('refresh');
-    
-    if (token && typeof window !== 'undefined') {
-      localStorage.setItem('auth-token', token);
-      if (refreshToken) {
-        localStorage.setItem('refresh-token', refreshToken);
-      }
-      // Remove tokens from URL for security/cleanliness
-      window.history.replaceState(null, '', window.location.pathname);
-      // Trigger AuthProvider to re-initialize with new token
-      setTimeout(() => {
-        refreshAuth();
-      }, 100); // Small delay to ensure localStorage is set
-    }
-  }, [searchParams, refreshAuth]);
-
-  useEffect(() => {
-    loadDashboardData();
-  }, [loadDashboardData]);
-
-  useEffect(() => {
-    if (socket) {
-      // Listen for real-time updates
-      socket.on('stats_updated', (newStats: DashboardStats) => {
-        setStats(newStats);
-      });
-
-      socket.on('agent_status_changed', (agentStatus: AgentStatus) => {
-        setAgentStatuses(prev => 
-          prev.map(agent => 
-            agent.id === agentStatus.id ? agentStatus : agent
-          )
-        );
-      });
-
-      return () => {
-        socket.off('stats_updated');
-        socket.off('agent_status_changed');
-      };
-    }
-  }, [socket]);
-
   const loadDashboardData = useCallback(async () => {
     try {
       setLoading(true);
@@ -173,6 +128,48 @@ export default function DashboardPage() {
       setLoading(false);
     }
   }, []);
+
+  // Handle tokens from URL parameters (from marketing site login)
+  useEffect(() => {
+    const token = searchParams?.get('token');
+    const refreshToken = searchParams?.get('refresh');
+
+    if (token && typeof window !== 'undefined') {
+      localStorage.setItem('auth-token', token);
+      if (refreshToken) {
+        localStorage.setItem('refresh-token', refreshToken);
+      }
+      window.history.replaceState(null, '', window.location.pathname);
+      setTimeout(() => {
+        refreshAuth();
+      }, 100);
+    }
+  }, [searchParams, refreshAuth]);
+
+  useEffect(() => {
+    loadDashboardData();
+  }, [loadDashboardData]);
+
+  useEffect(() => {
+    if (socket) {
+      socket.on('stats_updated', (newStats: DashboardStats) => {
+        setStats(newStats);
+      });
+
+      socket.on('agent_status_changed', (agentStatus: AgentStatus) => {
+        setAgentStatuses(prev =>
+          prev.map(agent =>
+            agent.id === agentStatus.id ? agentStatus : agent
+          )
+        );
+      });
+
+      return () => {
+        socket.off('stats_updated');
+        socket.off('agent_status_changed');
+      };
+    }
+  }, [socket]);
 
   // Helper function to format last active time
   const formatLastActive = (date: Date): string => {

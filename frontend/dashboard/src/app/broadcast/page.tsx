@@ -452,6 +452,37 @@ export default function BroadcastPage() {
     };
   }, [subscribe, fetchContacts, fetchContactStats]);
 
+  // Subscribe to broadcast campaign progress events
+  useEffect(() => {
+    const unsubCampaignStarted = subscribe('broadcast:campaign-started', () => {
+      fetchCampaigns();
+      fetchDailyStats();
+    });
+
+    const unsubCampaignCompleted = subscribe('broadcast:campaign-completed', () => {
+      fetchCampaigns();
+      fetchContactStats();
+      fetchDailyStats();
+    });
+
+    const unsubMessageSent = subscribe('broadcast:message-sent', () => {
+      fetchCampaigns();
+      fetchContactStats();
+    });
+
+    const unsubMessageFailed = subscribe('broadcast:message-failed', () => {
+      fetchCampaigns();
+      fetchContactStats();
+    });
+
+    return () => {
+      unsubCampaignStarted();
+      unsubCampaignCompleted();
+      unsubMessageSent();
+      unsubMessageFailed();
+    };
+  }, [subscribe, fetchCampaigns, fetchContactStats, fetchDailyStats]);
+
   // Handle import contacts
   const handleImport = async () => {
     if (!importFile) return;

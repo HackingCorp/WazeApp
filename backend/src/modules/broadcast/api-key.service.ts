@@ -7,8 +7,10 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { ConfigService } from '@nestjs/config';
 import { Repository } from 'typeorm';
 import * as crypto from 'crypto';
+import Redis from 'ioredis';
 import { ApiKey, ApiKeyPermission, Subscription, WhatsAppSession } from '../../common/entities';
 import { SubscriptionPlan } from '../../common/enums';
 import { CreateApiKeyDto } from './dto/broadcast.dto';
@@ -18,6 +20,7 @@ export class ApiKeyService {
   private readonly logger = new Logger(ApiKeyService.name);
   private readonly KEY_PREFIX = 'wz_live_';
   private readonly LEGACY_KEY_PREFIXES = ['waze_sk_', 'wz_live_'];
+  private readonly redis: Redis;
 
   constructor(
     @InjectRepository(ApiKey)
@@ -26,7 +29,14 @@ export class ApiKeyService {
     private subscriptionRepository: Repository<Subscription>,
     @InjectRepository(WhatsAppSession)
     private sessionRepository: Repository<WhatsAppSession>,
-  ) {}
+    private configService: ConfigService,
+  ) {
+    this.redis = new Redis({
+      host: this.configService.get('REDIS_HOST', 'localhost'),
+      port: this.configService.get('REDIS_PORT', 6379),
+      password: this.configService.get('REDIS_PASSWORD'),
+    });
+  }
 
   /**
    * Check if organization can use external API
@@ -232,7 +242,7 @@ export class ApiKeyService {
     key: string,
     requiredPermission?: ApiKeyPermission,
     clientIp?: string,
-  ): Promise<{ organizationId: string; sessionId: string; permissions: ApiKeyPermission[] }> {
+  ): Promise<{ organizationId: string; sessionId: string; permissions: ApiKeyPermission[]; keyId: string; keyName: string; keyHash: string; rateLimitPerMinute: number; rateLimitPerDay: number }> {
     if (!key) {
       throw new UnauthorizedException('API key is required. Please provide X-API-Key header.');
     }
@@ -302,6 +312,11 @@ export class ApiKeyService {
       organizationId: apiKey.organizationId,
       sessionId: apiKey.sessionId,
       permissions: apiKey.permissions,
+      keyId: apiKey.id,
+      keyName: apiKey.name,
+      keyHash,
+      rateLimitPerMinute: apiKey.rateLimitPerMinute,
+      rateLimitPerDay: apiKey.rateLimitPerDay,
     };
   }
 
@@ -317,12 +332,53 @@ export class ApiKeyService {
   }
 
   /**
-   * Check rate limit for API key
+   * Check rate limit for API key using Redis sliding window counters.
+   * Throws ForbiddenException-like info or returns void on success.
+   * Returns { allowed: true } or { allowed: false, retryAfter, message }.
    */
-  async checkRateLimit(key: string): Promise<boolean> {
-    // In production, this would use Redis to track requests
-    // For now, we'll just return true
-    return true;
+  async checkRateLimit(keyHash: string, rateLimitPerMinute: number, rateLimitPerDay: number): Promise<{ allowed: boolean; retryAfter?: number; message?: string }> {
+    const minuteKey = `ratelimit:apikey:${keyHash}:min`;
+    const dayKey = `ratelimit:apikey:${keyHash}:day`;
+
+    try {
+      // Check per-minute rate limit
+      const minuteCount = await this.redis.incr(minuteKey);
+      if (minuteCount === 1) {
+        await this.redis.expire(minuteKey, 60);
+      }
+
+      if (minuteCount > rateLimitPerMinute) {
+        const minuteTtl = await this.redis.ttl(minuteKey);
+        return {
+          allowed: false,
+          retryAfter: minuteTtl > 0 ? minuteTtl : 60,
+          message: `Per-minute rate limit exceeded (${rateLimitPerMinute}/min). Try again in ${minuteTtl > 0 ? minuteTtl : 60}s.`,
+        };
+      }
+
+      // Check per-day rate limit
+      const dayCount = await this.redis.incr(dayKey);
+      if (dayCount === 1) {
+        await this.redis.expire(dayKey, 86400);
+      }
+
+      if (dayCount > rateLimitPerDay) {
+        // Rollback the minute counter since the request is denied
+        await this.redis.decr(minuteKey);
+        const dayTtl = await this.redis.ttl(dayKey);
+        return {
+          allowed: false,
+          retryAfter: dayTtl > 0 ? dayTtl : 86400,
+          message: `Daily rate limit exceeded (${rateLimitPerDay}/day). Try again in ${dayTtl > 0 ? Math.ceil(dayTtl / 60) : 1440} minutes.`,
+        };
+      }
+
+      return { allowed: true };
+    } catch (error) {
+      // If Redis is unavailable, log the error but allow the request
+      this.logger.error(`Rate limit check failed: ${error.message}`);
+      return { allowed: true };
+    }
   }
 
   // ==========================================

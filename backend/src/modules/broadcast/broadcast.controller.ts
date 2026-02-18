@@ -7,6 +7,7 @@ import {
   Body,
   Param,
   Query,
+  Res,
   UseGuards,
   UseInterceptors,
   UploadedFile,
@@ -15,13 +16,14 @@ import {
   HttpStatus,
   BadRequestException,
 } from '@nestjs/common';
+import { Response } from 'express';
 import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname, join } from 'path';
 import { mkdirSync, existsSync } from 'fs';
 
 // Ensure upload directories exist at module load time
-const uploadDirs = ['./uploads', './uploads/templates', './uploads/broadcasts'];
+const uploadDirs = ['./uploads', './uploads/templates', './uploads/broadcast'];
 uploadDirs.forEach(dir => {
   if (!existsSync(dir)) {
     try {
@@ -185,6 +187,77 @@ export class BroadcastController {
         tags,
       },
     };
+  }
+
+  @Get('contacts/export')
+  @ApiOperation({ summary: 'Export contacts as CSV or JSON' })
+  @ApiQuery({ name: 'format', required: false, enum: ['csv', 'json'], description: 'Export format (default: json)' })
+  @ApiQuery({ name: 'tags', required: false, type: String, description: 'Comma-separated tags to filter by' })
+  async exportContacts(
+    @CurrentUser() user: AuthUser,
+    @Query('format') format: string = 'json',
+    @Query('tags') tags?: string,
+    @Res() res?: Response,
+  ) {
+    const organizationId = this.ensureOrganization(user);
+    const filter: ContactFilterDto = {};
+    if (tags) {
+      filter.tags = tags.split(',').map(t => t.trim());
+    }
+    // Fetch all contacts (no pagination for export)
+    filter.limit = 100000;
+    filter.page = 1;
+    const { data } = await this.contactService.getContacts(organizationId, filter);
+
+    if (format === 'csv') {
+      const header = 'phoneNumber,name,email,company,tags,isValidWhatsApp,isSubscribed\n';
+      const rows = data.map(c =>
+        `"${c.phoneNumber}","${c.name || ''}","${c.email || ''}","${c.company || ''}","${(c.tags || []).join(';')}","${c.isValidWhatsApp ?? ''}","${c.isSubscribed ?? ''}"`
+      ).join('\n');
+      const csv = header + rows;
+
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', 'attachment; filename=contacts.csv');
+      return res.send(csv);
+    }
+
+    // JSON format
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Disposition', 'attachment; filename=contacts.json');
+    return res.json({ success: true, data });
+  }
+
+  @Get('contacts/tags')
+  @ApiOperation({ summary: 'Get all unique tags' })
+  async getContactTags(@CurrentUser() user: AuthUser) {
+    const organizationId = this.ensureOrganization(user);
+    const tags = await this.contactService.getAllTags(organizationId);
+    return { success: true, data: tags };
+  }
+
+  @Post('contacts/validate/:sessionId')
+  @ApiOperation({ summary: 'Validate contacts WhatsApp numbers using a session' })
+  async validateContacts(
+    @CurrentUser() user: AuthUser,
+    @Param('sessionId') sessionId: string,
+    @Body() body: { contactIds?: string[] },
+  ) {
+    const organizationId = this.ensureOrganization(user);
+    if (body.contactIds && body.contactIds.length > 0) {
+      // Validate specific contacts
+      const contacts = [];
+      for (const contactId of body.contactIds) {
+        const contact = await this.contactService.getContact(organizationId, contactId);
+        contacts.push(contact);
+      }
+      const phoneNumbers = contacts.map(c => c.phoneNumber);
+      await this.contactService.validateWhatsAppNumbers(organizationId, sessionId, phoneNumbers, user.userId);
+      return { success: true, data: { total: phoneNumbers.length, message: `Validation started for ${phoneNumbers.length} contacts.` } };
+    } else {
+      // Validate all unverified contacts
+      const result = await this.contactService.bulkValidateContacts(organizationId, sessionId, user.userId);
+      return { success: true, data: result };
+    }
   }
 
   @Get('contacts/:id')
@@ -411,6 +484,28 @@ export class BroadcastController {
     const organizationId = this.ensureOrganization(user);
     await this.templateService.deleteTemplate(organizationId, id);
     return { success: true };
+  }
+
+  @Post('templates/:id/preview')
+  @ApiOperation({ summary: 'Preview rendered template with sample variables' })
+  async previewTemplate(
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: { variables: Record<string, string> },
+  ) {
+    const organizationId = this.ensureOrganization(user);
+    const template = await this.templateService.getTemplate(organizationId, id);
+    const rendered = this.templateService.renderTemplate(template, body.variables || {});
+    return {
+      success: true,
+      data: {
+        content: rendered.content,
+        caption: rendered.caption,
+        type: template.type,
+        mediaUrl: template.mediaUrl,
+        variables: template.variables,
+      },
+    };
   }
 
   // ==========================================

@@ -17,12 +17,18 @@ export class WebhookService {
 
   /**
    * Create a new webhook
+   *
+   * NOTE: Webhook secrets are stored in plaintext (not hashed) because the server
+   * needs the raw secret to compute HMAC signatures on outgoing webhook payloads.
+   * This is standard practice (similar to Stripe, GitHub, etc.) and differs from
+   * password storage where only verification is needed. The secret is returned to
+   * the user once on creation for their verification setup.
    */
   async createWebhook(
     organizationId: string,
     dto: CreateWebhookDto,
   ): Promise<WebhookConfig> {
-    // Generate secret
+    // Generate secret - stored raw for HMAC signing of outgoing payloads
     const secret = crypto.randomBytes(32).toString('hex');
 
     const webhook = this.webhookRepository.create({
@@ -104,12 +110,17 @@ export class WebhookService {
 
   /**
    * Regenerate webhook secret
+   *
+   * NOTE: The new secret is stored raw (not hashed) because it is needed to
+   * compute HMAC signatures on outgoing webhook payloads. The raw secret is
+   * returned to the user once so they can update their endpoint verification.
    */
   async regenerateSecret(
     organizationId: string,
     webhookId: string,
   ): Promise<{ secret: string }> {
     const webhook = await this.getWebhook(organizationId, webhookId);
+    // Store raw for HMAC signing, return to user once
     webhook.secret = crypto.randomBytes(32).toString('hex');
     await this.webhookRepository.save(webhook);
     return { secret: webhook.secret };

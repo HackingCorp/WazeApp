@@ -329,6 +329,7 @@ export class ContactService {
     sessionId: string,
     phoneNumbers: string[],
     userId?: string,
+    defaultCountryCode: string = '237',
   ): Promise<void> {
     this.logger.log(`Validating ${phoneNumbers.length} WhatsApp numbers...`);
 
@@ -348,13 +349,12 @@ export class ContactService {
         // Clean phone number - remove spaces, dashes, plus sign
         let cleanPhone = phone.replace(/[\s\-\+\(\)]/g, '');
 
-        // Add country code if missing (assume Cameroon 237 for 9-digit numbers starting with 6)
-        if (cleanPhone.length === 9 && cleanPhone.startsWith('6')) {
-          cleanPhone = '237' + cleanPhone;
-        }
-        // Handle numbers starting with 0 (local format)
+        // Add country code if missing - use configurable default (defaults to '237' for Cameroon)
+        const countryCode = defaultCountryCode;
         if (cleanPhone.startsWith('0')) {
-          cleanPhone = '237' + cleanPhone.substring(1);
+          cleanPhone = countryCode + cleanPhone.substring(1);
+        } else if (cleanPhone.length < 10) {
+          cleanPhone = countryCode + cleanPhone;
         }
 
         this.logger.debug(`Validating phone: ${phone} -> ${cleanPhone}`);

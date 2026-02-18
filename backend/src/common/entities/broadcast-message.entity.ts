@@ -20,6 +20,7 @@ export enum BroadcastMessageStatus {
   READ = 'read',
   FAILED = 'failed',
   CANCELLED = 'cancelled',
+  PAUSED = 'paused',
 }
 
 @Entity('broadcast_messages')

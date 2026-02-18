@@ -94,11 +94,11 @@ export class BroadcastCampaign {
   };
 
   // Specific contact IDs (if selecting manually)
-  @Column('simple-array', { name: 'contact_ids', nullable: true })
+  @Column('jsonb', { name: 'contact_ids', nullable: true, default: [] })
   contactIds?: string[];
 
   // Media URLs (for campaigns with uploaded media files)
-  @Column('simple-array', { name: 'media_urls', nullable: true })
+  @Column('jsonb', { name: 'media_urls', nullable: true, default: [] })
   mediaUrls?: string[];
 
   // Scheduling

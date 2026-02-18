@@ -9,6 +9,8 @@ import {
   IsBoolean,
   IsDateString,
   IsEmail,
+  IsUrl,
+  IsIP,
   MinLength,
   MaxLength,
   ValidateNested,
@@ -354,7 +356,7 @@ export class CreateApiKeyDto {
   @ApiPropertyOptional({ description: 'Allowed IP addresses' })
   @IsOptional()
   @IsArray()
-  @IsString({ each: true })
+  @IsIP(undefined, { each: true, message: 'Each allowedIps entry must be a valid IP address' })
   allowedIps?: string[];
 
   @ApiPropertyOptional({ description: 'Rate limit per minute', default: 60 })
@@ -406,7 +408,7 @@ export class CreateWebhookDto {
   name: string;
 
   @ApiProperty({ description: 'Webhook URL' })
-  @IsString()
+  @IsUrl({ require_tld: false }, { message: 'url must be a valid URL' })
   url: string;
 
   @ApiProperty({ description: 'Events to subscribe to' })

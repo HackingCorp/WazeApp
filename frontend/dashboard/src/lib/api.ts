@@ -823,10 +823,10 @@ class ApiClient {
     });
   }
 
-  async validateBroadcastContacts(sessionId: string, contactIds?: string[]) {
-    return this.request(`/broadcast/contacts/validate/${sessionId}`, {
+  async validateBroadcastContact(contactId: string, sessionId: string) {
+    return this.request(`/broadcast/contacts/${contactId}/validate`, {
       method: 'POST',
-      body: JSON.stringify({ contactIds }),
+      body: JSON.stringify({ sessionId }),
     });
   }
 
@@ -849,7 +849,13 @@ class ApiClient {
   }
 
   async getBroadcastContactTags() {
-    return this.request('/broadcast/contacts/tags');
+    // Tags are returned as part of the contacts/stats endpoint
+    const response = await this.request('/broadcast/contacts/stats');
+    if (response.success) {
+      const statsData = response.data?.data || response.data;
+      return { success: true, data: statsData?.tags || [] };
+    }
+    return response;
   }
 
   async addTagsToBroadcastContacts(contactIds: string[], tags: string[]) {

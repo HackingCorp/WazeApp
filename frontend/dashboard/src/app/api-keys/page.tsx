@@ -177,16 +177,24 @@ export default function ApiKeysPage() {
   };
 
   const handleEditKey = (key: ApiKey) => {
-    setEditingKey(key);
+    setEditingKey({
+      ...key,
+      permissions: key.permissions || [],
+      allowedIps: key.allowedIps || [],
+    });
     setShowEditModal(true);
   };
 
-  const handleUpdateSession = async () => {
+  const handleUpdateKey = async () => {
     if (!editingKey) return;
 
     try {
       const response = await api.updateBroadcastApiKey(editingKey.id, {
         sessionId: editingKey.sessionId,
+        permissions: editingKey.permissions,
+        allowedIps: editingKey.allowedIps && editingKey.allowedIps.length > 0 ? editingKey.allowedIps : undefined,
+        rateLimitPerMinute: editingKey.rateLimitPerMinute,
+        expiresAt: editingKey.expiresAt || undefined,
       });
 
       if (response.success) {
@@ -704,40 +712,134 @@ export default function ApiKeysPage() {
         </div>
       )}
 
-      {/* Edit Session Modal */}
+      {/* Edit API Key Modal */}
       {showEditModal && editingKey && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-xl max-w-md w-full">
+          <div className="bg-white dark:bg-gray-800 rounded-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
-                Modifier la session WhatsApp
+                Modifier la clé API
               </h2>
               <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
                 Clé API: <span className="font-medium">{editingKey.name}</span>
               </p>
 
-              <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Session WhatsApp
-                </label>
-                <select
-                  value={editingKey.sessionId || ''}
-                  onChange={(e) => setEditingKey({ ...editingKey, sessionId: e.target.value || undefined })}
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                >
-                  <option value="">Non assignée</option>
-                  {sessions.map((session) => (
-                    <option key={session.id} value={session.id}>
-                      {session.name} {session.phoneNumber ? `(${session.phoneNumber})` : ''} - {session.status}
-                    </option>
-                  ))}
-                </select>
-                <p className="text-xs text-gray-500 mt-1">
-                  Chaque clé API est liée à une seule session WhatsApp
-                </p>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Session WhatsApp
+                  </label>
+                  <select
+                    value={editingKey.sessionId || ''}
+                    onChange={(e) => setEditingKey({ ...editingKey, sessionId: e.target.value || undefined })}
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  >
+                    <option value="">Non assignée</option>
+                    {sessions.map((session) => (
+                      <option key={session.id} value={session.id}>
+                        {session.name} {session.phoneNumber ? `(${session.phoneNumber})` : ''} - {session.status}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Chaque clé API est liée à une seule session WhatsApp
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Permissions
+                  </label>
+                  <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto p-2 border border-gray-200 dark:border-gray-700 rounded-lg">
+                    {PERMISSIONS.map((perm) => (
+                      <label
+                        key={perm.value}
+                        className="flex items-start gap-2 p-2 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded cursor-pointer"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={editingKey.permissions.includes(perm.value)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setEditingKey({
+                                ...editingKey,
+                                permissions: [...editingKey.permissions, perm.value],
+                              });
+                            } else {
+                              setEditingKey({
+                                ...editingKey,
+                                permissions: editingKey.permissions.filter((p) => p !== perm.value),
+                              });
+                            }
+                          }}
+                          className="mt-1 rounded border-gray-300 text-green-600 focus:ring-green-500"
+                        />
+                        <div>
+                          <div className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                            {perm.label}
+                          </div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400">
+                            {perm.description}
+                          </div>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    IPs autorisées (une par ligne)
+                  </label>
+                  <textarea
+                    value={(editingKey.allowedIps || []).join('\n')}
+                    onChange={(e) => {
+                      const ips = e.target.value
+                        .split('\n')
+                        .map(ip => ip.trim())
+                        .filter(ip => ip);
+                      setEditingKey({ ...editingKey, allowedIps: ips });
+                    }}
+                    rows={3}
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-green-500 focus:border-transparent font-mono text-sm"
+                    placeholder="192.168.1.1&#10;10.0.0.1"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Laissez vide pour autoriser toutes les IPs
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Limite de requêtes par minute
+                  </label>
+                  <input
+                    type="number"
+                    value={editingKey.rateLimitPerMinute}
+                    onChange={(e) => setEditingKey({ ...editingKey, rateLimitPerMinute: parseInt(e.target.value) || 60 })}
+                    min="1"
+                    max="1000"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Date d'expiration
+                  </label>
+                  <input
+                    type="date"
+                    value={editingKey.expiresAt ? new Date(editingKey.expiresAt).toISOString().split('T')[0] : ''}
+                    onChange={(e) => setEditingKey({ ...editingKey, expiresAt: e.target.value || undefined })}
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Laissez vide pour une clé sans expiration
+                  </p>
+                </div>
               </div>
 
-              <div className="flex gap-3">
+              <div className="flex gap-3 mt-6">
                 <button
                   onClick={() => {
                     setShowEditModal(false);
@@ -748,7 +850,7 @@ export default function ApiKeysPage() {
                   Annuler
                 </button>
                 <button
-                  onClick={handleUpdateSession}
+                  onClick={handleUpdateKey}
                   className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
                 >
                   Enregistrer

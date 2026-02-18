@@ -22,6 +22,9 @@ async function bootstrap() {
       : ["error", "warn", "log", "debug", "verbose"],
   });
 
+  // Trust the first proxy (Dokploy reverse proxy) so that @Ip() returns the real client IP
+  app.set('trust proxy', 1);
+
   const configService = app.get(ConfigService);
   const logger = new Logger("Bootstrap");
 

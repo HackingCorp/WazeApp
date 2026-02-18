@@ -4,6 +4,7 @@ import { Job } from 'bull';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { join } from 'path';
 import {
   BroadcastMessage,
@@ -16,6 +17,7 @@ import {
 import { BaileysService } from '../whatsapp/baileys.service';
 import { TemplateService } from './template.service';
 import { WebhookService } from './webhook.service';
+import { CampaignService } from './campaign.service';
 
 interface SendMessageJob {
   messageId: string;
@@ -41,6 +43,11 @@ export class BroadcastProcessor {
   private readonly logger = new Logger(BroadcastProcessor.name);
   private readonly apiUrl: string;
 
+  // Cache for daily quota checks to avoid querying on every message
+  private quotaCache: Map<string, { sentToday: number; limit: number; checkedAt: number }> = new Map();
+  private readonly QUOTA_CACHE_TTL_MS = 30_000; // 30 seconds
+  private messageCounter: Map<string, number> = new Map();
+
   constructor(
     @InjectRepository(BroadcastMessage)
     private messageRepository: Repository<BroadcastMessage>,
@@ -54,6 +61,8 @@ export class BroadcastProcessor {
     private templateService: TemplateService,
     private webhookService: WebhookService,
     private configService: ConfigService,
+    private campaignService: CampaignService,
+    private eventEmitter: EventEmitter2,
   ) {
     this.apiUrl = this.configService.get('API_URL') || 'http://localhost:3100';
   }
@@ -91,6 +100,18 @@ export class BroadcastProcessor {
       return;
     }
 
+    // Check daily message quota (every 10th message or when cache is stale)
+    const quotaExceeded = await this.isDailyQuotaExceeded(organizationId);
+    if (quotaExceeded) {
+      message.status = BroadcastMessageStatus.FAILED;
+      message.failedAt = new Date();
+      message.errorMessage = 'Daily message quota exceeded';
+      message.errorCode = 'QUOTA_EXCEEDED';
+      await this.messageRepository.save(message);
+      await this.updateCampaignStats(campaign.id);
+      return;
+    }
+
     // Update status to sending
     message.status = BroadcastMessageStatus.SENDING;
     message.queuedAt = new Date();
@@ -100,23 +121,23 @@ export class BroadcastProcessor {
       // Format phone number with country code
       let phoneNumber = contact.phoneNumber.replace(/[\s\-\+\(\)]/g, '');
 
-      // Add country code if missing (assume Cameroon 237 for 9-digit numbers starting with 6)
-      if (phoneNumber.length === 9 && phoneNumber.startsWith('6')) {
-        phoneNumber = '237' + phoneNumber;
-      }
-      // Handle numbers starting with 0 (local format)
+      // Add country code if missing - use configurable default (defaults to '237' for Cameroon)
+      const defaultCountryCode = this.configService.get('DEFAULT_COUNTRY_CODE') || '237';
       if (phoneNumber.startsWith('0')) {
-        phoneNumber = '237' + phoneNumber.substring(1);
+        phoneNumber = defaultCountryCode + phoneNumber.substring(1);
+      } else if (phoneNumber.length < 10) {
+        phoneNumber = defaultCountryCode + phoneNumber;
       }
 
       // Check if campaign has custom media files uploaded
       const hasCustomMedia = campaign.mediaUrls && campaign.mediaUrls.length > 0;
       let lastMessageId = '';
 
+      // Prepare content once to avoid double calls (and double template usage increment)
+      const preparedContent = await this.prepareMessageContent(campaign, contact);
+
       if (hasCustomMedia) {
         // Send each uploaded media as a separate message
-        const baseContent = await this.prepareMessageContent(campaign, contact);
-
         for (let i = 0; i < campaign.mediaUrls.length; i++) {
           let mediaUrl = campaign.mediaUrls[i];
           const isLastMedia = i === campaign.mediaUrls.length - 1;
@@ -135,7 +156,7 @@ export class BroadcastProcessor {
           const mediaType = isImage ? 'image' : isVideo ? 'video' : isDocument ? 'document' : 'image';
 
           // Only add caption to the last media (or first if only one)
-          const caption = isLastMedia ? (baseContent.caption || baseContent.text || '') : '';
+          const caption = isLastMedia ? (preparedContent.caption || preparedContent.text || '') : '';
 
           this.logger.debug(`Sending media ${i + 1}/${campaign.mediaUrls.length}: ${mediaUrl} (type: ${mediaType})`);
 
@@ -158,28 +179,26 @@ export class BroadcastProcessor {
         this.logger.debug(`Sent ${campaign.mediaUrls.length} media files to ${phoneNumber}`);
       } else {
         // Standard single message flow
-        const messageContent = await this.prepareMessageContent(campaign, contact);
-
         const result = await this.baileysService.sendMessage(campaign.sessionId, {
           to: phoneNumber,
-          message: messageContent.text || messageContent.caption || '',
-          type: messageContent.type,
-          mediaUrl: messageContent.mediaUrl,
-          caption: messageContent.caption,
-          filename: messageContent.filename,
+          message: preparedContent.text || preparedContent.caption || '',
+          type: preparedContent.type,
+          mediaUrl: preparedContent.mediaUrl,
+          caption: preparedContent.caption,
+          filename: preparedContent.filename,
         });
 
         lastMessageId = result.messageId;
         this.logger.debug(`Message sent to ${phoneNumber} (original: ${contact.phoneNumber})`);
       }
 
-      // Update message status
+      // Update message status - reuse preparedContent instead of calling prepareMessageContent() again
       message.status = BroadcastMessageStatus.SENT;
       message.sentAt = new Date();
       message.whatsappMessageId = lastMessageId;
       message.renderedContent = hasCustomMedia
         ? `[${campaign.mediaUrls.length} media files]`
-        : (await this.prepareMessageContent(campaign, contact)).text || '';
+        : preparedContent.text || '';
       await this.messageRepository.save(message);
 
       // Update campaign stats
@@ -193,6 +212,14 @@ export class BroadcastProcessor {
         phoneNumber: contact.phoneNumber,
         whatsappMessageId: lastMessageId,
         mediaCount: hasCustomMedia ? campaign.mediaUrls.length : 1,
+      });
+
+      // Emit Socket.io event for real-time UI updates
+      this.eventEmitter.emit('broadcast.message.sent', {
+        organizationId,
+        campaignId: campaign.id,
+        messageId: message.id,
+        status: BroadcastMessageStatus.SENT,
       });
     } catch (error) {
       this.logger.error(
@@ -216,6 +243,14 @@ export class BroadcastProcessor {
         campaignId: campaign.id,
         contactId: contact.id,
         phoneNumber: contact.phoneNumber,
+        error: error.message,
+      });
+
+      // Emit Socket.io event for real-time UI updates
+      this.eventEmitter.emit('broadcast.message.failed', {
+        organizationId,
+        campaignId: campaign.id,
+        messageId: message.id,
         error: error.message,
       });
 
@@ -302,6 +337,13 @@ export class BroadcastProcessor {
           stats: campaign.stats,
         });
 
+        // Emit Socket.io event for real-time UI updates
+        this.eventEmitter.emit('broadcast.campaign.completed', {
+          organizationId,
+          campaignId,
+          stats: campaign.stats,
+        });
+
         this.logger.log(`Campaign ${campaign.name} completed`);
       }
     }
@@ -318,6 +360,43 @@ export class BroadcastProcessor {
   // ==========================================
   // PRIVATE HELPERS
   // ==========================================
+
+  /**
+   * Check if the daily message quota is exceeded for an organization.
+   * Uses a cache to avoid expensive DB queries on every message.
+   * The cache is refreshed every 30 seconds or every 10th message.
+   */
+  private async isDailyQuotaExceeded(organizationId: string): Promise<boolean> {
+    const now = Date.now();
+    const cached = this.quotaCache.get(organizationId);
+    const counter = (this.messageCounter.get(organizationId) || 0) + 1;
+    this.messageCounter.set(organizationId, counter);
+
+    // Check cache: refresh every 30s or every 10th message
+    const needsRefresh = !cached
+      || (now - cached.checkedAt) > this.QUOTA_CACHE_TTL_MS
+      || counter % 10 === 0;
+
+    if (needsRefresh) {
+      try {
+        const dailyStats = await this.campaignService.getDailyStats(organizationId);
+        this.quotaCache.set(organizationId, {
+          sentToday: dailyStats.messagesSentToday,
+          limit: dailyStats.messagesLimit,
+          checkedAt: now,
+        });
+
+        return dailyStats.messagesSentToday >= dailyStats.messagesLimit;
+      } catch (error) {
+        this.logger.error(`Failed to check daily quota for org ${organizationId}:`, error);
+        // On error, allow sending to avoid blocking legitimate messages
+        return false;
+      }
+    }
+
+    // Use cached values
+    return cached.sentToday >= cached.limit;
+  }
 
   private async prepareMessageContent(
     campaign: BroadcastCampaign,
@@ -420,6 +499,7 @@ export class BroadcastProcessor {
         case BroadcastMessageStatus.PENDING:
         case BroadcastMessageStatus.QUEUED:
         case BroadcastMessageStatus.SENDING:
+        case BroadcastMessageStatus.PAUSED:
           result.pending += parseInt(stat.count);
           break;
         case BroadcastMessageStatus.SENT:
@@ -440,4 +520,15 @@ export class BroadcastProcessor {
 
     await this.campaignRepository.update(campaignId, { stats: result });
   }
+
+  // TODO: Implement delivery receipt tracking for broadcast messages.
+  // Baileys emits 'messages.update' events with status updates (DELIVERY_ACK, READ)
+  // that could be used to update BroadcastMessage statuses from SENT to DELIVERED/READ.
+  // This would require:
+  // 1. Listening for 'messages.update' events in BaileysService
+  // 2. Matching whatsappMessageId to BroadcastMessage records
+  // 3. Updating BroadcastMessage.status to DELIVERED or READ accordingly
+  // 4. Calling updateCampaignStats() to refresh campaign-level stats
+  // 5. Emitting 'broadcast.message.delivered' / 'broadcast.message.read' events
+  // Currently, messages stay in SENT status after being sent successfully.
 }

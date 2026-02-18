@@ -15,6 +15,7 @@ import { OnEvent, EventEmitter2 } from "@nestjs/event-emitter";
 
 interface AuthenticatedSocket extends Socket {
   userId?: string;
+  organizationId?: string;
 }
 
 @WebSocketGateway({
@@ -81,6 +82,7 @@ export class WhatsAppGateway
 
       // Set user information from JWT (avoid DB query on every connection)
       client.userId = userId;
+      client.organizationId = payload.organizationId || null;
 
       // Track connection
       if (!this.connectedUsers.has(userId)) {
@@ -90,6 +92,11 @@ export class WhatsAppGateway
 
       // Join user-specific room
       client.join(`user:${userId}`);
+
+      // Join organization room for broadcast events
+      if (payload.organizationId) {
+        client.join(`org:${payload.organizationId}`);
+      }
 
       this.logger.log(`User ${payload.email || userId} connected (${client.id})`);
 
@@ -378,6 +385,72 @@ export class WhatsAppGateway
       valid: data.valid,
       invalid: data.invalid,
       status: data.status,
+      timestamp: new Date(),
+    });
+  }
+
+  // ==========================================
+  // BROADCAST CAMPAIGN EVENTS
+  // ==========================================
+
+  @OnEvent("broadcast.campaign.started")
+  async handleBroadcastCampaignStarted(data: {
+    organizationId: string;
+    campaignId: string;
+  }) {
+    this.logger.log(
+      `Broadcasting campaign started event: campaign ${data.campaignId}`,
+    );
+
+    this.server.to(`org:${data.organizationId}`).emit("broadcast:campaign-started", {
+      campaignId: data.campaignId,
+      timestamp: new Date(),
+    });
+  }
+
+  @OnEvent("broadcast.campaign.completed")
+  async handleBroadcastCampaignCompleted(data: {
+    organizationId: string;
+    campaignId: string;
+    stats: any;
+  }) {
+    this.logger.log(
+      `Broadcasting campaign completed event: campaign ${data.campaignId}`,
+    );
+
+    this.server.to(`org:${data.organizationId}`).emit("broadcast:campaign-completed", {
+      campaignId: data.campaignId,
+      stats: data.stats,
+      timestamp: new Date(),
+    });
+  }
+
+  @OnEvent("broadcast.message.sent")
+  async handleBroadcastMessageSent(data: {
+    organizationId: string;
+    campaignId: string;
+    messageId: string;
+    status: string;
+  }) {
+    this.server.to(`org:${data.organizationId}`).emit("broadcast:message-sent", {
+      campaignId: data.campaignId,
+      messageId: data.messageId,
+      status: data.status,
+      timestamp: new Date(),
+    });
+  }
+
+  @OnEvent("broadcast.message.failed")
+  async handleBroadcastMessageFailed(data: {
+    organizationId: string;
+    campaignId: string;
+    messageId: string;
+    error: string;
+  }) {
+    this.server.to(`org:${data.organizationId}`).emit("broadcast:message-failed", {
+      campaignId: data.campaignId,
+      messageId: data.messageId,
+      error: data.error,
       timestamp: new Date(),
     });
   }

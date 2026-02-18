@@ -24,7 +24,10 @@ import {
   ApiQuery,
 } from '@nestjs/swagger';
 import { InjectRepository } from '@nestjs/typeorm';
+import { ConfigService } from '@nestjs/config';
 import { Repository } from 'typeorm';
+import * as crypto from 'crypto';
+import Redis from 'ioredis';
 import { Public } from '../../common/decorators/public.decorator';
 import { ApiKeyService } from './api-key.service';
 import { ContactService } from './contact.service';
@@ -47,9 +50,8 @@ import { Queue } from 'bull';
 @Controller('external')
 @Public()
 export class ExternalApiController {
-  // Deduplication: Track recently sent messages (recipient:hash -> timestamp)
-  private readonly recentlySentMessages = new Map<string, number>();
-  private readonly DEDUP_WINDOW_MS = 30000; // 30 seconds deduplication window
+  private readonly DEDUP_TTL_SECONDS = 30; // 30 seconds deduplication window
+  private readonly redis: Redis;
 
   constructor(
     private apiKeyService: ApiKeyService,
@@ -63,47 +65,57 @@ export class ExternalApiController {
     private broadcastQueue: Queue,
     @InjectRepository(WhatsAppSession)
     private sessionRepository: Repository<WhatsAppSession>,
+    private configService: ConfigService,
   ) {
-    // Clean up old deduplication entries every minute
-    setInterval(() => this.cleanupRecentlySent(), 60000);
+    this.redis = new Redis({
+      host: this.configService.get('REDIS_HOST', 'localhost'),
+      port: this.configService.get('REDIS_PORT', 6379),
+      password: this.configService.get('REDIS_PASSWORD'),
+    });
   }
 
   /**
-   * Generate a hash for deduplication based on recipient and message content
+   * Generate a SHA-256 hash for deduplication based on recipient and full message content
    */
   private generateMessageHash(to: string, message: string): string {
-    return `${to}:${(message || '').substring(0, 100)}`;
+    const content = `${to}:${message || ''}`;
+    return crypto.createHash('sha256').update(content).digest('hex');
   }
 
   /**
-   * Check if this message was recently sent (duplicate detection)
+   * Check if this message was recently sent (duplicate detection) using Redis
    */
-  private isDuplicateMessage(to: string, message: string): boolean {
+  private async isDuplicateMessage(to: string, message: string): Promise<boolean> {
     const hash = this.generateMessageHash(to, message);
-    const lastSent = this.recentlySentMessages.get(hash);
-    if (lastSent && Date.now() - lastSent < this.DEDUP_WINDOW_MS) {
-      return true;
-    }
-    return false;
+    const redisKey = `dedup:msg:${hash}`;
+    const exists = await this.redis.exists(redisKey);
+    return exists === 1;
   }
 
   /**
-   * Mark a message as sent for deduplication
+   * Mark a message as sent for deduplication using Redis SET with TTL
    */
-  private markMessageSent(to: string, message: string): void {
+  private async markMessageSent(to: string, message: string): Promise<void> {
     const hash = this.generateMessageHash(to, message);
-    this.recentlySentMessages.set(hash, Date.now());
+    const redisKey = `dedup:msg:${hash}`;
+    await this.redis.set(redisKey, '1', 'EX', this.DEDUP_TTL_SECONDS);
   }
 
   /**
-   * Clean up old entries from the deduplication map
+   * Enforce rate limiting for the given API key. Throws 429 if limit exceeded.
    */
-  private cleanupRecentlySent(): void {
-    const now = Date.now();
-    for (const [hash, timestamp] of this.recentlySentMessages) {
-      if (now - timestamp > this.DEDUP_WINDOW_MS * 2) {
-        this.recentlySentMessages.delete(hash);
-      }
+  private async enforceRateLimit(keyHash: string, rateLimitPerMinute: number, rateLimitPerDay: number): Promise<void> {
+    const result = await this.apiKeyService.checkRateLimit(keyHash, rateLimitPerMinute, rateLimitPerDay);
+    if (!result.allowed) {
+      throw new HttpException(
+        {
+          success: false,
+          error: 'RATE_LIMITED',
+          message: result.message,
+          retryAfter: result.retryAfter,
+        },
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
     }
   }
 
@@ -158,11 +170,12 @@ export class ExternalApiController {
     @Headers('x-api-key') apiKey: string,
     @Ip() clientIp: string,
   ) {
-    const { sessionId } = await this.apiKeyService.validateApiKey(
+    const { sessionId, keyHash, rateLimitPerMinute, rateLimitPerDay } = await this.apiKeyService.validateApiKey(
       apiKey,
       ApiKeyPermission.SEND_MESSAGE,
       clientIp,
     );
+    await this.enforceRateLimit(keyHash, rateLimitPerMinute, rateLimitPerDay);
 
     // Each API key is linked to exactly one session
     const session = await this.sessionRepository.findOne({
@@ -202,11 +215,12 @@ export class ExternalApiController {
     @Body() dto: ExternalSendMessageDto,
   ) {
     // Validate API key
-    const { organizationId, sessionId: apiKeySessionId } = await this.apiKeyService.validateApiKey(
+    const { organizationId, sessionId: apiKeySessionId, keyHash, rateLimitPerMinute, rateLimitPerDay } = await this.apiKeyService.validateApiKey(
       apiKey,
       ApiKeyPermission.SEND_MESSAGE,
       clientIp,
     );
+    await this.enforceRateLimit(keyHash, rateLimitPerMinute, rateLimitPerDay);
 
     // Use API key's session if not provided in request
     const sessionId = dto.sessionId || apiKeySessionId;
@@ -324,11 +338,12 @@ export class ExternalApiController {
       queueIfDisconnected?: boolean; // Default: true - queue message if session is disconnected
     },
   ) {
-    const { organizationId, sessionId: apiKeySessionId } = await this.apiKeyService.validateApiKey(
+    const { organizationId, sessionId: apiKeySessionId, keyHash, rateLimitPerMinute, rateLimitPerDay } = await this.apiKeyService.validateApiKey(
       apiKey,
       ApiKeyPermission.SEND_MESSAGE,
       clientIp,
     );
+    await this.enforceRateLimit(keyHash, rateLimitPerMinute, rateLimitPerDay);
 
     // Use API key's session if not provided in request
     const sessionId = dto.sessionId || apiKeySessionId;
@@ -352,7 +367,7 @@ export class ExternalApiController {
     }
 
     // Check for duplicate message (same recipient + content within 30 seconds)
-    if (this.isDuplicateMessage(dto.to, dto.message)) {
+    if (await this.isDuplicateMessage(dto.to, dto.message)) {
       return {
         success: true,
         status: 'deduplicated',
@@ -382,7 +397,7 @@ export class ExternalApiController {
         });
 
         // Mark as queued for deduplication (prevents duplicate queue entries)
-        this.markMessageSent(dto.to, dto.message);
+        await this.markMessageSent(dto.to, dto.message);
 
         // Return 202 Accepted - message queued for later delivery
         return {
@@ -416,7 +431,7 @@ export class ExternalApiController {
       });
 
       // Mark as sent for deduplication
-      this.markMessageSent(dto.to, dto.message);
+      await this.markMessageSent(dto.to, dto.message);
 
       // Trigger webhook
       await this.webhookService.trigger(organizationId, 'message.sent', {
@@ -456,7 +471,7 @@ export class ExternalApiController {
         });
 
         // Mark as queued for deduplication
-        this.markMessageSent(dto.to, dto.message);
+        await this.markMessageSent(dto.to, dto.message);
 
         return {
           success: true,
@@ -513,11 +528,12 @@ export class ExternalApiController {
     @Headers('x-api-key') apiKey: string,
     @Ip() clientIp: string,
   ) {
-    const { sessionId } = await this.apiKeyService.validateApiKey(
+    const { sessionId, keyHash, rateLimitPerMinute, rateLimitPerDay } = await this.apiKeyService.validateApiKey(
       apiKey,
       ApiKeyPermission.SEND_MESSAGE,
       clientIp,
     );
+    await this.enforceRateLimit(keyHash, rateLimitPerMinute, rateLimitPerDay);
 
     const stats = await this.pendingMessageQueueService.getQueueStats();
     const sessionPending = stats.bySession[sessionId] || 0;
@@ -527,7 +543,6 @@ export class ExternalApiController {
         sessionId,
         pending: sessionPending,
       },
-      global: stats,
     };
   }
 
@@ -545,11 +560,12 @@ export class ExternalApiController {
     @Ip() clientIp: string,
     @Body() dto: { sessionId?: string; phoneNumbers: string[] },
   ) {
-    const { organizationId, sessionId: apiKeySessionId } = await this.apiKeyService.validateApiKey(
+    const { organizationId, sessionId: apiKeySessionId, keyHash, rateLimitPerMinute, rateLimitPerDay } = await this.apiKeyService.validateApiKey(
       apiKey,
       ApiKeyPermission.SEND_MESSAGE,
       clientIp,
     );
+    await this.enforceRateLimit(keyHash, rateLimitPerMinute, rateLimitPerDay);
 
     // Use API key's session if not provided in request
     const sessionId = dto.sessionId || apiKeySessionId;
@@ -600,11 +616,12 @@ export class ExternalApiController {
     @Ip() clientIp: string,
     @Query() filter: ContactFilterDto,
   ) {
-    const { organizationId } = await this.apiKeyService.validateApiKey(
+    const { organizationId, keyHash, rateLimitPerMinute, rateLimitPerDay } = await this.apiKeyService.validateApiKey(
       apiKey,
       ApiKeyPermission.CONTACTS_READ,
       clientIp,
     );
+    await this.enforceRateLimit(keyHash, rateLimitPerMinute, rateLimitPerDay);
 
     const result = await this.contactService.getContacts(organizationId, filter);
     return result;
@@ -618,11 +635,12 @@ export class ExternalApiController {
     @Ip() clientIp: string,
     @Body() dto: { phoneNumber: string; name: string; email?: string; company?: string; tags?: string[] },
   ) {
-    const { organizationId } = await this.apiKeyService.validateApiKey(
+    const { organizationId, keyHash, rateLimitPerMinute, rateLimitPerDay } = await this.apiKeyService.validateApiKey(
       apiKey,
       ApiKeyPermission.CONTACTS_WRITE,
       clientIp,
     );
+    await this.enforceRateLimit(keyHash, rateLimitPerMinute, rateLimitPerDay);
 
     const contact = await this.contactService.createContact(organizationId, dto);
     return contact;
@@ -639,11 +657,12 @@ export class ExternalApiController {
     @Headers('x-api-key') apiKey: string,
     @Ip() clientIp: string,
   ) {
-    const { organizationId } = await this.apiKeyService.validateApiKey(
+    const { organizationId, keyHash, rateLimitPerMinute, rateLimitPerDay } = await this.apiKeyService.validateApiKey(
       apiKey,
       ApiKeyPermission.TEMPLATES_READ,
       clientIp,
     );
+    await this.enforceRateLimit(keyHash, rateLimitPerMinute, rateLimitPerDay);
 
     const templates = await this.templateService.getTemplates(organizationId);
     return templates;
@@ -657,11 +676,12 @@ export class ExternalApiController {
     @Ip() clientIp: string,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    const { organizationId } = await this.apiKeyService.validateApiKey(
+    const { organizationId, keyHash, rateLimitPerMinute, rateLimitPerDay } = await this.apiKeyService.validateApiKey(
       apiKey,
       ApiKeyPermission.TEMPLATES_READ,
       clientIp,
     );
+    await this.enforceRateLimit(keyHash, rateLimitPerMinute, rateLimitPerDay);
 
     const template = await this.templateService.getTemplate(organizationId, id);
     return template;
@@ -678,11 +698,12 @@ export class ExternalApiController {
     @Headers('x-api-key') apiKey: string,
     @Ip() clientIp: string,
   ) {
-    const { organizationId } = await this.apiKeyService.validateApiKey(
+    const { organizationId, keyHash, rateLimitPerMinute, rateLimitPerDay } = await this.apiKeyService.validateApiKey(
       apiKey,
       ApiKeyPermission.CAMPAIGNS_READ,
       clientIp,
     );
+    await this.enforceRateLimit(keyHash, rateLimitPerMinute, rateLimitPerDay);
 
     const campaigns = await this.campaignService.getCampaigns(organizationId);
     return campaigns;
@@ -696,11 +717,12 @@ export class ExternalApiController {
     @Ip() clientIp: string,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    const { organizationId } = await this.apiKeyService.validateApiKey(
+    const { organizationId, keyHash, rateLimitPerMinute, rateLimitPerDay } = await this.apiKeyService.validateApiKey(
       apiKey,
       ApiKeyPermission.CAMPAIGNS_READ,
       clientIp,
     );
+    await this.enforceRateLimit(keyHash, rateLimitPerMinute, rateLimitPerDay);
 
     const campaign = await this.campaignService.getCampaign(organizationId, id);
     return campaign;
@@ -714,11 +736,12 @@ export class ExternalApiController {
     @Ip() clientIp: string,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    const { organizationId } = await this.apiKeyService.validateApiKey(
+    const { organizationId, keyHash, rateLimitPerMinute, rateLimitPerDay } = await this.apiKeyService.validateApiKey(
       apiKey,
       ApiKeyPermission.CAMPAIGNS_READ,
       clientIp,
     );
+    await this.enforceRateLimit(keyHash, rateLimitPerMinute, rateLimitPerDay);
 
     const stats = await this.campaignService.getCampaignStats(organizationId, id);
     return stats;
@@ -732,15 +755,16 @@ export class ExternalApiController {
     @Ip() clientIp: string,
     @Body() dto: CreateCampaignDto & { startImmediately?: boolean },
   ) {
-    const { organizationId } = await this.apiKeyService.validateApiKey(
+    const { organizationId, keyId, keyName, keyHash, rateLimitPerMinute, rateLimitPerDay } = await this.apiKeyService.validateApiKey(
       apiKey,
       ApiKeyPermission.CAMPAIGNS_WRITE,
       clientIp,
     );
+    await this.enforceRateLimit(keyHash, rateLimitPerMinute, rateLimitPerDay);
 
     const campaign = await this.campaignService.createCampaign(
       organizationId,
-      'api', // userId
+      `api-key:${keyId}:${keyName}`, // userId for audit traceability
       dto,
     );
 
@@ -759,11 +783,12 @@ export class ExternalApiController {
     @Ip() clientIp: string,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    const { organizationId } = await this.apiKeyService.validateApiKey(
+    const { organizationId, keyHash, rateLimitPerMinute, rateLimitPerDay } = await this.apiKeyService.validateApiKey(
       apiKey,
       ApiKeyPermission.CAMPAIGNS_WRITE,
       clientIp,
     );
+    await this.enforceRateLimit(keyHash, rateLimitPerMinute, rateLimitPerDay);
 
     const campaign = await this.campaignService.startCampaign(organizationId, id);
     return campaign;
@@ -777,11 +802,12 @@ export class ExternalApiController {
     @Ip() clientIp: string,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    const { organizationId } = await this.apiKeyService.validateApiKey(
+    const { organizationId, keyHash, rateLimitPerMinute, rateLimitPerDay } = await this.apiKeyService.validateApiKey(
       apiKey,
       ApiKeyPermission.CAMPAIGNS_WRITE,
       clientIp,
     );
+    await this.enforceRateLimit(keyHash, rateLimitPerMinute, rateLimitPerDay);
 
     const campaign = await this.campaignService.pauseCampaign(organizationId, id);
     return campaign;
@@ -795,11 +821,12 @@ export class ExternalApiController {
     @Ip() clientIp: string,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    const { organizationId } = await this.apiKeyService.validateApiKey(
+    const { organizationId, keyHash, rateLimitPerMinute, rateLimitPerDay } = await this.apiKeyService.validateApiKey(
       apiKey,
       ApiKeyPermission.CAMPAIGNS_WRITE,
       clientIp,
     );
+    await this.enforceRateLimit(keyHash, rateLimitPerMinute, rateLimitPerDay);
 
     const campaign = await this.campaignService.cancelCampaign(organizationId, id);
     return campaign;
@@ -816,11 +843,12 @@ export class ExternalApiController {
     @Headers('x-api-key') apiKey: string,
     @Ip() clientIp: string,
   ) {
-    const { organizationId } = await this.apiKeyService.validateApiKey(
+    const { organizationId, keyHash, rateLimitPerMinute, rateLimitPerDay } = await this.apiKeyService.validateApiKey(
       apiKey,
       ApiKeyPermission.WEBHOOKS_MANAGE,
       clientIp,
     );
+    await this.enforceRateLimit(keyHash, rateLimitPerMinute, rateLimitPerDay);
 
     const webhooks = await this.webhookService.getWebhooks(organizationId);
     return webhooks;
@@ -837,8 +865,9 @@ export class ExternalApiController {
     @Headers('x-api-key') apiKey: string,
     @Ip() clientIp: string,
   ) {
-    const { organizationId, sessionId, permissions } =
+    const { organizationId, sessionId, permissions, keyHash, rateLimitPerMinute, rateLimitPerDay } =
       await this.apiKeyService.validateApiKey(apiKey, undefined, clientIp);
+    await this.enforceRateLimit(keyHash, rateLimitPerMinute, rateLimitPerDay);
 
     return {
       status: 'healthy',

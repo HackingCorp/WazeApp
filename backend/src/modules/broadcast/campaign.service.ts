@@ -20,6 +20,7 @@ import {
   RecurrenceType,
 } from '../../common/entities';
 import { SubscriptionStatus } from '../../common/enums';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { BaileysService } from '../whatsapp/baileys.service';
 import { TemplateService } from './template.service';
 import { CreateCampaignDto, UpdateCampaignDto, CampaignStatsDto } from './dto/broadcast.dto';
@@ -45,6 +46,7 @@ export class CampaignService {
     private baileysService: BaileysService,
     private templateService: TemplateService,
     private webhookService: WebhookService,
+    private eventEmitter: EventEmitter2,
   ) {}
 
   /**
@@ -245,7 +247,13 @@ export class CampaignService {
       throw new BadRequestException('Cannot update a campaign that has started');
     }
 
-    Object.assign(campaign, dto);
+    // Only allow updating specific fields
+    const allowedFields = ['name', 'description', 'scheduledAt', 'delayBetweenMessages'];
+    for (const field of allowedFields) {
+      if (dto[field] !== undefined) {
+        campaign[field] = dto[field];
+      }
+    }
     return this.campaignRepository.save(campaign);
   }
 
@@ -258,11 +266,35 @@ export class CampaignService {
   ): Promise<BroadcastCampaign> {
     const campaign = await this.getCampaign(organizationId, campaignId);
 
+    // Idempotency guard: if campaign is already RUNNING and has messages, return early
+    if (campaign.status === CampaignStatus.RUNNING) {
+      const existingMessageCount = await this.messageRepository.count({
+        where: { campaignId: campaign.id },
+      });
+      if (existingMessageCount > 0) {
+        this.logger.warn(
+          `Campaign ${campaign.name} is already running with ${existingMessageCount} messages, skipping duplicate start`,
+        );
+        return campaign;
+      }
+    }
+
     if (
       campaign.status !== CampaignStatus.DRAFT &&
       campaign.status !== CampaignStatus.SCHEDULED
     ) {
       throw new BadRequestException('Campaign cannot be started');
+    }
+
+    // Check if messages already exist for this campaign (double-start protection)
+    const existingMessages = await this.messageRepository.count({
+      where: { campaignId: campaign.id },
+    });
+    if (existingMessages > 0) {
+      this.logger.warn(
+        `Campaign ${campaign.name} already has ${existingMessages} messages, skipping duplicate creation`,
+      );
+      throw new BadRequestException('Campaign messages already exist. Cannot start again.');
     }
 
     // Get contacts
@@ -319,6 +351,12 @@ export class CampaignService {
       totalMessages: contacts.length,
     });
 
+    // Emit Socket.io event for real-time UI updates
+    this.eventEmitter.emit('broadcast.campaign.started', {
+      organizationId,
+      campaignId: campaign.id,
+    });
+
     this.logger.log(
       `Campaign ${campaign.name} started with ${contacts.length} messages`,
     );
@@ -351,7 +389,7 @@ export class CampaignService {
           BroadcastMessageStatus.QUEUED,
         ]),
       },
-      { status: BroadcastMessageStatus.CANCELLED },
+      { status: BroadcastMessageStatus.PAUSED },
     );
 
     return campaign;
@@ -370,11 +408,11 @@ export class CampaignService {
       throw new BadRequestException('Campaign is not paused');
     }
 
-    // Get unsent messages
+    // Get paused messages (only re-queue messages that were paused, not truly cancelled)
     const unsentMessages = await this.messageRepository.find({
       where: {
         campaignId,
-        status: BroadcastMessageStatus.CANCELLED,
+        status: BroadcastMessageStatus.PAUSED,
       },
     });
 
@@ -419,13 +457,14 @@ export class CampaignService {
     campaign.status = CampaignStatus.CANCELLED;
     await this.campaignRepository.save(campaign);
 
-    // Cancel all pending messages
+    // Cancel all pending and paused messages
     await this.messageRepository.update(
       {
         campaignId,
         status: In([
           BroadcastMessageStatus.PENDING,
           BroadcastMessageStatus.QUEUED,
+          BroadcastMessageStatus.PAUSED,
         ]),
       },
       { status: BroadcastMessageStatus.CANCELLED },
@@ -484,6 +523,7 @@ export class CampaignService {
         case BroadcastMessageStatus.PENDING:
         case BroadcastMessageStatus.QUEUED:
         case BroadcastMessageStatus.SENDING:
+        case BroadcastMessageStatus.PAUSED:
           result.pending += parseInt(stat.count);
           break;
         case BroadcastMessageStatus.SENT:
@@ -584,7 +624,7 @@ export class CampaignService {
       }
 
       try {
-        // Create a new campaign instance
+        // Create a new campaign instance with recurrence cleared to prevent cascade
         const newCampaign = this.campaignRepository.create({
           ...campaign,
           id: undefined,
@@ -592,6 +632,11 @@ export class CampaignService {
           startedAt: null,
           completedAt: null,
           createdAt: new Date(),
+          recurrenceType: RecurrenceType.NONE,
+          recurrenceDay: null,
+          recurrenceTime: null,
+          recurrenceEndDate: null,
+          nextRunAt: null,
           stats: {
             total: 0,
             pending: 0,

@@ -6,6 +6,7 @@ import {
   Matches,
   IsOptional,
   IsUUID,
+  IsBoolean,
 } from "class-validator";
 import { Transform } from "class-transformer";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
@@ -78,6 +79,7 @@ export class LoginDto {
 
   @ApiPropertyOptional({ description: "Remember me flag" })
   @IsOptional()
+  @IsBoolean()
   rememberMe?: boolean;
 }
 

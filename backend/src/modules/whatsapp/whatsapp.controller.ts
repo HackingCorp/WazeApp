@@ -548,6 +548,7 @@ export class WhatsAppController {
     @Param("id", ParseUUIDPipe) id: string,
     @CurrentUser() user: AuthenticatedRequest,
   ) {
+    this.ensureDebugMode();
     if (!user?.userId) {
       throw new UnauthorizedException("Authentication required");
     }
@@ -1588,18 +1589,19 @@ export class WhatsAppController {
   @ApiOperation({ summary: "Test vision analysis with sample image (Admin only)" })
   @ApiResponse({ status: 200, description: "Vision test completed" })
   async testVisionAnalysis(@CurrentUser() user: AuthenticatedRequest) {
+    this.ensureDebugMode();
     if (!user?.userId) {
       throw new UnauthorizedException("Authentication required");
     }
     // Sample base64 image (1x1 pixel red dot)
     const sampleImage = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==";
-    
+
     try {
       const result = await this.visionService.analyzeImageWithGPT4Vision(
         sampleImage,
         "Test image analysis"
       );
-      
+
       return {
         success: true,
         message: "Vision analysis test completed",
@@ -1849,14 +1851,15 @@ export class WhatsAppController {
   @ApiOperation({ summary: "Check audio transcription service status" })
   @ApiResponse({ status: 200, description: "Audio transcription status" })
   async getAudioTranscriptionStatus() {
+    this.ensureDebugMode();
     try {
       // Importer le service de transcription audio
       const { AudioTranscriptionService } = await import('./audio-transcription.service');
-      
+
       // Créer une instance temporaire pour les tests de status
       const configService = this.visionService['configService'];
       const tempService = new AudioTranscriptionService(configService);
-      
+
       const status = await tempService.getTranscriptionStatus();
       
       return {

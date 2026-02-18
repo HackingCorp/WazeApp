@@ -9,7 +9,7 @@ import { JwtService } from "@nestjs/jwt";
 import { ConfigService } from "@nestjs/config";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
-import { randomBytes } from "crypto";
+import { randomBytes, randomUUID, createHash } from "crypto";
 import * as bcrypt from "bcryptjs";
 import {
   User,
@@ -32,8 +32,16 @@ import { JwtPayload } from "./strategies/jwt.strategy";
 import { EmailService } from "../email/email.service";
 import { AuditService } from "../audit/audit.service";
 
+interface TempAuthCode {
+  accessToken: string;
+  refreshToken: string;
+  expiresAt: number;
+}
+
 @Injectable()
 export class AuthService {
+  private tempAuthCodes = new Map<string, TempAuthCode>();
+
   constructor(
     @InjectRepository(User)
     private userRepository: Repository<User>,
@@ -236,7 +244,13 @@ export class AuthService {
         throw new UnauthorizedException("User not found or inactive");
       }
 
-      // Generate new tokens
+      // Verify refresh token hash
+      const tokenHash = this.hashRefreshToken(dto.refreshToken);
+      if (!user.refreshTokenHash || user.refreshTokenHash !== tokenHash) {
+        throw new UnauthorizedException("Invalid refresh token");
+      }
+
+      // Generate new tokens (this will rotate the refresh token hash)
       const tokens = await this.generateTokens(
         user,
         payload.organizationId,
@@ -307,11 +321,13 @@ export class AuthService {
     }
 
     // Update password (hash manually since update() doesn't trigger @BeforeUpdate hooks)
+    // Also invalidate refresh token for security
     const hashedPassword = await bcrypt.hash(dto.password, 12);
     await this.userRepository.update(user.id, {
       password: hashedPassword,
       passwordResetToken: null,
       passwordResetExpires: null,
+      refreshTokenHash: null,
     });
 
     // Log audit event
@@ -410,6 +426,12 @@ export class AuthService {
       expiresIn: this.configService.get("JWT_REFRESH_EXPIRATION_TIME"),
     });
 
+    // Hash and save the refresh token
+    const refreshTokenHash = this.hashRefreshToken(refreshToken);
+    await this.userRepository.update(user.id, {
+      refreshTokenHash,
+    });
+
     return {
       accessToken,
       refreshToken,
@@ -424,6 +446,26 @@ export class AuthService {
       .replace(/^-|-$/g, "");
 
     return `${baseSlug}-${randomBytes(4).toString("hex")}`;
+  }
+
+  private hashRefreshToken(token: string): string {
+    return createHash("sha256").update(token).digest("hex");
+  }
+
+  async logout(userId: string): Promise<void> {
+    // Invalidate the refresh token by clearing the hash
+    await this.userRepository.update(userId, {
+      refreshTokenHash: null,
+    });
+
+    // Log audit event
+    await this.auditService.log({
+      action: AuditAction.LOGOUT,
+      resourceType: "user",
+      resourceId: userId,
+      userId,
+      description: "User logged out",
+    });
   }
 
   // OAuth methods
@@ -602,5 +644,58 @@ export class AuthService {
     });
 
     return { message: "Profile updated successfully" };
+  }
+
+  /**
+   * Generate a temporary auth code for OAuth callbacks
+   * The code expires in 60 seconds and can only be used once
+   */
+  generateTempCode(tokens: {
+    accessToken: string;
+    refreshToken: string;
+  }): string {
+    const code = randomUUID();
+    const expiresAt = Date.now() + 60 * 1000; // 60 seconds
+
+    this.tempAuthCodes.set(code, {
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      expiresAt,
+    });
+
+    // Cleanup after expiration
+    setTimeout(() => {
+      this.tempAuthCodes.delete(code);
+    }, 60 * 1000);
+
+    return code;
+  }
+
+  /**
+   * Exchange a temporary auth code for actual tokens
+   * The code is single-use and deleted after exchange
+   */
+  async exchangeTempCode(code: string): Promise<{
+    accessToken: string;
+    refreshToken: string;
+  }> {
+    const tempCode = this.tempAuthCodes.get(code);
+
+    if (!tempCode) {
+      throw new UnauthorizedException("Invalid or expired auth code");
+    }
+
+    if (Date.now() > tempCode.expiresAt) {
+      this.tempAuthCodes.delete(code);
+      throw new UnauthorizedException("Auth code has expired");
+    }
+
+    // Delete the code after use (single-use)
+    this.tempAuthCodes.delete(code);
+
+    return {
+      accessToken: tempCode.accessToken,
+      refreshToken: tempCode.refreshToken,
+    };
   }
 }

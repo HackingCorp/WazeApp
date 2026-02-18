@@ -196,13 +196,13 @@ class ApiClient {
   }
 
   // Organization endpoints
-  async getOrganization() {
-    return this.request('/organizations/current');
+  async getOrganization(orgId: string) {
+    return this.request(`/organizations/${orgId}`);
   }
 
-  async updateOrganization(data: any) {
-    return this.request('/organizations/current', {
-      method: 'PATCH',
+  async updateOrganization(orgId: string, data: any) {
+    return this.request(`/organizations/${orgId}`, {
+      method: 'PUT',
       body: JSON.stringify(data),
     });
   }

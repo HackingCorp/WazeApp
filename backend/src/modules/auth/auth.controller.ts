@@ -8,6 +8,7 @@ import {
   Res,
   Query,
   Patch,
+  BadRequestException,
 } from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiResponse } from "@nestjs/swagger";
 import { AuthGuard } from "@nestjs/passport";
@@ -75,6 +76,15 @@ export class AuthController {
   })
   async refresh(@Body() dto: RefreshTokenDto): Promise<AuthResponseDto> {
     return this.authService.refreshToken(dto);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post("logout")
+  @ApiOperation({ summary: "Logout user and invalidate refresh token" })
+  @ApiResponse({ status: 200, description: "Logout successful" })
+  async logout(@CurrentUser() user: any): Promise<{ message: string }> {
+    await this.authService.logout(user.userId);
+    return { message: "Logout successful" };
   }
 
   @Public()
@@ -158,8 +168,14 @@ export class AuthController {
   async googleCallback(@Req() req: Request, @Res() res: Response) {
     const result = await this.authService.handleOAuthUser(req.user, "google");
 
-    // Redirect to frontend with tokens
-    const redirectUrl = `${process.env.FRONTEND_URL}/auth/callback?token=${result.accessToken}&refresh=${result.refreshToken}`;
+    // Generate temporary auth code instead of exposing tokens in URL
+    const tempCode = this.authService.generateTempCode({
+      accessToken: result.accessToken,
+      refreshToken: result.refreshToken,
+    });
+
+    // Redirect to frontend with temporary code only
+    const redirectUrl = `${process.env.FRONTEND_URL}/auth/callback?code=${tempCode}`;
     res.redirect(redirectUrl);
   }
 
@@ -181,8 +197,14 @@ export class AuthController {
       "microsoft",
     );
 
-    // Redirect to frontend with tokens
-    const redirectUrl = `${process.env.FRONTEND_URL}/auth/callback?token=${result.accessToken}&refresh=${result.refreshToken}`;
+    // Generate temporary auth code instead of exposing tokens in URL
+    const tempCode = this.authService.generateTempCode({
+      accessToken: result.accessToken,
+      refreshToken: result.refreshToken,
+    });
+
+    // Redirect to frontend with temporary code only
+    const redirectUrl = `${process.env.FRONTEND_URL}/auth/callback?code=${tempCode}`;
     res.redirect(redirectUrl);
   }
 
@@ -201,8 +223,31 @@ export class AuthController {
   async facebookCallback(@Req() req: Request, @Res() res: Response) {
     const result = await this.authService.handleOAuthUser(req.user, "facebook");
 
-    // Redirect to frontend with tokens
-    const redirectUrl = `${process.env.FRONTEND_URL}/auth/callback?token=${result.accessToken}&refresh=${result.refreshToken}`;
+    // Generate temporary auth code instead of exposing tokens in URL
+    const tempCode = this.authService.generateTempCode({
+      accessToken: result.accessToken,
+      refreshToken: result.refreshToken,
+    });
+
+    // Redirect to frontend with temporary code only
+    const redirectUrl = `${process.env.FRONTEND_URL}/auth/callback?code=${tempCode}`;
     res.redirect(redirectUrl);
+  }
+
+  @Public()
+  @Post("exchange-code")
+  @Throttle({ default: { limit: 10, ttl: 60000 } }) // 10 requests per minute
+  @ApiOperation({ summary: "Exchange temporary auth code for tokens" })
+  @ApiResponse({
+    status: 200,
+    description: "Tokens exchanged successfully",
+  })
+  async exchangeCode(
+    @Body("code") code: string,
+  ): Promise<{ accessToken: string; refreshToken: string }> {
+    if (!code) {
+      throw new BadRequestException("Auth code is required");
+    }
+    return this.authService.exchangeTempCode(code);
   }
 }

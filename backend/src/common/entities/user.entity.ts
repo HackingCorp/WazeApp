@@ -103,6 +103,11 @@ export class User extends BaseEntity {
   @Column({ nullable: true })
   facebookId?: string;
 
+  @ApiProperty({ description: "Refresh token hash (SHA256)", required: false })
+  @Exclude({ toPlainOnly: true })
+  @Column({ nullable: true, default: null })
+  refreshTokenHash?: string;
+
   // Relationships
   @OneToMany(() => Organization, (organization) => organization.owner)
   ownedOrganizations: Organization[];

@@ -16,12 +16,17 @@ interface I18nContextType {
 
 const I18nContext = createContext<I18nContextType | undefined>(undefined);
 
+const fallbackI18n: I18nContextType = {
+  locale: 'en',
+  setLocale: () => {},
+  t: (key: string) => key,
+  availableLocales: [],
+};
+
 export function useI18n() {
   const context = useContext(I18nContext);
-  if (context === undefined) {
-    throw new Error('useI18n must be used within an I18nProvider');
-  }
-  return context;
+  // Return fallback during SSR/prerendering when provider isn't mounted yet
+  return context ?? fallbackI18n;
 }
 
 const availableLocales = [

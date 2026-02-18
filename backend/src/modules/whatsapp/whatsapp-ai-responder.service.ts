@@ -2197,7 +2197,7 @@ EXEMPLE DE BONNE RÉPONSE AUTOMATIQUE:
       });
 
       if (usageMetric) {
-        usageMetric.value += 1;
+        usageMetric.value = Number(usageMetric.value) + 1;
         await this.usageMetricRepository.save(usageMetric);
       } else {
         usageMetric = this.usageMetricRepository.create({

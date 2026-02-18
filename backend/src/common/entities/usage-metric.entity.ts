@@ -14,7 +14,14 @@ export class UsageMetric extends BaseEntity {
   type: UsageMetricType;
 
   @ApiProperty({ description: "Usage value" })
-  @Column({ type: "bigint", default: 0 })
+  @Column({
+    type: "bigint",
+    default: 0,
+    transformer: {
+      to: (value: number) => value,
+      from: (value: string) => (value ? parseInt(value, 10) : 0),
+    },
+  })
   value: number;
 
   @ApiProperty({ description: "Usage date (for monthly aggregation)" })

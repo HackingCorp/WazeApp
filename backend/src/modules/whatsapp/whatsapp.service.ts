@@ -1527,7 +1527,7 @@ export class WhatsAppService {
     });
 
     if (usageMetric) {
-      usageMetric.value += value;
+      usageMetric.value = Number(usageMetric.value) + value;
       if (metadata) {
         usageMetric.metadata = { ...usageMetric.metadata, ...metadata };
       }

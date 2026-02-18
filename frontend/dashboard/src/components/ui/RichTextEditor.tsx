@@ -119,7 +119,9 @@ export function RichTextEditor({
     try {
       await onSave(content);
     } catch (error) {
-      console.error('Failed to save content:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Failed to save content:', error);
+      }
     } finally {
       setSaving(false);
     }

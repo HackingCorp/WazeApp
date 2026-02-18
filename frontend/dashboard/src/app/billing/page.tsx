@@ -123,7 +123,9 @@ export default function BillingPage() {
         setSummary(summaryRes.data);
       }
     } catch (error) {
-      console.error('Failed to fetch billing data:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Failed to fetch billing data:', error);
+      }
     } finally {
       setLoadingInvoices(false);
     }
@@ -423,6 +425,7 @@ export default function BillingPage() {
                               <button
                                 className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
                                 title={t('billing.download')}
+                                aria-label="Download invoice"
                               >
                                 <Download className="w-4 h-4" />
                               </button>

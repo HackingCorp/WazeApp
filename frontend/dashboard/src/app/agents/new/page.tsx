@@ -34,27 +34,6 @@ interface AgentFormData {
   status: string;
 }
 
-const PERSONALITY_PRESETS = [
-  { id: 'professional', name: 'Professional', description: 'Formal, helpful, and business-focused' },
-  { id: 'friendly', name: 'Friendly', description: 'Warm, approachable, and conversational' },
-  { id: 'casual', name: 'Casual', description: 'Relaxed, informal, and easy-going' },
-  { id: 'formal', name: 'Formal', description: 'Respectful, traditional, and polished' },
-  { id: 'empathetic', name: 'Empathetic', description: 'Understanding, compassionate, and supportive' },
-  { id: 'technical', name: 'Technical', description: 'Precise, detailed, and expert-level' },
-];
-
-const LANGUAGES = [
-  { code: 'en', name: 'English' },
-  { code: 'fr', name: 'French' },
-  { code: 'es', name: 'Spanish' },
-  { code: 'de', name: 'German' },
-  { code: 'it', name: 'Italian' },
-  { code: 'pt', name: 'Portuguese' },
-  { code: 'zh', name: 'Chinese' },
-  { code: 'ja', name: 'Japanese' },
-  { code: 'ar', name: 'Arabic' },
-];
-
 export default function NewAgentPage() {
   const [activeTab, setActiveTab] = useState('basic');
   const [saving, setSaving] = useState(false);
@@ -64,6 +43,27 @@ export default function NewAgentPage() {
 
   const router = useRouter();
   const { t } = useI18n();
+
+  const PERSONALITY_PRESETS = [
+    { id: 'professional', name: t('agentForm.toneProfessional'), description: t('agentForm.toneProfessionalDesc') },
+    { id: 'friendly', name: t('agentForm.toneFriendly'), description: t('agentForm.toneFriendlyDesc') },
+    { id: 'casual', name: t('agentForm.toneCasual'), description: t('agentForm.toneCasualDesc') },
+    { id: 'formal', name: t('agentForm.toneFormal'), description: t('agentForm.toneFormalDesc') },
+    { id: 'empathetic', name: t('agentForm.toneEmpathetic'), description: t('agentForm.toneEmpatheticDesc') },
+    { id: 'technical', name: t('agentForm.toneTechnical'), description: t('agentForm.toneTechnicalDesc') },
+  ];
+
+  const LANGUAGES = [
+    { code: 'en', name: t('agentForm.langEnglish') },
+    { code: 'fr', name: t('agentForm.langFrench') },
+    { code: 'es', name: t('agentForm.langSpanish') },
+    { code: 'de', name: t('agentForm.langGerman') },
+    { code: 'it', name: t('agentForm.langItalian') },
+    { code: 'pt', name: t('agentForm.langPortuguese') },
+    { code: 'zh', name: t('agentForm.langChinese') },
+    { code: 'ja', name: t('agentForm.langJapanese') },
+    { code: 'ar', name: t('agentForm.langArabic') },
+  ];
 
   const [formData, setFormData] = useState<AgentFormData>({
     name: '',

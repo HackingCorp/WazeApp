@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import toast from 'react-hot-toast';
@@ -349,7 +349,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return userPermissions.includes(permission);
   };
 
-  const refreshTokenFn = async (): Promise<void> => {
+  const refreshTokenFn = useCallback(async (): Promise<void> => {
     try {
       const response = await api.refreshToken();
 
@@ -366,7 +366,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       logout();
       throw error;
     }
-  };
+  }, []);
 
   return (
     <AuthContext.Provider

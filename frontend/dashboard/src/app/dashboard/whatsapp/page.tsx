@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/providers/AuthProvider';
 import { useI18n } from '@/providers/I18nProvider';
@@ -87,6 +87,10 @@ export default function WhatsAppPage() {
   const [userPlan, setUserPlan] = useState<'free' | 'standard' | 'pro' | 'enterprise'>('free');
   const [planLimits, setPlanLimits] = useState({ current: 0, max: 1 });
 
+  // Refs to track active intervals for cleanup
+  const pollIntervalsRef = useRef<Set<NodeJS.Timeout>>(new Set());
+  const timeoutsRef = useRef<Set<NodeJS.Timeout>>(new Set());
+
   // Pairing code state
   const [connectionMethod, setConnectionMethod] = useState<'qr' | 'pairing'>('qr');
   const [countryCode, setCountryCode] = useState('+237');
@@ -126,6 +130,16 @@ export default function WhatsAppPage() {
       fetchUserPlan();
     }
   }, [user]);
+
+  // Cleanup all intervals and timeouts on unmount
+  useEffect(() => {
+    return () => {
+      pollIntervalsRef.current.forEach(interval => clearInterval(interval));
+      timeoutsRef.current.forEach(timeout => clearTimeout(timeout));
+      pollIntervalsRef.current.clear();
+      timeoutsRef.current.clear();
+    };
+  }, []);
 
   useEffect(() => {
     if (qrData && timeRemaining > 0) {
@@ -172,7 +186,9 @@ export default function WhatsAppPage() {
       // Fallback if API response is not in expected format
       throw new Error('Invalid API response format');
     } catch (error: any) {
-      console.error('Error fetching user plan:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Error fetching user plan:', error);
+      }
       // Set default plan for demo users based on email
       const email = user?.email || '';
       let maxSessions = 1;
@@ -231,12 +247,16 @@ export default function WhatsAppPage() {
             sessionStats[session.id] = statsResponse.data;
           }
         } catch (error) {
-          console.error(`Error fetching stats for session ${session.id}:`, error);
+          if (process.env.NODE_ENV === 'development') {
+            console.error(`Error fetching stats for session ${session.id}:`, error);
+          }
         }
       }
       setStats(sessionStats);
     } catch (error: any) {
-      console.error('Error fetching sessions:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Error fetching sessions:', error);
+      }
       
       if (error.message?.includes('Invalid or expired token') || error.message?.includes('Unauthorized')) {
         toast.error('Authentication required. Please log in with valid credentials to access WhatsApp service.');
@@ -284,7 +304,9 @@ export default function WhatsAppPage() {
       setShowCreateModal(false);
       toast.success('WhatsApp session created successfully');
     } catch (error: any) {
-      console.error('Error creating session:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Error creating session:', error);
+      }
       toast.error(error?.message || 'Failed to create session');
     }
   };
@@ -344,14 +366,15 @@ export default function WhatsAppPage() {
             // Check session status
             const sessionResponse = await api.get(`/whatsapp/sessions/${sessionId}`);
             const session = sessionResponse.data;
-            
+
             if (session && session.status === 'connected' && session.isActive) {
               clearInterval(pollInterval);
+              pollIntervalsRef.current.delete(pollInterval);
               setConnecting(null);
               setQrData(null);
               fetchSessions();
               toast.success('WhatsApp connected successfully! 🎉');
-              
+
               // Déclencher le modal d'assignation d'agent seulement si aucun agent n'est assigné
               const connectedSession: WhatsAppSession = {
                 id: sessionId,
@@ -365,7 +388,7 @@ export default function WhatsAppPage() {
                 lastSeenAt: new Date().toISOString(),
                 createdAt: new Date().toISOString(),
               };
-              
+
               // Vérifier si la session a déjà un agent assigné
               if (!session.agent) {
                 setNewlyConnectedSession(connectedSession);
@@ -373,6 +396,7 @@ export default function WhatsAppPage() {
               }
             } else if (session && session.status === 'disconnected' && session.retryCount > 3) {
               clearInterval(pollInterval);
+              pollIntervalsRef.current.delete(pollInterval);
               setConnecting(null);
               setQrData(null);
               toast.error('Failed to connect. Please try again.');
@@ -392,18 +416,24 @@ export default function WhatsAppPage() {
             // Error polling session status
           }
         }, 3000);
-        
+        pollIntervalsRef.current.add(pollInterval);
+
         // Clear polling after 3 minutes (since QR codes last 5 minutes now)
-        setTimeout(() => {
+        const timeoutId = setTimeout(() => {
           clearInterval(pollInterval);
+          pollIntervalsRef.current.delete(pollInterval);
+          timeoutsRef.current.delete(timeoutId);
           if (connecting === sessionId) {
             setConnecting(null);
             setQrData(null);
             toast.error('Connection timeout. Please try again.');
           }
         }, 180000);
+        timeoutsRef.current.add(timeoutId);
     } catch (error: any) {
-      console.error('Error connecting session:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Error connecting session:', error);
+      }
       toast.dismiss('whatsapp-connecting');
       
       const errorMessage = getWhatsAppErrorMessage(
@@ -462,6 +492,7 @@ export default function WhatsAppPage() {
 
           if (session && session.status === 'connected' && session.isActive) {
             clearInterval(pollInterval);
+            pollIntervalsRef.current.delete(pollInterval);
             setConnecting(null);
             setPairingCode(null);
             setPhoneNumber('');
@@ -473,14 +504,20 @@ export default function WhatsAppPage() {
           // Error polling session status
         }
       }, 3000);
+      pollIntervalsRef.current.add(pollInterval);
 
       // Clear polling after 5 minutes
-      setTimeout(() => {
+      const timeoutId = setTimeout(() => {
         clearInterval(pollInterval);
+        pollIntervalsRef.current.delete(pollInterval);
+        timeoutsRef.current.delete(timeoutId);
       }, 300000);
+      timeoutsRef.current.add(timeoutId);
 
     } catch (error: any) {
-      console.error('Error requesting pairing code:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Error requesting pairing code:', error);
+      }
       toast.dismiss('pairing-code');
       toast.error(error?.message || 'Erreur lors de la génération du code');
     } finally {
@@ -504,7 +541,9 @@ export default function WhatsAppPage() {
       await fetchSessions();
       toast.success(`${sessionName} déconnecté avec succès`, { id: 'whatsapp-disconnecting' });
     } catch (error: any) {
-      console.error('Error disconnecting session:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Error disconnecting session:', error);
+      }
       toast.dismiss('whatsapp-disconnecting');
       
       const errorMessage = getWhatsAppErrorMessage(
@@ -567,7 +606,9 @@ export default function WhatsAppPage() {
       }
       
     } catch (error: any) {
-      console.error('Error assigning agent:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Error assigning agent:', error);
+      }
       toast.error('Erreur lors de l\'assignation de l\'agent');
     }
   };
@@ -588,7 +629,9 @@ export default function WhatsAppPage() {
       await fetchSessions();
       toast.success('WhatsApp session deleted');
     } catch (error: any) {
-      console.error('Error deleting session:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Error deleting session:', error);
+      }
       toast.error(error?.response?.data?.message || 'Failed to delete session');
     }
   };
@@ -625,7 +668,9 @@ export default function WhatsAppPage() {
         { id: 'toggle-ai' }
       );
     } catch (error: any) {
-      console.error('Error toggling AI responses:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Error toggling AI responses:', error);
+      }
       toast.error('Erreur lors de la modification des réponses IA', { id: 'toggle-ai' });
     }
   };
@@ -633,11 +678,17 @@ export default function WhatsAppPage() {
   const refreshQR = async (sessionId: string) => {
     try {
       const response = await api.get(`/whatsapp/sessions/${sessionId}/qr`);
-      setQrData(response.data);
-      setTimeRemaining(response.data.timeRemaining);
-      toast.success('QR code refreshed');
+      if (response.success && response.data) {
+        setQrData(response.data);
+        setTimeRemaining(response.data.timeRemaining);
+        toast.success('QR code refreshed');
+      } else {
+        toast.error(response.error || 'Failed to refresh QR code');
+      }
     } catch (error: any) {
-      console.error('Error refreshing QR:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Error refreshing QR:', error);
+      }
       toast.error('Failed to refresh QR code');
     }
   };

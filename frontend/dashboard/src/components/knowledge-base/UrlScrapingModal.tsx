@@ -234,7 +234,9 @@ export default function UrlScrapingModal({
       }
       
     } catch (error) {
-      console.error('Erreur lors du scraping:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Erreur lors du scraping:', error);
+      }
       updateStep(steps[currentStep - 1]?.id || 'fetch', { 
         status: 'error' 
       });
@@ -299,7 +301,9 @@ export default function UrlScrapingModal({
         throw new Error(response.error || 'Erreur lors de la sauvegarde');
       }
     } catch (error) {
-      console.error('[UrlScrapingModal] Error saving document:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('[UrlScrapingModal] Error saving document:', error);
+      }
       alert('Erreur lors de la sauvegarde du document. Veuillez réessayer.');
     } finally {
       setIsSaving(false);

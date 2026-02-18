@@ -53,7 +53,9 @@ export function AssignAgentModal({
           })) || [];
           setAgents(agentsWithKnowledgeBase);
         } else {
-          console.error('Failed to fetch agents', response.error);
+          if (process.env.NODE_ENV === 'development') {
+            console.error('Failed to fetch agents', response.error);
+          }
           // Fallback aux données mock en cas d'erreur
           setAgents([
             {
@@ -67,7 +69,9 @@ export function AssignAgentModal({
           ]);
         }
       } catch (error) {
-        console.error('Error fetching agents:', error);
+        if (process.env.NODE_ENV === 'development') {
+          console.error('Error fetching agents:', error);
+        }
         // Fallback aux données mock en cas d'erreur
         setAgents([
           {
@@ -107,11 +111,15 @@ export function AssignAgentModal({
           
           onAssignAgent(response.data.id, createKnowledgeBase);
         } else {
-          console.error('Failed to create agent:', response.error);
+          if (process.env.NODE_ENV === 'development') {
+            console.error('Failed to create agent:', response.error);
+          }
           alert('Erreur lors de la création de l\'agent: ' + response.error);
         }
       } catch (error) {
-        console.error('Error creating agent:', error);
+        if (process.env.NODE_ENV === 'development') {
+          console.error('Error creating agent:', error);
+        }
         const errorMessage = (error as any)?.response?.data?.message || (error as any)?.message || 'Erreur inconnue';
         if (errorMessage.includes('limit')) {
           alert('Limite d\'agents atteinte pour votre abonnement. Utilisez un agent existant ou mettez à niveau votre abonnement pour créer plus d\'agents.');

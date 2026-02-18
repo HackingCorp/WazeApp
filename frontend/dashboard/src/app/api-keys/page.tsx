@@ -106,7 +106,9 @@ export default function ApiKeysPage() {
         setLoading(false);
       }
     } catch (error) {
-      console.error('Error checking API access:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Error checking API access:', error);
+      }
       setCanUseApi(false);
       setLoading(false);
     }
@@ -121,7 +123,9 @@ export default function ApiKeysPage() {
         setSessions(Array.isArray(sessions) ? sessions : []);
       }
     } catch (error) {
-      console.error('Error fetching sessions:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Error fetching sessions:', error);
+      }
     }
   };
 
@@ -134,7 +138,9 @@ export default function ApiKeysPage() {
         setApiKeys(Array.isArray(data) ? data : []);
       }
     } catch (error) {
-      console.error('Error fetching API keys:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Error fetching API keys:', error);
+      }
     } finally {
       setLoading(false);
     }
@@ -157,11 +163,15 @@ export default function ApiKeysPage() {
         setCreatedKey(response.data.key);
         fetchApiKeys();
       } else {
-        console.error('API key creation failed or no key returned:', response);
+        if (process.env.NODE_ENV === 'development') {
+          console.error('API key creation failed or no key returned:', response);
+        }
         alert('Erreur lors de la création de la clé API: ' + (response.error || 'Erreur inconnue'));
       }
     } catch (error) {
-      console.error('Error creating API key:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Error creating API key:', error);
+      }
       alert('Erreur lors de la création de la clé API');
     }
   };
@@ -187,7 +197,9 @@ export default function ApiKeysPage() {
         alert('Erreur lors de la mise à jour: ' + (response.error || 'Erreur inconnue'));
       }
     } catch (error) {
-      console.error('Error updating API key:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Error updating API key:', error);
+      }
       alert('Erreur lors de la mise à jour de la clé API');
     }
   };
@@ -197,7 +209,9 @@ export default function ApiKeysPage() {
       await api.toggleBroadcastApiKey(id, !isActive);
       fetchApiKeys();
     } catch (error) {
-      console.error('Error toggling API key:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Error toggling API key:', error);
+      }
     }
   };
 
@@ -207,7 +221,9 @@ export default function ApiKeysPage() {
       setDeleteConfirm(null);
       fetchApiKeys();
     } catch (error) {
-      console.error('Error deleting API key:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Error deleting API key:', error);
+      }
     }
   };
 

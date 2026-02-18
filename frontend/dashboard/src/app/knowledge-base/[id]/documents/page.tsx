@@ -26,7 +26,7 @@ import {
 } from 'lucide-react';
 import clsx from 'clsx';
 import { UploadDocumentsModal } from '@/components/knowledge-base/UploadDocumentsModal';
-import { RichTextEditor } from '@/components/knowledge-base/RichTextEditor';
+import { RichTextEditorModal } from '@/components/knowledge-base/RichTextEditorModal';
 import UrlScrapingModal from '@/components/knowledge-base/UrlScrapingModal';
 import { api } from '@/lib/api';
 
@@ -122,7 +122,9 @@ export default function KnowledgeBaseDocumentsPage() {
           setDocuments(formattedDocs);
         }
       } catch (error) {
-        console.error('Error loading knowledge base data:', error);
+        if (process.env.NODE_ENV === 'development') {
+          console.error('Error loading knowledge base data:', error);
+        }
       } finally {
         setIsLoading(false);
       }
@@ -213,7 +215,9 @@ export default function KnowledgeBaseDocumentsPage() {
       }
       setSelectedDocuments([]);
     } catch (error) {
-      console.error('Error deleting documents:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Error deleting documents:', error);
+      }
     }
   };
 
@@ -239,7 +243,9 @@ export default function KnowledgeBaseDocumentsPage() {
         setDocuments(formattedDocs);
       }
     } catch (error) {
-      console.error('Error reprocessing document:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Error reprocessing document:', error);
+      }
     }
   };
 
@@ -249,7 +255,9 @@ export default function KnowledgeBaseDocumentsPage() {
       // Remove document from local state
       setDocuments(docs => docs.filter(doc => doc.id !== docId));
     } catch (error) {
-      console.error('Error deleting document:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Error deleting document:', error);
+      }
     }
   };
 
@@ -303,7 +311,9 @@ export default function KnowledgeBaseDocumentsPage() {
         alert(`Contenu du document:\n\n${response.data.content || 'Aucun contenu disponible'}`);
       }
     } catch (error) {
-      console.error('Error viewing document:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Error viewing document:', error);
+      }
       alert('Erreur lors de l\'affichage du document');
     }
   };
@@ -313,7 +323,9 @@ export default function KnowledgeBaseDocumentsPage() {
       // For now, just show an alert since download implementation depends on backend
       alert(`Téléchargement de ${filename} sera implémenté prochainement`);
     } catch (error) {
-      console.error('Error downloading document:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Error downloading document:', error);
+      }
       alert('Erreur lors du téléchargement');
     }
   };
@@ -624,7 +636,7 @@ export default function KnowledgeBaseDocumentsPage() {
       </div>
 
       {/* Rich Text Editor */}
-      <RichTextEditor
+      <RichTextEditorModal
         isOpen={showRichTextEditor}
         onClose={() => setShowRichTextEditor(false)}
         knowledgeBaseId={id}

@@ -130,10 +130,14 @@ export default function KnowledgeBasePage() {
           }
         });
       } else {
-        console.error('Failed to fetch agents', response.error);
+        if (process.env.NODE_ENV === 'development') {
+          console.error('Failed to fetch agents', response.error);
+        }
       }
     } catch (error) {
-      console.error('Error fetching agents:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Error fetching agents:', error);
+      }
     } finally {
       setIsLoading(false);
     }

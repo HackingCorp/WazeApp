@@ -65,7 +65,9 @@ export default function AgentAnalyticsPage() {
       setAgent(agentResponse.data || agentResponse);
       setStats(statsResponse.data || statsResponse);
     } catch (error) {
-      console.error('Failed to load analytics:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Failed to load analytics:', error);
+      }
       toast.error('Failed to load analytics data');
     } finally {
       setIsLoading(false);

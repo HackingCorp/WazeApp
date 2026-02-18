@@ -185,7 +185,9 @@ export function QRScanner({
         setFlashEnabled(!flashEnabled);
       }
     } catch (err) {
-      console.warn('Flash not supported:', err);
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('Flash not supported:', err);
+      }
     }
   }, [flashEnabled]);
 

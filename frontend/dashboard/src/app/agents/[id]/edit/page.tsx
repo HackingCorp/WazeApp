@@ -26,6 +26,7 @@ import {
   RotateCcw,
 } from 'lucide-react';
 import { api } from '@/lib/api';
+import { useI18n } from '@/providers/I18nProvider';
 import toast from 'react-hot-toast';
 import clsx from 'clsx';
 
@@ -87,43 +88,44 @@ interface AgentFormData {
   };
 }
 
-const TONES = [
-  { value: 'professional', label: 'Professionnel' },
-  { value: 'friendly', label: 'Amical' },
-  { value: 'casual', label: 'Décontracté' },
-  { value: 'formal', label: 'Formel' },
-  { value: 'empathetic', label: 'Empathique' },
-  { value: 'technical', label: 'Technique' },
-];
-
-const LANGUAGES = [
-  { value: 'en', label: 'Anglais' },
-  { value: 'fr', label: 'Français' },
-  { value: 'es', label: 'Espagnol' },
-  { value: 'de', label: 'Allemand' },
-  { value: 'it', label: 'Italien' },
-  { value: 'pt', label: 'Portugais' },
-  { value: 'zh', label: 'Chinois' },
-  { value: 'ja', label: 'Japonais' },
-  { value: 'ar', label: 'Arabe' },
-];
-
-const RESPONSE_LENGTHS = [
-  { value: 'very_short', label: 'Très court (1-2 phrases)' },
-  { value: 'short', label: 'Court (2-3 phrases)' },
-  { value: 'medium', label: 'Moyen (3-5 phrases)' },
-  { value: 'detailed', label: 'Détaillé (réponse complète)' },
-];
-
-const VERBOSITY_LEVELS = [
-  { value: 'minimal', label: 'Minimal (essentiel uniquement)' },
-  { value: 'concise', label: 'Concis (bref mais complet)' },
-  { value: 'balanced', label: 'Équilibré (normal)' },
-  { value: 'verbose', label: 'Verbeux (explications détaillées)' },
-];
-
 export default function EditAgentPage() {
+  const { t } = useI18n();
   const [activeTab, setActiveTab] = useState('basic');
+
+  const TONES = [
+    { value: 'professional', label: t('agentForm.toneProfessional') },
+    { value: 'friendly', label: t('agentForm.toneFriendly') },
+    { value: 'casual', label: t('agentForm.toneCasual') },
+    { value: 'formal', label: t('agentForm.toneFormal') },
+    { value: 'empathetic', label: t('agentForm.toneEmpathetic') },
+    { value: 'technical', label: t('agentForm.toneTechnical') },
+  ];
+
+  const LANGUAGES = [
+    { value: 'en', label: t('agentForm.langEnglish') },
+    { value: 'fr', label: t('agentForm.langFrench') },
+    { value: 'es', label: t('agentForm.langSpanish') },
+    { value: 'de', label: t('agentForm.langGerman') },
+    { value: 'it', label: t('agentForm.langItalian') },
+    { value: 'pt', label: t('agentForm.langPortuguese') },
+    { value: 'zh', label: t('agentForm.langChinese') },
+    { value: 'ja', label: t('agentForm.langJapanese') },
+    { value: 'ar', label: t('agentForm.langArabic') },
+  ];
+
+  const RESPONSE_LENGTHS = [
+    { value: 'very_short', label: t('agentForm.lengthVeryShort') },
+    { value: 'short', label: t('agentForm.lengthShort') },
+    { value: 'medium', label: t('agentForm.lengthMedium') },
+    { value: 'detailed', label: t('agentForm.lengthDetailed') },
+  ];
+
+  const VERBOSITY_LEVELS = [
+    { value: 'minimal', label: t('agentForm.verbosityMinimal') },
+    { value: 'concise', label: t('agentForm.verbosityConcise') },
+    { value: 'balanced', label: t('agentForm.verbosityBalanced') },
+    { value: 'verbose', label: t('agentForm.verbosityVerbose') },
+  ];
   const [agent, setAgent] = useState<Agent | null>(null);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -206,7 +208,9 @@ export default function EditAgentPage() {
           router.push('/agents');
         }
       } catch (error) {
-        console.error('Error loading agent:', error);
+        if (process.env.NODE_ENV === 'development') {
+          console.error('Error loading agent:', error);
+        }
         toast.error('Erreur lors du chargement de l\'agent');
         router.push('/agents');
       } finally {
@@ -253,7 +257,9 @@ export default function EditAgentPage() {
         toast.error(response.error || 'Erreur lors de la mise à jour');
       }
     } catch (error: any) {
-      console.error('Update error:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Update error:', error);
+      }
       toast.error(error.response?.data?.message || 'Erreur lors de la mise à jour de l\'agent');
     } finally {
       setSaving(false);
@@ -281,7 +287,9 @@ export default function EditAgentPage() {
         toast.error('Erreur lors de la création de la base de connaissances');
       }
     } catch (error) {
-      console.error('Error creating knowledge base:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Error creating knowledge base:', error);
+      }
       toast.error('Erreur lors de la création de la base de connaissances');
     }
   };
@@ -299,7 +307,9 @@ export default function EditAgentPage() {
         toast.error('Erreur lors du chargement de l\'historique');
       }
     } catch (error) {
-      console.error('Error loading prompt history:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Error loading prompt history:', error);
+      }
       toast.error('Erreur lors du chargement de l\'historique');
     } finally {
       setLoadingHistory(false);
@@ -326,7 +336,9 @@ export default function EditAgentPage() {
         toast.error('Erreur lors de la restauration du prompt');
       }
     } catch (error) {
-      console.error('Error restoring prompt:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Error restoring prompt:', error);
+      }
       toast.error('Erreur lors de la restauration du prompt');
     }
   };
@@ -369,7 +381,9 @@ export default function EditAgentPage() {
         }
       }
     } catch (error) {
-      console.error('Error uploading documents:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Error uploading documents:', error);
+      }
       toast.error('Erreur lors de l\'upload des documents');
     } finally {
       setUploadingDocs(false);

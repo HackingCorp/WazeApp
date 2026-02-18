@@ -47,6 +47,7 @@ export default function AgentsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedAgents, setSelectedAgents] = useState<string[]>([]);
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
   const router = useRouter();
   const { t } = useI18n();
@@ -61,9 +62,16 @@ export default function AgentsPage() {
     try {
       setLoading(true);
       const response = await apiHelpers.agents.getAll();
-      setAgents(response.data || []);
+      if (response.success) {
+        setAgents(response.data || []);
+      } else {
+        setAgents([]);
+        toast.error(response.error || 'Erreur lors du chargement des agents');
+      }
     } catch (error) {
-      console.error('Failed to load agents:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Failed to load agents:', error);
+      }
       setAgents([]); // Ensure agents is always an array
       toast.error('Erreur lors du chargement des agents');
     } finally {
@@ -106,7 +114,9 @@ export default function AgentsPage() {
 
       toast.success(`Agent ${newStatus === 'active' ? 'activé' : 'désactivé'} avec succès`);
     } catch (error) {
-      console.error('Failed to toggle agent status:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Failed to toggle agent status:', error);
+      }
       toast.error('Erreur lors du changement de statut');
     }
   };
@@ -124,25 +134,35 @@ export default function AgentsPage() {
         toast.error('Erreur lors de la duplication');
       }
     } catch (error) {
-      console.error('Error cloning agent:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Error cloning agent:', error);
+      }
       toast.error('Erreur lors de la duplication');
     }
   };
 
   const deleteAgent = async (agentId: string) => {
-    if (!confirm(t('agents.confirmDelete'))) return;
+    setDeleteConfirm(agentId);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteConfirm) return;
 
     try {
-      await apiHelpers.agents.delete(agentId);
-      setAgents(prev => prev.filter(agent => agent.id !== agentId));
+      await apiHelpers.agents.delete(deleteConfirm);
+      setAgents(prev => prev.filter(agent => agent.id !== deleteConfirm));
       toast.success('Agent supprimé avec succès');
+      setDeleteConfirm(null);
     } catch (error: any) {
-      console.error('Failed to delete agent:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Failed to delete agent:', error);
+      }
       if (error?.response?.status === 400) {
         toast.error('Impossible de supprimer: l\'agent a des conversations actives');
       } else {
         toast.error('Erreur lors de la suppression');
       }
+      setDeleteConfirm(null);
     }
   };
 
@@ -266,7 +286,10 @@ export default function AgentsPage() {
 
               {/* Actions dropdown */}
               <div className="relative">
-                <button className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+                <button
+                  className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                  aria-label="More actions"
+                >
                   <MoreVertical className="w-4 h-4" />
                 </button>
                 {/* Dropdown would go here */}
@@ -327,6 +350,7 @@ export default function AgentsPage() {
                       : 'text-green-600 hover:bg-green-100 dark:hover:bg-green-900/20'
                   )}
                   title={agent.status === 'active' ? t('agents.deactivate') : t('agents.activate')}
+                  aria-label={agent.status === 'active' ? 'Deactivate agent' : 'Activate agent'}
                 >
                   {agent.status === 'active' ? (
                     <Pause className="w-4 h-4" />
@@ -340,6 +364,7 @@ export default function AgentsPage() {
                   onClick={() => router.push(`/agents/${agent.id}/edit`)}
                   className="p-2 text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-gray-400 rounded-lg transition-colors"
                   title={t('agents.edit')}
+                  aria-label="Edit agent"
                 >
                   <Edit className="w-4 h-4" />
                 </button>
@@ -349,6 +374,7 @@ export default function AgentsPage() {
                   onClick={() => duplicateAgent(agent.id)}
                   className="p-2 text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-gray-400 rounded-lg transition-colors"
                   title={t('agents.duplicate')}
+                  aria-label="Duplicate agent"
                 >
                   <Copy className="w-4 h-4" />
                 </button>
@@ -358,6 +384,7 @@ export default function AgentsPage() {
                   onClick={() => deleteAgent(agent.id)}
                   className="p-2 text-red-600 hover:bg-red-100 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                   title={t('agents.delete')}
+                  aria-label="Delete agent"
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>
@@ -397,6 +424,34 @@ export default function AgentsPage() {
               </button>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg max-w-md w-full p-6 shadow-xl">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+              {t('agents.confirmDelete')}
+            </h3>
+            <p className="text-gray-600 dark:text-gray-400 mb-6">
+              Êtes-vous sûr de vouloir supprimer cet agent ? Cette action est irréversible.
+            </p>
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => setDeleteConfirm(null)}
+                className="px-4 py-2 text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg font-medium transition-colors"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={confirmDelete}
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors"
+              >
+                Supprimer
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

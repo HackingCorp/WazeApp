@@ -193,7 +193,9 @@ export function PaymentModal({
         setError(response.error || 'Erreur lors de l\'initiation du paiement');
       }
     } catch (err) {
-      console.error('Mobile payment error:', err);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Mobile payment error:', err);
+      }
       setStatus('failed');
       setError('Une erreur est survenue. Veuillez reessayer.');
     }
@@ -254,7 +256,9 @@ export function PaymentModal({
           setError('La verification prend plus de temps que prevu. Si vous avez confirme le paiement, fermez cette fenetre et verifiez votre facture.');
         }
       } catch (err) {
-        console.error('Payment verification error:', err);
+        if (process.env.NODE_ENV === 'development') {
+          console.error('Payment verification error:', err);
+        }
         if (attempts < maxAttempts) {
           setTimeout(checkStatus, 10000);
         }
@@ -331,7 +335,9 @@ export function PaymentModal({
         setError(response.error || 'Erreur lors de l\'initiation du paiement');
       }
     } catch (err) {
-      console.error('Card payment error:', err);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Card payment error:', err);
+      }
       setStatus('failed');
       setError('Une erreur est survenue. Veuillez reessayer.');
     }

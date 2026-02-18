@@ -38,6 +38,7 @@ import {
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useSocket } from '@/providers/SocketProvider';
+import { useI18n } from '@/providers/I18nProvider';
 
 type TabType = 'contacts' | 'templates' | 'campaigns';
 
@@ -89,27 +90,28 @@ interface WhatsAppSession {
   status: string;
 }
 
-const templateCategories = [
-  { value: 'welcome', label: 'Bienvenue' },
-  { value: 'promotion', label: 'Promotion' },
-  { value: 'reminder', label: 'Rappel' },
-  { value: 'notification', label: 'Notification' },
-  { value: 'follow_up', label: 'Suivi' },
-  { value: 'thank_you', label: 'Remerciement' },
-  { value: 'custom', label: 'Personnalisé' },
-];
-
-const templateTypes = [
-  { value: 'text', label: 'Texte', icon: MessageSquare },
-  { value: 'image', label: 'Image', icon: Image },
-  { value: 'video', label: 'Vidéo', icon: Video },
-  { value: 'document', label: 'Document', icon: File },
-  { value: 'location', label: 'Localisation', icon: MapPin },
-  { value: 'contact', label: 'Contact', icon: UserCircle },
-];
-
 export default function BroadcastPage() {
   const { subscribe } = useSocket();
+  const { t } = useI18n();
+
+  const templateCategories = [
+    { value: 'welcome', label: t('broadcast.categoryWelcome') },
+    { value: 'promotion', label: t('broadcast.categoryPromotion') },
+    { value: 'reminder', label: t('broadcast.categoryReminder') },
+    { value: 'notification', label: t('broadcast.categoryNotification') },
+    { value: 'follow_up', label: t('broadcast.categoryFollowUp') },
+    { value: 'thank_you', label: t('broadcast.categoryThankYou') },
+    { value: 'custom', label: t('broadcast.categoryCustom') },
+  ];
+
+  const templateTypes = [
+    { value: 'text', label: t('broadcast.typeText'), icon: MessageSquare },
+    { value: 'image', label: t('broadcast.typeImage'), icon: Image },
+    { value: 'video', label: t('broadcast.typeVideo'), icon: Video },
+    { value: 'document', label: t('broadcast.typeDocument'), icon: File },
+    { value: 'location', label: t('broadcast.typeLocation'), icon: MapPin },
+    { value: 'contact', label: t('broadcast.typeContact'), icon: UserCircle },
+  ];
   const [activeTab, setActiveTab] = useState<TabType>('contacts');
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [templates, setTemplates] = useState<Template[]>([]);
@@ -241,7 +243,9 @@ export default function BroadcastPage() {
         }
       }
     } catch (error) {
-      console.error('Failed to fetch contacts:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Failed to fetch contacts:', error);
+      }
     }
   }, [searchTerm, currentPage]);
 
@@ -260,7 +264,9 @@ export default function BroadcastPage() {
         }
       }
     } catch (error) {
-      console.error('Failed to load contacts for selection:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Failed to load contacts for selection:', error);
+      }
     } finally {
       setLoadingAllContacts(false);
     }
@@ -296,7 +302,9 @@ export default function BroadcastPage() {
         });
       }
     } catch (error) {
-      console.error('Bulk validation failed:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Bulk validation failed:', error);
+      }
       setShowValidationModal(false);
       alert('Erreur lors de la validation');
     } finally {
@@ -317,7 +325,9 @@ export default function BroadcastPage() {
         setTemplates(response.data?.data || response.data || []);
       }
     } catch (error) {
-      console.error('Failed to fetch templates:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Failed to fetch templates:', error);
+      }
     }
   }, []);
 
@@ -328,7 +338,9 @@ export default function BroadcastPage() {
         setCampaigns(response.data?.data || response.data || []);
       }
     } catch (error) {
-      console.error('Failed to fetch campaigns:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Failed to fetch campaigns:', error);
+      }
     }
   }, []);
 
@@ -346,7 +358,9 @@ export default function BroadcastPage() {
         });
       }
     } catch (error) {
-      console.error('Failed to fetch contact stats:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Failed to fetch contact stats:', error);
+      }
     }
   }, []);
 
@@ -361,7 +375,9 @@ export default function BroadcastPage() {
         ));
       }
     } catch (error) {
-      console.error('Failed to fetch sessions:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Failed to fetch sessions:', error);
+      }
     }
   }, []);
 
@@ -372,7 +388,9 @@ export default function BroadcastPage() {
         setCampaignLimits(response.data);
       }
     } catch (error) {
-      console.error('Failed to fetch campaign limits:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Failed to fetch campaign limits:', error);
+      }
     }
   }, []);
 
@@ -383,7 +401,9 @@ export default function BroadcastPage() {
         setDailyStats(response.data);
       }
     } catch (error) {
-      console.error('Failed to fetch daily stats:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Failed to fetch daily stats:', error);
+      }
     }
   }, []);
 
@@ -491,7 +511,9 @@ export default function BroadcastPage() {
         await fetchContactStats();
       }
     } catch (error) {
-      console.error('Failed to add contact:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Failed to add contact:', error);
+      }
     } finally {
       setAddingContact(false);
     }
@@ -583,7 +605,9 @@ export default function BroadcastPage() {
         await fetchTemplates();
       }
     } catch (error) {
-      console.error('Failed to create template:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Failed to create template:', error);
+      }
     } finally {
       setCreatingTemplate(false);
     }
@@ -726,7 +750,9 @@ export default function BroadcastPage() {
         }
       }
     } catch (error) {
-      console.error('Failed to create campaign:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Failed to create campaign:', error);
+      }
     } finally {
       setCreatingCampaign(false);
     }
@@ -765,7 +791,9 @@ export default function BroadcastPage() {
       await api.startBroadcastCampaign(id);
       await fetchCampaigns();
     } catch (error) {
-      console.error('Failed to start campaign:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Failed to start campaign:', error);
+      }
     } finally {
       campaignActionRef.current.delete(id);
     }
@@ -778,7 +806,9 @@ export default function BroadcastPage() {
       await api.pauseBroadcastCampaign(id);
       await fetchCampaigns();
     } catch (error) {
-      console.error('Failed to pause campaign:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Failed to pause campaign:', error);
+      }
     } finally {
       campaignActionRef.current.delete(id);
     }
@@ -791,7 +821,9 @@ export default function BroadcastPage() {
       await fetchContacts();
       await fetchContactStats();
     } catch (error) {
-      console.error('Failed to delete contact:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Failed to delete contact:', error);
+      }
     }
   };
 
@@ -801,7 +833,9 @@ export default function BroadcastPage() {
       await api.deleteBroadcastTemplate(id);
       await fetchTemplates();
     } catch (error) {
-      console.error('Failed to delete template:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Failed to delete template:', error);
+      }
     }
   };
 

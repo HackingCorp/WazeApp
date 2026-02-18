@@ -77,14 +77,18 @@ export function WhatsAppWidget({ className = '' }: WhatsAppWidgetProps) {
             failedStatsCount++;
           }
         } catch (error) {
-          console.error(`Error fetching stats for session ${session.id}:`, error);
+          if (process.env.NODE_ENV === 'development') {
+            console.error(`Error fetching stats for session ${session.id}:`, error);
+          }
           failedStatsCount++;
         }
       }
       
       // Notifier l'utilisateur si certaines statistiques n'ont pas pu être chargées
       if (failedStatsCount > 0 && showErrorToUser) {
-        console.warn(`Could not load statistics for ${failedStatsCount} session(s)`);
+        if (process.env.NODE_ENV === 'development') {
+          console.warn(`Could not load statistics for ${failedStatsCount} session(s)`);
+        }
       }
 
       setStats({
@@ -94,12 +98,16 @@ export function WhatsAppWidget({ className = '' }: WhatsAppWidgetProps) {
         uptimePercentage: sessionData.length > 0 ? Math.round((connectedCount / sessionData.length) * 100) : 0
       });
     } catch (error: any) {
-      console.error('Error fetching WhatsApp data:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Error fetching WhatsApp data:', error);
+      }
       
       if (showErrorToUser) {
         // Messages d'erreur améliorés pour l'utilisateur
         const errorMessage = getWhatsAppErrorMessage(error?.message || error?.response?.data?.error);
-        console.error('WhatsApp service error:', errorMessage);
+        if (process.env.NODE_ENV === 'development') {
+          console.error('WhatsApp service error:', errorMessage);
+        }
       }
       
       // En cas d'erreur, initialiser avec des valeurs vides pour éviter les erreurs d'interface

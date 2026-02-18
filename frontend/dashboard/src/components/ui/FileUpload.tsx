@@ -198,7 +198,9 @@ export function FileUpload({
         toast.error(`${failedCount} file(s) failed to upload`);
       }
     } catch (error) {
-      console.error('Upload error:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Upload error:', error);
+      }
       toast.error('Some files failed to upload');
     }
   }, [uploadedFiles.length, maxFiles, maxSize, onUpload, disabled]);

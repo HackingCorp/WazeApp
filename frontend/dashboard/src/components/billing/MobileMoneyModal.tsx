@@ -158,7 +158,9 @@ export function MobileMoneyModal({
         setError(response.error || 'Erreur lors de l\'initiation du paiement');
       }
     } catch (err) {
-      console.error('Payment error:', err);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Payment error:', err);
+      }
       setStatus('failed');
       setError('Une erreur est survenue. Veuillez reessayer.');
     }

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { Send, Phone, Video, MoreVertical, Paperclip, Smile, Mic, Search, Archive, Settings, MessageCircle, Check, CheckCheck } from 'lucide-react';
+import { Send, Phone, Video, MoreVertical, Paperclip, Smile, Mic, Search, Archive, Settings, MessageCircle, Check, CheckCheck, Menu, ArrowLeft } from 'lucide-react';
 import { formatDistanceToNow, format, isToday, isYesterday } from 'date-fns';
 import clsx from 'clsx';
 
@@ -58,6 +58,7 @@ export function ConversationInterface({
   const [searchQuery, setSearchQuery] = useState('');
   const [isRecording, setIsRecording] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [showSidebar, setShowSidebar] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -309,7 +310,13 @@ export function ConversationInterface({
 
   const ContactItem = ({ contact }: { contact: Contact }) => (
     <button
-      onClick={() => onSelectContact(contact.id)}
+      onClick={() => {
+        onSelectContact(contact.id);
+        // Hide sidebar on mobile when a contact is selected
+        if (window.innerWidth < 768) {
+          setShowSidebar(false);
+        }
+      }}
       className={clsx(
         'w-full px-4 py-3 flex items-center gap-3 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors border-b border-gray-100 dark:border-gray-800',
         selectedContactId === contact.id && 'bg-emerald-50 dark:bg-emerald-900/20 hover:bg-emerald-50 dark:hover:bg-emerald-900/20'
@@ -383,14 +390,21 @@ export function ConversationInterface({
   return (
     <div className="flex h-full overflow-hidden">
       {/* Contacts Sidebar */}
-      <div className="w-[340px] h-full bg-white dark:bg-gray-800 flex flex-col overflow-hidden shadow-sm">
+      <div className={clsx(
+        "h-full bg-white dark:bg-gray-800 flex flex-col overflow-hidden shadow-sm transition-all",
+        "md:w-[340px]",
+        showSidebar ? "w-full" : "hidden md:block"
+      )}>
         {/* Sidebar Header */}
         <div className="p-4 bg-emerald-600 dark:bg-emerald-700">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-white">
               Conversations
             </h2>
-            <button className="p-2 hover:bg-white/10 rounded-full transition-colors">
+            <button
+              className="p-2 hover:bg-white/10 rounded-full transition-colors"
+              aria-label="Settings"
+            >
               <Settings className="w-5 h-5 text-white/80" />
             </button>
           </div>
@@ -431,13 +445,24 @@ export function ConversationInterface({
       </div>
 
       {/* Chat Area */}
-      <div className="flex-1 flex flex-col h-full overflow-hidden bg-white dark:bg-gray-800">
+      <div className={clsx(
+        "flex-1 flex flex-col h-full overflow-hidden bg-white dark:bg-gray-800",
+        showSidebar && selectedContactId ? "hidden md:flex" : "flex"
+      )}>
         {selectedContact ? (
           <>
             {/* Chat Header */}
             <div className="px-4 py-3 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
+                  {/* Back button for mobile */}
+                  <button
+                    onClick={() => setShowSidebar(true)}
+                    className="md:hidden p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
+                    aria-label="Back to contacts"
+                  >
+                    <ArrowLeft className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                  </button>
                   <div className="relative">
                     {selectedContact.avatar ? (
                       <img
@@ -483,21 +508,31 @@ export function ConversationInterface({
                 </div>
 
                 <div className="flex items-center gap-1">
-                  <button className="p-2.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors">
+                  <button
+                    className="p-2.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
+                    aria-label="Video call"
+                  >
                     <Video className="w-5 h-5 text-gray-600 dark:text-gray-400" />
                   </button>
-                  <button className="p-2.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors">
+                  <button
+                    className="p-2.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
+                    aria-label="Voice call"
+                  >
                     <Phone className="w-5 h-5 text-gray-600 dark:text-gray-400" />
                   </button>
                   {onArchiveContact && (
                     <button
                       onClick={() => onArchiveContact(selectedContact.id)}
                       className="p-2.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
+                      aria-label="Archive conversation"
                     >
                       <Archive className="w-5 h-5 text-gray-600 dark:text-gray-400" />
                     </button>
                   )}
-                  <button className="p-2.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors">
+                  <button
+                    className="p-2.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
+                    aria-label="More options"
+                  >
                     <MoreVertical className="w-5 h-5 text-gray-600 dark:text-gray-400" />
                   </button>
                 </div>
@@ -578,6 +613,7 @@ export function ConversationInterface({
                 <button
                   onClick={() => fileInputRef.current?.click()}
                   className="p-2.5 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
+                  aria-label="Attach file"
                 >
                   <Paperclip className="w-5 h-5" />
                 </button>
@@ -596,6 +632,7 @@ export function ConversationInterface({
                   <button
                     onClick={() => setShowEmojiPicker(!showEmojiPicker)}
                     className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
+                    aria-label="Add emoji"
                   >
                     <Smile className="w-5 h-5" />
                   </button>
@@ -605,6 +642,7 @@ export function ConversationInterface({
                   <button
                     onClick={handleSendMessage}
                     className="p-2.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-full transition-colors shadow-lg shadow-emerald-500/30"
+                    aria-label="Send message"
                   >
                     <Send className="w-5 h-5" />
                   </button>
@@ -619,6 +657,7 @@ export function ConversationInterface({
                         ? 'bg-red-500 text-white shadow-lg shadow-red-500/30'
                         : 'bg-emerald-500 hover:bg-emerald-600 text-white shadow-lg shadow-emerald-500/30'
                     )}
+                    aria-label="Record voice message"
                   >
                     <Mic className="w-5 h-5" />
                   </button>

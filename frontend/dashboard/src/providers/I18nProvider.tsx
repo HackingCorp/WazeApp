@@ -86,7 +86,9 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
     }
 
     if (typeof value !== 'string') {
-      console.warn(`Translation not found for key: ${key}`);
+      if (process.env.NODE_ENV === 'development') {
+        console.warn(`Translation not found for key: ${key}`);
+      }
       return key;
     }
 

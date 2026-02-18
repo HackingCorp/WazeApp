@@ -191,12 +191,6 @@ class ApiClient {
     });
   }
 
-  async logout() {
-    return this.request('/auth/logout', {
-      method: 'POST',
-    });
-  }
-
   async getProfile() {
     return this.request('/auth/profile');
   }
@@ -209,6 +203,24 @@ class ApiClient {
   }
 
   // Organization endpoints
+  async createOrganization(data: {
+    name: string;
+    description?: string;
+  }) {
+    return this.request('/organizations', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getOrganizations(params?: {
+    page?: number;
+    limit?: number;
+  }) {
+    const queryString = params ? `?${new URLSearchParams(params as any)}` : '';
+    return this.request(`/organizations${queryString}`);
+  }
+
   async getOrganization(orgId: string) {
     return this.request(`/organizations/${orgId}`);
   }
@@ -220,13 +232,36 @@ class ApiClient {
     });
   }
 
+  async getOrganizationMembers(orgId: string) {
+    return this.request(`/organizations/${orgId}/members`);
+  }
+
+  async updateMemberRole(orgId: string, memberId: string, role: string) {
+    return this.request(`/organizations/${orgId}/members/${memberId}/role`, {
+      method: 'PUT',
+      body: JSON.stringify({ role }),
+    });
+  }
+
+  async removeMember(orgId: string, memberId: string) {
+    return this.request(`/organizations/${orgId}/members/${memberId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async leaveOrganization(orgId: string) {
+    return this.request(`/organizations/${orgId}/leave`, {
+      method: 'DELETE',
+    });
+  }
+
   // Users endpoints
   async getUsers() {
     return this.request('/users');
   }
 
-  async inviteUser(data: { email: string; role: string }) {
-    return this.request('/users/invite', {
+  async inviteUser(orgId: string, data: { email: string; role: string }) {
+    return this.request(`/organizations/${orgId}/invite`, {
       method: 'POST',
       body: JSON.stringify(data),
     });
@@ -286,6 +321,10 @@ class ApiClient {
     });
   }
 
+  async getAgent(id: string) {
+    return this.request(`/agents/${id}`);
+  }
+
   async updateAgent(id: string, data: any) {
     return this.request(`/agents/${id}`, {
       method: 'PATCH',
@@ -299,8 +338,10 @@ class ApiClient {
     });
   }
 
-  async getAgentStats(agentId: string) {
-    return this.request(`/conversations/stats?agentId=${agentId}`);
+  async getAgentStats(agentId?: string) {
+    return agentId
+      ? this.request(`/conversations/stats?agentId=${agentId}`)
+      : this.request('/agents/stats');
   }
 
   // Agent Testing
@@ -491,8 +532,55 @@ class ApiClient {
   }
 
   // Knowledge Base endpoints
+  async getKnowledgeBases(params?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+  }) {
+    const queryString = params ? `?${new URLSearchParams(params as any)}` : '';
+    return this.request(`/knowledge-bases${queryString}`);
+  }
+
   async getKnowledgeBase(id: string) {
     return this.request(`/knowledge-bases/${id}`);
+  }
+
+  async createKnowledgeBase(data: {
+    name: string;
+    description?: string;
+    tags?: string[];
+  }) {
+    return this.request('/knowledge-bases', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateKnowledgeBase(id: string, data: {
+    name?: string;
+    description?: string;
+    tags?: string[];
+  }) {
+    return this.request(`/knowledge-bases/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteKnowledgeBase(id: string) {
+    return this.request(`/knowledge-bases/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async rebuildKnowledgeBase(id: string) {
+    return this.request(`/knowledge-bases/${id}/rebuild`, {
+      method: 'POST',
+    });
+  }
+
+  async getKnowledgeBaseStats() {
+    return this.request('/knowledge-bases/stats');
   }
 
   async getKnowledgeBaseDocuments(id: string, params?: {

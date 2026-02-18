@@ -254,7 +254,9 @@ export function UploadDocumentsModal({
       }
     } catch (error) {
       // Network or other error
-      console.error('Upload error:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Upload error:', error);
+      }
       setFiles(prev => prev.map(f => 
         f.id === uploadedFile.id 
           ? { 
@@ -301,7 +303,9 @@ export function UploadDocumentsModal({
         throw new Error(response.error || 'Upload failed');
       }
     } catch (error) {
-      console.error('URL upload error:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('URL upload error:', error);
+      }
       setUrls(prev => prev.map(u => 
         u.id === urlUpload.id 
           ? { 
@@ -360,7 +364,9 @@ export function UploadDocumentsModal({
       }, 1000);
 
     } catch (error) {
-      console.error('Upload process error:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Upload process error:', error);
+      }
       setIsUploading(false);
     }
   };

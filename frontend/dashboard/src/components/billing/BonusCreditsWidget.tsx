@@ -79,7 +79,9 @@ export function BonusCreditsWidget({ variant = 'full', onRefresh, preloadedCredi
         setCredits(response.data);
       }
     } catch (err) {
-      console.error('Failed to load bonus credits:', err);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Failed to load bonus credits:', err);
+      }
       // Keep default values on error - don't crash the component
     } finally {
       setLoading(false);

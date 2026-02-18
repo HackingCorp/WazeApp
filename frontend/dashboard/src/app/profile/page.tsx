@@ -59,7 +59,9 @@ export default function ProfilePage() {
         toast.error('Failed to load profile');
       }
     } catch (error) {
-      console.error('Error loading profile:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Error loading profile:', error);
+      }
       toast.error('Failed to load profile');
     } finally {
       setIsLoading(false);
@@ -81,7 +83,9 @@ export default function ProfilePage() {
         toast.error('Failed to update profile');
       }
     } catch (error) {
-      console.error('Error updating profile:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Error updating profile:', error);
+      }
       toast.error('Failed to update profile');
     } finally {
       setIsSaving(false);

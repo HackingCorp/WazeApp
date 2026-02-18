@@ -3,12 +3,14 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/providers/AuthProvider';
+import { useI18n } from '@/providers/I18nProvider';
 import { Loader2, Mail, Lock, Eye, EyeOff, Sparkles, MessageCircle, Zap, Shield } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function LoginPage() {
   const router = useRouter();
   const { login } = useAuth();
+  const { t } = useI18n();
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
@@ -57,10 +59,10 @@ export default function LoginPage() {
                 <h1 className="text-2xl font-bold">WazeApp</h1>
               </div>
               <h2 className="text-4xl font-bold mb-4">
-                Turn WhatsApp into Your <span className="text-green-200">AI Assistant</span>
+                {t('auth.loginHeroTitle')} <span className="text-green-200">{t('auth.loginHeroHighlight')}</span>
               </h2>
               <p className="text-lg text-green-100 mb-8">
-                Créez des agents conversationnels intelligents qui gèrent vos conversations WhatsApp automatiquement 24/7.
+                {t('auth.loginHeroDescription')}
               </p>
             </div>
 
@@ -70,28 +72,28 @@ export default function LoginPage() {
                   <Zap className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="font-semibold">Réponses en 0.3s</h3>
-                  <p className="text-green-100 text-sm">Automatisez vos réponses avec des agents IA ultra-rapides</p>
+                  <h3 className="font-semibold">{t('auth.feature1Title')}</h3>
+                  <p className="text-green-100 text-sm">{t('auth.feature1Description')}</p>
                 </div>
               </div>
-              
+
               <div className="flex items-center space-x-4">
                 <div className="w-10 h-10 bg-white bg-opacity-20 rounded-lg flex items-center justify-center">
                   <Shield className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="font-semibold">Sécurisé & Fiable</h3>
-                  <p className="text-green-100 text-sm">Vos données sont protégées avec un chiffrement de bout en bout</p>
+                  <h3 className="font-semibold">{t('auth.feature2Title')}</h3>
+                  <p className="text-green-100 text-sm">{t('auth.feature2Description')}</p>
                 </div>
               </div>
-              
+
               <div className="flex items-center space-x-4">
                 <div className="w-10 h-10 bg-white bg-opacity-20 rounded-lg flex items-center justify-center">
                   <Sparkles className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="font-semibold">Disponible 24/7</h3>
-                  <p className="text-green-100 text-sm">Suivez vos performances avec des métriques en temps réel</p>
+                  <h3 className="font-semibold">{t('auth.feature3Title')}</h3>
+                  <p className="text-green-100 text-sm">{t('auth.feature3Description')}</p>
                 </div>
               </div>
             </div>
@@ -112,10 +114,10 @@ export default function LoginPage() {
             {/* Login form header */}
             <div className="text-center lg:text-left">
               <h2 className="text-3xl font-bold text-gray-900 mb-2">
-                Bon retour !
+                {t('auth.welcomeBack')}
               </h2>
               <p className="text-gray-600">
-                Connectez-vous à votre tableau de bord AI
+                {t('auth.loginToYourDashboard')}
               </p>
             </div>
 
@@ -125,7 +127,7 @@ export default function LoginPage() {
                 {/* Email field */}
                 <div>
                   <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-                    Adresse email
+                    {t('auth.email')}
                   </label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -140,7 +142,7 @@ export default function LoginPage() {
                       value={formData.email}
                       onChange={handleChange}
                       className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-colors sm:text-sm"
-                      placeholder="votre@email.com"
+                      placeholder={t('auth.emailPlaceholder')}
                     />
                   </div>
                 </div>
@@ -148,7 +150,7 @@ export default function LoginPage() {
                 {/* Password field */}
                 <div>
                   <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
-                    Mot de passe
+                    {t('auth.password')}
                   </label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -163,7 +165,7 @@ export default function LoginPage() {
                       value={formData.password}
                       onChange={handleChange}
                       className="block w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-colors sm:text-sm"
-                      placeholder="••••••••"
+                      placeholder={t('auth.passwordPlaceholder')}
                     />
                     <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
                       <button
@@ -192,12 +194,12 @@ export default function LoginPage() {
                     className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
                   />
                   <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-900">
-                    Se souvenir de moi
+                    {t('auth.rememberMe')}
                   </label>
                 </div>
                 <div className="text-sm">
                   <a href="#" className="font-medium text-green-600 hover:text-green-500 transition-colors">
-                    Mot de passe oublié ?
+                    {t('auth.forgotPassword')}
                   </a>
                 </div>
               </div>
@@ -212,12 +214,12 @@ export default function LoginPage() {
                   {isLoading ? (
                     <>
                       <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                      Connexion en cours...
+                      {t('auth.signingIn')}
                     </>
                   ) : (
                     <>
                       <Lock className="w-5 h-5 mr-2" />
-                      Se connecter
+                      {t('auth.signIn')}
                     </>
                   )}
                 </button>
@@ -230,7 +232,7 @@ export default function LoginPage() {
                     <div className="w-full border-t border-gray-300" />
                   </div>
                   <div className="relative flex justify-center text-sm">
-                    <span className="px-2 bg-white text-gray-500">Ou</span>
+                    <span className="px-2 bg-white text-gray-500">{t('auth.or')}</span>
                   </div>
                 </div>
 
@@ -239,7 +241,7 @@ export default function LoginPage() {
                     href="https://wazeapp.xyz/login"
                     className="text-green-600 hover:text-green-500 font-medium transition-colors"
                   >
-                    Utiliser la connexion du site principal →
+                    {t('auth.useMainSiteLogin')} →
                   </a>
                 </div>
               </div>

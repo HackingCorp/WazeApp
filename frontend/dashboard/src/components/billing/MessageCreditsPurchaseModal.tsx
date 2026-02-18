@@ -84,7 +84,9 @@ export function MessageCreditsPurchaseModal({
         });
       }
     } catch (err) {
-      console.error('Failed to load pricing info:', err);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Failed to load pricing info:', err);
+      }
       // Keep default values if API fails
     } finally {
       setLoadingPricing(false);
@@ -265,7 +267,9 @@ export function MessageCreditsPurchaseModal({
         }
       }
     } catch (err) {
-      console.error('Payment error:', err);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Payment error:', err);
+      }
       setStatus('failed');
       setError('Une erreur est survenue. Veuillez reessayer.');
     }
@@ -281,7 +285,9 @@ export function MessageCreditsPurchaseModal({
         phoneNumber: getCleanPhoneNumber(),
       });
     } catch (err) {
-      console.error('Failed to record purchase:', err);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Failed to record purchase:', err);
+      }
     }
   };
 

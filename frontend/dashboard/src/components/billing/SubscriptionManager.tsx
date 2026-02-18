@@ -219,7 +219,9 @@ export function SubscriptionManager({
           setCurrencies(response.currencies);
         }
       } catch (error) {
-        console.error('Error fetching currencies:', error);
+        if (process.env.NODE_ENV === 'development') {
+          console.error('Error fetching currencies:', error);
+        }
       }
     };
 
@@ -233,7 +235,9 @@ export function SubscriptionManager({
           }
         }
       } catch (error) {
-        console.error('Error fetching exchange rates:', error);
+        if (process.env.NODE_ENV === 'development') {
+          console.error('Error fetching exchange rates:', error);
+        }
       }
     };
 
@@ -264,7 +268,9 @@ export function SubscriptionManager({
           setDynamicPricing(pricing);
         }
       } catch (error) {
-        console.error('Error fetching pricing:', error);
+        if (process.env.NODE_ENV === 'development') {
+          console.error('Error fetching pricing:', error);
+        }
       } finally {
         setPricingLoading(false);
       }

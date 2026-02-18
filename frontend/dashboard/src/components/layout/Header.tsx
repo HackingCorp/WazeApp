@@ -133,6 +133,7 @@ export function Header({ onMobileMenuToggle, sidebarCollapsed }: HeaderProps) {
                 type="button"
                 className="p-2 rounded-full text-gray-400 hover:text-gray-500 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-green-500"
                 onClick={() => setLanguageMenuOpen(!languageMenuOpen)}
+                aria-label="Change language"
               >
                 <Globe className="h-5 w-5" />
               </button>
@@ -165,6 +166,7 @@ export function Header({ onMobileMenuToggle, sidebarCollapsed }: HeaderProps) {
                 type="button"
                 className="p-2 rounded-full text-gray-400 hover:text-gray-500 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-green-500"
                 onClick={() => setThemeMenuOpen(!themeMenuOpen)}
+                aria-label="Change theme"
               >
                 <ThemeIcon className="h-5 w-5" />
               </button>
@@ -199,6 +201,7 @@ export function Header({ onMobileMenuToggle, sidebarCollapsed }: HeaderProps) {
               type="button"
               className="p-2 rounded-full text-gray-400 hover:text-gray-500 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-green-500"
               onClick={() => router.push('/help')}
+              aria-label="Help"
             >
               <HelpCircle className="h-5 w-5" />
             </button>
@@ -209,6 +212,7 @@ export function Header({ onMobileMenuToggle, sidebarCollapsed }: HeaderProps) {
                 type="button"
                 className="p-2 rounded-full text-gray-400 hover:text-gray-500 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-green-500"
                 onClick={() => setNotificationsOpen(!notificationsOpen)}
+                aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ''}`}
               >
                 <Bell className="h-5 w-5" />
                 {unreadCount > 0 && (

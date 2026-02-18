@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { ConversationInterface } from '@/components/conversations/ConversationInterface';
 import { useSocket } from '@/providers/SocketProvider';
 import { useAuth } from '@/providers/AuthProvider';
@@ -77,7 +77,9 @@ export default function ConversationsPage() {
         setSelectedSessionId(connectedSessions[0].id);
       }
     } catch (error) {
-      console.error('Failed to load WhatsApp sessions:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Failed to load WhatsApp sessions:', error);
+      }
       toast.error(t('conversations.failedLoadSessions'));
     }
   };
@@ -104,23 +106,25 @@ export default function ConversationsPage() {
         setContactsMap(map);
       }
     } catch (error) {
-      console.error('Failed to load contacts:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Failed to load contacts:', error);
+      }
       // Don't show error toast - contacts are optional
     }
   };
 
   // Helper function to clean phone number
-  const cleanPhoneForLookup = (phoneNumber: string): string => {
+  const cleanPhoneForLookup = useCallback((phoneNumber: string): string => {
     if (!phoneNumber) return '';
     return phoneNumber
       .replace(/@s\.whatsapp\.net$/i, '')
       .replace(/@lid$/i, '')
       .replace(/@c\.us$/i, '')
       .replace(/@g\.us$/i, '');
-  };
+  }, []);
 
   // Check if a phone number looks like a valid phone (not a LID)
-  const isLikelyValidPhone = (phone: string): boolean => {
+  const isLikelyValidPhone = useCallback((phone: string): boolean => {
     if (!phone) return false;
     const cleaned = cleanPhoneForLookup(phone);
 
@@ -140,20 +144,20 @@ export default function ConversationsPage() {
 
     // Check for reasonable phone number pattern
     return /^\+?[1-9]\d{6,12}$/.test(cleaned);
-  };
+  }, [cleanPhoneForLookup]);
 
   // Helper function to get contact from map
-  const getContactFromMap = (phoneNumber: string): any | null => {
+  const getContactFromMap = useCallback((phoneNumber: string): any | null => {
     if (!phoneNumber) return null;
 
     const cleanPhone = cleanPhoneForLookup(phoneNumber);
 
     // Try to find contact in our map
     return contactsMap[cleanPhone] || contactsMap[`+${cleanPhone}`] || contactsMap[cleanPhone.replace(/^\+/, '')] || null;
-  };
+  }, [contactsMap, cleanPhoneForLookup]);
 
   // Helper function to get contact display name
-  const getContactDisplayName = (phoneNumber: string): string => {
+  const getContactDisplayName = useCallback((phoneNumber: string): string => {
     if (!phoneNumber) return 'Contact WhatsApp';
 
     const contact = getContactFromMap(phoneNumber);
@@ -173,15 +177,15 @@ export default function ConversationsPage() {
 
     // For LIDs or invalid numbers, return a generic placeholder
     return 'Contact WhatsApp';
-  };
+  }, [getContactFromMap, cleanPhoneForLookup, isLikelyValidPhone]);
 
   // Helper function to get contact profile picture URL
-  const getContactProfilePicture = (phoneNumber: string): string | undefined => {
+  const getContactProfilePicture = useCallback((phoneNumber: string): string | undefined => {
     const contact = getContactFromMap(phoneNumber);
     return contact?.profilePictureUrl || undefined;
-  };
+  }, [getContactFromMap]);
 
-  const loadConversations = async () => {
+  const loadConversations = useCallback(async () => {
     if (!selectedSessionId || !selectedSessionId.trim()) {
       setContacts([]);
       setLoadingConversations(false);
@@ -196,7 +200,7 @@ export default function ConversationsPage() {
 
       // Handle direct array response from API (no wrapping)
       const conversations = Array.isArray(response) ? response : response?.data || [];
-      
+
       if (conversations.length > 0) {
         // Clean phone number - remove all WhatsApp suffixes (@s.whatsapp.net, @lid, @c.us)
         const cleanPhoneNumber = (phone: string) => {
@@ -316,7 +320,9 @@ export default function ConversationsPage() {
         setContacts([]);
       }
     } catch (error) {
-      console.error('Failed to load conversations:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Failed to load conversations:', error);
+      }
       
       // Check if it's an authentication error
       const errorMessage = error instanceof Error ? error.message : String(error);
@@ -330,7 +336,7 @@ export default function ConversationsPage() {
     } finally {
       setLoadingConversations(false);
     }
-  };
+  }, [selectedSessionId, t, contactsMap, getContactDisplayName, getContactProfilePicture, isLikelyValidPhone]);
 
   const loadMessages = async (conversationId: string) => {
     try {
@@ -357,7 +363,9 @@ export default function ConversationsPage() {
           : contact
       ));
     } catch (error) {
-      console.error('Failed to load messages:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Failed to load messages:', error);
+      }
       toast.error(t('conversations.failedLoadMessages'));
     } finally {
       setIsLoading(false);
@@ -541,7 +549,9 @@ export default function ConversationsPage() {
 
       toast.success(t('conversations.messageSent'));
     } catch (error) {
-      console.error('[FRONTEND] Failed to send message:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('[FRONTEND] Failed to send message:', error);
+      }
       toast.error(t('conversations.failedSendMessage'));
       
       // Update message status to failed and maintain sorting

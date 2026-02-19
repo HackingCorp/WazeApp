@@ -5,6 +5,7 @@ import { ThemeProvider } from "@/components/providers/theme-provider";
 import { LanguageProvider } from "@/components/providers/language-provider";
 import { Navbar } from "@/components/navigation/navbar";
 import { DemoChatWidget } from "@/components/sections/demo-chat";
+import { PostHogProvider } from "@/components/providers/posthog-provider";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -150,9 +151,11 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <LanguageProvider>
-            <Navbar />
-            <main>{children}</main>
-            <DemoChatWidget />
+            <PostHogProvider>
+              <Navbar />
+              <main>{children}</main>
+              <DemoChatWidget />
+            </PostHogProvider>
           </LanguageProvider>
         </ThemeProvider>
       </body>

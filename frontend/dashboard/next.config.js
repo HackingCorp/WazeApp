@@ -45,7 +45,7 @@ const nextConfig = {
           },
           {
             key: 'Content-Security-Policy',
-            value: "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: blob:; font-src 'self' data:; connect-src 'self' https://api.wazeapp.xyz wss://api.wazeapp.xyz https://*.wazeapp.xyz; frame-ancestors 'self';",
+            value: "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: blob:; font-src 'self' data:; connect-src 'self' https://api.wazeapp.xyz wss://api.wazeapp.xyz https://*.wazeapp.xyz https://*.posthog.com https://*.i.posthog.com; frame-ancestors 'self';",
           },
         ],
       },

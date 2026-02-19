@@ -16,6 +16,7 @@ import {
 import { RichTextEditor } from '@/components/ui/RichTextEditor';
 import { useI18n } from '@/providers/I18nProvider';
 import { apiHelpers } from '@/lib/api';
+import { analytics } from '@/lib/analytics';
 import toast from 'react-hot-toast';
 import clsx from 'clsx';
 
@@ -113,6 +114,7 @@ export default function NewAgentPage() {
       };
 
       const response = await apiHelpers.agents.create(payload);
+      analytics.track('agent_created', { agentId: response.data.id, name: payload.name });
       toast.success('Agent created successfully!');
       router.push(`/agents/${response.data.id}/edit`);
     } catch (error: any) {

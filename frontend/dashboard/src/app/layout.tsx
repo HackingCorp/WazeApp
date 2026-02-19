@@ -6,6 +6,7 @@ import { AuthProvider } from '@/providers/AuthProvider';
 import { ToastProvider } from '@/providers/ToastProvider';
 import { I18nProvider } from '@/providers/I18nProvider';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { PostHogProvider } from '@/providers/PostHogProvider';
 import './globals.css';
 
 const inter = Inter({ subsets: ['latin'] });
@@ -98,11 +99,13 @@ export default function RootLayout({
           <I18nProvider>
             <ThemeProvider>
               <AuthProvider>
-                <SocketProvider>
-                  <ToastProvider>
-                    {children}
-                  </ToastProvider>
-                </SocketProvider>
+                <PostHogProvider>
+                  <SocketProvider>
+                    <ToastProvider>
+                      {children}
+                    </ToastProvider>
+                  </SocketProvider>
+                </PostHogProvider>
               </AuthProvider>
             </ThemeProvider>
           </I18nProvider>

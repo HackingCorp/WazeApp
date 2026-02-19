@@ -6,6 +6,7 @@ import { SubscriptionManager } from '@/components/billing/SubscriptionManager';
 import { useAuth } from '@/providers/AuthProvider';
 import { useI18n } from '@/providers/I18nProvider';
 import { api } from '@/lib/api';
+import { analytics } from '@/lib/analytics';
 import toast from 'react-hot-toast';
 import {
   CreditCard,
@@ -65,6 +66,10 @@ export default function BillingPage() {
   const { user, refreshAuth } = useAuth();
   const { t } = useI18n();
   const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    analytics.track('billing_page_viewed');
+  }, []);
   const [activeTab, setActiveTab] = useState<'plan' | 'credits' | 'invoices'>('plan');
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [summary, setSummary] = useState<BillingSummary | null>(null);

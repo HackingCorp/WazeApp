@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
+import { analytics } from '@/lib/analytics';
 import toast from 'react-hot-toast';
 
 interface User {
@@ -278,6 +279,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         },
       });
       
+      analytics.track('login_success', { userId: userData.id });
       toast.success(`Welcome back, ${userData.firstName}!`);
       router.push('/dashboard');
     } catch (error: any) {
@@ -295,6 +297,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Ignore errors - still clear local state
     }
 
+    analytics.track('logout');
+    analytics.reset();
     setUser(null);
     setToken(null);
     localStorage.removeItem('auth-token');

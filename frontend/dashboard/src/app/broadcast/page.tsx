@@ -37,6 +37,7 @@ import {
   Eye,
 } from 'lucide-react';
 import { api } from '@/lib/api';
+import { analytics } from '@/lib/analytics';
 import { useSocket } from '@/providers/SocketProvider';
 import { useI18n } from '@/providers/I18nProvider';
 
@@ -743,6 +744,7 @@ export default function BroadcastPage() {
 
         const response = await api.createBroadcastCampaignWithMedia(formData);
         if (response.success) {
+          analytics.track('broadcast_created', { name: newCampaign.name, hasMedia: true });
           resetCampaignForm();
           await fetchCampaigns();
         }
@@ -776,6 +778,7 @@ export default function BroadcastPage() {
         });
 
         if (response.success) {
+          analytics.track('broadcast_created', { name: newCampaign.name, hasMedia: false });
           resetCampaignForm();
           await fetchCampaigns();
         }

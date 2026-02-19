@@ -32,6 +32,9 @@ import { EmailModule } from "./modules/email/email.module";
 // Conversation Management
 import { ConversationManagementModule } from "./modules/conversation-management/conversation-management.module";
 
+// Analytics
+import { PostHogModule } from "./modules/posthog/posthog.module";
+
 // Guards
 import { JwtAuthGuard } from "./common/guards/jwt-auth.guard";
 import { ThrottlerGuard } from "@nestjs/throttler";
@@ -136,6 +139,9 @@ import { AppController } from "./app.controller";
 
     // Conversation Management
     ConversationManagementModule,
+
+    // Analytics
+    PostHogModule,
   ],
   providers: [
     // Global guards

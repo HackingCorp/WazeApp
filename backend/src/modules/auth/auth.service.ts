@@ -31,6 +31,7 @@ import {
 import { JwtPayload } from "./strategies/jwt.strategy";
 import { EmailService } from "../email/email.service";
 import { AuditService } from "../audit/audit.service";
+import { PostHogService } from "../posthog/posthog.service";
 
 interface TempAuthCode {
   accessToken: string;
@@ -56,6 +57,7 @@ export class AuthService {
     private emailService: EmailService,
     private auditService: AuditService,
     private planService: PlanService,
+    private posthogService: PostHogService,
   ) {}
 
   async register(dto: RegisterDto): Promise<AuthResponseDto> {
@@ -143,6 +145,17 @@ export class AuthService {
       description: "User registered",
     });
 
+    // PostHog: identify and track registration
+    this.posthogService.identify(user.id, {
+      email: user.email,
+      name: `${user.firstName} ${user.lastName}`,
+      plan: selectedPlan,
+    });
+    this.posthogService.capture(user.id, 'user_registered', {
+      plan: selectedPlan,
+      hasOrganization: !!dto.organizationName,
+    });
+
     // Generate tokens
     const tokens = await this.generateTokens(user, organization?.id);
 
@@ -190,6 +203,9 @@ export class AuthService {
       organizationId: membership?.organization?.id,
       description: "User logged in",
     });
+
+    // PostHog: track login
+    this.posthogService.capture(user.id, 'user_logged_in');
 
     // Generate tokens
     const tokens = await this.generateTokens(
@@ -353,6 +369,9 @@ export class AuthService {
       emailVerified: true,
       emailVerificationToken: null,
     });
+
+    // PostHog: track email verified
+    this.posthogService.capture(user.id, 'email_verified');
 
     // Send welcome email
     await this.emailService.sendWelcomeEmail(user.email, user.firstName);

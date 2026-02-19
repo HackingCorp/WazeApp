@@ -5,6 +5,7 @@ import Link from "next/link"
 import { motion } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { Check, X, Sparkles, Loader2 } from "lucide-react"
+import posthog from "posthog-js"
 import { useTranslations } from "@/lib/hooks/use-translations"
 
 // API URL - uses environment variable or defaults to production
@@ -388,7 +389,11 @@ export default function PricingPage() {
                   )}
                 </div>
 
-                <Link href={`/register?plan=${plan.id.toLowerCase()}`}>
+                <Link href={`/register?plan=${plan.id.toLowerCase()}`} onClick={() => {
+                  if (posthog.__loaded) {
+                    posthog.capture('pricing_plan_selected', { plan: plan.id, billing: billingPeriod });
+                  }
+                }}>
                   <Button className="w-full" variant={plan.popular ? "default" : "outline"}>
                     {plan.cta}
                   </Button>

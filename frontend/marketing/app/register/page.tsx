@@ -21,6 +21,7 @@ import {
   Sparkles
 } from "lucide-react"
 import { api } from "@/lib/api"
+import posthog from "posthog-js"
 import { PhoneInput } from "@/components/ui/phone-input"
 
 // Plan data with production prices
@@ -170,6 +171,9 @@ function RegisterPageContent() {
 
   const handleNext = () => {
     if (validateStep(currentStep)) {
+      if (posthog.__loaded) {
+        posthog.capture('register_step_completed', { step: currentStep });
+      }
       setCurrentStep(prev => Math.min(prev + 1, 4))
     }
   }
@@ -187,6 +191,10 @@ function RegisterPageContent() {
     setIsLoading(true)
 
     try {
+      if (posthog.__loaded) {
+        posthog.capture('register_submitted', { plan: formData.selectedPlan });
+      }
+
       const response = await api.register({
         firstName: formData.firstName.trim(),
         lastName: formData.lastName.trim(),
@@ -198,6 +206,9 @@ function RegisterPageContent() {
       })
 
       if (response.success) {
+        if (posthog.__loaded) {
+          posthog.capture('register_success', { plan: formData.selectedPlan });
+        }
         // If paid plan selected, redirect to billing page after verification
         if (formData.selectedPlan !== "FREE") {
           router.push(`/verify-email?plan=${formData.selectedPlan.toLowerCase()}`)

@@ -5,7 +5,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/providers/AuthProvider';
 import { useI18n } from '@/providers/I18nProvider';
 import { api } from '@/lib/api';
-import { 
+import { analytics } from '@/lib/analytics';
+import {
   Smartphone, 
   QrCode, 
   CheckCircle, 
@@ -302,6 +303,7 @@ export default function WhatsAppPage() {
       
       setNewSessionName('');
       setShowCreateModal(false);
+      analytics.track('whatsapp_session_created');
       toast.success('WhatsApp session created successfully');
     } catch (error: any) {
       if (process.env.NODE_ENV === 'development') {

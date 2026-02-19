@@ -24,6 +24,7 @@ import { CreateKnowledgeBaseModal } from '@/components/knowledge-base/CreateKnow
 import { DeleteKnowledgeBaseModal } from '@/components/knowledge-base/DeleteKnowledgeBaseModal';
 import { useI18n } from '@/providers/I18nProvider';
 import { api } from '@/lib/api';
+import { analytics } from '@/lib/analytics';
 
 interface Agent {
   id: string;
@@ -205,6 +206,7 @@ export default function KnowledgeBasePage() {
   };
 
   const handleCreateSubmit = (data: Partial<KnowledgeBase>) => {
+    analytics.track('kb_created', { agentId: selectedAgent?.id });
     // TODO: Implement API call
     setShowCreateModal(false);
   };

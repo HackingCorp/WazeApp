@@ -90,6 +90,7 @@
     "passport-microsoft": "^1.0.0",
     "pdf-parse": "^1.1.1",
     "pg": "^8.11.3",
+    "posthog-node": "^5.24.17",
     "puppeteer": "^24.19.0",
     "qrcode": "^1.5.3",
     "reflect-metadata": "^0.1.13",

@@ -1,0 +1,10 @@
+<clickhouse>
+    <kafka>
+        <broker_list>posthog-kafka:9092</broker_list>
+    </kafka>
+    <logger>
+        <level>warning</level>
+        <console>true</console>
+    </logger>
+    <listen_host>0.0.0.0</listen_host>
+</clickhouse>

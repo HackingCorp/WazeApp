@@ -1,0 +1,22 @@
+#!/usr/bin/env python3
+import socket, sys, time
+
+def wait_for(host, port, name, timeout=300):
+    start = time.time()
+    while time.time() - start < timeout:
+        try:
+            s = socket.create_connection((host, port), timeout=2)
+            s.close()
+            print(f"[OK] {name} ({host}:{port}) is ready")
+            return
+        except Exception:
+            print(f"[..] Waiting for {name} ({host}:{port})...")
+            time.sleep(3)
+    print(f"[FAIL] {name} not ready after {timeout}s", file=sys.stderr)
+    sys.exit(1)
+
+wait_for("posthog-clickhouse", 9000, "ClickHouse")
+wait_for("posthog-db", 5432, "PostgreSQL")
+wait_for("posthog-kafka", 9092, "Kafka")
+wait_for("posthog-redis", 6379, "Redis")
+print("[OK] All dependencies ready")

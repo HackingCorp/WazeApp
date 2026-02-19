@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { Suspense, useEffect, useRef } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 import posthog from 'posthog-js';
 import { useAuth } from '@/providers/AuthProvider';
@@ -8,9 +8,21 @@ import { useAuth } from '@/providers/AuthProvider';
 const POSTHOG_KEY = process.env.NEXT_PUBLIC_POSTHOG_KEY;
 const POSTHOG_HOST = process.env.NEXT_PUBLIC_POSTHOG_HOST || 'https://analytics.wazeapp.xyz';
 
-export function PostHogProvider({ children }: { children: React.ReactNode }) {
+function PostHogPageviewTracker() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
+
+  useEffect(() => {
+    if (!POSTHOG_KEY || !posthog.__loaded) return;
+
+    const url = window.origin + pathname + (searchParams?.toString() ? `?${searchParams.toString()}` : '');
+    posthog.capture('$pageview', { $current_url: url });
+  }, [pathname, searchParams]);
+
+  return null;
+}
+
+export function PostHogProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   const prevUserIdRef = useRef<string | null>(null);
 
@@ -27,14 +39,6 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
       persistence: 'localStorage+cookie',
     });
   }, []);
-
-  // Track pageviews on route change
-  useEffect(() => {
-    if (!POSTHOG_KEY || !posthog.__loaded) return;
-
-    const url = window.origin + pathname + (searchParams?.toString() ? `?${searchParams.toString()}` : '');
-    posthog.capture('$pageview', { $current_url: url });
-  }, [pathname, searchParams]);
 
   // Identify user when auth state changes
   useEffect(() => {
@@ -55,5 +59,12 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
     }
   }, [user]);
 
-  return <>{children}</>;
+  return (
+    <>
+      <Suspense fallback={null}>
+        <PostHogPageviewTracker />
+      </Suspense>
+      {children}
+    </>
+  );
 }

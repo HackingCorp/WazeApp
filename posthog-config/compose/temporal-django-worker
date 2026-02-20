@@ -1,4 +1,0 @@
-#!/bin/bash
-set -e
-/compose/wait
-exec python3 manage.py start_temporal_worker

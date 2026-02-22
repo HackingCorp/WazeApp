@@ -20,6 +20,7 @@ import { StripeService } from './stripe.service';
 import { CreateCheckoutSessionDto, CreatePortalSessionDto, CreateCreditCheckoutDto } from './dto/stripe.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { Public } from '../../common/decorators/public.decorator';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Subscription, Organization } from '../../common/entities';
@@ -143,6 +144,7 @@ export class StripeController {
     return { sessionId: result.sessionId, url: result.url };
   }
 
+  @Public()
   @Post('webhook')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Stripe webhook endpoint' })
@@ -175,6 +177,7 @@ export class StripeController {
     return { received: true };
   }
 
+  @Public()
   @Get('config')
   @ApiOperation({ summary: 'Get Stripe publishable key' })
   getConfig() {

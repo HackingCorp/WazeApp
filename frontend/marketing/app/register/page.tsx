@@ -276,13 +276,13 @@ function RegisterPageContent() {
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
                 {plans.map((plan) => (
                   <button
                     key={plan.id}
                     type="button"
                     onClick={() => setFormData({ ...formData, selectedPlan: plan.id })}
-                    className={`relative p-5 rounded-xl border-2 text-left transition-all ${
+                    className={`relative p-6 rounded-xl border-2 text-left transition-all ${
                       formData.selectedPlan === plan.id
                         ? "border-primary bg-primary/5 dark:bg-primary/10"
                         : "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600"
@@ -605,7 +605,7 @@ function RegisterPageContent() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="w-full max-w-md"
+        className={`w-full ${currentStep === 1 ? 'max-w-3xl' : 'max-w-md'}`}
       >
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8">
           <Link
@@ -646,7 +646,7 @@ function RegisterPageContent() {
                   )}
                 </div>
                 {index < steps.length - 1 && (
-                  <div className={`w-8 h-1 mx-1 ${
+                  <div className={`w-8 sm:w-16 h-1 mx-1 ${
                     currentStep > step.id ? 'bg-green-500' : 'bg-gray-200 dark:bg-gray-600'
                   }`} />
                 )}

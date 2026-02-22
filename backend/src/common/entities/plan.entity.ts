@@ -151,6 +151,19 @@ export class Plan extends BaseEntity {
   @Column({ default: false })
   featureScheduledCampaigns: boolean;
 
+  // Stripe integration
+  @ApiProperty({ description: 'Stripe Product ID' })
+  @Column({ nullable: true })
+  stripeProductId?: string;
+
+  @ApiProperty({ description: 'Stripe Price ID for monthly billing' })
+  @Column({ nullable: true })
+  stripePriceMonthlyId?: string;
+
+  @ApiProperty({ description: 'Stripe Price ID for annual billing' })
+  @Column({ nullable: true })
+  stripePriceAnnualId?: string;
+
   @ApiProperty({ description: 'Plan is active and available for purchase' })
   @Column({ default: true })
   isActive: boolean;

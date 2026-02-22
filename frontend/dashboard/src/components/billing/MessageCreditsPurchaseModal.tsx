@@ -11,7 +11,7 @@ interface MessageCreditsPurchaseModalProps {
   onSuccess: () => void;
 }
 
-type PaymentProvider = 'mtn' | 'orange' | 'enkap';
+type PaymentProvider = 'mtn' | 'orange' | 'enkap' | 'stripe';
 type PaymentStatus = 'idle' | 'processing' | 'pending' | 'success' | 'failed';
 
 interface PricingInfo {
@@ -160,6 +160,27 @@ export function MessageCreditsPurchaseModal({
     setError(null);
 
     try {
+      if (provider === 'stripe') {
+        // Initiate Stripe payment for credits
+        const response = await api.createStripeCreditCheckout({
+          amount,
+        });
+
+        if (response.success && response.data) {
+          const data = response.data;
+          if (data.url) {
+            window.location.href = data.url;
+          } else {
+            setStatus('failed');
+            setError('URL de paiement Stripe non disponible');
+          }
+        } else {
+          setStatus('failed');
+          setError(response.error || 'Erreur lors de la creation de la session Stripe');
+        }
+        return;
+      }
+
       if (provider === 'enkap') {
         // Initiate E-nkap payment (card payment)
         const merchantReference = `MSGCRED-${Date.now()}-${Math.random().toString(36).substring(7)}`;
@@ -522,7 +543,7 @@ export function MessageCreditsPurchaseModal({
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
                   Choisissez votre mode de paiement
                 </label>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-2 gap-3">
                   <button
                     onClick={() => setProvider('mtn')}
                     className={clsx(
@@ -565,11 +586,25 @@ export function MessageCreditsPurchaseModal({
                     </div>
                     <span className="text-xs font-medium text-gray-900 dark:text-white">Carte bancaire</span>
                   </button>
+                  <button
+                    onClick={() => setProvider('stripe')}
+                    className={clsx(
+                      'p-3 rounded-xl border-2 transition-all flex flex-col items-center gap-2',
+                      provider === 'stripe'
+                        ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20'
+                        : 'border-gray-200 dark:border-gray-600 hover:border-purple-300'
+                    )}
+                  >
+                    <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-full flex items-center justify-center">
+                      <CreditCard className="w-5 h-5 text-white" />
+                    </div>
+                    <span className="text-xs font-medium text-gray-900 dark:text-white">Stripe</span>
+                  </button>
                 </div>
               </div>
 
               {/* Phone Number Input - Only for Mobile Money */}
-              {provider && provider !== 'enkap' && (
+              {provider && provider !== 'enkap' && provider !== 'stripe' && (
                 <div className="mb-6">
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Numero de telephone
@@ -607,6 +642,19 @@ export function MessageCreditsPurchaseModal({
                 </div>
               )}
 
+              {/* Stripe Payment Info */}
+              {provider === 'stripe' && (
+                <div className="mb-6 p-4 bg-purple-50 dark:bg-purple-900/20 rounded-xl">
+                  <div className="flex items-center gap-3 mb-2">
+                    <CreditCard className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                    <span className="font-medium text-gray-900 dark:text-white">Paiement via Stripe</span>
+                  </div>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    Vous serez redirige vers Stripe pour effectuer votre paiement par carte Visa, Mastercard ou AMEX.
+                  </p>
+                </div>
+              )}
+
               {/* Info Message */}
               <div className="flex items-start gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl mb-6">
                 <AlertCircle className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
@@ -619,16 +667,16 @@ export function MessageCreditsPurchaseModal({
               {/* Submit Button */}
               <button
                 onClick={handleInitiatePayment}
-                disabled={!provider || (provider !== 'enkap' && phoneNumber.replace(/\D/g, '').length < 9)}
+                disabled={!provider || (provider !== 'enkap' && provider !== 'stripe' && phoneNumber.replace(/\D/g, '').length < 9)}
                 className={clsx(
                   'w-full py-3.5 rounded-xl font-semibold transition-all flex items-center justify-center gap-2',
-                  provider && (provider === 'enkap' || phoneNumber.replace(/\D/g, '').length >= 9)
+                  provider && (provider === 'enkap' || provider === 'stripe' || phoneNumber.replace(/\D/g, '').length >= 9)
                     ? 'bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-600 hover:to-green-600 text-white shadow-lg shadow-emerald-500/25'
                     : 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed'
                 )}
               >
-                {provider === 'enkap' ? <CreditCard className="w-5 h-5" /> : <Gift className="w-5 h-5" />}
-                {provider === 'enkap' ? 'Payer par carte' : 'Acheter'} {amount.toLocaleString()} messages - {calculatedPrice?.xaf.toLocaleString()} FCFA
+                {provider === 'enkap' || provider === 'stripe' ? <CreditCard className="w-5 h-5" /> : <Gift className="w-5 h-5" />}
+                {provider === 'stripe' ? 'Payer via Stripe' : provider === 'enkap' ? 'Payer par carte' : 'Acheter'} {amount.toLocaleString()} messages - {calculatedPrice?.xaf.toLocaleString()} FCFA
               </button>
             </>
           )}

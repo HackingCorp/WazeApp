@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Check, Zap, Shield, Crown, Star, CreditCard, ArrowRight, AlertTriangle, Sparkles, Smartphone, Globe, ChevronDown } from 'lucide-react';
+import { Check, Zap, Shield, Crown, Star, CreditCard, ArrowRight, AlertTriangle, Sparkles, Smartphone, Globe, ChevronDown, ExternalLink, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import clsx from 'clsx';
 import { PaymentModal } from './PaymentModal';
@@ -185,6 +185,7 @@ export function SubscriptionManager({
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [planToPurchase, setPlanToPurchase] = useState<Plan | null>(null);
+  const [stripePortalLoading, setStripePortalLoading] = useState(false);
 
   // Currency state
   const [selectedCurrency, setSelectedCurrency] = useState('USD');
@@ -317,6 +318,27 @@ export function SubscriptionManager({
     // Reload the page to reflect changes
     window.location.reload();
   };
+
+  // Redirect to Stripe Customer Portal to manage subscription
+  const handleManageStripeSubscription = async () => {
+    setStripePortalLoading(true);
+    try {
+      const response = await api.createStripePortalSession(window.location.href) as any;
+      if (response.success && response.data?.url) {
+        window.location.href = response.data.url;
+      } else {
+        console.error('Failed to create Stripe portal session:', response);
+      }
+    } catch (error) {
+      console.error('Error creating Stripe portal session:', error);
+    } finally {
+      setStripePortalLoading(false);
+    }
+  };
+
+  // Check if user has a Stripe-managed subscription
+  const hasStripeSubscription = !!(user as any)?.organization?.subscription?.stripeSubscriptionId
+    || !!(user as any)?.subscription?.stripeSubscriptionId;
 
   // Get the current currency symbol
   const getCurrentCurrencySymbol = () => {
@@ -750,14 +772,30 @@ export function SubscriptionManager({
                 </p>
               </div>
             </div>
-            {getPlanPrice(currentPlanData.id).price > 0 && (
-              <div className="text-left md:text-right">
-                <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Next billing date</p>
-                <p className="text-lg font-semibold text-gray-900 dark:text-white" suppressHydrationWarning>
-                  {format(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), 'MMMM dd, yyyy')}
-                </p>
-              </div>
-            )}
+            <div className="flex items-center gap-4">
+              {getPlanPrice(currentPlanData.id).price > 0 && (
+                <div className="text-left md:text-right">
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Next billing date</p>
+                  <p className="text-lg font-semibold text-gray-900 dark:text-white" suppressHydrationWarning>
+                    {format(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), 'MMMM dd, yyyy')}
+                  </p>
+                </div>
+              )}
+              {hasStripeSubscription && (
+                <button
+                  onClick={handleManageStripeSubscription}
+                  disabled={stripePortalLoading}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white font-semibold rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-purple-500/25"
+                >
+                  {stripePortalLoading ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <ExternalLink className="w-4 h-4" />
+                  )}
+                  Gérer l'abonnement
+                </button>
+              )}
+            </div>
           </div>
         </div>
       )}

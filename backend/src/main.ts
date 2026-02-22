@@ -17,6 +17,7 @@ import { BaileysService } from "./modules/whatsapp/baileys.service";
 async function bootstrap() {
   const isProduction = process.env.NODE_ENV === "production";
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    rawBody: true, // Required for Stripe webhook signature verification
     logger: isProduction
       ? ["error", "warn", "log"]
       : ["error", "warn", "log", "debug", "verbose"],

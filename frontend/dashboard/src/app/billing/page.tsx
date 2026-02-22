@@ -78,14 +78,39 @@ export default function BillingPage() {
   const [showInvoicePaymentModal, setShowInvoicePaymentModal] = useState(false);
   const searchParams = useSearchParams();
 
-  // Handle E-nkap payment return
+  // Handle E-nkap and Stripe payment returns
   useEffect(() => {
     if (!searchParams) return;
 
     const paymentStatus = searchParams.get('payment');
     const plan = searchParams.get('plan');
+    const sessionId = searchParams.get('session_id');
 
-    if (paymentStatus === 'success' && plan) {
+    // Handle Stripe return (redirect after Checkout)
+    if (paymentStatus === 'stripe' && sessionId) {
+      toast.success('Paiement Stripe en cours de traitement...', {
+        duration: 5000,
+      });
+
+      // Refresh user data to get updated subscription (wait for Stripe webhook to process)
+      setTimeout(() => {
+        refreshAuth();
+        fetchInvoices();
+      }, 4000);
+
+      // Clean URL parameters
+      const url = new URL(window.location.href);
+      url.searchParams.delete('payment');
+      url.searchParams.delete('session_id');
+      window.history.replaceState({}, '', url.pathname);
+    } else if (paymentStatus === 'stripe-cancelled') {
+      toast.error('Paiement Stripe annulé.');
+
+      // Clean URL parameters
+      const url = new URL(window.location.href);
+      url.searchParams.delete('payment');
+      window.history.replaceState({}, '', url.pathname);
+    } else if (paymentStatus === 'success' && plan) {
       toast.success(t('billing.paymentReceived').replace('{{plan}}', plan.toUpperCase()), {
         duration: 5000,
       });

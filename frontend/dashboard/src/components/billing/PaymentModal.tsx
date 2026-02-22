@@ -24,7 +24,7 @@ interface PaymentModalProps {
   billingPeriod?: 'monthly' | 'annually';
 }
 
-type PaymentMethod = 'mobile' | 'card' | null;
+type PaymentMethod = 'mobile' | 'card' | 'stripe' | null;
 type MobileProvider = 'mtn' | 'orange';
 type PaymentStatus = 'idle' | 'processing' | 'pending' | 'success' | 'failed' | 'redirecting';
 
@@ -343,6 +343,45 @@ export function PaymentModal({
     }
   };
 
+  // ============================================
+  // STRIPE INTERNATIONAL CARD PAYMENT
+  // ============================================
+  const handleStripePayment = async () => {
+    if (!plan) return;
+
+    setStatus('processing');
+    setError(null);
+
+    try {
+      const response = await api.createStripeCheckoutSession({
+        plan: plan.id.toUpperCase() as 'STANDARD' | 'PRO' | 'ENTERPRISE',
+        billingPeriod,
+      });
+
+      if (response.success && response.data) {
+        const data = response.data;
+        if (data.url) {
+          setStatus('redirecting');
+          setTimeout(() => {
+            window.location.href = data.url;
+          }, 1500);
+        } else {
+          setStatus('failed');
+          setError('URL de paiement Stripe non disponible');
+        }
+      } else {
+        setStatus('failed');
+        setError(response.error || 'Erreur lors de la creation de la session Stripe');
+      }
+    } catch (err) {
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Stripe payment error:', err);
+      }
+      setStatus('failed');
+      setError('Une erreur est survenue. Veuillez reessayer.');
+    }
+  };
+
   const handleBack = () => {
     setPaymentMethod(null);
     setStatus('idle');
@@ -367,7 +406,8 @@ export function PaymentModal({
             )}
             <h2 className="text-xl font-bold text-white">
               {!paymentMethod ? 'Choisir le mode de paiement' :
-               paymentMethod === 'mobile' ? 'Paiement Mobile Money' : 'Paiement par Carte'}
+               paymentMethod === 'mobile' ? 'Paiement Mobile Money' :
+               paymentMethod === 'stripe' ? 'Carte Internationale (Stripe)' : 'Paiement par Carte'}
             </h2>
           </div>
           <button
@@ -504,7 +544,7 @@ export function PaymentModal({
                   </div>
                 </button>
 
-                {/* Card Payment Option */}
+                {/* Card Payment Option (E-nkap) */}
                 <button
                   onClick={() => setPaymentMethod('card')}
                   className="w-full p-4 rounded-xl border-2 border-gray-200 dark:border-gray-600 hover:border-blue-400 dark:hover:border-blue-500 transition-all flex items-center gap-4 group"
@@ -526,6 +566,35 @@ export function PaymentModal({
                     </div>
                     <div className="w-10 h-6 bg-red-500 rounded flex items-center justify-center">
                       <span className="text-white text-[8px] font-bold">MC</span>
+                    </div>
+                  </div>
+                </button>
+
+                {/* Stripe International Card Payment */}
+                <button
+                  onClick={() => setPaymentMethod('stripe')}
+                  className="w-full p-4 rounded-xl border-2 border-gray-200 dark:border-gray-600 hover:border-purple-400 dark:hover:border-purple-500 transition-all flex items-center gap-4 group"
+                >
+                  <div className="w-14 h-14 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl flex items-center justify-center">
+                    <CreditCard className="w-7 h-7 text-white" />
+                  </div>
+                  <div className="text-left flex-1">
+                    <h3 className="font-semibold text-gray-900 dark:text-white group-hover:text-purple-600 dark:group-hover:text-purple-400">
+                      Carte Internationale (Stripe)
+                    </h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      Visa, Mastercard, AMEX - Renouvellement auto
+                    </p>
+                  </div>
+                  <div className="flex gap-1">
+                    <div className="w-10 h-6 bg-blue-700 rounded flex items-center justify-center">
+                      <span className="text-white text-[8px] font-bold italic">VISA</span>
+                    </div>
+                    <div className="w-10 h-6 bg-red-500 rounded flex items-center justify-center">
+                      <span className="text-white text-[8px] font-bold">MC</span>
+                    </div>
+                    <div className="w-10 h-6 bg-blue-500 rounded flex items-center justify-center">
+                      <span className="text-white text-[7px] font-bold">AMEX</span>
                     </div>
                   </div>
                 </button>
@@ -648,6 +717,70 @@ export function PaymentModal({
               >
                 <Smartphone className="w-5 h-5" />
                 Payer {displayPrice.toLocaleString()} {displayCurrency}
+              </button>
+            </>
+          )}
+
+          {/* Stripe Payment Form */}
+          {status === 'idle' && paymentMethod === 'stripe' && (
+            <>
+              {/* Plan Summary */}
+              <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 mb-6">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-gray-600 dark:text-gray-400">Plan</span>
+                  <span className="font-semibold text-gray-900 dark:text-white">{plan.name}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600 dark:text-gray-400">Montant</span>
+                  <span className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
+                    {displayPrice.toLocaleString()} {displayCurrency}
+                  </span>
+                </div>
+              </div>
+
+              {/* Payment Methods Display */}
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                  Methodes acceptees via Stripe
+                </label>
+                <div className="flex items-center justify-center gap-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
+                  <div className="flex flex-col items-center gap-1">
+                    <div className="w-14 h-9 bg-gradient-to-r from-blue-600 to-blue-800 rounded flex items-center justify-center">
+                      <span className="text-white text-sm font-bold italic">VISA</span>
+                    </div>
+                    <span className="text-xs text-gray-500">Visa</span>
+                  </div>
+                  <div className="flex flex-col items-center gap-1">
+                    <div className="w-14 h-9 bg-gradient-to-r from-red-500 to-orange-500 rounded flex items-center justify-center">
+                      <span className="text-white text-xs font-bold">Mastercard</span>
+                    </div>
+                    <span className="text-xs text-gray-500">Mastercard</span>
+                  </div>
+                  <div className="flex flex-col items-center gap-1">
+                    <div className="w-14 h-9 bg-gradient-to-r from-blue-400 to-blue-600 rounded flex items-center justify-center">
+                      <span className="text-white text-[10px] font-bold">AMEX</span>
+                    </div>
+                    <span className="text-xs text-gray-500">AMEX</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Info Message */}
+              <div className="flex items-start gap-3 p-3 bg-purple-50 dark:bg-purple-900/20 rounded-xl mb-6">
+                <AlertCircle className="w-5 h-5 text-purple-500 flex-shrink-0 mt-0.5" />
+                <div className="text-sm text-purple-700 dark:text-purple-300">
+                  <p>Vous serez redirige vers la plateforme securisee Stripe.</p>
+                  <p className="mt-1 font-medium">Renouvellement automatique - Gerez votre abonnement depuis le portail Stripe.</p>
+                </div>
+              </div>
+
+              {/* Submit Button */}
+              <button
+                onClick={handleStripePayment}
+                className="w-full py-3.5 rounded-xl font-semibold transition-all flex items-center justify-center gap-2 bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white shadow-lg shadow-purple-500/25"
+              >
+                <CreditCard className="w-5 h-5" />
+                Payer via Stripe
               </button>
             </>
           )}

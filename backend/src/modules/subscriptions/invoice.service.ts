@@ -385,6 +385,9 @@ export class InvoiceService {
     const DAYS_BEFORE_RENEWAL = 10; // Generate invoice 10 days before end
 
     for (const subscription of subscriptions) {
+      // Skip Stripe-managed subscriptions — Stripe handles renewal automatically
+      if (subscription.stripeSubscriptionId) continue;
+
       const planCode = subscription.plan.toLowerCase();
       const planPrice = this.planService.getPlanPriceXAF(planCode);
       if (planCode === 'free' || planPrice === 0) continue;
@@ -576,6 +579,9 @@ export class InvoiceService {
     });
 
     for (const invoice of pendingInvoices) {
+      // Skip invoices for Stripe-managed subscriptions
+      if (invoice.subscription?.stripeSubscriptionId) continue;
+
       const daysUntilDue = Math.ceil(
         (invoice.dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
       );

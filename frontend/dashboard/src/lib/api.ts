@@ -1377,6 +1377,44 @@ class ApiClient {
       body: JSON.stringify(data),
     });
   }
+
+  // ============================================
+  // STRIPE PAYMENT ENDPOINTS
+  // ============================================
+
+  async createStripeCheckoutSession(data: {
+    plan: 'STANDARD' | 'PRO' | 'ENTERPRISE';
+    billingPeriod?: 'monthly' | 'annually';
+    successUrl?: string;
+    cancelUrl?: string;
+  }) {
+    return this.request('/payments/stripe/checkout-session', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async createStripePortalSession(returnUrl?: string) {
+    return this.request('/payments/stripe/portal-session', {
+      method: 'POST',
+      body: JSON.stringify({ returnUrl }),
+    });
+  }
+
+  async createStripeCreditCheckout(data: {
+    amount: number;
+    successUrl?: string;
+    cancelUrl?: string;
+  }) {
+    return this.request('/payments/stripe/credit-checkout', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getStripeConfig() {
+    return this.request('/payments/stripe/config');
+  }
 }
 
 export const api = new ApiClient(API_BASE_URL);
@@ -1434,6 +1472,12 @@ export const apiHelpers = {
     getHistory: (limit?: number, offset?: number) => api.getMessageCreditsHistory(limit, offset),
     purchase: (data: Parameters<typeof api.purchaseMessageCredits>[0]) => api.purchaseMessageCredits(data),
     initiatePurchase: (data: Parameters<typeof api.initiateMessageCreditsPurchase>[0]) => api.initiateMessageCreditsPurchase(data),
+  },
+  stripe: {
+    createCheckoutSession: (data: Parameters<typeof api.createStripeCheckoutSession>[0]) => api.createStripeCheckoutSession(data),
+    createPortalSession: (returnUrl?: string) => api.createStripePortalSession(returnUrl),
+    createCreditCheckout: (data: Parameters<typeof api.createStripeCreditCheckout>[0]) => api.createStripeCreditCheckout(data),
+    getConfig: () => api.getStripeConfig(),
   },
 };
 

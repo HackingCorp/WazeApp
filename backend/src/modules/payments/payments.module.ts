@@ -6,9 +6,12 @@ import { S3PService } from './s3p.service';
 import { EnkapService } from './enkap.service';
 import { CurrencyService } from './currency.service';
 import { SubscriptionUpgradeService } from './subscription-upgrade.service';
+import { StripeService } from './stripe.service';
 import { MobileMoneyController } from './mobile-money.controller';
 import { PricingController } from './pricing.controller';
-import { Subscription, User, Organization, Invoice } from '../../common/entities';
+import { StripeController } from './stripe.controller';
+import { Subscription, User, Organization, Invoice, Plan } from '../../common/entities';
+import { MessageCredit } from '../../common/entities/message-credit.entity';
 import { EmailModule } from '../email/email.module';
 import { SubscriptionModule } from '../subscriptions/subscription.module';
 
@@ -19,12 +22,12 @@ import { SubscriptionModule } from '../subscriptions/subscription.module';
       maxRedirects: 5,
     }),
     ConfigModule,
-    TypeOrmModule.forFeature([Subscription, User, Organization, Invoice]),
+    TypeOrmModule.forFeature([Subscription, User, Organization, Invoice, Plan, MessageCredit]),
     EmailModule,
     forwardRef(() => SubscriptionModule), // Import SubscriptionModule for PlanService
   ],
-  controllers: [MobileMoneyController, PricingController],
-  providers: [S3PService, EnkapService, CurrencyService, SubscriptionUpgradeService],
-  exports: [S3PService, EnkapService, CurrencyService, SubscriptionUpgradeService],
+  controllers: [MobileMoneyController, PricingController, StripeController],
+  providers: [S3PService, EnkapService, CurrencyService, SubscriptionUpgradeService, StripeService],
+  exports: [S3PService, EnkapService, CurrencyService, SubscriptionUpgradeService, StripeService],
 })
 export class PaymentsModule {}

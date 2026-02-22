@@ -7,6 +7,7 @@ import {
   IsOptional,
   IsUUID,
   IsBoolean,
+  IsIn,
 } from "class-validator";
 import { Transform } from "class-transformer";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
@@ -67,7 +68,7 @@ export class RegisterDto {
 
   @ApiPropertyOptional({ description: "Payment method preference", enum: ['stripe', 'mobile_money'] })
   @IsOptional()
-  @IsString()
+  @IsIn(['stripe', 'mobile_money'])
   paymentMethod?: 'stripe' | 'mobile_money';
 }
 

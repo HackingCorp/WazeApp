@@ -166,6 +166,11 @@ class ApiClient {
     });
   }
 
+  // Plans
+  async getPlans(): Promise<ApiResponse<any[]>> {
+    return this.request('/plans');
+  }
+
   // Health check
   async health(): Promise<ApiResponse<any>> {
     return this.request('/health');

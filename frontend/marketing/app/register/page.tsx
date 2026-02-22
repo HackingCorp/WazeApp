@@ -25,51 +25,24 @@ import { api } from "@/lib/api"
 import posthog from "posthog-js"
 import { PhoneInput } from "@/components/ui/phone-input"
 
-// Plan data with production prices (Free plan removed - all new users get trials)
-const plans = [
-  {
-    id: "STANDARD",
-    name: "Standard",
-    description: "Idéal pour les petites entreprises",
-    price: 29,
-    trialDays: 7,
-    features: [
-      { name: "1 Agent WhatsApp", included: true },
-      { name: "1 000 messages/mois", included: true },
-      { name: "500MB de stockage", included: true },
-      { name: "Support prioritaire", included: true },
-    ],
-    popular: false,
-  },
-  {
-    id: "PRO",
-    name: "Pro",
-    description: "Pour les équipes en croissance",
-    price: 49,
-    trialDays: 14,
-    features: [
-      { name: "3 Agents WhatsApp", included: true },
-      { name: "5 000 messages/mois", included: true },
-      { name: "2GB de stockage", included: true },
-      { name: "Support chat 24h/24", included: true },
-    ],
-    popular: true,
-  },
-  {
-    id: "ENTERPRISE",
-    name: "Entreprise",
-    description: "Pour les grandes organisations",
-    price: 199,
-    trialDays: 14,
-    features: [
-      { name: "10 Agents WhatsApp", included: true },
-      { name: "Messages illimités", included: true },
-      { name: "10GB de stockage", included: true },
-      { name: "Support dédié", included: true },
-    ],
-    popular: false,
-  },
-]
+// Plan type from API
+interface PlanData {
+  id: string
+  code: string
+  name: string
+  description: string
+  priceMonthlyUSD: number
+  trialDays: number
+  maxAgents: number
+  maxWhatsAppMessages: number
+  displayOrder: number
+  isActive: boolean
+}
+
+function formatMessages(count: number): string {
+  if (count === -1) return "Messages illimités"
+  return `${count.toLocaleString('fr-FR')} messages/mois`
+}
 
 function RegisterPageContent() {
   const router = useRouter()
@@ -78,6 +51,8 @@ function RegisterPageContent() {
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
+  const [plans, setPlans] = useState<PlanData[]>([])
+  const [plansLoading, setPlansLoading] = useState(true)
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -91,6 +66,41 @@ function RegisterPageContent() {
     paymentMethod: "" as 'stripe' | 'mobile_money' | '',
   })
 
+  // Load plans from API
+  useEffect(() => {
+    async function fetchPlans() {
+      try {
+        const response = await api.getPlans()
+        if (response.success && response.data) {
+          const activePlans = response.data
+            .filter((p: any) => p.isActive && p.code !== 'free')
+            .sort((a: any, b: any) => a.displayOrder - b.displayOrder)
+            .map((p: any) => ({
+              id: p.code.toUpperCase(),
+              code: p.code,
+              name: p.name,
+              description: p.description,
+              priceMonthlyUSD: p.priceMonthlyUSD,
+              trialDays: p.trialDays || 0,
+              maxAgents: p.maxAgents,
+              maxWhatsAppMessages: p.maxWhatsAppMessages,
+              displayOrder: p.displayOrder,
+              isActive: p.isActive,
+            }))
+          setPlans(activePlans)
+          if (activePlans.length > 0 && !activePlans.find((p: PlanData) => p.id === formData.selectedPlan)) {
+            setFormData(prev => ({ ...prev, selectedPlan: activePlans[0].id }))
+          }
+        }
+      } catch (err) {
+        // Silently fail - plans will be empty and user sees loading state
+      } finally {
+        setPlansLoading(false)
+      }
+    }
+    fetchPlans()
+  }, [])
+
   // Check for plan parameter in URL
   useEffect(() => {
     const planParam = searchParams?.get('plan')
@@ -101,7 +111,7 @@ function RegisterPageContent() {
     if (paymentParam === 'cancelled') {
       setError("Paiement annulé. Vous pouvez réessayer ou choisir une autre méthode de paiement.")
     }
-  }, [searchParams])
+  }, [searchParams, plans])
 
   const steps = [
     { id: 1, title: "Forfait", description: "Choisissez votre forfait" },
@@ -261,52 +271,62 @@ function RegisterPageContent() {
             <p className="text-sm text-center text-muted-foreground mb-4">
               Sélectionnez le forfait qui correspond à vos besoins
             </p>
-            <div className="grid grid-cols-3 gap-3">
-              {plans.map((plan) => (
-                <button
-                  key={plan.id}
-                  type="button"
-                  onClick={() => setFormData({ ...formData, selectedPlan: plan.id })}
-                  className={`relative p-4 rounded-xl border-2 text-left transition-all ${
-                    formData.selectedPlan === plan.id
-                      ? "border-primary bg-primary/5 dark:bg-primary/10"
-                      : "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600"
-                  }`}
-                >
-                  {plan.popular && (
-                    <div className="absolute -top-2 right-2">
-                      <span className="bg-primary text-white text-xs px-2 py-0.5 rounded-full flex items-center">
-                        <Sparkles className="h-3 w-3 mr-1" />
-                        Populaire
-                      </span>
-                    </div>
-                  )}
-                  {formData.selectedPlan === plan.id && (
-                    <div className="absolute top-2 left-2">
-                      <CheckCircle className="h-5 w-5 text-primary" />
-                    </div>
-                  )}
-                  <div className={formData.selectedPlan === plan.id ? "pl-6" : ""}>
-                    <h4 className="font-semibold text-gray-900 dark:text-white">{plan.name}</h4>
-                    <p className="text-xs text-muted-foreground mt-1">{plan.description}</p>
-                    <p className="text-lg font-bold text-gray-900 dark:text-white mt-2">
-                      ${plan.price}<span className="text-sm font-normal text-muted-foreground">/mois</span>
-                    </p>
-                    <span className="inline-block mt-1 text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 px-2 py-0.5 rounded-full">
-                      {plan.trialDays} jours d'essai gratuit
-                    </span>
-                    <ul className="mt-3 space-y-1">
-                      {plan.features.slice(0, 2).map((feature, idx) => (
-                        <li key={idx} className="flex items-center text-xs text-gray-600 dark:text-gray-400">
-                          <Check className="h-3 w-3 text-green-500 mr-1 flex-shrink-0" />
-                          {feature.name}
+            {plansLoading ? (
+              <div className="flex justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                {plans.map((plan) => (
+                  <button
+                    key={plan.id}
+                    type="button"
+                    onClick={() => setFormData({ ...formData, selectedPlan: plan.id })}
+                    className={`relative p-5 rounded-xl border-2 text-left transition-all ${
+                      formData.selectedPlan === plan.id
+                        ? "border-primary bg-primary/5 dark:bg-primary/10"
+                        : "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600"
+                    }`}
+                  >
+                    {plan.code === 'pro' && (
+                      <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                        <span className="bg-primary text-white text-xs px-3 py-1 rounded-full flex items-center whitespace-nowrap">
+                          <Sparkles className="h-3 w-3 mr-1" />
+                          Populaire
+                        </span>
+                      </div>
+                    )}
+                    {formData.selectedPlan === plan.id && (
+                      <div className="absolute top-3 right-3">
+                        <CheckCircle className="h-5 w-5 text-primary" />
+                      </div>
+                    )}
+                    <div>
+                      <h4 className="font-bold text-base text-gray-900 dark:text-white">{plan.name}</h4>
+                      <p className="text-xs text-muted-foreground mt-1">{plan.description}</p>
+                      <p className="text-2xl font-bold text-gray-900 dark:text-white mt-3">
+                        ${plan.priceMonthlyUSD}<span className="text-sm font-normal text-muted-foreground">/mois</span>
+                      </p>
+                      {plan.trialDays > 0 && (
+                        <span className="inline-block mt-2 text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 px-2 py-1 rounded-full">
+                          {plan.trialDays} jours d'essai gratuit
+                        </span>
+                      )}
+                      <ul className="mt-3 space-y-2">
+                        <li className="flex items-center text-sm text-gray-600 dark:text-gray-400">
+                          <Check className="h-4 w-4 text-green-500 mr-2 flex-shrink-0" />
+                          {plan.maxAgents} Agent{plan.maxAgents > 1 ? 's' : ''} WhatsApp
                         </li>
-                      ))}
-                    </ul>
-                  </div>
-                </button>
-              ))}
-            </div>
+                        <li className="flex items-center text-sm text-gray-600 dark:text-gray-400">
+                          <Check className="h-4 w-4 text-green-500 mr-2 flex-shrink-0" />
+                          {formatMessages(plan.maxWhatsAppMessages)}
+                        </li>
+                      </ul>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
 
             {/* Payment method selection */}
             <div className="mt-6">
@@ -548,7 +568,7 @@ function RegisterPageContent() {
                 </div>
                 <div className="text-right">
                   <p className="text-lg font-bold text-primary">
-                    ${plans.find(p => p.id === formData.selectedPlan)?.price}/mois
+                    ${plans.find(p => p.id === formData.selectedPlan)?.priceMonthlyUSD}/mois
                   </p>
                   <p className="text-xs text-green-600 dark:text-green-400">
                     {plans.find(p => p.id === formData.selectedPlan)?.trialDays} jours gratuits

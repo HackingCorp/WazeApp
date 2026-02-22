@@ -18,6 +18,7 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { AllowIndividualUsers } from '../../common/decorators/allow-individual-users.decorator';
+import { Public } from '../../common/decorators/public.decorator';
 import { UserRole } from '../../common/enums';
 import { PlanService } from './plan.service';
 import { Plan } from '../../common/entities';
@@ -29,6 +30,7 @@ export class PlanController {
   constructor(private readonly planService: PlanService) {}
 
   @Get()
+  @Public()
   @ApiOperation({ summary: 'Get all available plans' })
   @ApiResponse({
     status: HttpStatus.OK,
@@ -39,6 +41,7 @@ export class PlanController {
   }
 
   @Get(':code')
+  @Public()
   @ApiOperation({ summary: 'Get plan by code' })
   @ApiParam({ name: 'code', description: 'Plan code (free, standard, pro, enterprise)' })
   @ApiResponse({

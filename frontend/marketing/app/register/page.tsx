@@ -80,7 +80,7 @@ function RegisterPageContent() {
               code: p.code,
               name: p.name,
               description: p.description,
-              priceMonthlyUSD: p.priceMonthlyUSD,
+              priceMonthlyUSD: p.priceMonthlyUSD >= 100 ? Math.round(p.priceMonthlyUSD / 100) : p.priceMonthlyUSD,
               trialDays: p.trialDays || 0,
               maxAgents: p.maxAgents,
               maxWhatsAppMessages: p.maxWhatsAppMessages,

@@ -85,6 +85,11 @@ export class EmailService {
 
     const html = this.getVerificationEmailTemplate(verificationUrl);
 
+    if (!this.transporter) {
+      this.logger.warn(`⚠️ SMTP not configured, skipping verification email to ${email}`);
+      return;
+    }
+
     try {
       await this.transporter.sendMail({
         from: `"${this.getFromName()}" <${this.getFromAddress()}>`,
@@ -96,8 +101,8 @@ export class EmailService {
 
       this.logger.log(`✅ Verification email sent to ${email}`);
     } catch (error) {
-      this.logger.error(`❌ Failed to send verification email to ${email}:`, error);
-      throw error;
+      this.logger.error(`❌ Failed to send verification email to ${email}: ${error.message}`);
+      // Don't throw - registration should succeed even if email fails
     }
   }
 

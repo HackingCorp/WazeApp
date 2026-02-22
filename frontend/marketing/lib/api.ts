@@ -30,6 +30,7 @@ interface AuthResponse {
   };
   accessToken: string;
   refreshToken: string;
+  stripeCheckoutUrl?: string;
 }
 
 interface LoginRequest {
@@ -45,6 +46,8 @@ interface RegisterRequest {
   phone?: string;
   organizationName?: string;
   invitationToken?: string;
+  plan?: string;
+  paymentMethod?: 'stripe' | 'mobile_money';
 }
 
 class ApiClient {

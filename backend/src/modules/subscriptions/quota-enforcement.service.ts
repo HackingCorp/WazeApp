@@ -658,6 +658,8 @@ export class QuotaEnforcementService {
       status: subscription.status,
       organizationId,
       organizationName: organization?.name || null,
+      stripeCheckoutPending: subscription.metadata?.stripeCheckoutPending ?? false,
+      stripeSubscriptionId: subscription.stripeSubscriptionId ?? null,
       usage: {
         agents: agentCheck,
         knowledgeBases: kbCheck,
@@ -694,6 +696,8 @@ export class QuotaEnforcementService {
     return {
       plan: subscription.plan,
       status: subscription.status,
+      stripeCheckoutPending: subscription.metadata?.stripeCheckoutPending ?? false,
+      stripeSubscriptionId: subscription.stripeSubscriptionId ?? null,
       usage: {
         agents: agentCheck,
         knowledgeBases: basicQuota,

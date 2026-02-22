@@ -94,6 +94,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               maxStorageBytes: planData.usage?.storage?.limit || 100 * 1024 * 1024,
             },
           },
+          stripeCheckoutPending: planData.stripeCheckoutPending ?? false,
         };
       }
     } catch (error) {
@@ -119,6 +120,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           maxStorageBytes: 100 * 1024 * 1024,
         },
       },
+      stripeCheckoutPending: false,
     };
   };
 
@@ -178,6 +180,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             },
           },
         });
+
+        // Redirect to billing if Stripe checkout is pending
+        if (planInfo.stripeCheckoutPending && !window.location.pathname.includes('/billing')) {
+          router.push('/billing?setup=stripe');
+        }
+
         return;
       }
 
@@ -216,6 +224,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     notifications: { email: true, push: true, sms: false },
                   },
                 });
+
+                // Redirect to billing if Stripe checkout is pending
+                if (planInfo.stripeCheckoutPending && !window.location.pathname.includes('/billing')) {
+                  router.push('/billing?setup=stripe');
+                }
+
                 return;
               }
             }
@@ -278,10 +292,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           },
         },
       });
-      
+
       analytics.track('login_success', { userId: userData.id });
       toast.success(`Welcome back, ${userData.firstName}!`);
-      router.push('/dashboard');
+
+      // Redirect to billing if Stripe checkout is pending
+      if (planInfo.stripeCheckoutPending) {
+        router.push('/billing?setup=stripe');
+      } else {
+        router.push('/dashboard');
+      }
     } catch (error: any) {
       const message = error.message || 'Login failed';
       toast.error(message);

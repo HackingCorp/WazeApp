@@ -66,6 +66,8 @@ export default function BillingPage() {
   const { user, refreshAuth } = useAuth();
   const { t } = useI18n();
   const [isLoading, setIsLoading] = useState(false);
+  const [stripeSetupPending, setStripeSetupPending] = useState(false);
+  const [creatingCheckout, setCreatingCheckout] = useState(false);
 
   useEffect(() => {
     analytics.track('billing_page_viewed');
@@ -78,6 +80,36 @@ export default function BillingPage() {
   const [showInvoicePaymentModal, setShowInvoicePaymentModal] = useState(false);
   const searchParams = useSearchParams();
 
+  // Detect ?setup=stripe (redirect from AuthProvider when stripeCheckoutPending)
+  useEffect(() => {
+    if (searchParams?.get('setup') === 'stripe') {
+      setStripeSetupPending(true);
+    }
+  }, [searchParams]);
+
+  const handleCompleteStripeSetup = async () => {
+    setCreatingCheckout(true);
+    try {
+      const plan = currentPlan !== 'free' ? currentPlan.toUpperCase() : 'STANDARD';
+      const dashboardUrl = window.location.origin;
+      const response = await api.createStripeCheckoutSession({
+        plan: plan as 'STANDARD' | 'PRO' | 'ENTERPRISE',
+        billingPeriod: 'monthly',
+        successUrl: `${dashboardUrl}/billing?payment=stripe&session_id={CHECKOUT_SESSION_ID}`,
+        cancelUrl: `${dashboardUrl}/billing?setup=stripe&payment=stripe-cancelled`,
+      });
+      if (response.success && response.data?.url) {
+        window.location.href = response.data.url;
+      } else {
+        toast.error(response.error || 'Impossible de créer la session de paiement');
+      }
+    } catch (error) {
+      toast.error('Erreur réseau. Veuillez réessayer.');
+    } finally {
+      setCreatingCheckout(false);
+    }
+  };
+
   // Handle E-nkap and Stripe payment returns
   useEffect(() => {
     if (!searchParams) return;
@@ -88,6 +120,9 @@ export default function BillingPage() {
 
     // Handle Stripe return (redirect after Checkout)
     if (paymentStatus === 'stripe' && sessionId) {
+      // Clear the setup pending banner since checkout was completed
+      setStripeSetupPending(false);
+
       toast.success(t('billing.stripeProcessing'), {
         duration: 5000,
       });
@@ -102,6 +137,7 @@ export default function BillingPage() {
       const url = new URL(window.location.href);
       url.searchParams.delete('payment');
       url.searchParams.delete('session_id');
+      url.searchParams.delete('setup');
       window.history.replaceState({}, '', url.pathname);
     } else if (paymentStatus === 'stripe-cancelled') {
       toast.error(t('billing.stripeCancelled'));
@@ -215,6 +251,44 @@ export default function BillingPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      {/* Stripe Setup Banner */}
+      {stripeSetupPending && (
+        <div className="bg-amber-50 dark:bg-amber-900/20 border-b border-amber-200 dark:border-amber-800">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <AlertTriangle className="w-5 h-5 text-amber-500 mr-3 flex-shrink-0" />
+                <div>
+                  <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
+                    Completez votre inscription Stripe pour acceder au dashboard
+                  </p>
+                  <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                    Configurez votre méthode de paiement pour activer votre période d'essai gratuite. Aucun prélèvement immédiat.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={handleCompleteStripeSetup}
+                disabled={creatingCheckout}
+                className="ml-4 inline-flex items-center px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50 flex-shrink-0"
+              >
+                {creatingCheckout ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Chargement...
+                  </>
+                ) : (
+                  <>
+                    <CreditCard className="w-4 h-4 mr-2" />
+                    Compléter le paiement
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Tab Navigation */}
       <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

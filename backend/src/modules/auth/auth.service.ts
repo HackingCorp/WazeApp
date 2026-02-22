@@ -17,9 +17,10 @@ import {
   OrganizationMember,
   Subscription,
 } from "@/common/entities";
-import { UserRole, SubscriptionPlan, AuditAction } from "@/common/enums";
+import { UserRole, SubscriptionPlan, SubscriptionStatus, AuditAction } from "@/common/enums";
 import { PlanService } from "../subscriptions/plan.service";
 import { TrialService } from "../subscriptions/trial.service";
+import { StripeService } from "../payments/stripe.service";
 import {
   RegisterDto,
   LoginDto,
@@ -60,6 +61,7 @@ export class AuthService {
     private planService: PlanService,
     private trialService: TrialService,
     private posthogService: PostHogService,
+    private stripeService: StripeService,
   ) {}
 
   async register(dto: RegisterDto): Promise<AuthResponseDto> {
@@ -116,6 +118,7 @@ export class AuthService {
     const selectedPlan = dto.plan?.toUpperCase() || 'STANDARD';
     const planCode = selectedPlan.toLowerCase();
     const trialDays = this.planService.getTrialDays(planCode);
+    const isStripePayment = dto.paymentMethod === 'stripe' && selectedPlan !== 'FREE';
 
     let subscriptionData: Partial<Subscription>;
     if (trialDays > 0 && selectedPlan !== 'FREE') {
@@ -136,6 +139,7 @@ export class AuthService {
         metadata: {
           trialStartedAt: now.toISOString(),
           trialDays,
+          ...(isStripePayment ? { stripeCheckoutPending: true } : {}),
         },
       };
     } else {
@@ -153,11 +157,31 @@ export class AuthService {
     const subscription = this.subscriptionRepository.create(subscriptionData);
     await this.subscriptionRepository.save(subscription);
 
-    // Start trial async (creates invoice + sends welcome email) - don't block registration
-    if (trialDays > 0 && selectedPlan !== 'FREE') {
+    // For Stripe payments, skip local trial invoice (Stripe handles trials natively via trial_period_days)
+    // For Mobile Money or no payment method, start trial normally (creates invoice + sends welcome email)
+    if (!isStripePayment && trialDays > 0 && selectedPlan !== 'FREE') {
       this.trialService.startTrial(subscription).catch(err => {
         // Log but don't fail registration
       });
+    }
+
+    // Create Stripe Checkout session if Stripe payment method selected
+    let stripeCheckoutUrl: string | undefined;
+    if (isStripePayment) {
+      try {
+        const marketingUrl = this.configService.get('FRONTEND_URL') || 'https://wazeapp.xyz';
+        const checkoutSession = await this.stripeService.createCheckoutSession({
+          userId: user.id,
+          organizationId: organization?.id,
+          planCode: selectedPlan,
+          billingPeriod: 'monthly',
+          successUrl: `${marketingUrl}/verify-email?plan=${planCode}&payment=stripe`,
+          cancelUrl: `${marketingUrl}/register?plan=${planCode}&payment=cancelled`,
+        });
+        stripeCheckoutUrl = checkoutSession.url;
+      } catch (err) {
+        // Log but don't fail registration - user can complete checkout later from billing page
+      }
     }
 
     // Send verification email
@@ -200,6 +224,7 @@ export class AuthService {
         emailVerified: user.emailVerified,
         twoFactorEnabled: user.twoFactorEnabled,
       },
+      ...(stripeCheckoutUrl ? { stripeCheckoutUrl } : {}),
     };
   }
 

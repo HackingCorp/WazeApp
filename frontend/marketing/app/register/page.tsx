@@ -18,32 +18,21 @@ import {
   CheckCircle,
   Check,
   X,
-  Sparkles
+  Sparkles,
+  CreditCard
 } from "lucide-react"
 import { api } from "@/lib/api"
 import posthog from "posthog-js"
 import { PhoneInput } from "@/components/ui/phone-input"
 
-// Plan data with production prices
+// Plan data with production prices (Free plan removed - all new users get trials)
 const plans = [
-  {
-    id: "FREE",
-    name: "Gratuit",
-    description: "Parfait pour essayer WazeApp",
-    price: 0,
-    features: [
-      { name: "1 Agent WhatsApp", included: true },
-      { name: "100 messages/mois", included: true },
-      { name: "100MB de stockage", included: true },
-      { name: "Support par e-mail", included: true },
-    ],
-    popular: false,
-  },
   {
     id: "STANDARD",
     name: "Standard",
     description: "Idéal pour les petites entreprises",
     price: 29,
+    trialDays: 7,
     features: [
       { name: "1 Agent WhatsApp", included: true },
       { name: "1 000 messages/mois", included: true },
@@ -57,6 +46,7 @@ const plans = [
     name: "Pro",
     description: "Pour les équipes en croissance",
     price: 49,
+    trialDays: 14,
     features: [
       { name: "3 Agents WhatsApp", included: true },
       { name: "5 000 messages/mois", included: true },
@@ -70,6 +60,7 @@ const plans = [
     name: "Entreprise",
     description: "Pour les grandes organisations",
     price: 199,
+    trialDays: 14,
     features: [
       { name: "10 Agents WhatsApp", included: true },
       { name: "Messages illimités", included: true },
@@ -96,14 +87,19 @@ function RegisterPageContent() {
     confirmPassword: "",
     organizationName: "",
     acceptTerms: false,
-    selectedPlan: "FREE",
+    selectedPlan: "STANDARD",
+    paymentMethod: "" as 'stripe' | 'mobile_money' | '',
   })
 
   // Check for plan parameter in URL
   useEffect(() => {
     const planParam = searchParams?.get('plan')
+    const paymentParam = searchParams?.get('payment')
     if (planParam && plans.find(p => p.id === planParam.toUpperCase())) {
       setFormData(prev => ({ ...prev, selectedPlan: planParam.toUpperCase() }))
+    }
+    if (paymentParam === 'cancelled') {
+      setError("Paiement annulé. Vous pouvez réessayer ou choisir une autre méthode de paiement.")
     }
   }, [searchParams])
 
@@ -119,7 +115,10 @@ function RegisterPageContent() {
 
     switch (step) {
       case 1:
-        // Plan selection - always valid (has default)
+        if (!formData.paymentMethod) {
+          setError("Veuillez choisir une méthode de paiement")
+          return false
+        }
         return true
 
       case 2:
@@ -203,18 +202,22 @@ function RegisterPageContent() {
         phone: formData.phone.trim() || undefined,
         organizationName: formData.organizationName.trim() || undefined,
         plan: formData.selectedPlan,
+        paymentMethod: formData.paymentMethod || undefined,
       })
 
       if (response.success) {
         if (posthog.__loaded) {
-          posthog.capture('register_success', { plan: formData.selectedPlan });
+          posthog.capture('register_success', { plan: formData.selectedPlan, paymentMethod: formData.paymentMethod });
         }
-        // If paid plan selected, redirect to billing page after verification
-        if (formData.selectedPlan !== "FREE") {
-          router.push(`/verify-email?plan=${formData.selectedPlan.toLowerCase()}`)
-        } else {
-          router.push("/verify-email")
+
+        // If Stripe checkout URL returned, redirect to Stripe Checkout first
+        if (response.data?.stripeCheckoutUrl) {
+          window.location.href = response.data.stripeCheckoutUrl
+          return
         }
+
+        // Otherwise redirect to verify-email (Mobile Money / default flow)
+        router.push(`/verify-email?plan=${formData.selectedPlan.toLowerCase()}`)
       } else {
         setError(response.error || "Échec de l'inscription. Veuillez réessayer.")
       }
@@ -258,7 +261,7 @@ function RegisterPageContent() {
             <p className="text-sm text-center text-muted-foreground mb-4">
               Sélectionnez le forfait qui correspond à vos besoins
             </p>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-3 gap-3">
               {plans.map((plan) => (
                 <button
                   key={plan.id}
@@ -289,6 +292,9 @@ function RegisterPageContent() {
                     <p className="text-lg font-bold text-gray-900 dark:text-white mt-2">
                       ${plan.price}<span className="text-sm font-normal text-muted-foreground">/mois</span>
                     </p>
+                    <span className="inline-block mt-1 text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 px-2 py-0.5 rounded-full">
+                      {plan.trialDays} jours d'essai gratuit
+                    </span>
                     <ul className="mt-3 space-y-1">
                       {plan.features.slice(0, 2).map((feature, idx) => (
                         <li key={idx} className="flex items-center text-xs text-gray-600 dark:text-gray-400">
@@ -301,6 +307,48 @@ function RegisterPageContent() {
                 </button>
               ))}
             </div>
+
+            {/* Payment method selection */}
+            <div className="mt-6">
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                Méthode de paiement
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setFormData({ ...formData, paymentMethod: 'stripe' })}
+                  className={`flex items-center p-3 rounded-xl border-2 text-left transition-all ${
+                    formData.paymentMethod === 'stripe'
+                      ? "border-primary bg-primary/5 dark:bg-primary/10"
+                      : "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600"
+                  }`}
+                >
+                  <CreditCard className="h-5 w-5 text-gray-600 dark:text-gray-400 mr-3 flex-shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium text-gray-900 dark:text-white">Carte bancaire</p>
+                    <p className="text-xs text-muted-foreground">Visa, MC, PayPal</p>
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFormData({ ...formData, paymentMethod: 'mobile_money' })}
+                  className={`flex items-center p-3 rounded-xl border-2 text-left transition-all ${
+                    formData.paymentMethod === 'mobile_money'
+                      ? "border-primary bg-primary/5 dark:bg-primary/10"
+                      : "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600"
+                  }`}
+                >
+                  <svg className="h-5 w-5 text-gray-600 dark:text-gray-400 mr-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                  </svg>
+                  <div>
+                    <p className="text-sm font-medium text-gray-900 dark:text-white">Mobile Money</p>
+                    <p className="text-xs text-muted-foreground">MTN, Orange</p>
+                  </div>
+                </button>
+              </div>
+            </div>
+
             <p className="text-xs text-center text-muted-foreground">
               Vous pourrez modifier votre forfait à tout moment
             </p>
@@ -494,10 +542,16 @@ function RegisterPageContent() {
                   <p className="text-lg font-bold text-gray-900 dark:text-white">
                     {plans.find(p => p.id === formData.selectedPlan)?.name}
                   </p>
+                  <p className="text-xs text-muted-foreground">
+                    {formData.paymentMethod === 'stripe' ? 'Carte bancaire' : 'Mobile Money'}
+                  </p>
                 </div>
                 <div className="text-right">
                   <p className="text-lg font-bold text-primary">
                     ${plans.find(p => p.id === formData.selectedPlan)?.price}/mois
+                  </p>
+                  <p className="text-xs text-green-600 dark:text-green-400">
+                    {plans.find(p => p.id === formData.selectedPlan)?.trialDays} jours gratuits
                   </p>
                 </div>
               </div>
@@ -509,8 +563,10 @@ function RegisterPageContent() {
                 <div>
                   <p className="text-sm font-medium text-green-700 dark:text-green-300">Prêt à commencer !</p>
                   <p className="text-xs text-green-600 dark:text-green-400 mt-1">
-                    Vous recevrez un email de vérification après l'inscription.
-                    {formData.selectedPlan !== "FREE" && " Vous pourrez ensuite procéder au paiement."}
+                    {formData.paymentMethod === 'stripe'
+                      ? "Vous serez redirigé vers Stripe pour configurer votre méthode de paiement. Aucun prélèvement pendant la période d'essai."
+                      : "Vous recevrez un email de vérification après l'inscription."
+                    }
                   </p>
                 </div>
               </div>

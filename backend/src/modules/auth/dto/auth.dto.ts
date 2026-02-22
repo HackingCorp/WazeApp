@@ -64,6 +64,11 @@ export class RegisterDto {
   @IsOptional()
   @IsString()
   plan?: 'FREE' | 'STANDARD' | 'PRO' | 'ENTERPRISE';
+
+  @ApiPropertyOptional({ description: "Payment method preference", enum: ['stripe', 'mobile_money'] })
+  @IsOptional()
+  @IsString()
+  paymentMethod?: 'stripe' | 'mobile_money';
 }
 
 export class LoginDto {
@@ -152,6 +157,10 @@ export class AuthResponseDto {
     emailVerified: boolean;
     twoFactorEnabled: boolean;
   };
+
+  @ApiPropertyOptional({ description: "Stripe Checkout URL for payment setup" })
+  @IsOptional()
+  stripeCheckoutUrl?: string;
 }
 
 export class OAuthCallbackDto {

@@ -381,13 +381,43 @@ export class StripeService {
       // Save Stripe IDs on the subscription
       result.subscription.stripeSubscriptionId = stripeSubscriptionId || null;
       result.subscription.stripeCustomerId = customerId || null;
+
+      // Clear stripeCheckoutPending flag (set during registration for Stripe users)
+      if (result.subscription.metadata?.stripeCheckoutPending) {
+        result.subscription.metadata = {
+          ...result.subscription.metadata,
+          stripeCheckoutPending: false,
+        };
+      }
+
       await this.subscriptionRepository.save(result.subscription);
 
       this.logger.log(
         `Stripe checkout completed: ${planCode} plan for ${organizationId || userId}`,
       );
     } else {
-      this.logger.error(`Failed to process Stripe checkout: ${result.message}`);
+      // If upgrade service didn't find/create subscription (e.g. registration flow),
+      // look for existing TRIALING subscription with stripeCheckoutPending and update it
+      const existingSub = await this.subscriptionRepository.findOne({
+        where: organizationId
+          ? { organizationId }
+          : { userId },
+      });
+
+      if (existingSub && existingSub.metadata?.stripeCheckoutPending) {
+        existingSub.stripeSubscriptionId = stripeSubscriptionId || null;
+        existingSub.stripeCustomerId = customerId || null;
+        existingSub.metadata = {
+          ...existingSub.metadata,
+          stripeCheckoutPending: false,
+        };
+        await this.subscriptionRepository.save(existingSub);
+        this.logger.log(
+          `Stripe checkout completed (registration flow): ${planCode} plan for ${organizationId || userId}`,
+        );
+      } else {
+        this.logger.error(`Failed to process Stripe checkout: ${result.message}`);
+      }
     }
   }
 

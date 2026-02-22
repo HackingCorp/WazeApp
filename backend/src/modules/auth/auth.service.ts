@@ -130,7 +130,7 @@ export class AuthService {
       subscriptionData = {
         userId: user.id.toString(),
         organizationId: organization?.id,
-        plan: selectedPlan as SubscriptionPlan,
+        plan: planCode as SubscriptionPlan,
         status: SubscriptionStatus.TRIALING,
         startsAt: now,
         trialEndsAt,

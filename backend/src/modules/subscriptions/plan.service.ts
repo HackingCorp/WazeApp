@@ -50,7 +50,7 @@ const DEFAULT_PLANS = [
   {
     code: 'standard',
     name: 'Standard',
-    description: 'Great for small businesses',
+    description: 'Idéal pour les petites entreprises',
     priceMonthlyXAF: 19000,
     priceAnnualXAF: 190000,
     priceMonthlyUSD: 29,
@@ -89,7 +89,7 @@ const DEFAULT_PLANS = [
   {
     code: 'pro',
     name: 'Pro',
-    description: 'For growing teams',
+    description: 'Pour les équipes en croissance',
     priceMonthlyXAF: 32000,
     priceAnnualXAF: 320000,
     priceMonthlyUSD: 49,
@@ -127,8 +127,8 @@ const DEFAULT_PLANS = [
   },
   {
     code: 'enterprise',
-    name: 'Enterprise',
-    description: 'For large organizations',
+    name: 'Entreprise',
+    description: 'Pour les grandes organisations',
     priceMonthlyXAF: 130000,
     priceAnnualXAF: 1300000,
     priceMonthlyUSD: 199,

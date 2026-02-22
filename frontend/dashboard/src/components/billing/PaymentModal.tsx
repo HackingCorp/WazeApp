@@ -158,7 +158,7 @@ export function PaymentModal({
         // Check if backend returned success: false (business logic error)
         if (data.success === false) {
           setStatus('failed');
-          setError(data.message || data.error || 'Le paiement a echoue');
+          setError(data.message || data.error || 'Le paiement a échoué');
           return;
         }
 
@@ -176,12 +176,12 @@ export function PaymentModal({
           pollMobilePaymentStatus(data.ptn, data.transactionId, amount);
         } else if (data.status === 'FAILED') {
           setStatus('failed');
-          setError(data.message || data.error || 'Le paiement a echoue');
+          setError(data.message || data.error || 'Le paiement a échoué');
         } else {
           // Status unknown - check if there's an error
           if (data.error || data.message) {
             setStatus('failed');
-            setError(data.message || data.error || 'Le paiement a echoue');
+            setError(data.message || data.error || 'Le paiement a échoué');
           } else {
             // Assume pending if no clear status
             setStatus('pending');
@@ -440,7 +440,7 @@ export function PaymentModal({
                 Redirection vers la page de paiement...
               </h3>
               <p className="text-gray-500 dark:text-gray-400">
-                Vous allez etre redirige vers E-nkap pour finaliser votre paiement
+                Vous allez être redirigé vers E-nkap pour finaliser votre paiement
               </p>
             </div>
           )}
@@ -451,10 +451,10 @@ export function PaymentModal({
                 <Smartphone className="w-8 h-8 text-amber-600 dark:text-amber-400" />
               </div>
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-                Confirmez sur votre telephone
+                Confirmez sur votre téléphone
               </h3>
               <p className="text-gray-500 dark:text-gray-400 mb-4">
-                Un message de confirmation a ete envoye au <strong>{phoneNumber}</strong>
+                Un message de confirmation a été envoyé au <strong>{phoneNumber}</strong>
               </p>
               <p className="text-sm text-amber-600 dark:text-amber-400">
                 Entrez votre code PIN {mobileProvider === 'mtn' ? 'MTN Mobile Money' : 'Orange Money'} pour confirmer
@@ -472,7 +472,7 @@ export function PaymentModal({
                 <CheckCircle className="w-10 h-10 text-emerald-600 dark:text-emerald-400" />
               </div>
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-                Paiement reussi !
+                Paiement réussi !
               </h3>
               <p className="text-gray-500 dark:text-gray-400">
                 Votre abonnement au plan {plan.name} est maintenant actif
@@ -486,7 +486,7 @@ export function PaymentModal({
                 <XCircle className="w-10 h-10 text-red-600 dark:text-red-400" />
               </div>
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-                Paiement echoue
+                Paiement échoué
               </h3>
               <p className="text-gray-500 dark:text-gray-400 mb-4">
                 {error || 'Une erreur est survenue lors du paiement'}
@@ -495,7 +495,7 @@ export function PaymentModal({
                 onClick={() => setStatus('idle')}
                 className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
               >
-                Reessayer
+                Réessayer
               </button>
             </div>
           )}
@@ -622,7 +622,7 @@ export function PaymentModal({
               {/* Provider Selection */}
               <div className="mb-6">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-                  Choisissez votre operateur
+                  Choisissez votre opérateur
                 </label>
                 <div className="grid grid-cols-2 gap-3">
                   <button
@@ -659,7 +659,7 @@ export function PaymentModal({
               {/* Phone Number Input */}
               <div className="mb-6">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Numero de telephone
+                  Numéro de téléphone
                 </label>
                 <div className="relative">
                   <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
@@ -677,7 +677,7 @@ export function PaymentModal({
                 </div>
                 {mobileProvider && (
                   <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-                    Operateur detecte: <span className={mobileProvider === 'mtn' ? 'text-yellow-600' : 'text-orange-600'}>
+                    Opérateur détecté : <span className={mobileProvider === 'mtn' ? 'text-yellow-600' : 'text-orange-600'}>
                       {mobileProvider === 'mtn' ? 'MTN Mobile Money' : 'Orange Money'}
                     </span>
                   </p>
@@ -690,7 +690,7 @@ export function PaymentModal({
                   <XCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
                   <p className="text-sm text-red-700 dark:text-red-300">
                     Ce numero est {detectedProvider === 'orange' ? 'Orange' : 'MTN'}.
-                    Veuillez selectionner le bon operateur.
+                    Veuillez sélectionner le bon opérateur.
                   </p>
                 </div>
               )}
@@ -699,7 +699,7 @@ export function PaymentModal({
               <div className="flex items-start gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl mb-6">
                 <AlertCircle className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
                 <p className="text-sm text-blue-700 dark:text-blue-300">
-                  Vous recevrez une demande de confirmation sur votre telephone.
+                  Vous recevrez une demande de confirmation sur votre téléphone.
                   Assurez-vous d'avoir suffisamment de solde.
                 </p>
               </div>
@@ -769,7 +769,7 @@ export function PaymentModal({
               <div className="flex items-start gap-3 p-3 bg-purple-50 dark:bg-purple-900/20 rounded-xl mb-6">
                 <AlertCircle className="w-5 h-5 text-purple-500 flex-shrink-0 mt-0.5" />
                 <div className="text-sm text-purple-700 dark:text-purple-300">
-                  <p>Vous serez redirige vers la plateforme securisee Stripe.</p>
+                  <p>Vous serez redirigé vers la plateforme sécurisée Stripe.</p>
                   <p className="mt-1 font-medium">Renouvellement automatique - Gerez votre abonnement depuis le portail Stripe.</p>
                 </div>
               </div>
@@ -833,7 +833,7 @@ export function PaymentModal({
               <div className="flex items-start gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl mb-6">
                 <AlertCircle className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
                 <p className="text-sm text-blue-700 dark:text-blue-300">
-                  Vous serez redirige vers la plateforme securisee E-nkap pour finaliser votre paiement.
+                  Vous serez redirigé vers la plateforme sécurisée E-nkap pour finaliser votre paiement.
                 </p>
               </div>
 

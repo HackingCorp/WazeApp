@@ -251,7 +251,7 @@ export function MessageCreditsPurchaseModal({
           // Check if backend returned success: false (business logic error)
           if (data.success === false) {
             setStatus('failed');
-            setError(data.message || data.error || 'Le paiement a echoue');
+            setError(data.message || data.error || 'Le paiement a échoué');
             return;
           }
 
@@ -270,12 +270,12 @@ export function MessageCreditsPurchaseModal({
             pollPaymentStatus(data.ptn, data.transactionId);
           } else if (data.status === 'FAILED') {
             setStatus('failed');
-            setError(data.message || data.error || 'Le paiement a echoue');
+            setError(data.message || data.error || 'Le paiement a échoué');
           } else {
             // Status unknown - check if there's an error
             if (data.error || data.message) {
               setStatus('failed');
-              setError(data.message || data.error || 'Le paiement a echoue');
+              setError(data.message || data.error || 'Le paiement a échoué');
             } else {
               // Assume pending if no clear status
               setStatus('pending');
@@ -349,7 +349,7 @@ export function MessageCreditsPurchaseModal({
           setTimeout(checkStatus, 10000);
         } else {
           setStatus('pending');
-          setError('Le paiement est toujours en attente. Verifiez votre telephone.');
+          setError('Le paiement est toujours en attente. Vérifiez votre téléphone.');
         }
       } catch (err) {
         if (attempts < maxAttempts) {
@@ -403,10 +403,10 @@ export function MessageCreditsPurchaseModal({
                 <Smartphone className="w-8 h-8 text-amber-600 dark:text-amber-400" />
               </div>
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-                Confirmez sur votre telephone
+                Confirmez sur votre téléphone
               </h3>
               <p className="text-gray-500 dark:text-gray-400 mb-4">
-                Un message de confirmation a ete envoye au <strong>{phoneNumber}</strong>
+                Un message de confirmation a été envoyé au <strong>{phoneNumber}</strong>
               </p>
               <p className="text-sm text-amber-600 dark:text-amber-400">
                 Entrez votre code PIN {provider === 'mtn' ? 'MTN Mobile Money' : 'Orange Money'} pour confirmer
@@ -426,10 +426,10 @@ export function MessageCreditsPurchaseModal({
                 <CheckCircle className="w-10 h-10 text-emerald-600 dark:text-emerald-400" />
               </div>
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-                Achat reussi !
+                Achat réussi !
               </h3>
               <p className="text-gray-500 dark:text-gray-400">
-                {amount.toLocaleString()} messages ont ete ajoutes a votre compte
+                {amount.toLocaleString()} messages ont été ajoutés à votre compte
               </p>
             </div>
           )}
@@ -440,7 +440,7 @@ export function MessageCreditsPurchaseModal({
                 <XCircle className="w-10 h-10 text-red-600 dark:text-red-400" />
               </div>
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-                Paiement echoue
+                Paiement échoué
               </h3>
               <p className="text-gray-500 dark:text-gray-400 mb-4">
                 {error || 'Une erreur est survenue lors du paiement'}
@@ -449,7 +449,7 @@ export function MessageCreditsPurchaseModal({
                 onClick={() => setStatus('idle')}
                 className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
               >
-                Reessayer
+                Réessayer
               </button>
             </div>
           )}
@@ -519,7 +519,7 @@ export function MessageCreditsPurchaseModal({
                 <div className="flex justify-between items-center mb-2">
                   <span className="text-gray-600 dark:text-gray-400 flex items-center gap-2">
                     <Clock className="w-4 h-4" />
-                    Validite
+                    Validité
                   </span>
                   <span className="font-medium text-gray-900 dark:text-white">
                     {pricing.expirationDays} jours
@@ -607,7 +607,7 @@ export function MessageCreditsPurchaseModal({
               {provider && provider !== 'enkap' && provider !== 'stripe' && (
                 <div className="mb-6">
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Numero de telephone
+                    Numéro de téléphone
                   </label>
                   <div className="relative">
                     <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
@@ -624,7 +624,7 @@ export function MessageCreditsPurchaseModal({
                     />
                   </div>
                   <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-                    Operateur: <span className={provider === 'mtn' ? 'text-yellow-600' : 'text-orange-600'}>{provider === 'mtn' ? 'MTN Mobile Money' : 'Orange Money'}</span>
+                    Opérateur : <span className={provider === 'mtn' ? 'text-yellow-600' : 'text-orange-600'}>{provider === 'mtn' ? 'MTN Mobile Money' : 'Orange Money'}</span>
                   </p>
                 </div>
               )}
@@ -637,7 +637,7 @@ export function MessageCreditsPurchaseModal({
                     <span className="font-medium text-gray-900 dark:text-white">Paiement par carte bancaire</span>
                   </div>
                   <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Vous serez redirige vers la plateforme securisee E-nkap pour effectuer votre paiement par carte Visa, Mastercard ou autre.
+                    Vous serez redirigé vers la plateforme sécurisée E-nkap pour effectuer votre paiement par carte Visa, Mastercard ou autre.
                   </p>
                 </div>
               )}
@@ -650,7 +650,7 @@ export function MessageCreditsPurchaseModal({
                     <span className="font-medium text-gray-900 dark:text-white">Paiement via Stripe</span>
                   </div>
                   <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Vous serez redirige vers Stripe pour effectuer votre paiement par carte Visa, Mastercard ou AMEX.
+                    Vous serez redirigé vers Stripe pour effectuer votre paiement par carte Visa, Mastercard ou AMEX.
                   </p>
                 </div>
               )}
@@ -659,8 +659,8 @@ export function MessageCreditsPurchaseModal({
               <div className="flex items-start gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl mb-6">
                 <AlertCircle className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
                 <div className="text-sm text-blue-700 dark:text-blue-300">
-                  <p>Les messages bonus sont utilises en priorite avant votre quota mensuel.</p>
-                  <p className="mt-1">Validite: {pricing?.expirationDays} jours apres achat.</p>
+                  <p>Les messages bonus sont utilisés en priorité avant votre quota mensuel.</p>
+                  <p className="mt-1">Validité: {pricing?.expirationDays} jours après achat.</p>
                 </div>
               </div>
 

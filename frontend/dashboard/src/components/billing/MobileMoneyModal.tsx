@@ -151,7 +151,7 @@ export function MobileMoneyModal({
           pollPaymentStatus(data.ptn, data.transactionId, amount);
         } else {
           setStatus('failed');
-          setError(data.message || 'Le paiement a echoue');
+          setError(data.message || 'Le paiement a échoué');
         }
       } else {
         setStatus('failed');
@@ -205,7 +205,7 @@ export function MobileMoneyModal({
           setTimeout(checkStatus, 10000);
         } else {
           setStatus('pending');
-          setError('Le paiement est toujours en attente. Verifiez votre telephone.');
+          setError('Le paiement est toujours en attente. Vérifiez votre téléphone.');
         }
       } catch (err) {
         if (attempts < maxAttempts) {
@@ -257,10 +257,10 @@ export function MobileMoneyModal({
                 <Smartphone className="w-8 h-8 text-amber-600 dark:text-amber-400" />
               </div>
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-                Confirmez sur votre telephone
+                Confirmez sur votre téléphone
               </h3>
               <p className="text-gray-500 dark:text-gray-400 mb-4">
-                Un message de confirmation a ete envoye au <strong>{phoneNumber}</strong>
+                Un message de confirmation a été envoyé au <strong>{phoneNumber}</strong>
               </p>
               <p className="text-sm text-amber-600 dark:text-amber-400">
                 Entrez votre code PIN {provider === 'mtn' ? 'MTN Mobile Money' : 'Orange Money'} pour confirmer
@@ -280,7 +280,7 @@ export function MobileMoneyModal({
                 <CheckCircle className="w-10 h-10 text-emerald-600 dark:text-emerald-400" />
               </div>
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-                Paiement reussi !
+                Paiement réussi !
               </h3>
               <p className="text-gray-500 dark:text-gray-400">
                 Votre abonnement au plan {plan.name} est maintenant actif
@@ -294,7 +294,7 @@ export function MobileMoneyModal({
                 <XCircle className="w-10 h-10 text-red-600 dark:text-red-400" />
               </div>
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-                Paiement echoue
+                Paiement échoué
               </h3>
               <p className="text-gray-500 dark:text-gray-400 mb-4">
                 {error || 'Une erreur est survenue lors du paiement'}
@@ -303,7 +303,7 @@ export function MobileMoneyModal({
                 onClick={() => setStatus('idle')}
                 className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
               >
-                Reessayer
+                Réessayer
               </button>
             </div>
           )}
@@ -327,7 +327,7 @@ export function MobileMoneyModal({
               {/* Provider Selection */}
               <div className="mb-6">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-                  Choisissez votre operateur
+                  Choisissez votre opérateur
                 </label>
                 <div className="grid grid-cols-2 gap-3">
                   <button
@@ -364,7 +364,7 @@ export function MobileMoneyModal({
               {/* Phone Number Input */}
               <div className="mb-6">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Numero de telephone
+                  Numéro de téléphone
                 </label>
                 <div className="relative">
                   <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
@@ -382,7 +382,7 @@ export function MobileMoneyModal({
                 </div>
                 {provider && (
                   <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-                    Operateur detecte: <span className={provider === 'mtn' ? 'text-yellow-600' : 'text-orange-600'}>{provider === 'mtn' ? 'MTN Mobile Money' : 'Orange Money'}</span>
+                    Opérateur détecté : <span className={provider === 'mtn' ? 'text-yellow-600' : 'text-orange-600'}>{provider === 'mtn' ? 'MTN Mobile Money' : 'Orange Money'}</span>
                   </p>
                 )}
               </div>
@@ -391,7 +391,7 @@ export function MobileMoneyModal({
               <div className="flex items-start gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl mb-6">
                 <AlertCircle className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
                 <p className="text-sm text-blue-700 dark:text-blue-300">
-                  Vous recevrez une demande de confirmation sur votre telephone.
+                  Vous recevrez une demande de confirmation sur votre téléphone.
                   Assurez-vous d'avoir suffisamment de solde.
                 </p>
               </div>

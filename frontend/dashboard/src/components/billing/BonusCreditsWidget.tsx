@@ -161,7 +161,7 @@ export function BonusCreditsWidget({ variant = 'full', onRefresh, preloadedCredi
                 Messages Bonus
               </h3>
               <p className="text-sm text-gray-500 dark:text-gray-400">
-                Utilises en priorite
+                Utilisés en priorité
               </p>
             </div>
           </div>

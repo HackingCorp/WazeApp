@@ -6,6 +6,7 @@ import { format } from 'date-fns';
 import clsx from 'clsx';
 import { PaymentModal } from './PaymentModal';
 import { useAuth } from '@/providers/AuthProvider';
+import { useI18n } from '@/providers/I18nProvider';
 import { api } from '@/lib/api';
 
 interface Plan {
@@ -50,22 +51,22 @@ interface ExchangeRateData {
 }
 
 // Plans structure - prices are fetched dynamically from the API
-const plans: Plan[] = [
+const getPlans = (t: (key: string) => string): Plan[] => [
   {
     id: 'free',
     name: 'Free',
     interval: 'month',
-    description: 'Perfect for trying out our platform',
+    description: t('billing.planFreeDesc'),
     icon: Zap,
     gradient: 'from-gray-500 to-gray-600',
     iconBg: 'bg-gray-100 dark:bg-gray-800',
     features: [
-      '1 WhatsApp agent',
-      'Basic analytics',
-      'Email support',
-      'Standard templates',
-      '50 broadcast contacts',
-      '3 message templates',
+      t('billing.feat1Agent'),
+      t('billing.featBasicAnalytics'),
+      t('billing.featEmailSupport'),
+      t('billing.featStandardTemplates'),
+      t('billing.feat50Broadcast'),
+      t('billing.feat3Templates'),
     ],
     limits: {
       maxAgents: 1,
@@ -77,20 +78,20 @@ const plans: Plan[] = [
     id: 'standard',
     name: 'Standard',
     interval: 'month',
-    description: 'Great for small businesses',
+    description: t('billing.planStandardDesc'),
     icon: Shield,
     gradient: 'from-blue-500 to-blue-600',
     iconBg: 'bg-blue-100 dark:bg-blue-900/30',
     features: [
-      '1 WhatsApp agent',
-      'Advanced analytics',
-      'Priority support',
-      'Custom templates',
-      'Basic automation',
-      'File sharing',
-      '500 broadcast contacts',
-      '10 message templates',
-      'Scheduled campaigns',
+      t('billing.feat1Agent'),
+      t('billing.featAdvancedAnalytics'),
+      t('billing.featPrioritySupport'),
+      t('billing.featCustomTemplates'),
+      t('billing.featBasicAutomation'),
+      t('billing.featFileSharing'),
+      t('billing.feat500Broadcast'),
+      t('billing.feat10Templates'),
+      t('billing.featScheduledCampaigns'),
     ],
     limits: {
       maxAgents: 1,
@@ -102,23 +103,23 @@ const plans: Plan[] = [
     id: 'pro',
     name: 'Pro',
     interval: 'month',
-    description: 'Perfect for growing teams',
+    description: t('billing.planProDesc'),
     icon: Crown,
     gradient: 'from-emerald-500 to-green-600',
     iconBg: 'bg-emerald-100 dark:bg-emerald-900/30',
     popular: true,
     features: [
-      '3 WhatsApp agents',
-      'Advanced analytics & reports',
-      '24/7 priority support',
-      'Custom branding',
-      'Advanced automation',
-      'Team collaboration',
-      'API access',
-      '5,000 broadcast contacts',
-      '50 message templates',
-      'Recurring campaigns',
-      'Webhooks integration',
+      t('billing.feat3Agents'),
+      t('billing.featAdvancedAnalyticsReports'),
+      t('billing.feat247Support'),
+      t('billing.featCustomBranding'),
+      t('billing.featAdvancedAutomation'),
+      t('billing.featTeamCollab'),
+      t('billing.featApiAccess'),
+      t('billing.feat5000Broadcast'),
+      t('billing.feat50Templates'),
+      t('billing.featRecurringCampaigns'),
+      t('billing.featWebhooksIntegration'),
     ],
     limits: {
       maxAgents: 3,
@@ -130,23 +131,23 @@ const plans: Plan[] = [
     id: 'enterprise',
     name: 'Enterprise',
     interval: 'month',
-    description: 'For large organizations',
+    description: t('billing.planEnterpriseDesc'),
     icon: Star,
     gradient: 'from-purple-500 to-indigo-600',
     iconBg: 'bg-purple-100 dark:bg-purple-900/30',
     features: [
-      '10 WhatsApp agents',
-      'Custom analytics dashboard',
-      'Dedicated account manager',
-      'White-label solution',
-      'Advanced security features',
-      'Custom integrations',
-      'SLA guarantee',
-      'On-premise deployment',
-      'Unlimited broadcast contacts',
-      'Unlimited templates',
-      'External API access',
-      'Priority webhooks',
+      t('billing.feat10Agents'),
+      t('billing.featCustomAnalytics'),
+      t('billing.featDedicatedManager'),
+      t('billing.featWhiteLabel'),
+      t('billing.featAdvancedSecurity'),
+      t('billing.featCustomIntegrations'),
+      t('billing.featSla'),
+      t('billing.featOnPremise'),
+      t('billing.featUnlimitedBroadcast'),
+      t('billing.featUnlimitedTemplates'),
+      t('billing.featExternalApi'),
+      t('billing.featPriorityWebhooks'),
     ],
     limits: {
       maxAgents: 10,
@@ -180,6 +181,8 @@ export function SubscriptionManager({
   isLoading = false,
 }: SubscriptionManagerProps) {
   const { user } = useAuth();
+  const { t } = useI18n();
+  const plans = getPlans(t);
   const [selectedPlan, setSelectedPlan] = useState(currentPlan);
   const [selectedCycle, setSelectedCycle] = useState(billingCycle);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
@@ -352,7 +355,7 @@ export function SubscriptionManager({
 
     // Free plan is always 0
     if (planId === 'free') {
-      return { price: 0, symbol, formatted: 'Free' };
+      return { price: 0, symbol, formatted: t('billing.free') };
     }
 
     // Use dynamically fetched pricing from backend
@@ -400,21 +403,21 @@ export function SubscriptionManager({
         {plan.popular && (
           <div className="absolute top-0 left-0 right-0 bg-gradient-to-r from-emerald-500 to-green-500 text-white text-center py-2 text-sm font-semibold flex items-center justify-center gap-2">
             <Sparkles className="w-4 h-4" />
-            Most Popular
+            {t('billing.mostPopular')}
           </div>
         )}
 
         {/* Current plan badge */}
         {isCurrentPlan && !plan.popular && (
           <div className="absolute top-0 left-0 right-0 bg-gradient-to-r from-gray-700 to-gray-800 dark:from-gray-600 dark:to-gray-700 text-white text-center py-2 text-sm font-semibold">
-            Current Plan
+            {t('billing.currentPlanBadge')}
           </div>
         )}
 
         {isCurrentPlan && plan.popular && (
           <div className="absolute top-9 right-3 z-10">
             <span className="bg-white dark:bg-gray-800 text-emerald-600 dark:text-emerald-400 px-3 py-1 rounded-full text-xs font-semibold shadow-md">
-              Current
+              {t('billing.current')}
             </span>
           </div>
         )}
@@ -449,7 +452,7 @@ export function SubscriptionManager({
           <div className="mb-6">
             {price === 0 ? (
               <div className="flex items-baseline">
-                <span className="text-5xl font-bold text-gray-900 dark:text-white">Free</span>
+                <span className="text-5xl font-bold text-gray-900 dark:text-white">{t('billing.free')}</span>
               </div>
             ) : (
               <>
@@ -465,7 +468,7 @@ export function SubscriptionManager({
                     </span>
                   )}
                   <span className="text-gray-500 dark:text-gray-400 text-base">
-                    /month
+                    {t('billing.perMonth')}
                   </span>
                 </div>
                 {selectedCycle === 'annual' && mounted && !pricingLoading && (
@@ -473,11 +476,11 @@ export function SubscriptionManager({
                     <p className="text-sm text-gray-500 dark:text-gray-400">
                       <span className="line-through">{symbol}{monthlyOriginal.toLocaleString()}</span>
                       <span className="ml-2 text-emerald-600 dark:text-emerald-400 font-semibold">
-                        Save 17%
+                        {t('billing.save17')}
                       </span>
                     </p>
                     <p className="text-xs text-gray-400 dark:text-gray-500">
-                      {symbol}{yearlyPrice.toLocaleString()} billed annually
+                      {symbol}{yearlyPrice.toLocaleString()} {t('billing.billedAnnually')}
                     </p>
                   </div>
                 )}
@@ -488,7 +491,7 @@ export function SubscriptionManager({
           {/* Features */}
           <div className="flex-1">
             <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4">
-              What's included
+              {t('billing.whatsIncluded')}
             </h4>
             <ul className="space-y-3">
               {plan.features.map((feature, index) => (
@@ -513,14 +516,14 @@ export function SubscriptionManager({
           {/* Limits */}
           <div className="mt-6 pt-6 border-t border-gray-100 dark:border-gray-800">
             <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">
-              Usage Limits
+              {t('billing.usageLimits')}
             </h4>
             <div className="grid grid-cols-3 gap-2 text-center">
               <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-2">
                 <p className="text-lg font-bold text-gray-900 dark:text-white">
                   {plan.limits.maxAgents}
                 </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Agents</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">{t('billing.agents')}</p>
               </div>
               <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-2">
                 <p className="text-lg font-bold text-gray-900 dark:text-white">
@@ -528,13 +531,13 @@ export function SubscriptionManager({
                     ? `${plan.limits.maxRequests / 1000}K`
                     : plan.limits.maxRequests}
                 </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Req/mo</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">{t('billing.reqPerMonth')}</p>
               </div>
               <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-2">
                 <p className="text-lg font-bold text-gray-900 dark:text-white">
                   {plan.limits.maxStorage}
                 </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Storage</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">{t('billing.storage')}</p>
               </div>
             </div>
           </div>
@@ -556,10 +559,10 @@ export function SubscriptionManager({
             )}
           >
             {isCurrentPlan ? (
-              'Current Plan'
+              t('billing.currentPlanBadge')
             ) : (
               <>
-                {plan.id === 'free' ? 'Downgrade' : `Upgrade to ${plan.name}`}
+                {plan.id === 'free' ? t('billing.downgradeBtn') : t('billing.upgradeTo').replace('{{plan}}', plan.name)}
                 <ArrowRight className="w-4 h-4" />
               </>
             )}
@@ -574,11 +577,10 @@ export function SubscriptionManager({
       {/* Header */}
       <div className="text-center mb-16">
         <h1 className="text-4xl md:text-5xl font-bold text-gray-900 dark:text-white mb-4">
-          Simple, transparent pricing
+          {t('billing.pricingTitle')}
         </h1>
         <p className="text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
-          Scale your WhatsApp automation with plans designed for businesses of all sizes.
-          No hidden fees, cancel anytime.
+          {t('billing.pricingSubtitle')}
         </p>
       </div>
 
@@ -595,7 +597,7 @@ export function SubscriptionManager({
                 : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
             )}
           >
-            Monthly
+            {t('billing.monthly')}
           </button>
           <button
             onClick={() => setSelectedCycle('annual')}
@@ -606,7 +608,7 @@ export function SubscriptionManager({
                 : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
             )}
           >
-            Annual
+            {t('billing.annual')}
             <span className="absolute -top-3 -right-3 bg-gradient-to-r from-emerald-500 to-green-500 text-white text-xs px-2 py-0.5 rounded-full font-bold shadow-lg">
               -17%
             </span>
@@ -672,13 +674,13 @@ export function SubscriptionManager({
       {/* Features Comparison */}
       <div className="mt-20">
         <h2 className="text-2xl font-bold text-center text-gray-900 dark:text-white mb-8">
-          Compare plans in detail
+          {t('billing.comparePlans')}
         </h2>
         <div className="overflow-x-auto">
           <table className="w-full border-collapse">
             <thead>
               <tr className="border-b border-gray-200 dark:border-gray-700">
-                <th className="text-left py-4 px-4 text-gray-500 dark:text-gray-400 font-medium">Feature</th>
+                <th className="text-left py-4 px-4 text-gray-500 dark:text-gray-400 font-medium">{t('billing.feature')}</th>
                 {plans.map(plan => (
                   <th key={plan.id} className={clsx(
                     'text-center py-4 px-4 font-semibold',
@@ -691,7 +693,7 @@ export function SubscriptionManager({
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
               <tr>
-                <td className="py-4 px-4 text-gray-700 dark:text-gray-300">WhatsApp Agents</td>
+                <td className="py-4 px-4 text-gray-700 dark:text-gray-300">{t('billing.whatsappAgents')}</td>
                 {plans.map(plan => (
                   <td key={plan.id} className="text-center py-4 px-4 font-semibold text-gray-900 dark:text-white">
                     {plan.limits.maxAgents}
@@ -699,7 +701,7 @@ export function SubscriptionManager({
                 ))}
               </tr>
               <tr>
-                <td className="py-4 px-4 text-gray-700 dark:text-gray-300">Monthly Requests</td>
+                <td className="py-4 px-4 text-gray-700 dark:text-gray-300">{t('billing.monthlyRequests')}</td>
                 {plans.map(plan => (
                   <td key={plan.id} className="text-center py-4 px-4 font-semibold text-gray-900 dark:text-white">
                     {plan.limits.maxRequests.toLocaleString()}
@@ -707,7 +709,7 @@ export function SubscriptionManager({
                 ))}
               </tr>
               <tr>
-                <td className="py-4 px-4 text-gray-700 dark:text-gray-300">Storage</td>
+                <td className="py-4 px-4 text-gray-700 dark:text-gray-300">{t('billing.storage')}</td>
                 {plans.map(plan => (
                   <td key={plan.id} className="text-center py-4 px-4 font-semibold text-gray-900 dark:text-white">
                     {plan.limits.maxStorage}
@@ -715,35 +717,35 @@ export function SubscriptionManager({
                 ))}
               </tr>
               <tr>
-                <td className="py-4 px-4 text-gray-700 dark:text-gray-300">Analytics</td>
-                <td className="text-center py-4 px-4 text-gray-500 dark:text-gray-400">Basic</td>
-                <td className="text-center py-4 px-4 text-gray-900 dark:text-white font-medium">Advanced</td>
-                <td className="text-center py-4 px-4 text-emerald-600 dark:text-emerald-400 font-medium">Advanced + Reports</td>
-                <td className="text-center py-4 px-4 text-purple-600 dark:text-purple-400 font-medium">Custom Dashboard</td>
+                <td className="py-4 px-4 text-gray-700 dark:text-gray-300">{t('billing.analytics')}</td>
+                <td className="text-center py-4 px-4 text-gray-500 dark:text-gray-400">{t('billing.basic')}</td>
+                <td className="text-center py-4 px-4 text-gray-900 dark:text-white font-medium">{t('billing.advancedLabel')}</td>
+                <td className="text-center py-4 px-4 text-emerald-600 dark:text-emerald-400 font-medium">{t('billing.advancedReports')}</td>
+                <td className="text-center py-4 px-4 text-purple-600 dark:text-purple-400 font-medium">{t('billing.customDashboard')}</td>
               </tr>
               <tr>
-                <td className="py-4 px-4 text-gray-700 dark:text-gray-300">Support</td>
-                <td className="text-center py-4 px-4 text-gray-500 dark:text-gray-400">Email</td>
-                <td className="text-center py-4 px-4 text-gray-900 dark:text-white font-medium">Priority</td>
-                <td className="text-center py-4 px-4 text-emerald-600 dark:text-emerald-400 font-medium">24/7 Priority</td>
-                <td className="text-center py-4 px-4 text-purple-600 dark:text-purple-400 font-medium">Dedicated Manager</td>
+                <td className="py-4 px-4 text-gray-700 dark:text-gray-300">{t('billing.supportLabel')}</td>
+                <td className="text-center py-4 px-4 text-gray-500 dark:text-gray-400">{t('billing.emailSupport')}</td>
+                <td className="text-center py-4 px-4 text-gray-900 dark:text-white font-medium">{t('billing.prioritySupport')}</td>
+                <td className="text-center py-4 px-4 text-emerald-600 dark:text-emerald-400 font-medium">{t('billing.priority247')}</td>
+                <td className="text-center py-4 px-4 text-purple-600 dark:text-purple-400 font-medium">{t('billing.dedicatedManager')}</td>
               </tr>
               <tr>
-                <td className="py-4 px-4 text-gray-700 dark:text-gray-300">API Access</td>
+                <td className="py-4 px-4 text-gray-700 dark:text-gray-300">{t('billing.apiAccess')}</td>
                 <td className="text-center py-4 px-4"><span className="text-gray-300 dark:text-gray-600">—</span></td>
                 <td className="text-center py-4 px-4"><span className="text-gray-300 dark:text-gray-600">—</span></td>
                 <td className="text-center py-4 px-4"><Check className="w-5 h-5 text-emerald-500 mx-auto" /></td>
                 <td className="text-center py-4 px-4"><Check className="w-5 h-5 text-purple-500 mx-auto" /></td>
               </tr>
               <tr>
-                <td className="py-4 px-4 text-gray-700 dark:text-gray-300">White-label</td>
+                <td className="py-4 px-4 text-gray-700 dark:text-gray-300">{t('billing.whiteLabel')}</td>
                 <td className="text-center py-4 px-4"><span className="text-gray-300 dark:text-gray-600">—</span></td>
                 <td className="text-center py-4 px-4"><span className="text-gray-300 dark:text-gray-600">—</span></td>
                 <td className="text-center py-4 px-4"><span className="text-gray-300 dark:text-gray-600">—</span></td>
                 <td className="text-center py-4 px-4"><Check className="w-5 h-5 text-purple-500 mx-auto" /></td>
               </tr>
               <tr>
-                <td className="py-4 px-4 text-gray-700 dark:text-gray-300">SLA Guarantee</td>
+                <td className="py-4 px-4 text-gray-700 dark:text-gray-300">{t('billing.slaGuarantee')}</td>
                 <td className="text-center py-4 px-4"><span className="text-gray-300 dark:text-gray-600">—</span></td>
                 <td className="text-center py-4 px-4"><span className="text-gray-300 dark:text-gray-600">—</span></td>
                 <td className="text-center py-4 px-4"><span className="text-gray-300 dark:text-gray-600">—</span></td>
@@ -763,19 +765,19 @@ export function SubscriptionManager({
                 <CreditCard className="w-7 h-7 text-emerald-600 dark:text-emerald-400" />
               </div>
               <div>
-                <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Your current plan</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">{t('billing.yourCurrentPlan')}</p>
                 <h3 className="text-xl font-bold text-gray-900 dark:text-white">
-                  {currentPlanData.name} Plan
+                  {currentPlanData.name} {t('billing.plan')}
                 </h3>
                 <p className="text-gray-600 dark:text-gray-300" suppressHydrationWarning>
-                  {getPlanPrice(currentPlanData.id).price === 0 ? 'Free forever' : `${getPlanPrice(currentPlanData.id).symbol}${getPlanPrice(currentPlanData.id).price.toLocaleString()}/month`}
+                  {getPlanPrice(currentPlanData.id).price === 0 ? t('billing.freeForever') : `${getPlanPrice(currentPlanData.id).symbol}${getPlanPrice(currentPlanData.id).price.toLocaleString()}${t('billing.perMonth')}`}
                 </p>
               </div>
             </div>
             <div className="flex items-center gap-4">
               {getPlanPrice(currentPlanData.id).price > 0 && (
                 <div className="text-left md:text-right">
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Next billing date</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">{t('billing.nextBillingDate')}</p>
                   <p className="text-lg font-semibold text-gray-900 dark:text-white" suppressHydrationWarning>
                     {format(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), 'MMMM dd, yyyy')}
                   </p>
@@ -792,7 +794,7 @@ export function SubscriptionManager({
                   ) : (
                     <ExternalLink className="w-4 h-4" />
                   )}
-                  Gérer l'abonnement
+                  {t('billing.manageSubscription')}
                 </button>
               )}
             </div>
@@ -803,13 +805,13 @@ export function SubscriptionManager({
       {/* FAQ Section */}
       <div className="mt-20 text-center">
         <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
-          Have questions?
+          {t('billing.haveQuestions')}
         </h2>
         <p className="text-gray-600 dark:text-gray-300 mb-6">
-          Contact our sales team for custom enterprise solutions or any pricing questions.
+          {t('billing.contactSalesDesc')}
         </p>
         <button className="inline-flex items-center gap-2 px-6 py-3 bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-semibold rounded-xl hover:bg-gray-800 dark:hover:bg-gray-100 transition-colors">
-          Contact Sales
+          {t('billing.contactSales')}
           <ArrowRight className="w-4 h-4" />
         </button>
       </div>
@@ -823,38 +825,38 @@ export function SubscriptionManager({
                 <AlertTriangle className="w-6 h-6 text-amber-600 dark:text-amber-400" />
               </div>
               <h3 className="text-xl font-bold text-gray-900 dark:text-white">
-                Confirm Plan Change
+                {t('billing.confirmPlanChange')}
               </h3>
             </div>
 
             <div className="mb-6">
               <p className="text-gray-600 dark:text-gray-300 mb-4">
-                You're about to {getPlanPrice(selectedPlanData.id).price > getPlanPrice(currentPlanData?.id || 'free').price ? 'upgrade' : 'downgrade'} to the <strong className="text-gray-900 dark:text-white">{selectedPlanData.name}</strong> plan.
+                {getPlanPrice(selectedPlanData.id).price > getPlanPrice(currentPlanData?.id || 'free').price ? t('billing.aboutToUpgrade') : t('billing.aboutToDowngrade')} <strong className="text-gray-900 dark:text-white">{selectedPlanData.name}</strong>.
               </p>
 
               <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 space-y-3">
                 <div className="flex justify-between items-center">
-                  <span className="text-gray-600 dark:text-gray-400">Plan</span>
+                  <span className="text-gray-600 dark:text-gray-400">{t('billing.planLabel')}</span>
                   <span className="font-semibold text-gray-900 dark:text-white">
                     {selectedPlanData.name}
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-gray-600 dark:text-gray-400">Price</span>
+                  <span className="text-gray-600 dark:text-gray-400">{t('billing.price')}</span>
                   <span className="font-semibold text-gray-900 dark:text-white" suppressHydrationWarning>
-                    {getPlanPrice(selectedPlanData.id).price === 0 ? 'Free' : `${getPlanPrice(selectedPlanData.id).symbol}${getPlanPrice(selectedPlanData.id).price.toLocaleString()}/month`}
+                    {getPlanPrice(selectedPlanData.id).price === 0 ? t('billing.free') : `${getPlanPrice(selectedPlanData.id).symbol}${getPlanPrice(selectedPlanData.id).price.toLocaleString()}${t('billing.perMonth')}`}
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-gray-600 dark:text-gray-400">Currency</span>
+                  <span className="text-gray-600 dark:text-gray-400">{t('billing.currencyLabel')}</span>
                   <span className="font-semibold text-gray-900 dark:text-white">
                     {selectedCurrency}
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-gray-600 dark:text-gray-400">Billing</span>
+                  <span className="text-gray-600 dark:text-gray-400">{t('billing.billingLabel')}</span>
                   <span className="font-semibold text-gray-900 dark:text-white">
-                    {selectedCycle === 'annual' ? 'Annual' : 'Monthly'}
+                    {selectedCycle === 'annual' ? t('billing.annual') : t('billing.monthly')}
                   </span>
                 </div>
               </div>
@@ -862,7 +864,7 @@ export function SubscriptionManager({
               {getPlanPrice(selectedPlanData.id).price > getPlanPrice(currentPlanData?.id || 'free').price && (
                 <div className="mt-4 p-3 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-xl">
                   <p className="text-sm font-medium text-emerald-700 dark:text-emerald-300 mb-2">
-                    Moyens de paiement disponibles:
+                    {t('billing.availablePayments')}
                   </p>
                   <div className="flex items-center gap-4 text-xs text-emerald-600 dark:text-emerald-400">
                     <div className="flex items-center gap-1">
@@ -886,14 +888,14 @@ export function SubscriptionManager({
                 onClick={() => setShowUpgradeModal(false)}
                 className="flex-1 py-3 px-4 border border-gray-200 dark:border-gray-600 rounded-xl text-gray-700 dark:text-gray-300 font-semibold hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
               >
-                Cancel
+                {t('billing.cancelBtn')}
               </button>
               <button
                 onClick={handleUpgrade}
                 disabled={isLoading}
                 className="flex-1 py-3 px-4 bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-600 hover:to-green-600 text-white font-semibold rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-emerald-500/25"
               >
-                {isLoading ? 'Processing...' : getPlanPrice(selectedPlanData?.id || 'free').price > 0 ? 'Choisir le mode de paiement' : 'Confirm'}
+                {isLoading ? t('billing.processing') : getPlanPrice(selectedPlanData?.id || 'free').price > 0 ? t('billing.choosePaymentMethod') : t('billing.confirm')}
               </button>
             </div>
           </div>

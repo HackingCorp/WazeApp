@@ -88,7 +88,7 @@ export default function BillingPage() {
 
     // Handle Stripe return (redirect after Checkout)
     if (paymentStatus === 'stripe' && sessionId) {
-      toast.success('Paiement Stripe en cours de traitement...', {
+      toast.success(t('billing.stripeProcessing'), {
         duration: 5000,
       });
 
@@ -104,7 +104,7 @@ export default function BillingPage() {
       url.searchParams.delete('session_id');
       window.history.replaceState({}, '', url.pathname);
     } else if (paymentStatus === 'stripe-cancelled') {
-      toast.error('Paiement Stripe annulé.');
+      toast.error(t('billing.stripeCancelled'));
 
       // Clean URL parameters
       const url = new URL(window.location.href);

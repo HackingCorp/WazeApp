@@ -145,6 +145,11 @@ class ApiClient {
     }
   }
 
+  // Geo detection
+  async detectCountry() {
+    return this.request<{ countryCode: string | null; mobileMoneyAvailable: boolean }>('/geo/detect');
+  }
+
   // Auth endpoints
   async login(email: string, password: string) {
     return this.request('/auth/login', {

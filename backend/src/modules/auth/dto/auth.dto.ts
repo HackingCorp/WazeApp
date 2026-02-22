@@ -70,6 +70,12 @@ export class RegisterDto {
   @IsOptional()
   @IsIn(['stripe', 'mobile_money'])
   paymentMethod?: 'stripe' | 'mobile_money';
+
+  @ApiPropertyOptional({ description: "Detected country code (ISO 3166-1 alpha-2)" })
+  @IsOptional()
+  @IsString()
+  @MaxLength(2)
+  country?: string;
 }
 
 export class LoginDto {

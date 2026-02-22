@@ -24,6 +24,8 @@ interface PaymentModalProps {
   billingPeriod?: 'monthly' | 'annually';
 }
 
+const MOBILE_MONEY_CURRENCIES = ['XAF', 'XOF'];
+
 type PaymentMethod = 'mobile' | 'card' | 'stripe' | null;
 type MobileProvider = 'mtn' | 'orange';
 type PaymentStatus = 'idle' | 'processing' | 'pending' | 'success' | 'failed' | 'redirecting';
@@ -392,6 +394,7 @@ export function PaymentModal({
 
   const displayPrice = dynamicPrice;
   const displayCurrency = currency || 'XAF';
+  const showMobileMoney = MOBILE_MONEY_CURRENCIES.includes(displayCurrency.toUpperCase());
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
@@ -518,49 +521,53 @@ export function PaymentModal({
               </div>
 
               <div className="space-y-3">
-                {/* Mobile Money Option */}
-                <button
-                  onClick={() => setPaymentMethod('mobile')}
-                  className="w-full p-4 rounded-xl border-2 border-gray-200 dark:border-gray-600 hover:border-yellow-400 dark:hover:border-yellow-500 transition-all flex items-center gap-4 group"
-                >
-                  <div className="w-14 h-14 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-xl flex items-center justify-center">
-                    <Smartphone className="w-7 h-7 text-white" />
-                  </div>
-                  <div className="text-left flex-1">
-                    <h3 className="font-semibold text-gray-900 dark:text-white group-hover:text-yellow-600 dark:group-hover:text-yellow-400">
-                      Mobile Money
-                    </h3>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                      MTN MoMo, Orange Money
-                    </p>
-                  </div>
-                  <div className="flex gap-2">
-                    <img src="/images/payments/mtn.svg" alt="MTN" className="w-8 h-8 rounded-full" />
-                    <img src="/images/payments/orange-money.svg" alt="Orange Money" className="w-8 h-8 rounded-full" />
-                  </div>
-                </button>
+                {showMobileMoney && (
+                  <>
+                    {/* Mobile Money Option */}
+                    <button
+                      onClick={() => setPaymentMethod('mobile')}
+                      className="w-full p-4 rounded-xl border-2 border-gray-200 dark:border-gray-600 hover:border-yellow-400 dark:hover:border-yellow-500 transition-all flex items-center gap-4 group"
+                    >
+                      <div className="w-14 h-14 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-xl flex items-center justify-center">
+                        <Smartphone className="w-7 h-7 text-white" />
+                      </div>
+                      <div className="text-left flex-1">
+                        <h3 className="font-semibold text-gray-900 dark:text-white group-hover:text-yellow-600 dark:group-hover:text-yellow-400">
+                          Mobile Money
+                        </h3>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                          MTN MoMo, Orange Money
+                        </p>
+                      </div>
+                      <div className="flex gap-2">
+                        <img src="/images/payments/mtn.svg" alt="MTN" className="w-8 h-8 rounded-full" />
+                        <img src="/images/payments/orange-money.svg" alt="Orange Money" className="w-8 h-8 rounded-full" />
+                      </div>
+                    </button>
 
-                {/* Card Payment Option (E-nkap) */}
-                <button
-                  onClick={() => setPaymentMethod('card')}
-                  className="w-full p-4 rounded-xl border-2 border-gray-200 dark:border-gray-600 hover:border-blue-400 dark:hover:border-blue-500 transition-all flex items-center gap-4 group"
-                >
-                  <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center">
-                    <CreditCard className="w-7 h-7 text-white" />
-                  </div>
-                  <div className="text-left flex-1">
-                    <h3 className="font-semibold text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400">
-                      Carte Bancaire
-                    </h3>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                      Visa, Mastercard, PayPal
-                    </p>
-                  </div>
-                  <div className="flex gap-1">
-                    <img src="/images/payments/visa.svg" alt="Visa" className="h-6 w-auto rounded" />
-                    <img src="/images/payments/mastercard.svg" alt="Mastercard" className="h-6 w-auto rounded" />
-                  </div>
-                </button>
+                    {/* Card Payment Option (E-nkap) */}
+                    <button
+                      onClick={() => setPaymentMethod('card')}
+                      className="w-full p-4 rounded-xl border-2 border-gray-200 dark:border-gray-600 hover:border-blue-400 dark:hover:border-blue-500 transition-all flex items-center gap-4 group"
+                    >
+                      <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center">
+                        <CreditCard className="w-7 h-7 text-white" />
+                      </div>
+                      <div className="text-left flex-1">
+                        <h3 className="font-semibold text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400">
+                          Carte Bancaire
+                        </h3>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                          Visa, Mastercard, PayPal
+                        </p>
+                      </div>
+                      <div className="flex gap-1">
+                        <img src="/images/payments/visa.svg" alt="Visa" className="h-6 w-auto rounded" />
+                        <img src="/images/payments/mastercard.svg" alt="Mastercard" className="h-6 w-auto rounded" />
+                      </div>
+                    </button>
+                  </>
+                )}
 
                 {/* Stripe International Card Payment */}
                 <button
@@ -584,6 +591,15 @@ export function PaymentModal({
                     <img src="/images/payments/amex.svg" alt="AMEX" className="h-6 w-auto rounded" />
                   </div>
                 </button>
+
+                {!showMobileMoney && (
+                  <div className="flex items-start gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl">
+                    <AlertCircle className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
+                    <p className="text-sm text-blue-700 dark:text-blue-300">
+                      Mobile Money (MTN, Orange) est disponible uniquement pour les devises XAF/XOF. Changez la devise en FCFA pour voir ces options.
+                    </p>
+                  </div>
+                )}
               </div>
             </>
           )}

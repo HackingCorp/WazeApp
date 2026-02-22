@@ -44,6 +44,8 @@ function formatMessages(count: number): string {
   return `${count.toLocaleString('fr-FR')} messages/mois`
 }
 
+const MOBILE_MONEY_COUNTRIES = ['CM'];
+
 function RegisterPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -53,6 +55,7 @@ function RegisterPageContent() {
   const [error, setError] = useState("")
   const [plans, setPlans] = useState<PlanData[]>([])
   const [plansLoading, setPlansLoading] = useState(true)
+  const [detectedCountry, setDetectedCountry] = useState<string | null>(null)
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -65,6 +68,33 @@ function RegisterPageContent() {
     selectedPlan: "STANDARD",
     paymentMethod: "" as 'stripe' | 'mobile_money' | '',
   })
+
+  // Show Mobile Money only for eligible countries, or if detection failed (fallback safe)
+  const showMobileMoney = !detectedCountry || MOBILE_MONEY_COUNTRIES.includes(detectedCountry)
+
+  // Detect country via IP on mount
+  useEffect(() => {
+    async function detectCountry() {
+      try {
+        const response = await api.detectCountry()
+        if (response.success && response.data?.countryCode) {
+          setDetectedCountry(response.data.countryCode)
+        }
+      } catch {
+        // Fallback: try navigator.language
+        try {
+          const lang = navigator.language || ''
+          const parts = lang.split('-')
+          if (parts.length >= 2) {
+            setDetectedCountry(parts[1].toUpperCase())
+          }
+        } catch {
+          // Detection failed - keep null (shows all options)
+        }
+      }
+    }
+    detectCountry()
+  }, [])
 
   // Load plans from API
   useEffect(() => {
@@ -100,6 +130,16 @@ function RegisterPageContent() {
     }
     fetchPlans()
   }, [])
+
+  // Reset payment method if Mobile Money not available
+  useEffect(() => {
+    if (!showMobileMoney && formData.paymentMethod === 'mobile_money') {
+      setFormData(prev => ({ ...prev, paymentMethod: 'stripe' }))
+    }
+    if (!showMobileMoney && !formData.paymentMethod) {
+      setFormData(prev => ({ ...prev, paymentMethod: 'stripe' }))
+    }
+  }, [showMobileMoney])
 
   // Check for plan parameter in URL
   useEffect(() => {
@@ -213,6 +253,7 @@ function RegisterPageContent() {
         organizationName: formData.organizationName.trim() || undefined,
         plan: formData.selectedPlan,
         paymentMethod: formData.paymentMethod || undefined,
+        country: detectedCountry || undefined,
       })
 
       if (response.success) {
@@ -333,7 +374,7 @@ function RegisterPageContent() {
               <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
                 Méthode de paiement
               </p>
-              <div className="grid grid-cols-2 gap-3">
+              <div className={`grid ${showMobileMoney ? 'grid-cols-2' : 'grid-cols-1'} gap-3`}>
                 <button
                   type="button"
                   onClick={() => setFormData({ ...formData, paymentMethod: 'stripe' })}
@@ -349,23 +390,25 @@ function RegisterPageContent() {
                     <p className="text-xs text-muted-foreground">Visa, MC, PayPal</p>
                   </div>
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setFormData({ ...formData, paymentMethod: 'mobile_money' })}
-                  className={`flex items-center p-3 rounded-xl border-2 text-left transition-all ${
-                    formData.paymentMethod === 'mobile_money'
-                      ? "border-primary bg-primary/5 dark:bg-primary/10"
-                      : "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600"
-                  }`}
-                >
-                  <svg className="h-5 w-5 text-gray-600 dark:text-gray-400 mr-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                  </svg>
-                  <div>
-                    <p className="text-sm font-medium text-gray-900 dark:text-white">Mobile Money</p>
-                    <p className="text-xs text-muted-foreground">MTN, Orange</p>
-                  </div>
-                </button>
+                {showMobileMoney && (
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, paymentMethod: 'mobile_money' })}
+                    className={`flex items-center p-3 rounded-xl border-2 text-left transition-all ${
+                      formData.paymentMethod === 'mobile_money'
+                        ? "border-primary bg-primary/5 dark:bg-primary/10"
+                        : "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600"
+                    }`}
+                  >
+                    <svg className="h-5 w-5 text-gray-600 dark:text-gray-400 mr-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                    </svg>
+                    <div>
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">Mobile Money</p>
+                      <p className="text-xs text-muted-foreground">MTN, Orange</p>
+                    </div>
+                  </button>
+                )}
               </div>
             </div>
 
@@ -428,6 +471,7 @@ function RegisterPageContent() {
               <PhoneInput
                 value={formData.phone}
                 onChange={(value) => setFormData({ ...formData, phone: value })}
+                onCountryChange={(code) => setDetectedCountry(code)}
                 placeholder="6 12 34 56 78"
               />
             </div>

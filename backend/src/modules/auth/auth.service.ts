@@ -84,6 +84,7 @@ export class AuthService {
       firstName: dto.firstName,
       lastName: dto.lastName,
       phone: dto.phone,
+      country: dto.country,
       emailVerificationToken,
       emailVerified: false,
     });

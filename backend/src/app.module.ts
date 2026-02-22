@@ -35,6 +35,9 @@ import { ConversationManagementModule } from "./modules/conversation-management/
 // Analytics
 import { PostHogModule } from "./modules/posthog/posthog.module";
 
+// Geo detection
+import { GeoModule } from "./modules/geo/geo.module";
+
 // Guards
 import { JwtAuthGuard } from "./common/guards/jwt-auth.guard";
 import { ThrottlerGuard } from "@nestjs/throttler";
@@ -142,6 +145,9 @@ import { AppController } from "./app.controller";
 
     // Analytics
     PostHogModule,
+
+    // Geo detection
+    GeoModule,
   ],
   providers: [
     // Global guards

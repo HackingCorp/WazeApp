@@ -48,6 +48,10 @@ export class User extends BaseEntity {
   @Column({ nullable: true })
   phone?: string;
 
+  @ApiProperty({ description: "User country code (ISO 3166-1 alpha-2)", required: false })
+  @Column({ type: 'varchar', length: 2, nullable: true })
+  country?: string;
+
   @ApiProperty({ description: "User timezone", required: false })
   @Column({ default: "UTC" })
   timezone: string;

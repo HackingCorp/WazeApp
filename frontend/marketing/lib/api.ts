@@ -48,6 +48,7 @@ interface RegisterRequest {
   invitationToken?: string;
   plan?: string;
   paymentMethod?: 'stripe' | 'mobile_money';
+  country?: string;
 }
 
 class ApiClient {
@@ -164,6 +165,11 @@ class ApiClient {
         Authorization: `Bearer ${accessToken}`,
       },
     });
+  }
+
+  // Geo detection
+  async detectCountry(): Promise<ApiResponse<{ countryCode: string | null; mobileMoneyAvailable: boolean }>> {
+    return this.request('/geo/detect');
   }
 
   // Plans

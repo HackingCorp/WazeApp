@@ -907,13 +907,15 @@ export function SubscriptionManager({
                     {t('billing.availablePayments')}
                   </p>
                   <div className="flex items-center gap-4 text-xs text-emerald-600 dark:text-emerald-400">
-                    <div className="flex items-center gap-1">
-                      <Smartphone className="w-4 h-4" />
-                      <span>MTN / Orange</span>
-                    </div>
+                    {['XAF', 'XOF'].includes(selectedCurrency) && (
+                      <div className="flex items-center gap-1">
+                        <Smartphone className="w-4 h-4" />
+                        <span>MTN / Orange</span>
+                      </div>
+                    )}
                     <div className="flex items-center gap-1">
                       <CreditCard className="w-4 h-4" />
-                      <span>Visa / MC / PayPal</span>
+                      <span>Visa / MC / Stripe</span>
                     </div>
                   </div>
                   <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-300 mt-2">

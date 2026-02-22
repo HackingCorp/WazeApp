@@ -13,6 +13,7 @@ interface Country {
 interface PhoneInputProps {
   value: string
   onChange: (value: string) => void
+  onCountryChange?: (code: string) => void
   placeholder?: string
   className?: string
   error?: string
@@ -157,7 +158,7 @@ const countries: Country[] = [
   { name: "Barbados", code: "BB", dialCode: "+1246", flag: "🇧🇧" },
 ]
 
-export function PhoneInput({ value, onChange, placeholder = "6 12 34 56 78", className = "", error }: PhoneInputProps) {
+export function PhoneInput({ value, onChange, onCountryChange, placeholder = "6 12 34 56 78", className = "", error }: PhoneInputProps) {
   const [selectedCountry, setSelectedCountry] = useState<Country>(countries[0]) // Default to France
   const [isOpen, setIsOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
@@ -208,6 +209,7 @@ export function PhoneInput({ value, onChange, placeholder = "6 12 34 56 78", cla
     setIsOpen(false)
     setSearchQuery("")
     inputRef.current?.focus()
+    onCountryChange?.(country.code)
   }
 
   const formatPhoneNumber = (value: string) => {

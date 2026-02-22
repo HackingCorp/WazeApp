@@ -260,7 +260,7 @@ export function PhoneInput({ value, onChange, placeholder = "6 12 34 56 78", cla
 
           {/* Dropdown */}
           {isOpen && (
-            <div className="absolute top-full left-0 z-50 w-80 mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-xl max-h-80 overflow-hidden">
+            <div className="absolute bottom-full left-0 z-50 w-80 mb-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-xl max-h-80 overflow-hidden">
               {/* Search */}
               <div className="p-3 border-b border-gray-200 dark:border-gray-600">
                 <div className="relative">

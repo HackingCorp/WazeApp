@@ -339,9 +339,7 @@ export function MobileMoneyModal({
                         : 'border-gray-200 dark:border-gray-600 hover:border-yellow-300'
                     )}
                   >
-                    <div className="w-12 h-12 bg-yellow-500 rounded-full flex items-center justify-center">
-                      <span className="text-white font-bold text-sm">MTN</span>
-                    </div>
+                    <img src="/images/payments/mtn.svg" alt="MTN" className="w-12 h-12 rounded-full" />
                     <span className="text-sm font-medium text-gray-900 dark:text-white">MTN MoMo</span>
                   </button>
                   <button
@@ -353,9 +351,7 @@ export function MobileMoneyModal({
                         : 'border-gray-200 dark:border-gray-600 hover:border-orange-300'
                     )}
                   >
-                    <div className="w-12 h-12 bg-orange-500 rounded-full flex items-center justify-center">
-                      <span className="text-white font-bold text-xs">Orange</span>
-                    </div>
+                    <img src="/images/payments/orange-money.svg" alt="Orange Money" className="w-12 h-12 rounded-full" />
                     <span className="text-sm font-medium text-gray-900 dark:text-white">Orange Money</span>
                   </button>
                 </div>

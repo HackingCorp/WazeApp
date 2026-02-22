@@ -535,12 +535,8 @@ export function PaymentModal({
                     </p>
                   </div>
                   <div className="flex gap-2">
-                    <div className="w-8 h-8 bg-yellow-500 rounded-full flex items-center justify-center">
-                      <span className="text-white text-xs font-bold">MTN</span>
-                    </div>
-                    <div className="w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center">
-                      <span className="text-white text-[10px] font-bold">OM</span>
-                    </div>
+                    <img src="/images/payments/mtn.svg" alt="MTN" className="w-8 h-8 rounded-full" />
+                    <img src="/images/payments/orange-money.svg" alt="Orange Money" className="w-8 h-8 rounded-full" />
                   </div>
                 </button>
 
@@ -561,12 +557,8 @@ export function PaymentModal({
                     </p>
                   </div>
                   <div className="flex gap-1">
-                    <div className="w-10 h-6 bg-blue-700 rounded flex items-center justify-center">
-                      <span className="text-white text-[8px] font-bold italic">VISA</span>
-                    </div>
-                    <div className="w-10 h-6 bg-red-500 rounded flex items-center justify-center">
-                      <span className="text-white text-[8px] font-bold">MC</span>
-                    </div>
+                    <img src="/images/payments/visa.svg" alt="Visa" className="h-6 w-auto rounded" />
+                    <img src="/images/payments/mastercard.svg" alt="Mastercard" className="h-6 w-auto rounded" />
                   </div>
                 </button>
 
@@ -587,15 +579,9 @@ export function PaymentModal({
                     </p>
                   </div>
                   <div className="flex gap-1">
-                    <div className="w-10 h-6 bg-blue-700 rounded flex items-center justify-center">
-                      <span className="text-white text-[8px] font-bold italic">VISA</span>
-                    </div>
-                    <div className="w-10 h-6 bg-red-500 rounded flex items-center justify-center">
-                      <span className="text-white text-[8px] font-bold">MC</span>
-                    </div>
-                    <div className="w-10 h-6 bg-blue-500 rounded flex items-center justify-center">
-                      <span className="text-white text-[7px] font-bold">AMEX</span>
-                    </div>
+                    <img src="/images/payments/visa.svg" alt="Visa" className="h-6 w-auto rounded" />
+                    <img src="/images/payments/mastercard.svg" alt="Mastercard" className="h-6 w-auto rounded" />
+                    <img src="/images/payments/amex.svg" alt="AMEX" className="h-6 w-auto rounded" />
                   </div>
                 </button>
               </div>
@@ -634,9 +620,7 @@ export function PaymentModal({
                         : 'border-gray-200 dark:border-gray-600 hover:border-yellow-300'
                     )}
                   >
-                    <div className="w-12 h-12 bg-yellow-500 rounded-full flex items-center justify-center">
-                      <span className="text-white font-bold text-sm">MTN</span>
-                    </div>
+                    <img src="/images/payments/mtn.svg" alt="MTN" className="w-12 h-12 rounded-full" />
                     <span className="text-sm font-medium text-gray-900 dark:text-white">MTN MoMo</span>
                   </button>
                   <button
@@ -648,9 +632,7 @@ export function PaymentModal({
                         : 'border-gray-200 dark:border-gray-600 hover:border-orange-300'
                     )}
                   >
-                    <div className="w-12 h-12 bg-orange-500 rounded-full flex items-center justify-center">
-                      <span className="text-white font-bold text-xs">Orange</span>
-                    </div>
+                    <img src="/images/payments/orange-money.svg" alt="Orange Money" className="w-12 h-12 rounded-full" />
                     <span className="text-sm font-medium text-gray-900 dark:text-white">Orange Money</span>
                   </button>
                 </div>
@@ -745,21 +727,15 @@ export function PaymentModal({
                 </label>
                 <div className="flex items-center justify-center gap-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
                   <div className="flex flex-col items-center gap-1">
-                    <div className="w-14 h-9 bg-gradient-to-r from-blue-600 to-blue-800 rounded flex items-center justify-center">
-                      <span className="text-white text-sm font-bold italic">VISA</span>
-                    </div>
+                    <img src="/images/payments/visa.svg" alt="Visa" className="h-9 w-auto rounded" />
                     <span className="text-xs text-gray-500">Visa</span>
                   </div>
                   <div className="flex flex-col items-center gap-1">
-                    <div className="w-14 h-9 bg-gradient-to-r from-red-500 to-orange-500 rounded flex items-center justify-center">
-                      <span className="text-white text-xs font-bold">Mastercard</span>
-                    </div>
+                    <img src="/images/payments/mastercard.svg" alt="Mastercard" className="h-9 w-auto rounded" />
                     <span className="text-xs text-gray-500">Mastercard</span>
                   </div>
                   <div className="flex flex-col items-center gap-1">
-                    <div className="w-14 h-9 bg-gradient-to-r from-blue-400 to-blue-600 rounded flex items-center justify-center">
-                      <span className="text-white text-[10px] font-bold">AMEX</span>
-                    </div>
+                    <img src="/images/payments/amex.svg" alt="AMEX" className="h-9 w-auto rounded" />
                     <span className="text-xs text-gray-500">AMEX</span>
                   </div>
                 </div>
@@ -809,21 +785,15 @@ export function PaymentModal({
                 </label>
                 <div className="flex items-center justify-center gap-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
                   <div className="flex flex-col items-center gap-1">
-                    <div className="w-14 h-9 bg-gradient-to-r from-blue-600 to-blue-800 rounded flex items-center justify-center">
-                      <span className="text-white text-sm font-bold italic">VISA</span>
-                    </div>
+                    <img src="/images/payments/visa.svg" alt="Visa" className="h-9 w-auto rounded" />
                     <span className="text-xs text-gray-500">Visa</span>
                   </div>
                   <div className="flex flex-col items-center gap-1">
-                    <div className="w-14 h-9 bg-gradient-to-r from-red-500 to-orange-500 rounded flex items-center justify-center">
-                      <span className="text-white text-xs font-bold">Mastercard</span>
-                    </div>
+                    <img src="/images/payments/mastercard.svg" alt="Mastercard" className="h-9 w-auto rounded" />
                     <span className="text-xs text-gray-500">Mastercard</span>
                   </div>
                   <div className="flex flex-col items-center gap-1">
-                    <div className="w-14 h-9 bg-gradient-to-r from-blue-500 to-blue-700 rounded flex items-center justify-center">
-                      <span className="text-white text-[10px] font-bold">PayPal</span>
-                    </div>
+                    <img src="/images/payments/paypal.svg" alt="PayPal" className="h-9 w-auto rounded" />
                     <span className="text-xs text-gray-500">PayPal</span>
                   </div>
                 </div>

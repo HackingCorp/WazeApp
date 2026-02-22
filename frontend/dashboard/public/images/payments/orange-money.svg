@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <circle cx="100" cy="100" r="100" fill="#FF6600"/>
+  <text x="100" y="108" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="42" fill="#FFFFFF" text-anchor="middle">Orange</text>
+  <text x="100" y="142" font-family="Arial, Helvetica, sans-serif" font-weight="400" font-size="28" fill="#FFFFFF" text-anchor="middle">Money</text>
+</svg>

@@ -167,8 +167,10 @@ export default function BillingPage() {
     }
   }, [activeTab]);
 
-  const currentPlan = user?.organization?.plan?.toLowerCase() || 'free';
+  const currentPlan = user?.organization?.plan?.toLowerCase() || user?.subscription?.plan?.toLowerCase() || 'free';
   const billingCycle = 'monthly';
+  const subscriptionStatus = user?.organization?.subscription?.status?.toLowerCase() || user?.subscription?.status?.toLowerCase() || '';
+  const trialEndsAt = user?.organization?.subscription?.trialEndsAt || user?.subscription?.trialEndsAt || undefined;
 
   // Plan change is handled by PaymentModal for upgrades
   // For downgrades to free, just reload the page (backend handles it via payment success callback)
@@ -264,6 +266,8 @@ export default function BillingPage() {
         <SubscriptionManager
           currentPlan={currentPlan}
           billingCycle={billingCycle}
+          subscriptionStatus={subscriptionStatus}
+          trialEndsAt={trialEndsAt}
           onPlanChange={handlePlanChange}
           onBillingCycleChange={handleBillingCycleChange}
           isLoading={isLoading}

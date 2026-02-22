@@ -44,6 +44,7 @@ const DEFAULT_PLANS = [
     featureCustomEmbeddings: false,
     featurePremiumVectorSearch: false,
     featureScheduledCampaigns: false,
+    trialDays: 0,
     displayOrder: 0,
   },
   {
@@ -82,6 +83,7 @@ const DEFAULT_PLANS = [
     featureCustomEmbeddings: false,
     featurePremiumVectorSearch: false,
     featureScheduledCampaigns: true,
+    trialDays: 7,
     displayOrder: 1,
   },
   {
@@ -120,6 +122,7 @@ const DEFAULT_PLANS = [
     featureCustomEmbeddings: false,
     featurePremiumVectorSearch: true,
     featureScheduledCampaigns: true,
+    trialDays: 14,
     displayOrder: 2,
   },
   {
@@ -158,6 +161,7 @@ const DEFAULT_PLANS = [
     featureCustomEmbeddings: true,
     featurePremiumVectorSearch: true,
     featureScheduledCampaigns: true,
+    trialDays: 14,
     displayOrder: 3,
   },
 ];
@@ -209,6 +213,11 @@ export class PlanService implements OnModuleInit, OnModuleDestroy {
         const plan = this.planRepository.create(planData);
         await this.planRepository.save(plan);
         this.logger.log(`Created plan: ${planData.code}`);
+      } else if (existing.trialDays === 0 && planData.trialDays > 0) {
+        // Patch trialDays on existing plans that don't have it set
+        existing.trialDays = planData.trialDays;
+        await this.planRepository.save(existing);
+        this.logger.log(`Updated trialDays for plan ${planData.code}: ${planData.trialDays} days`);
       }
     }
 
@@ -253,6 +262,14 @@ export class PlanService implements OnModuleInit, OnModuleDestroy {
       where: { isActive: true },
       order: { displayOrder: 'ASC' },
     });
+  }
+
+  /**
+   * Get trial days for a plan
+   */
+  getTrialDays(code: string): number {
+    const plan = this.getPlanByCode(code);
+    return plan?.trialDays ?? 0;
   }
 
   /**

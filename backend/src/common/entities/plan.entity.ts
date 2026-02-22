@@ -164,6 +164,10 @@ export class Plan extends BaseEntity {
   @Column({ nullable: true })
   stripePriceAnnualId?: string;
 
+  @ApiProperty({ description: 'Number of free trial days for this plan' })
+  @Column({ default: 0 })
+  trialDays: number;
+
   @ApiProperty({ description: 'Plan is active and available for purchase' })
   @Column({ default: true })
   isActive: boolean;

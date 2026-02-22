@@ -20,6 +20,7 @@ import { PlanService } from "../subscriptions/plan.service";
 import {
   UserRole,
   SubscriptionPlan,
+  SubscriptionStatus,
   UsageMetricType,
   AuditAction,
 } from "@/common/enums";
@@ -82,16 +83,28 @@ export class OrganizationsService {
     });
     await this.organizationMemberRepository.save(membership);
 
-    // Create default free subscription
-    // Use database-driven plan limits and features
-    const subscription = this.subscriptionRepository.create({
-      organizationId: savedOrganization.id,
-      plan: SubscriptionPlan.FREE,
-      startsAt: new Date(),
-      limits: this.planService.getPlanLimits('free'),
-      features: this.planService.getPlanFeatures('free'),
+    // Check if user already has a personal trial subscription to migrate
+    const existingTrial = await this.subscriptionRepository.findOne({
+      where: { userId: ownerId, status: SubscriptionStatus.TRIALING },
     });
-    await this.subscriptionRepository.save(subscription);
+
+    if (existingTrial) {
+      // Migrate personal trial to the organization
+      existingTrial.organizationId = savedOrganization.id;
+      existingTrial.userId = null as any;
+      await this.subscriptionRepository.save(existingTrial);
+    } else {
+      // Create default free subscription
+      // Use database-driven plan limits and features
+      const subscription = this.subscriptionRepository.create({
+        organizationId: savedOrganization.id,
+        plan: SubscriptionPlan.FREE,
+        startsAt: new Date(),
+        limits: this.planService.getPlanLimits('free'),
+        features: this.planService.getPlanFeatures('free'),
+      });
+      await this.subscriptionRepository.save(subscription);
+    }
 
     // Log audit event
     await this.auditService.log({

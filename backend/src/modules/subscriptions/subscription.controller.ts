@@ -22,6 +22,12 @@ import { AllowIndividualUsers } from "../../common/decorators/allow-individual-u
 import { UserRole } from "../../common/enums";
 import { QuotaEnforcementService } from "./quota-enforcement.service";
 import { QuotaAlertService } from "./quota-alert.service";
+import { TrialService } from "./trial.service";
+import { PlanService } from "./plan.service";
+import { SubscriptionPlan, SubscriptionStatus } from "../../common/enums";
+import { Subscription } from "../../common/entities";
+import { InjectRepository } from "@nestjs/typeorm";
+import { Repository, In, IsNull, Not } from "typeorm";
 import {
   QuotaCheckDto,
   FeatureCheckDto,
@@ -36,6 +42,10 @@ export class SubscriptionController {
   constructor(
     private readonly quotaEnforcementService: QuotaEnforcementService,
     private readonly quotaAlertService: QuotaAlertService,
+    private readonly trialService: TrialService,
+    private readonly planService: PlanService,
+    @InjectRepository(Subscription)
+    private readonly subscriptionRepository: Repository<Subscription>,
   ) {}
 
   @Get("usage-summary")
@@ -309,6 +319,71 @@ export class SubscriptionController {
   })
   async triggerQuotaAlerts(): Promise<{ checked: number; alertsSent: number }> {
     return this.quotaAlertService.triggerQuotaCheck();
+  }
+
+  @Post("start-trial")
+  @Roles(UserRole.OWNER, UserRole.ADMIN)
+  @AllowIndividualUsers()
+  @ApiOperation({ summary: "Start a free trial for a paid plan (converts FREE subscription to trial)" })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: "Trial started successfully",
+  })
+  async startTrial(
+    @CurrentUser() user: AuthenticatedRequest,
+    @Body("plan") planCode: string = 'standard',
+  ): Promise<any> {
+    const normalizedPlan = planCode.toLowerCase();
+    const trialDays = this.planService.getTrialDays(normalizedPlan);
+    if (trialDays <= 0) {
+      return { success: false, message: 'This plan does not offer a free trial' };
+    }
+
+    // Find user's current FREE subscription
+    const subscription = await this.subscriptionRepository.findOne({
+      where: [
+        { userId: user.userId, plan: SubscriptionPlan.FREE },
+        { organizationId: user.organizationId, plan: SubscriptionPlan.FREE },
+      ].filter(w => w.userId || w.organizationId),
+    });
+
+    if (!subscription) {
+      return { success: false, message: 'No FREE subscription found to convert' };
+    }
+
+    if (subscription.status === SubscriptionStatus.TRIALING) {
+      return { success: false, message: 'You already have an active trial' };
+    }
+
+    // Convert to trial
+    const now = new Date();
+    const trialEndsAt = new Date(now);
+    trialEndsAt.setDate(trialEndsAt.getDate() + trialDays);
+
+    subscription.plan = normalizedPlan.toUpperCase() as SubscriptionPlan;
+    subscription.status = SubscriptionStatus.TRIALING;
+    subscription.startsAt = now;
+    subscription.trialEndsAt = trialEndsAt;
+    subscription.limits = this.planService.getPlanLimits(normalizedPlan);
+    subscription.features = this.planService.getPlanFeatures(normalizedPlan);
+    subscription.metadata = {
+      ...subscription.metadata,
+      trialStartedAt: now.toISOString(),
+      trialDays,
+      convertedFromFree: true,
+    };
+
+    await this.subscriptionRepository.save(subscription);
+
+    // Start trial async (invoice + email)
+    this.trialService.startTrial(subscription).catch(() => {});
+
+    return {
+      success: true,
+      message: `Trial started for plan ${normalizedPlan} (${trialDays} days)`,
+      trialEndsAt,
+      plan: subscription.plan,
+    };
   }
 
   @Post("refresh-quotas")

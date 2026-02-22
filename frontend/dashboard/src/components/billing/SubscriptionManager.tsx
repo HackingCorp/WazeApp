@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Check, Zap, Shield, Crown, Star, CreditCard, ArrowRight, AlertTriangle, Sparkles, Smartphone, Globe, ChevronDown, ExternalLink, Loader2 } from 'lucide-react';
+import { Check, Zap, Shield, Crown, Star, CreditCard, ArrowRight, AlertTriangle, Sparkles, Smartphone, Globe, ChevronDown, ExternalLink, Loader2, Clock } from 'lucide-react';
 import { format } from 'date-fns';
 import clsx from 'clsx';
 import { PaymentModal } from './PaymentModal';
@@ -29,6 +29,8 @@ interface Plan {
 interface SubscriptionManagerProps {
   currentPlan?: string;
   billingCycle?: 'monthly' | 'annual';
+  subscriptionStatus?: string;
+  trialEndsAt?: string;
   onPlanChange?: (planId: string) => void;
   onBillingCycleChange?: (cycle: 'monthly' | 'annual') => void;
   isLoading?: boolean;
@@ -50,30 +52,15 @@ interface ExchangeRateData {
   symbol: string;
 }
 
+// Trial days per plan
+const TRIAL_DAYS: Record<string, number> = {
+  standard: 7,
+  pro: 14,
+  enterprise: 14,
+};
+
 // Plans structure - prices are fetched dynamically from the API
 const getPlans = (t: (key: string) => string): Plan[] => [
-  {
-    id: 'free',
-    name: 'Free',
-    interval: 'month',
-    description: t('billing.planFreeDesc'),
-    icon: Zap,
-    gradient: 'from-gray-500 to-gray-600',
-    iconBg: 'bg-gray-100 dark:bg-gray-800',
-    features: [
-      t('billing.feat1Agent'),
-      t('billing.featBasicAnalytics'),
-      t('billing.featEmailSupport'),
-      t('billing.featStandardTemplates'),
-      t('billing.feat50Broadcast'),
-      t('billing.feat3Templates'),
-    ],
-    limits: {
-      maxAgents: 1,
-      maxRequests: 100,
-      maxStorage: '100MB',
-    },
-  },
   {
     id: 'standard',
     name: 'Standard',
@@ -176,6 +163,8 @@ interface DynamicPricing {
 export function SubscriptionManager({
   currentPlan = 'free',
   billingCycle = 'monthly',
+  subscriptionStatus,
+  trialEndsAt,
   onPlanChange,
   onBillingCycleChange,
   isLoading = false,
@@ -446,6 +435,15 @@ export function SubscriptionManager({
             <p className="text-gray-500 dark:text-gray-400 text-sm">
               {plan.description}
             </p>
+            {/* Trial badge */}
+            {TRIAL_DAYS[plan.id] && !isCurrentPlan && (
+              <div className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-full">
+                <Clock className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                <span className="text-xs font-semibold text-amber-700 dark:text-amber-300">
+                  {t('billing.trialBadge').replace('{{days}}', String(TRIAL_DAYS[plan.id]))}
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Pricing */}
@@ -562,7 +560,9 @@ export function SubscriptionManager({
               t('billing.currentPlanBadge')
             ) : (
               <>
-                {plan.id === 'free' ? t('billing.downgradeBtn') : t('billing.upgradeTo').replace('{{plan}}', plan.name)}
+                {TRIAL_DAYS[plan.id] && currentPlan === 'free'
+                  ? t('billing.startFreeTrial')
+                  : t('billing.upgradeTo').replace('{{plan}}', plan.name)}
                 <ArrowRight className="w-4 h-4" />
               </>
             )}
@@ -664,8 +664,53 @@ export function SubscriptionManager({
         </div>
       </div>
 
+      {/* Legacy Free Plan Banner */}
+      {currentPlan === 'free' && (
+        <div className="mb-8 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border border-blue-200 dark:border-blue-800 rounded-2xl p-6">
+          <div className="flex items-start gap-4">
+            <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center flex-shrink-0">
+              <Zap className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-1">
+                {t('billing.legacyFreePrompt')}
+              </h3>
+              <p className="text-gray-600 dark:text-gray-300 text-sm">
+                {t('billing.legacyFreeDesc')}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Trial Status Banner */}
+      {subscriptionStatus === 'trialing' && trialEndsAt && (
+        <div className="mb-8 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 border border-amber-200 dark:border-amber-800 rounded-2xl p-6">
+          <div className="flex items-start gap-4">
+            <div className="w-12 h-12 bg-amber-100 dark:bg-amber-900/30 rounded-xl flex items-center justify-center flex-shrink-0">
+              <Clock className="w-6 h-6 text-amber-600 dark:text-amber-400" />
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-1">
+                {t('billing.trialActive')}
+              </h3>
+              <p className="text-gray-600 dark:text-gray-300 text-sm">
+                {t('billing.trialExpiresOn')} <strong>{new Date(trialEndsAt).toLocaleDateString()}</strong>
+                {' — '}
+                {(() => {
+                  const days = Math.ceil((new Date(trialEndsAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+                  return days > 0
+                    ? t('billing.trialDaysRemaining').replace('{{days}}', String(days))
+                    : t('billing.trialExpired');
+                })()}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Plans Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-4 mb-16">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-4 mb-16">
         {plans.map((plan) => (
           <PlanCard key={plan.id} plan={plan} />
         ))}
@@ -718,21 +763,18 @@ export function SubscriptionManager({
               </tr>
               <tr>
                 <td className="py-4 px-4 text-gray-700 dark:text-gray-300">{t('billing.analytics')}</td>
-                <td className="text-center py-4 px-4 text-gray-500 dark:text-gray-400">{t('billing.basic')}</td>
                 <td className="text-center py-4 px-4 text-gray-900 dark:text-white font-medium">{t('billing.advancedLabel')}</td>
                 <td className="text-center py-4 px-4 text-emerald-600 dark:text-emerald-400 font-medium">{t('billing.advancedReports')}</td>
                 <td className="text-center py-4 px-4 text-purple-600 dark:text-purple-400 font-medium">{t('billing.customDashboard')}</td>
               </tr>
               <tr>
                 <td className="py-4 px-4 text-gray-700 dark:text-gray-300">{t('billing.supportLabel')}</td>
-                <td className="text-center py-4 px-4 text-gray-500 dark:text-gray-400">{t('billing.emailSupport')}</td>
                 <td className="text-center py-4 px-4 text-gray-900 dark:text-white font-medium">{t('billing.prioritySupport')}</td>
                 <td className="text-center py-4 px-4 text-emerald-600 dark:text-emerald-400 font-medium">{t('billing.priority247')}</td>
                 <td className="text-center py-4 px-4 text-purple-600 dark:text-purple-400 font-medium">{t('billing.dedicatedManager')}</td>
               </tr>
               <tr>
                 <td className="py-4 px-4 text-gray-700 dark:text-gray-300">{t('billing.apiAccess')}</td>
-                <td className="text-center py-4 px-4"><span className="text-gray-300 dark:text-gray-600">—</span></td>
                 <td className="text-center py-4 px-4"><span className="text-gray-300 dark:text-gray-600">—</span></td>
                 <td className="text-center py-4 px-4"><Check className="w-5 h-5 text-emerald-500 mx-auto" /></td>
                 <td className="text-center py-4 px-4"><Check className="w-5 h-5 text-purple-500 mx-auto" /></td>
@@ -741,12 +783,10 @@ export function SubscriptionManager({
                 <td className="py-4 px-4 text-gray-700 dark:text-gray-300">{t('billing.whiteLabel')}</td>
                 <td className="text-center py-4 px-4"><span className="text-gray-300 dark:text-gray-600">—</span></td>
                 <td className="text-center py-4 px-4"><span className="text-gray-300 dark:text-gray-600">—</span></td>
-                <td className="text-center py-4 px-4"><span className="text-gray-300 dark:text-gray-600">—</span></td>
                 <td className="text-center py-4 px-4"><Check className="w-5 h-5 text-purple-500 mx-auto" /></td>
               </tr>
               <tr>
                 <td className="py-4 px-4 text-gray-700 dark:text-gray-300">{t('billing.slaGuarantee')}</td>
-                <td className="text-center py-4 px-4"><span className="text-gray-300 dark:text-gray-600">—</span></td>
                 <td className="text-center py-4 px-4"><span className="text-gray-300 dark:text-gray-600">—</span></td>
                 <td className="text-center py-4 px-4"><span className="text-gray-300 dark:text-gray-600">—</span></td>
                 <td className="text-center py-4 px-4"><Check className="w-5 h-5 text-purple-500 mx-auto" /></td>

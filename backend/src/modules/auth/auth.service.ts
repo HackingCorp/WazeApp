@@ -19,6 +19,7 @@ import {
 } from "@/common/entities";
 import { UserRole, SubscriptionPlan, AuditAction } from "@/common/enums";
 import { PlanService } from "../subscriptions/plan.service";
+import { TrialService } from "../subscriptions/trial.service";
 import {
   RegisterDto,
   LoginDto,
@@ -57,6 +58,7 @@ export class AuthService {
     private emailService: EmailService,
     private auditService: AuditService,
     private planService: PlanService,
+    private trialService: TrialService,
     private posthogService: PostHogService,
   ) {}
 
@@ -109,25 +111,54 @@ export class AuthService {
       await this.organizationMemberRepository.save(membership);
     }
 
-    // Create free subscription for all users (with or without organization)
-    // Store selected plan in metadata - will be upgraded after payment if paid plan selected
-    // Use database-driven plan limits and features
-    const selectedPlan = dto.plan?.toUpperCase() || 'FREE';
-    const subscription = this.subscriptionRepository.create({
-      userId: user.id.toString(),
-      organizationId: organization?.id,
-      plan: SubscriptionPlan.FREE,
-      startsAt: new Date(),
-      limits: this.planService.getPlanLimits('free'),
-      features: this.planService.getPlanFeatures('free'),
-      metadata: selectedPlan !== 'FREE' ? {
-        pendingUpgrade: {
-          plan: selectedPlan,
-          requestedAt: new Date().toISOString(),
+    // Create subscription with trial for new users
+    // Default to STANDARD trial if no plan specified (Free plan no longer offered to new users)
+    const selectedPlan = dto.plan?.toUpperCase() || 'STANDARD';
+    const planCode = selectedPlan.toLowerCase();
+    const trialDays = this.planService.getTrialDays(planCode);
+
+    let subscriptionData: Partial<Subscription>;
+    if (trialDays > 0 && selectedPlan !== 'FREE') {
+      // Create a trialing subscription with the selected paid plan
+      const now = new Date();
+      const trialEndsAt = new Date(now);
+      trialEndsAt.setDate(trialEndsAt.getDate() + trialDays);
+
+      subscriptionData = {
+        userId: user.id.toString(),
+        organizationId: organization?.id,
+        plan: selectedPlan as SubscriptionPlan,
+        status: SubscriptionStatus.TRIALING,
+        startsAt: now,
+        trialEndsAt,
+        limits: this.planService.getPlanLimits(planCode),
+        features: this.planService.getPlanFeatures(planCode),
+        metadata: {
+          trialStartedAt: now.toISOString(),
+          trialDays,
         },
-      } : {},
-    });
+      };
+    } else {
+      // Legacy: create FREE subscription (for explicit FREE selection)
+      subscriptionData = {
+        userId: user.id.toString(),
+        organizationId: organization?.id,
+        plan: SubscriptionPlan.FREE,
+        startsAt: new Date(),
+        limits: this.planService.getPlanLimits('free'),
+        features: this.planService.getPlanFeatures('free'),
+      };
+    }
+
+    const subscription = this.subscriptionRepository.create(subscriptionData);
     await this.subscriptionRepository.save(subscription);
+
+    // Start trial async (creates invoice + sends welcome email) - don't block registration
+    if (trialDays > 0 && selectedPlan !== 'FREE') {
+      this.trialService.startTrial(subscription).catch(err => {
+        // Log but don't fail registration
+      });
+    }
 
     // Send verification email
     await this.emailService.sendVerificationEmail(

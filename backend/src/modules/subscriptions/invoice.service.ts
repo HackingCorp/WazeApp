@@ -113,6 +113,51 @@ export class InvoiceService {
   }
 
   /**
+   * Create a trial invoice - due at end of trial period
+   */
+  async createTrialInvoice(subscription: Subscription): Promise<Invoice | null> {
+    const planCode = subscription.plan.toLowerCase();
+    const priceXAF = this.planService.getPlanPriceXAF(planCode);
+    const priceInCents = priceXAF * 100;
+
+    if (priceXAF === 0) return null;
+
+    const now = new Date();
+    const trialEndsAt = subscription.trialEndsAt || now;
+    const periodEnd = new Date(trialEndsAt);
+    periodEnd.setDate(periodEnd.getDate() + 30);
+
+    const invoice = this.invoiceRepository.create({
+      invoiceNumber: this.generateInvoiceNumber(),
+      organizationId: subscription.organizationId,
+      subscriptionId: subscription.id,
+      status: InvoiceStatus.PENDING,
+      amountInCents: priceInCents,
+      currency: 'XAF',
+      description: `Abonnement ${subscription.plan} - Premiere facture (periode d'essai)`,
+      periodStart: trialEndsAt,
+      periodEnd,
+      dueDate: trialEndsAt,
+      lineItems: [
+        {
+          description: `Plan ${subscription.plan} - Activation apres essai gratuit`,
+          quantity: 1,
+          unitPrice: priceInCents,
+          total: priceInCents,
+        },
+      ],
+      taxAmountInCents: 0,
+      discountAmountInCents: 0,
+      totalAmountInCents: priceInCents,
+    });
+
+    const savedInvoice = await this.invoiceRepository.save(invoice);
+    this.logger.log(`Created trial invoice ${savedInvoice.invoiceNumber} for subscription ${subscription.id}`);
+
+    return savedInvoice;
+  }
+
+  /**
    * Get all invoices for an organization
    */
   async getOrganizationInvoices(organizationId: string): Promise<Invoice[]> {

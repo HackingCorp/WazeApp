@@ -741,18 +741,25 @@ export class QuotaEnforcementService {
 
     if (!activeSubscription) {
       this.logger.debug(
-        "No active subscription found, creating free subscription",
+        "No active subscription found, creating standard trial subscription",
       );
-      // Create default free subscription using database plans
-      const freeSubscription = this.subscriptionRepository.create({
+      // Create default STANDARD trial subscription using database plans
+      const trialDays = this.planService.getTrialDays('standard');
+      const now = new Date();
+      const trialEndsAt = new Date(now);
+      trialEndsAt.setDate(trialEndsAt.getDate() + (trialDays || 7));
+
+      const trialSubscription = this.subscriptionRepository.create({
         organizationId,
-        plan: SubscriptionPlan.FREE,
-        limits: this.planService.getPlanLimits('free'),
-        features: this.planService.getPlanFeatures('free'),
-        startsAt: new Date(),
+        plan: SubscriptionPlan.STANDARD,
+        status: SubscriptionStatus.TRIALING,
+        limits: this.planService.getPlanLimits('standard'),
+        features: this.planService.getPlanFeatures('standard'),
+        startsAt: now,
+        trialEndsAt,
       });
 
-      const saved = await this.subscriptionRepository.save(freeSubscription);
+      const saved = await this.subscriptionRepository.save(trialSubscription);
       await this.cacheManager.set(cacheKey, saved, this.SUBSCRIPTION_CACHE_TTL);
       return saved;
     }
@@ -818,20 +825,26 @@ export class QuotaEnforcementService {
     });
 
     if (!activeSubscription) {
-      const plan: SubscriptionPlan = SubscriptionPlan.FREE;
+      const plan: SubscriptionPlan = SubscriptionPlan.STANDARD;
       const planCode = plan.toLowerCase();
+      const trialDays = this.planService.getTrialDays(planCode);
+      const now = new Date();
+      const trialEndsAt = new Date(now);
+      trialEndsAt.setDate(trialEndsAt.getDate() + (trialDays || 7));
 
       activeSubscription = this.subscriptionRepository.create({
         userId,
         organizationId: null,
         plan,
+        status: SubscriptionStatus.TRIALING,
         limits: this.planService.getPlanLimits(planCode),
         features: this.planService.getPlanFeatures(planCode),
-        startsAt: new Date(),
+        startsAt: now,
+        trialEndsAt,
       });
 
       activeSubscription = await this.subscriptionRepository.save(activeSubscription);
-      this.logger.log(`Created subscription for user ${userId} with plan ${plan}`);
+      this.logger.log(`Created trial subscription for user ${userId} with plan ${plan}`);
     } else {
       // Always sync limits and features with the latest database values
       // This ensures upgrades and plan updates in database are always reflected

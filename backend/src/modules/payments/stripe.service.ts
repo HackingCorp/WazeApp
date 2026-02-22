@@ -151,7 +151,10 @@ export class StripeService {
       }
     }
 
-    const session = await stripe.checkout.sessions.create({
+    // Get trial days for this plan (Stripe handles trials natively)
+    const trialDays = this.planService.getTrialDays(params.planCode.toLowerCase());
+
+    const sessionCreateParams: Stripe.Checkout.SessionCreateParams = {
       customer: customerId,
       mode: 'subscription',
       line_items: [{ price: stripePriceId, quantity: 1 }],
@@ -171,8 +174,11 @@ export class StripeService {
           planCode: params.planCode.toUpperCase(),
           billingPeriod: params.billingPeriod,
         },
+        ...(trialDays > 0 ? { trial_period_days: trialDays } : {}),
       },
-    });
+    };
+
+    const session = await stripe.checkout.sessions.create(sessionCreateParams);
 
     return { sessionId: session.id, url: session.url! };
   }

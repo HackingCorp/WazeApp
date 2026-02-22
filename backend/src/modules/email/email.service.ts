@@ -468,6 +468,284 @@ export class EmailService {
     }
   }
 
+  /**
+   * Send trial start email
+   */
+  async sendTrialStartEmail(
+    email: string,
+    firstName: string,
+    details: {
+      planName: string;
+      trialDays: number;
+      trialEndsAt: Date;
+    },
+  ): Promise<void> {
+    const dashboardUrl = this.getDashboardUrl();
+    const billingUrl = `${dashboardUrl}/billing`;
+    const trialEndFormatted = details.trialEndsAt.toLocaleDateString('fr-FR', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    });
+
+    const html = `
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Essai gratuit active</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f4f4f4; padding: 20px;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+          <tr>
+            <td style="background: linear-gradient(135deg, #25D366 0%, #128C7E 100%); padding: 30px; text-align: center;">
+              <h1 style="color: #ffffff; margin: 0; font-size: 24px;">Votre essai gratuit est actif !</h1>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 40px;">
+              <p style="font-size: 16px; color: #333; margin-bottom: 20px;">Bonjour ${firstName},</p>
+              <p style="font-size: 16px; color: #333; margin-bottom: 20px;">
+                Votre essai gratuit du plan <strong>${details.planName}</strong> est maintenant actif pour <strong>${details.trialDays} jours</strong>.
+              </p>
+              <div style="background-color: #d4edda; border-left: 4px solid #28a745; padding: 20px; margin: 20px 0; border-radius: 4px;">
+                <p style="color: #155724; margin: 0; font-size: 16px;">
+                  Profitez de toutes les fonctionnalites du plan ${details.planName} jusqu'au <strong>${trialEndFormatted}</strong>.
+                </p>
+              </div>
+              <p style="font-size: 14px; color: #666; margin: 20px 0;">
+                Une facture a ete generee et sera due a la fin de votre periode d'essai. Si vous payez avant cette date, votre abonnement sera active sans interruption.
+              </p>
+              <div style="text-align: center; margin: 30px 0;">
+                <a href="${billingUrl}" style="display: inline-block; background: linear-gradient(135deg, #25D366 0%, #128C7E 100%); color: #ffffff; text-decoration: none; padding: 15px 40px; border-radius: 25px; font-weight: bold; font-size: 16px;">Acceder au dashboard</a>
+              </div>
+              <p style="font-size: 14px; color: #999; text-align: center;">
+                Des questions? Contactez-nous a support@wazeapp.xyz
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td style="background-color: #f8f9fa; padding: 20px; text-align: center;">
+              <p style="margin: 0; font-size: 12px; color: #999;">
+                &copy; ${new Date().getFullYear()} WazeApp. Tous droits reserves.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+
+    if (!this.transporter) {
+      this.logger.warn(`SMTP not configured, skipping trial start email to ${email}`);
+      return;
+    }
+
+    try {
+      await this.transporter.sendMail({
+        from: `"${this.getFromName()}" <${this.getFromAddress()}>`,
+        to: email,
+        subject: `Essai gratuit active - Plan ${details.planName} (${details.trialDays} jours)`,
+        html,
+        text: `Bonjour ${firstName},\n\nVotre essai gratuit du plan ${details.planName} est actif pour ${details.trialDays} jours (jusqu'au ${trialEndFormatted}).\n\nUne facture a ete generee et sera due a la fin de votre essai.\n\nAccedez au dashboard: ${billingUrl}\n\nL'equipe WazeApp`,
+      });
+      this.logger.log(`Trial start email sent to ${email}`);
+    } catch (error) {
+      this.logger.error(`Failed to send trial start email to ${email}: ${error.message}`);
+    }
+  }
+
+  /**
+   * Send trial reminder email
+   */
+  async sendTrialReminderEmail(
+    email: string,
+    firstName: string,
+    details: {
+      planName: string;
+      daysRemaining: number;
+      trialEndsAt: Date;
+    },
+  ): Promise<void> {
+    const dashboardUrl = this.getDashboardUrl();
+    const billingUrl = `${dashboardUrl}/billing`;
+    const trialEndFormatted = details.trialEndsAt.toLocaleDateString('fr-FR', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    });
+
+    const urgencyColor = details.daysRemaining <= 1 ? '#dc3545' : '#fd7e14';
+    const urgencyBg = details.daysRemaining <= 1 ? '#f8d7da' : '#fff3cd';
+    const urgencyText = details.daysRemaining === 0
+      ? 'Votre essai gratuit expire aujourd\'hui !'
+      : details.daysRemaining === 1
+        ? 'Votre essai gratuit expire demain !'
+        : `Votre essai gratuit expire dans ${details.daysRemaining} jours.`;
+
+    const html = `
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rappel essai gratuit</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f4f4f4; padding: 20px;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+          <tr>
+            <td style="background: linear-gradient(135deg, ${urgencyColor} 0%, #c82333 100%); padding: 30px; text-align: center;">
+              <h1 style="color: #ffffff; margin: 0; font-size: 24px;">Rappel - Essai Gratuit</h1>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 40px;">
+              <p style="font-size: 16px; color: #333; margin-bottom: 20px;">Bonjour ${firstName},</p>
+              <div style="background-color: ${urgencyBg}; border-left: 4px solid ${urgencyColor}; padding: 20px; margin: 20px 0; border-radius: 4px;">
+                <p style="color: #333; margin: 0; font-size: 16px; font-weight: bold;">
+                  ${urgencyText}
+                </p>
+              </div>
+              <p style="font-size: 14px; color: #666; margin: 20px 0;">
+                Votre essai du plan <strong>${details.planName}</strong> se termine le <strong>${trialEndFormatted}</strong>.
+                Pour continuer a profiter de toutes les fonctionnalites, payez votre facture avant cette date.
+              </p>
+              <div style="text-align: center; margin: 30px 0;">
+                <a href="${billingUrl}" style="display: inline-block; background: ${urgencyColor}; color: #ffffff; text-decoration: none; padding: 15px 40px; border-radius: 25px; font-weight: bold; font-size: 16px;">Payer maintenant</a>
+              </div>
+              <p style="font-size: 14px; color: #999; text-align: center;">
+                Des questions? Contactez-nous a support@wazeapp.xyz
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td style="background-color: #f8f9fa; padding: 20px; text-align: center;">
+              <p style="margin: 0; font-size: 12px; color: #999;">
+                &copy; ${new Date().getFullYear()} WazeApp. Tous droits reserves.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+
+    if (!this.transporter) {
+      this.logger.warn(`SMTP not configured, skipping trial reminder email to ${email}`);
+      return;
+    }
+
+    try {
+      await this.transporter.sendMail({
+        from: `"${this.getFromName()}" <${this.getFromAddress()}>`,
+        to: email,
+        subject: details.daysRemaining === 0
+          ? `Votre essai gratuit expire aujourd'hui !`
+          : `Rappel: Essai gratuit - ${details.daysRemaining} jour(s) restant(s)`,
+        html,
+        text: `Bonjour ${firstName},\n\n${urgencyText}\n\nPlan: ${details.planName}\nExpiration: ${trialEndFormatted}\n\nPour payer: ${billingUrl}\n\nL'equipe WazeApp`,
+      });
+      this.logger.log(`Trial reminder email sent to ${email} (${details.daysRemaining} days remaining)`);
+    } catch (error) {
+      this.logger.error(`Failed to send trial reminder email to ${email}: ${error.message}`);
+    }
+  }
+
+  /**
+   * Send trial expired email
+   */
+  async sendTrialExpiredEmail(
+    email: string,
+    firstName: string,
+    details: {
+      planName: string;
+    },
+  ): Promise<void> {
+    const dashboardUrl = this.getDashboardUrl();
+    const billingUrl = `${dashboardUrl}/billing`;
+
+    const html = `
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Essai gratuit expire</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f4f4f4; padding: 20px;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+          <tr>
+            <td style="background: linear-gradient(135deg, #dc3545 0%, #c82333 100%); padding: 30px; text-align: center;">
+              <h1 style="color: #ffffff; margin: 0; font-size: 24px;">Essai Gratuit Expire</h1>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 40px;">
+              <p style="font-size: 16px; color: #333; margin-bottom: 20px;">Bonjour ${firstName},</p>
+              <div style="background-color: #f8d7da; border-left: 4px solid #dc3545; padding: 20px; margin: 20px 0; border-radius: 4px;">
+                <p style="color: #721c24; margin: 0; font-size: 16px; font-weight: bold;">
+                  Votre essai gratuit du plan ${details.planName} a expire.
+                </p>
+              </div>
+              <p style="font-size: 14px; color: #666; margin: 20px 0;">
+                Votre compte a ete temporairement limite aux fonctionnalites du plan gratuit.
+                Pour reactiver toutes les fonctionnalites du plan ${details.planName}, payez votre facture en attente.
+              </p>
+              <div style="text-align: center; margin: 30px 0;">
+                <a href="${billingUrl}" style="display: inline-block; background: linear-gradient(135deg, #25D366 0%, #128C7E 100%); color: #ffffff; text-decoration: none; padding: 15px 40px; border-radius: 25px; font-weight: bold; font-size: 16px;">Reactiver mon compte</a>
+              </div>
+              <p style="font-size: 14px; color: #999; text-align: center;">
+                Des questions? Contactez-nous a support@wazeapp.xyz
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td style="background-color: #f8f9fa; padding: 20px; text-align: center;">
+              <p style="margin: 0; font-size: 12px; color: #999;">
+                &copy; ${new Date().getFullYear()} WazeApp. Tous droits reserves.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+
+    if (!this.transporter) {
+      this.logger.warn(`SMTP not configured, skipping trial expired email to ${email}`);
+      return;
+    }
+
+    try {
+      await this.transporter.sendMail({
+        from: `"${this.getFromName()}" <${this.getFromAddress()}>`,
+        to: email,
+        subject: `Essai gratuit expire - Plan ${details.planName}`,
+        html,
+        text: `Bonjour ${firstName},\n\nVotre essai gratuit du plan ${details.planName} a expire. Votre compte est limite aux fonctionnalites du plan gratuit.\n\nPour reactiver: ${billingUrl}\n\nL'equipe WazeApp`,
+      });
+      this.logger.log(`Trial expired email sent to ${email}`);
+    } catch (error) {
+      this.logger.error(`Failed to send trial expired email to ${email}: ${error.message}`);
+    }
+  }
+
   // ============= EMAIL TEMPLATES =============
 
   private getVerificationEmailTemplate(verificationUrl: string): string {

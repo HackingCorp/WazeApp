@@ -110,6 +110,33 @@ export class StripeService {
   }
 
   /**
+   * Find an existing Stripe customer ID for a user (without creating one).
+   * Returns null if no Stripe customer exists yet.
+   */
+  private async findExistingStripeCustomer(userId: string): Promise<string | null> {
+    // Check user's direct subscription
+    const subscription = await this.subscriptionRepository.findOne({
+      where: { userId },
+    });
+    if (subscription?.stripeCustomerId) {
+      return subscription.stripeCustomerId;
+    }
+
+    // Check organization subscription
+    const org = await this.organizationRepository.findOne({ where: { ownerId: userId } });
+    if (org) {
+      const orgSub = await this.subscriptionRepository.findOne({
+        where: { organizationId: org.id },
+      });
+      if (orgSub?.stripeCustomerId) {
+        return orgSub.stripeCustomerId;
+      }
+    }
+
+    return null;
+  }
+
+  /**
    * Create a Stripe Checkout session for subscription
    */
   async createCheckoutSession(params: {
@@ -145,12 +172,8 @@ export class StripeService {
       );
     }
 
-    // Get or create customer
-    const customerId = await this.getOrCreateCustomer(
-      params.userId,
-      user.email,
-      `${user.firstName || ''} ${user.lastName || ''}`.trim() || undefined,
-    );
+    // Check if user already has a Stripe customer ID
+    const existingCustomerId = await this.findExistingStripeCustomer(params.userId);
 
     // Resolve organizationId
     let organizationId = params.organizationId;
@@ -165,7 +188,10 @@ export class StripeService {
     const trialDays = this.planService.getTrialDays(params.planCode.toLowerCase());
 
     const sessionCreateParams: Stripe.Checkout.SessionCreateParams = {
-      customer: customerId,
+      // If existing Stripe customer, reuse it; otherwise let user enter/edit email
+      ...(existingCustomerId
+        ? { customer: existingCustomerId }
+        : { customer_email: user.email }),
       mode: 'subscription',
       line_items: [{ price: stripePriceId, quantity: 1 }],
       success_url: params.successUrl,
@@ -219,11 +245,7 @@ export class StripeService {
       throw new BadRequestException('Minimum Stripe charge is $0.50. Please purchase more credits.');
     }
 
-    const customerId = await this.getOrCreateCustomer(
-      params.userId,
-      user.email,
-      `${user.firstName || ''} ${user.lastName || ''}`.trim() || undefined,
-    );
+    const existingCustomerId = await this.findExistingStripeCustomer(params.userId);
 
     // Resolve organizationId
     let organizationId = params.organizationId;
@@ -235,7 +257,9 @@ export class StripeService {
     }
 
     const session = await stripe.checkout.sessions.create({
-      customer: customerId,
+      ...(existingCustomerId
+        ? { customer: existingCustomerId }
+        : { customer_email: user.email }),
       mode: 'payment',
       line_items: [
         {

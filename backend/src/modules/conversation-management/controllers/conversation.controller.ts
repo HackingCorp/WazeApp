@@ -11,6 +11,8 @@ import {
   HttpStatus,
   BadRequestException,
   NotFoundException,
+  ForbiddenException,
+  ParseUUIDPipe,
 } from "@nestjs/common";
 import {
   ApiTags,
@@ -154,7 +156,7 @@ export class ConversationController {
     }
 
     const [conversations, total] = await queryBuilder
-      .orderBy("conversation.lastActivityAt", "DESC")
+      .orderBy("conversation.updatedAt", "DESC")
       .skip((page - 1) * limit)
       .take(limit)
       .getManyAndCount();
@@ -228,7 +230,7 @@ export class ConversationController {
     description: "Conversation retrieved successfully",
   })
   @Roles(UserRole.VIEWER, UserRole.MEMBER, UserRole.ADMIN, UserRole.OWNER)
-  async getConversation(@CurrentUser() user: User, @Param("id") id: string) {
+  async getConversation(@CurrentUser() user: User, @Param("id", ParseUUIDPipe) id: string) {
     const conversation = await this.conversationRepository.findOne({
       where: {
         id,
@@ -258,7 +260,7 @@ export class ConversationController {
   @Roles(UserRole.VIEWER, UserRole.MEMBER, UserRole.ADMIN, UserRole.OWNER)
   async getConversationMessages(
     @CurrentUser() user: User,
-    @Param("id") id: string,
+    @Param("id", ParseUUIDPipe) id: string,
     @Query("page") page: number = 1,
     @Query("limit") limit: number = 50,
   ) {
@@ -306,7 +308,7 @@ export class ConversationController {
   @Roles(UserRole.MEMBER, UserRole.ADMIN, UserRole.OWNER)
   async sendMessage(
     @CurrentUser() user: User,
-    @Param("id") id: string,
+    @Param("id", ParseUUIDPipe) id: string,
     @Body() sendDto: SendMessageDto,
   ) {
     // Verify conversation belongs to user's organization
@@ -322,6 +324,25 @@ export class ConversationController {
 
     if (!conversation) {
       throw new NotFoundException("Conversation not found");
+    }
+
+    // Validate media URLs to prevent SSRF
+    if (sendDto.mediaUrls?.length) {
+      const validateMediaUrl = (url: string): boolean => {
+        try {
+          const parsed = new URL(url);
+          if (!['http:', 'https:'].includes(parsed.protocol)) return false;
+          const hostname = parsed.hostname;
+          if (hostname === 'localhost' || hostname === '0.0.0.0' || hostname === '::1') return false;
+          if (/^(10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.|127\.)/.test(hostname)) return false;
+          return true;
+        } catch { return false; }
+      };
+
+      const invalidUrls = sendDto.mediaUrls.filter(url => !validateMediaUrl(url));
+      if (invalidUrls.length > 0) {
+        throw new BadRequestException('Invalid media URLs: only public http/https URLs are allowed');
+      }
     }
 
     // Save user message
@@ -357,16 +378,15 @@ export class ConversationController {
       userId: user.id,
     });
 
-    // Update conversation activity
-    await this.conversationRepository
-      .createQueryBuilder()
-      .update(AgentConversation)
-      .set({
-        metrics: () =>
-          `jsonb_set(metrics, '{lastActivity}', '"${new Date().toISOString()}"')`,
-      })
-      .where("id = :id", { id })
-      .execute();
+    // Update conversation activity safely
+    const existingConversation = await this.conversationRepository.findOne({ where: { id } });
+    if (existingConversation) {
+      existingConversation.metrics = {
+        ...(existingConversation.metrics || {}),
+        lastActivity: new Date().toISOString(),
+      };
+      await this.conversationRepository.save(existingConversation);
+    }
 
     return savedMessage;
   }
@@ -381,7 +401,7 @@ export class ConversationController {
   @Roles(UserRole.MEMBER, UserRole.ADMIN, UserRole.OWNER)
   async transitionState(
     @CurrentUser() user: User,
-    @Param("id") id: string,
+    @Param("id", ParseUUIDPipe) id: string,
     @Body() transitionDto: TransitionStateDto,
   ) {
     // Verify conversation belongs to user's organization
@@ -421,7 +441,7 @@ export class ConversationController {
     description: "Context retrieved successfully",
   })
   @Roles(UserRole.VIEWER, UserRole.MEMBER, UserRole.ADMIN, UserRole.OWNER)
-  async getContext(@CurrentUser() user: User, @Param("id") id: string) {
+  async getContext(@CurrentUser() user: User, @Param("id", ParseUUIDPipe) id: string) {
     // Verify conversation belongs to user's organization
     const conversation = await this.conversationRepository.findOne({
       where: {
@@ -451,7 +471,7 @@ export class ConversationController {
   @Roles(UserRole.MEMBER, UserRole.ADMIN, UserRole.OWNER)
   async updateContext(
     @CurrentUser() user: User,
-    @Param("id") id: string,
+    @Param("id", ParseUUIDPipe) id: string,
     @Body() updates: UpdateContextDto,
   ) {
     // Verify conversation belongs to user's organization
@@ -486,7 +506,7 @@ export class ConversationController {
   @Roles(UserRole.MEMBER, UserRole.ADMIN, UserRole.OWNER)
   async closeConversation(
     @CurrentUser() user: User,
-    @Param("id") id: string,
+    @Param("id", ParseUUIDPipe) id: string,
     @Body() body: { reason?: string },
   ) {
     // Verify conversation belongs to user's organization
@@ -533,19 +553,18 @@ export class ConversationController {
   @Roles(UserRole.MEMBER, UserRole.ADMIN, UserRole.OWNER)
   async takeoverConversation(
     @CurrentUser() user: AuthenticatedRequest,
-    @Param("id") id: string,
+    @Param("id", ParseUUIDPipe) id: string,
   ) {
+    if (!user.organizationId) {
+      throw new ForbiddenException('Organization context required');
+    }
+
     const conversation = await this.conversationRepository.findOne({
-      where: { id },
+      where: { id, agent: { organizationId: user.organizationId } },
       relations: ["agent"],
     });
 
     if (!conversation) {
-      throw new NotFoundException("Conversation not found");
-    }
-
-    // Verify access
-    if (user.organizationId && conversation.agent?.organizationId !== user.organizationId) {
       throw new NotFoundException("Conversation not found");
     }
 
@@ -566,18 +585,18 @@ export class ConversationController {
   @Roles(UserRole.MEMBER, UserRole.ADMIN, UserRole.OWNER)
   async releaseConversation(
     @CurrentUser() user: AuthenticatedRequest,
-    @Param("id") id: string,
+    @Param("id", ParseUUIDPipe) id: string,
   ) {
+    if (!user.organizationId) {
+      throw new ForbiddenException('Organization context required');
+    }
+
     const conversation = await this.conversationRepository.findOne({
-      where: { id },
+      where: { id, agent: { organizationId: user.organizationId } },
       relations: ["agent"],
     });
 
     if (!conversation) {
-      throw new NotFoundException("Conversation not found");
-    }
-
-    if (user.organizationId && conversation.agent?.organizationId !== user.organizationId) {
       throw new NotFoundException("Conversation not found");
     }
 
@@ -599,19 +618,19 @@ export class ConversationController {
   @Roles(UserRole.MEMBER, UserRole.ADMIN, UserRole.OWNER)
   async operatorReply(
     @CurrentUser() user: AuthenticatedRequest,
-    @Param("id") id: string,
+    @Param("id", ParseUUIDPipe) id: string,
     @Body() body: OperatorReplyDto,
   ) {
+    if (!user.organizationId) {
+      throw new ForbiddenException('Organization context required');
+    }
+
     const conversation = await this.conversationRepository.findOne({
-      where: { id },
+      where: { id, agent: { organizationId: user.organizationId } },
       relations: ["agent"],
     });
 
     if (!conversation) {
-      throw new NotFoundException("Conversation not found");
-    }
-
-    if (user.organizationId && conversation.agent?.organizationId !== user.organizationId) {
       throw new NotFoundException("Conversation not found");
     }
 
@@ -650,7 +669,7 @@ export class ConversationController {
   @Roles(UserRole.ADMIN, UserRole.OWNER)
   async archiveConversation(
     @CurrentUser() user: User,
-    @Param("id") id: string,
+    @Param("id", ParseUUIDPipe) id: string,
   ) {
     // Verify conversation belongs to user's organization
     const conversation = await this.conversationRepository.findOne({
@@ -685,7 +704,7 @@ export class ConversationController {
   @Roles(UserRole.VIEWER, UserRole.MEMBER, UserRole.ADMIN, UserRole.OWNER)
   async getConversationSummary(
     @CurrentUser() user: User,
-    @Param("id") id: string,
+    @Param("id", ParseUUIDPipe) id: string,
   ) {
     // Verify conversation belongs to user's organization
     const conversation = await this.conversationRepository.findOne({

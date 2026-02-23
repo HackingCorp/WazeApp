@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { ConversationInterface } from '@/components/conversations/ConversationInterface';
 import { useSocket } from '@/providers/SocketProvider';
 import { useAuth } from '@/providers/AuthProvider';
@@ -8,16 +8,61 @@ import { useI18n } from '@/providers/I18nProvider';
 import { api } from '@/lib/api';
 import toast from 'react-hot-toast';
 
+interface Contact {
+  id: string;
+  name: string;
+  phone: string;
+  cleanedPhone: string;
+  avatar?: string;
+  lastMessage: string;
+  lastMessageTime: Date;
+  unreadCount: number;
+  isOnline: boolean;
+  isTyping: boolean;
+  isGroup: boolean;
+  conversationId?: string;
+  sessionId?: string;
+  status?: string;
+  isHumanControlled?: boolean;
+  assignedOperatorId?: string;
+  escalationReason?: string;
+}
+
+interface Message {
+  id: string;
+  content: string;
+  sender: string;
+  timestamp: Date;
+  status?: string;
+  mediaUrl?: string;
+  mediaType?: string;
+  mediaCaption?: string;
+  type?: string;
+}
+
+interface WhatsAppSession {
+  id: string;
+  name: string;
+  status: string;
+}
+
+interface ContactMapEntry {
+  phoneNumber?: string;
+  name?: string;
+  pushName?: string;
+  shortName?: string;
+  profilePictureUrl?: string;
+}
 
 export default function ConversationsPage() {
   const { user } = useAuth();
   const { t } = useI18n();
-  const [contacts, setContacts] = useState<any[]>([]);
+  const [contacts, setContacts] = useState<Contact[]>([]);
   const [selectedContactId, setSelectedContactId] = useState<string>();
-  const [messages, setMessages] = useState<any[]>([]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [loadingConversations, setLoadingConversations] = useState(true);
-  const [whatsappSessions, setWhatsappSessions] = useState<any[]>([]);
+  const [whatsappSessions, setWhatsappSessions] = useState<WhatsAppSession[]>([]);
   const [selectedSessionId, setSelectedSessionId] = useState<string>('');
   const [syncStatus, setSyncStatus] = useState<{
     isActive: boolean;
@@ -27,7 +72,8 @@ export default function ConversationsPage() {
     currentChat: string;
     error?: string;
   } | null>(null);
-  const [contactsMap, setContactsMap] = useState<Record<string, any>>({});
+  const [contactsMap, setContactsMap] = useState<Record<string, ContactMapEntry>>({});
+  const syncStatusTimerRef = useRef<NodeJS.Timeout | null>(null);
   const { socket, subscribe } = useSocket();
 
   // Load WhatsApp sessions on mount
@@ -69,7 +115,7 @@ export default function ConversationsPage() {
       const sessions = response?.data?.data || response?.data || [];
 
       // Filter only connected sessions
-      const connectedSessions = sessions.filter((session: any) => session.status === 'connected');
+      const connectedSessions = sessions.filter((session: WhatsAppSession) => session.status === 'connected');
       setWhatsappSessions(connectedSessions);
 
       // Auto-select first connected session if none selected
@@ -90,10 +136,10 @@ export default function ConversationsPage() {
 
       if (response.success && response.data) {
         // Create a map of phone numbers to contact info
-        const map: Record<string, any> = {};
+        const map: Record<string, ContactMapEntry> = {};
         const contacts = response.data || [];
 
-        contacts.forEach((contact: any) => {
+        contacts.forEach((contact: ContactMapEntry) => {
           if (contact.phoneNumber) {
             map[contact.phoneNumber] = contact;
             // Also map with + prefix if not present
@@ -147,7 +193,7 @@ export default function ConversationsPage() {
   }, [cleanPhoneForLookup]);
 
   // Helper function to get contact from map
-  const getContactFromMap = useCallback((phoneNumber: string): any | null => {
+  const getContactFromMap = useCallback((phoneNumber: string): ContactMapEntry | null => {
     if (!phoneNumber) return null;
 
     const cleanPhone = cleanPhoneForLookup(phoneNumber);
@@ -240,19 +286,28 @@ export default function ConversationsPage() {
         };
 
         // Convert backend format to frontend format
-        const formattedContacts = conversations.map((conv: any) => {
+        const formattedContacts = conversations.map((conv: {
+          id: string;
+          phoneNumber?: string;
+          name?: string;
+          lastMessage?: string;
+          lastMessageTime?: string;
+          unreadCount?: number;
+          isOnline?: boolean;
+          profilePictureUrl?: string;
+        }) => {
           const isGroup = conv.phoneNumber?.includes('@g.us') || false;
-          const cleanedPhone = cleanPhoneNumber(conv.phoneNumber);
+          const cleanedPhone = cleanPhoneNumber(conv.phoneNumber || '');
 
           // Use the name from backend (already processed to handle LIDs)
           // or fallback to our local processing
-          let displayName = conv.name;
+          let displayName = conv.name || '';
           if (!displayName ||
               displayName === conv.phoneNumber ||
               displayName.includes('@') ||
               (displayName.match(/^\+?\d+$/) && displayName.length > 13)) {
             // If backend name looks like a LID, try our local contact lookup
-            displayName = getContactDisplayName(conv.phoneNumber);
+            displayName = getContactDisplayName(conv.phoneNumber || '');
           }
           // Also clean the display name if it still has suffixes
           displayName = cleanText(displayName);
@@ -265,7 +320,7 @@ export default function ConversationsPage() {
           }
 
           // Format phone number for display - hide LID/invalid identifiers
-          let displayPhone = formatPhoneForDisplay(conv.phoneNumber);
+          let displayPhone = formatPhoneForDisplay(conv.phoneNumber || '');
           if (isGroup) {
             displayPhone = t('conversations.group');
           } else if (!displayPhone) {
@@ -274,7 +329,7 @@ export default function ConversationsPage() {
           }
 
           // Get profile picture - prefer backend's profilePictureUrl, fallback to contacts map
-          const avatar = conv.profilePictureUrl || getContactProfilePicture(conv.phoneNumber);
+          const avatar = conv.profilePictureUrl || getContactProfilePicture(conv.phoneNumber || '');
 
           return {
             id: conv.id,
@@ -292,7 +347,7 @@ export default function ConversationsPage() {
         });
 
         // Deduplicate by cleaned phone number - keep the most recent conversation
-        const deduplicatedContacts = formattedContacts.reduce((acc: any[], contact: any) => {
+        const deduplicatedContacts = formattedContacts.reduce((acc: Contact[], contact: Contact) => {
           const existingIndex = acc.findIndex(c => c.cleanedPhone === contact.cleanedPhone);
           if (existingIndex === -1) {
             acc.push(contact);
@@ -310,7 +365,7 @@ export default function ConversationsPage() {
         }, []);
 
         // Sort by last message time (most recent first)
-        deduplicatedContacts.sort((a: any, b: any) =>
+        deduplicatedContacts.sort((a: Contact, b: Contact) =>
           b.lastMessageTime.getTime() - a.lastMessageTime.getTime()
         );
 
@@ -348,10 +403,10 @@ export default function ConversationsPage() {
       const rawMessages = Array.isArray(response) ? response : response?.data || [];
 
       // Convert timestamp strings to Date objects and sort by timestamp (oldest first)
-      const messages = rawMessages.map((msg: any) => ({
+      const messages = rawMessages.map((msg: Message) => ({
         ...msg,
         timestamp: new Date(msg.timestamp),
-      })).sort((a: any, b: any) => a.timestamp.getTime() - b.timestamp.getTime());
+      })).sort((a: Message, b: Message) => a.timestamp.getTime() - b.timestamp.getTime());
 
       setMessages(messages);
       
@@ -376,7 +431,7 @@ export default function ConversationsPage() {
   useEffect(() => {
     if (!socket) return;
 
-    const handleNewMessage = (data: any) => {
+    const handleNewMessage = (data: { contactId: string; message: Message; contact?: { id?: string; name?: string; phone?: string; isOnline?: boolean } }) => {
       if (data.contactId === selectedContactId) {
         // Ensure timestamp is a Date object
         const message = {
@@ -384,9 +439,8 @@ export default function ConversationsPage() {
           timestamp: new Date(data.message.timestamp),
         };
         setMessages(prev => {
-          const updated = [...prev, message];
-          // Sort messages by timestamp to ensure proper ordering
-          return updated.sort((a: any, b: any) => a.timestamp.getTime() - b.timestamp.getTime());
+          if (prev.some(m => m.id === message.id)) return prev;
+          return [...prev, message];
         });
       }
       
@@ -411,10 +465,11 @@ export default function ConversationsPage() {
           const displayPhone = isGroup ? `Group: ${cleanedPhone}` : (cleanedPhone.startsWith('+') ? cleanedPhone : `+${cleanedPhone}`);
 
           // Create new contact if it doesn't exist
-          const newContact = {
+          const newContact: Contact = {
             id: data.contact?.id || data.contactId,
             name: data.contact?.name || displayPhone || 'Unknown',
             phone: displayPhone || 'Unknown',
+            cleanedPhone: cleanedPhone,
             lastMessage: data.message.content,
             lastMessageTime: new Date(data.message.timestamp),
             unreadCount: data.contactId === selectedContactId ? 0 : 1,
@@ -462,7 +517,7 @@ export default function ConversationsPage() {
       ));
     };
 
-    const handleSyncStatus = (data: any) => {
+    const handleSyncStatus = (data: { status: 'started' | 'progress' | 'completed' | 'failed'; totalChats?: number; syncedChats?: number; currentChat?: string; error?: string }) => {
       setSyncStatus({
         isActive: data.status !== 'completed' && data.status !== 'failed',
         status: data.status,
@@ -472,23 +527,22 @@ export default function ConversationsPage() {
         error: data.error,
       });
 
-      // Hide sync status after 5 seconds when completed
-      if (data.status === 'completed') {
-        setTimeout(() => setSyncStatus(null), 5000);
-      }
-
       // Show notification for completion
       if (data.status === 'completed') {
         toast.success(t('conversations.syncCompleted', { count: data.syncedChats }));
         // Reload conversations to show newly synced ones
         loadConversations();
+        // Hide sync status after 5 seconds when completed
+        if (syncStatusTimerRef.current) clearTimeout(syncStatusTimerRef.current);
+        syncStatusTimerRef.current = setTimeout(() => setSyncStatus(null), 5000);
       } else if (data.status === 'failed') {
         toast.error(t('conversations.syncFailed') + ': ' + data.error);
-        setTimeout(() => setSyncStatus(null), 5000);
+        if (syncStatusTimerRef.current) clearTimeout(syncStatusTimerRef.current);
+        syncStatusTimerRef.current = setTimeout(() => setSyncStatus(null), 5000);
       }
     };
 
-    const handleConversationEscalated = (data: any) => {
+    const handleConversationEscalated = (data: { conversationId: string; reason?: string }) => {
       // Update the contact's escalation status
       setContacts(prev => prev.map(contact =>
         contact.id === data.conversationId
@@ -514,10 +568,11 @@ export default function ConversationsPage() {
       unsubscribeOnlineStatus();
       unsubscribeSyncStatus();
       unsubscribeEscalation();
+      if (syncStatusTimerRef.current) clearTimeout(syncStatusTimerRef.current);
     };
   }, [socket, subscribe, selectedContactId]);
 
-  const handleSendMessage = async (content: string, type: 'text' | 'image' | 'audio' | 'file' | 'video') => {
+  const handleSendMessage = useCallback(async (content: string, type: 'text' | 'image' | 'audio' | 'file' | 'video') => {
     if (!selectedContactId) {
       return;
     }
@@ -531,26 +586,19 @@ export default function ConversationsPage() {
       status: 'sending' as const,
     };
 
-    // Add message to UI immediately and ensure proper ordering
-    setMessages(prev => {
-      const updated = [...prev, newMessage];
-      // Sort messages by timestamp to ensure proper ordering
-      return updated.sort((a: any, b: any) => a.timestamp.getTime() - b.timestamp.getTime());
-    });
+    // Add message to UI immediately
+    setMessages(prev => [...prev, newMessage]);
 
     try {
       // Send to real WhatsApp conversation
       const result = await api.sendWhatsAppConversationMessage(selectedContactId, content);
 
-      // Update message status and maintain sorting
-      setMessages(prev => {
-        const updated = prev.map(msg =>
-          msg.id === newMessage.id
-            ? { ...msg, status: 'sent' }
-            : msg
-        );
-        return updated.sort((a: any, b: any) => a.timestamp.getTime() - b.timestamp.getTime());
-      });
+      // Update message status
+      setMessages(prev => prev.map(msg =>
+        msg.id === newMessage.id
+          ? { ...msg, status: 'sent' }
+          : msg
+      ));
 
       // Update contact's last message
       setContacts(prev => prev.map(contact =>
@@ -563,39 +611,35 @@ export default function ConversationsPage() {
           : contact
       ));
 
-      toast.success(t('conversations.messageSent'));
     } catch (error) {
       if (process.env.NODE_ENV === 'development') {
         console.error('[FRONTEND] Failed to send message:', error);
       }
       toast.error(t('conversations.failedSendMessage'));
-      
-      // Update message status to failed and maintain sorting
-      setMessages(prev => {
-        const updated = prev.map(msg =>
-          msg.id === newMessage.id
-            ? { ...msg, status: 'failed' as any }
-            : msg
-        );
-        return updated.sort((a: any, b: any) => a.timestamp.getTime() - b.timestamp.getTime());
-      });
+
+      // Update message status to failed
+      setMessages(prev => prev.map(msg =>
+        msg.id === newMessage.id
+          ? { ...msg, status: 'failed' }
+          : msg
+      ));
     }
-  };
+  }, [selectedContactId, t]);
 
-  const handleSelectContact = (contactId: string) => {
+  const handleSelectContact = useCallback((contactId: string) => {
     setSelectedContactId(contactId);
-  };
+  }, []);
 
-  const handleArchiveContact = (contactId: string) => {
+  const handleArchiveContact = useCallback((contactId: string) => {
     setContacts(prev => prev.filter(contact => contact.id !== contactId));
     if (selectedContactId === contactId) {
       setSelectedContactId(undefined);
       setMessages([]);
     }
     toast.success(t('conversations.contactArchived'));
-  };
+  }, [selectedContactId, t]);
 
-  const handleTakeover = async (contactId: string) => {
+  const handleTakeover = useCallback(async (contactId: string) => {
     try {
       const result = await api.takeoverConversation(contactId);
       if (result.success) {
@@ -609,9 +653,9 @@ export default function ConversationsPage() {
     } catch (error) {
       toast.error('Failed to take over conversation');
     }
-  };
+  }, [user?.id]);
 
-  const handleRelease = async (contactId: string) => {
+  const handleRelease = useCallback(async (contactId: string) => {
     try {
       const result = await api.releaseConversation(contactId);
       if (result.success) {
@@ -625,9 +669,9 @@ export default function ConversationsPage() {
     } catch (error) {
       toast.error('Failed to release conversation');
     }
-  };
+  }, []);
 
-  const handleOperatorReply = async (contactId: string, message: string) => {
+  const handleOperatorReply = useCallback(async (contactId: string, message: string) => {
     try {
       const result = await api.sendOperatorReply(contactId, message);
       if (result.success) {
@@ -637,7 +681,7 @@ export default function ConversationsPage() {
     } catch (error) {
       toast.error('Failed to send operator reply');
     }
-  };
+  }, []);
 
   if (loadingConversations) {
     return (
@@ -734,6 +778,7 @@ export default function ConversationsPage() {
           onRelease={handleRelease}
           onOperatorReply={handleOperatorReply}
           isLoading={isLoading}
+          t={t}
         />
       </div>
     </div>

@@ -31,18 +31,19 @@ import { UserRole, MediaType, MediaQuality } from "../../../common/enums";
 import { User } from "../../../common/entities";
 import { MediaHandlingService } from "../services/media-handling.service";
 import { ExternalMediaService } from "../services/external-media.service";
+import { IsString, IsNotEmpty, IsOptional, IsNumber, IsBoolean, IsEnum, IsArray } from "class-validator";
 
 class MediaSearchDto {
-  query: string;
-  mediaType: MediaType;
-  limit?: number = 10;
-  safeSearch?: boolean = true;
+  @IsString() @IsNotEmpty() query: string;
+  @IsEnum(MediaType) mediaType: MediaType;
+  @IsOptional() @IsNumber() limit?: number = 10;
+  @IsOptional() @IsBoolean() safeSearch?: boolean = true;
 }
 
 class ImportMediaDto {
-  mediaResults: any[];
-  tags?: string[];
-  isTemplate?: boolean = false;
+  @IsArray() @IsNotEmpty() mediaResults: any[];
+  @IsOptional() @IsArray() tags?: string[];
+  @IsOptional() @IsBoolean() isTemplate?: boolean = false;
 }
 
 @ApiTags("media")

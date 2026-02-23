@@ -25,23 +25,24 @@ import { CurrentUser } from "../../../common/decorators/current-user.decorator";
 import { UserRole } from "../../../common/enums";
 import { User } from "../../../common/entities";
 import { VectorEmbeddingService } from "../services/vector-embedding.service";
+import { IsString, IsNotEmpty, IsOptional, IsNumber, IsBoolean, IsArray } from "class-validator";
 
 class VectorSearchDto {
-  query: string;
-  knowledgeBaseIds?: string[];
-  limit?: number = 10;
-  scoreThreshold?: number = 0.7;
+  @IsString() @IsNotEmpty() query: string;
+  @IsOptional() @IsArray() knowledgeBaseIds?: string[];
+  @IsOptional() @IsNumber() limit?: number = 10;
+  @IsOptional() @IsNumber() scoreThreshold?: number = 0.7;
 }
 
 class GenerateEmbeddingDto {
-  chunkId: string;
-  forceRegenerate?: boolean = false;
+  @IsString() @IsNotEmpty() chunkId: string;
+  @IsOptional() @IsBoolean() forceRegenerate?: boolean = false;
 }
 
 class BulkEmbeddingDto {
-  chunkIds: string[];
-  forceRegenerate?: boolean = false;
-  batchSize?: number = 10;
+  @IsArray() @IsNotEmpty() chunkIds: string[];
+  @IsOptional() @IsBoolean() forceRegenerate?: boolean = false;
+  @IsOptional() @IsNumber() batchSize?: number = 10;
 }
 
 @ApiTags("vector-database")

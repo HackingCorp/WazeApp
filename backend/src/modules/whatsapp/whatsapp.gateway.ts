@@ -45,12 +45,7 @@ export class WhatsAppGateway
   constructor(
     private jwtService: JwtService,
     private eventEmitter: EventEmitter2,
-  ) {
-    this.eventEmitter.on(
-      "whatsapp.message.received",
-      this.handleMessageReceived.bind(this),
-    );
-  }
+  ) {}
 
   afterInit(server: Server) {
     this.logger.log("WhatsApp WebSocket Gateway initialized");
@@ -130,20 +125,6 @@ export class WhatsAppGateway
   }
 
   /**
-   * Handle WhatsApp message events from backend (for UI updates)
-   * Called manually from constructor for whatsapp.message.received events
-   */
-  async handleMessageReceived(data: {
-    userId: string;
-    conversationId: string;
-    message: any;
-    contact: any;
-  }) {
-    // Delegate to the common handler
-    await this.broadcastMessageToUser(data);
-  }
-
-  /**
    * Handle UI-specific message update events
    * Used by simple-conversation service to avoid triggering AI responder
    */
@@ -154,8 +135,12 @@ export class WhatsAppGateway
     message: any;
     contact: any;
   }) {
-    // Delegate to the common handler
-    await this.broadcastMessageToUser(data);
+    try {
+      // Delegate to the common handler
+      await this.broadcastMessageToUser(data);
+    } catch (error) {
+      this.logger.error(`handleUIMessageUpdate failed: ${error.message}`, error.stack);
+    }
   }
 
   /**
@@ -167,50 +152,39 @@ export class WhatsAppGateway
     message: any;
     contact: any;
   }) {
-    this.logger.log(
-      `📨 GATEWAY broadcasting message for user ${data.userId}`,
-    );
-    this.logger.log(
-      `📨 Connected users: ${this.getConnectedUsers().length}, User online: ${this.isUserOnline(data.userId)}`,
-    );
+    try {
+      this.logger.log(
+        `📨 GATEWAY broadcasting message for user ${data.userId}`,
+      );
+      this.logger.log(
+        `📨 Connected users: ${this.getConnectedUsers().length}, User online: ${this.isUserOnline(data.userId)}`,
+      );
 
-    // Check if user is connected
-    if (!this.isUserOnline(data.userId)) {
-      this.logger.warn(`📨 User ${data.userId} is not connected to WebSocket`);
+      // Check if user is connected
+      if (!this.isUserOnline(data.userId)) {
+        this.logger.warn(`📨 User ${data.userId} is not connected to WebSocket`);
+      }
+
+      // Emit to specific user
+      this.server
+        .to(`user:${data.userId}`)
+        .emit("whatsapp:message", {
+          contactId: data.conversationId,
+          message: {
+            id: data.message.id,
+            content: data.message.content,
+            timestamp: new Date(data.message.timestamp),
+            sender: data.message?.sender || (data as any).sender || "contact",
+            type: data.message.type || "text",
+            status: "delivered",
+          },
+          contact: data.contact,
+        });
+
+      this.logger.log(`📨 Message broadcast completed for user ${data.userId}`);
+    } catch (error) {
+      this.logger.error(`broadcastMessageToUser failed: ${error.message}`, error.stack);
     }
-
-    // Emit to specific user
-    this.server
-      .to(`user:${data.userId}`)
-      .emit("whatsapp:message", {
-        contactId: data.conversationId,
-        message: {
-          id: data.message.id,
-          content: data.message.content,
-          timestamp: new Date(data.message.timestamp),
-          sender: "user",
-          type: data.message.type || "text",
-          status: "delivered",
-        },
-        contact: data.contact,
-      });
-
-    this.logger.log(`📨 Message broadcast completed for user ${data.userId}`);
-  }
-
-  @OnEvent("whatsapp.message.sent")
-  async handleMessageSent(data: {
-    userId: string;
-    conversationId: string;
-    message: any;
-  }) {
-    this.logger.log(`Broadcasting sent message to user ${data.userId}`);
-
-    // Emit to specific user
-    this.server.to(`user:${data.userId}`).emit("whatsapp:message-sent", {
-      contactId: data.conversationId,
-      message: data.message,
-    });
   }
 
   /**
@@ -231,53 +205,57 @@ export class WhatsAppGateway
     isHistorical: boolean;
     messageType: string;
   }) {
-    // Skip historical messages for real-time updates
-    if (data.isHistorical) {
-      return;
+    try {
+      // Skip historical messages for real-time updates
+      if (data.isHistorical) {
+        return;
+      }
+
+      this.logger.log(
+        `📨 GATEWAY: New conversation message for user ${data.userId} from ${data.fromNumber}`,
+      );
+
+      // Only broadcast incoming messages (not messages sent by us)
+      if (data.isFromMe) {
+        return;
+      }
+
+      // Check if user is connected
+      if (!this.isUserOnline(data.userId)) {
+        this.logger.warn(`📨 User ${data.userId} is not connected to WebSocket`);
+        return;
+      }
+
+      // Clean phone number for display
+      const cleanPhone = data.fromNumber
+        .replace(/@s\.whatsapp\.net$/i, '')
+        .replace(/@lid$/i, '')
+        .replace(/@c\.us$/i, '')
+        .replace(/@g\.us$/i, '');
+
+      // Emit to specific user
+      this.server.to(`user:${data.userId}`).emit("whatsapp:message", {
+        contactId: data.fromNumber, // Use full JID as contact ID
+        message: {
+          id: data.messageId,
+          content: data.messageText,
+          timestamp: data.timestamp,
+          sender: "contact",
+          type: data.messageType || "text",
+          status: "delivered",
+        },
+        contact: {
+          id: data.fromNumber,
+          phone: cleanPhone,
+          name: cleanPhone,
+          isGroup: data.isGroup,
+        },
+      });
+
+      this.logger.log(`📨 Message broadcast completed for user ${data.userId}`);
+    } catch (error) {
+      this.logger.error(`handleConversationMessage failed: ${error.message}`, error.stack);
     }
-
-    this.logger.log(
-      `📨 GATEWAY: New conversation message for user ${data.userId} from ${data.fromNumber}`,
-    );
-
-    // Only broadcast incoming messages (not messages sent by us)
-    if (data.isFromMe) {
-      return;
-    }
-
-    // Check if user is connected
-    if (!this.isUserOnline(data.userId)) {
-      this.logger.warn(`📨 User ${data.userId} is not connected to WebSocket`);
-      return;
-    }
-
-    // Clean phone number for display
-    const cleanPhone = data.fromNumber
-      .replace(/@s\.whatsapp\.net$/i, '')
-      .replace(/@lid$/i, '')
-      .replace(/@c\.us$/i, '')
-      .replace(/@g\.us$/i, '');
-
-    // Emit to specific user
-    this.server.to(`user:${data.userId}`).emit("whatsapp:message", {
-      contactId: data.fromNumber, // Use full JID as contact ID
-      message: {
-        id: data.messageId,
-        content: data.messageText,
-        timestamp: data.timestamp,
-        sender: "contact",
-        type: data.messageType || "text",
-        status: "delivered",
-      },
-      contact: {
-        id: data.fromNumber,
-        phone: cleanPhone,
-        name: cleanPhone,
-        isGroup: data.isGroup,
-      },
-    });
-
-    this.logger.log(`📨 Message broadcast completed for user ${data.userId}`);
   }
 
   @OnEvent("whatsapp.session.status")
@@ -287,17 +265,21 @@ export class WhatsAppGateway
     status: string;
     qrCode?: string;
   }) {
-    this.logger.log(
-      `Broadcasting session status to user ${data.userId}: ${data.status}`,
-    );
+    try {
+      this.logger.log(
+        `Broadcasting session status to user ${data.userId}: ${data.status}`,
+      );
 
-    // Emit to specific user
-    this.server.to(`user:${data.userId}`).emit("whatsapp:session-status", {
-      sessionId: data.sessionId,
-      status: data.status,
-      qrCode: data.qrCode,
-      timestamp: new Date(),
-    });
+      // Emit to specific user
+      this.server.to(`user:${data.userId}`).emit("whatsapp:session-status", {
+        sessionId: data.sessionId,
+        status: data.status,
+        qrCode: data.qrCode,
+        timestamp: new Date(),
+      });
+    } catch (error) {
+      this.logger.error(`handleSessionStatus failed: ${error.message}`, error.stack);
+    }
   }
 
   /**
@@ -308,12 +290,16 @@ export class WhatsAppGateway
     @ConnectedSocket() client: AuthenticatedSocket,
     @MessageBody() data: { contactId: string; isTyping: boolean },
   ) {
-    // Emit typing status back to user (for UI feedback)
-    client.emit("whatsapp:typing", {
-      contactId: data.contactId,
-      isTyping: data.isTyping,
-      userId: client.userId,
-    });
+    try {
+      // Emit typing status back to user (for UI feedback)
+      client.emit("whatsapp:typing", {
+        contactId: data.contactId,
+        isTyping: data.isTyping,
+        userId: client.userId,
+      });
+    } catch (error) {
+      this.logger.error(`handleTyping failed: ${error.message}`, error.stack);
+    }
   }
 
   /**
@@ -325,11 +311,15 @@ export class WhatsAppGateway
     contactId: string;
     isOnline: boolean;
   }) {
-    this.server.to(`user:${data.userId}`).emit("whatsapp:online-status", {
-      contactId: data.contactId,
-      isOnline: data.isOnline,
-      timestamp: new Date(),
-    });
+    try {
+      this.server.to(`user:${data.userId}`).emit("whatsapp:online-status", {
+        contactId: data.contactId,
+        isOnline: data.isOnline,
+        timestamp: new Date(),
+      });
+    } catch (error) {
+      this.logger.error(`handleOnlineStatus failed: ${error.message}`, error.stack);
+    }
   }
 
   @OnEvent("whatsapp.session.sync")
@@ -342,24 +332,28 @@ export class WhatsAppGateway
     currentChat?: string;
     error?: string;
   }) {
-    this.logger.log(
-      `📡 Sync event: ${data.status} for session ${data.sessionId}`,
-    );
+    try {
+      this.logger.log(
+        `📡 Sync event: ${data.status} for session ${data.sessionId}`,
+      );
 
-    const syncPayload = {
-      sessionId: data.sessionId,
-      status: data.status,
-      totalChats: data.totalChats,
-      syncedChats: data.syncedChats,
-      currentChat: data.currentChat,
-      error: data.error,
-      timestamp: new Date(),
-    };
+      const syncPayload = {
+        sessionId: data.sessionId,
+        status: data.status,
+        totalChats: data.totalChats,
+        syncedChats: data.syncedChats,
+        currentChat: data.currentChat,
+        error: data.error,
+        timestamp: new Date(),
+      };
 
-    if (data.userId) {
-      this.server.to(`user:${data.userId}`).emit("whatsapp:sync-status", syncPayload);
-    } else {
-      this.logger.warn(`Sync event for session ${data.sessionId} has no userId, skipping broadcast`);
+      if (data.userId) {
+        this.server.to(`user:${data.userId}`).emit("whatsapp:sync-status", syncPayload);
+      } else {
+        this.logger.warn(`Sync event for session ${data.sessionId} has no userId, skipping broadcast`);
+      }
+    } catch (error) {
+      this.logger.error(`handleSessionSync failed: ${error.message}`, error.stack);
     }
   }
 
@@ -374,19 +368,23 @@ export class WhatsAppGateway
     currentPhone: string;
     status: "in_progress" | "completed";
   }) {
-    this.logger.log(
-      `📡 Validation progress: ${data.validated}/${data.total} for user ${data.userId}`,
-    );
+    try {
+      this.logger.log(
+        `📡 Validation progress: ${data.validated}/${data.total} for user ${data.userId}`,
+      );
 
-    // Emit to specific user
-    this.server.to(`user:${data.userId}`).emit("broadcast:validation-progress", {
-      total: data.total,
-      validated: data.validated,
-      valid: data.valid,
-      invalid: data.invalid,
-      status: data.status,
-      timestamp: new Date(),
-    });
+      // Emit to specific user
+      this.server.to(`user:${data.userId}`).emit("broadcast:validation-progress", {
+        total: data.total,
+        validated: data.validated,
+        valid: data.valid,
+        invalid: data.invalid,
+        status: data.status,
+        timestamp: new Date(),
+      });
+    } catch (error) {
+      this.logger.error(`handleValidationProgress failed: ${error.message}`, error.stack);
+    }
   }
 
   // ==========================================
@@ -398,14 +396,18 @@ export class WhatsAppGateway
     organizationId: string;
     campaignId: string;
   }) {
-    this.logger.log(
-      `Broadcasting campaign started event: campaign ${data.campaignId}`,
-    );
+    try {
+      this.logger.log(
+        `Broadcasting campaign started event: campaign ${data.campaignId}`,
+      );
 
-    this.server.to(`org:${data.organizationId}`).emit("broadcast:campaign-started", {
-      campaignId: data.campaignId,
-      timestamp: new Date(),
-    });
+      this.server.to(`org:${data.organizationId}`).emit("broadcast:campaign-started", {
+        campaignId: data.campaignId,
+        timestamp: new Date(),
+      });
+    } catch (error) {
+      this.logger.error(`handleBroadcastCampaignStarted failed: ${error.message}`, error.stack);
+    }
   }
 
   @OnEvent("broadcast.campaign.completed")
@@ -414,15 +416,19 @@ export class WhatsAppGateway
     campaignId: string;
     stats: any;
   }) {
-    this.logger.log(
-      `Broadcasting campaign completed event: campaign ${data.campaignId}`,
-    );
+    try {
+      this.logger.log(
+        `Broadcasting campaign completed event: campaign ${data.campaignId}`,
+      );
 
-    this.server.to(`org:${data.organizationId}`).emit("broadcast:campaign-completed", {
-      campaignId: data.campaignId,
-      stats: data.stats,
-      timestamp: new Date(),
-    });
+      this.server.to(`org:${data.organizationId}`).emit("broadcast:campaign-completed", {
+        campaignId: data.campaignId,
+        stats: data.stats,
+        timestamp: new Date(),
+      });
+    } catch (error) {
+      this.logger.error(`handleBroadcastCampaignCompleted failed: ${error.message}`, error.stack);
+    }
   }
 
   @OnEvent("broadcast.message.sent")
@@ -432,12 +438,16 @@ export class WhatsAppGateway
     messageId: string;
     status: string;
   }) {
-    this.server.to(`org:${data.organizationId}`).emit("broadcast:message-sent", {
-      campaignId: data.campaignId,
-      messageId: data.messageId,
-      status: data.status,
-      timestamp: new Date(),
-    });
+    try {
+      this.server.to(`org:${data.organizationId}`).emit("broadcast:message-sent", {
+        campaignId: data.campaignId,
+        messageId: data.messageId,
+        status: data.status,
+        timestamp: new Date(),
+      });
+    } catch (error) {
+      this.logger.error(`handleBroadcastMessageSent failed: ${error.message}`, error.stack);
+    }
   }
 
   @OnEvent("broadcast.message.failed")
@@ -447,12 +457,16 @@ export class WhatsAppGateway
     messageId: string;
     error: string;
   }) {
-    this.server.to(`org:${data.organizationId}`).emit("broadcast:message-failed", {
-      campaignId: data.campaignId,
-      messageId: data.messageId,
-      error: data.error,
-      timestamp: new Date(),
-    });
+    try {
+      this.server.to(`org:${data.organizationId}`).emit("broadcast:message-failed", {
+        campaignId: data.campaignId,
+        messageId: data.messageId,
+        error: data.error,
+        timestamp: new Date(),
+      });
+    } catch (error) {
+      this.logger.error(`handleBroadcastMessageFailed failed: ${error.message}`, error.stack);
+    }
   }
 
   /**

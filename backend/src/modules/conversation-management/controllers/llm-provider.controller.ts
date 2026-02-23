@@ -22,43 +22,44 @@ import {
   LlmProviderService,
   LlmProviderConfig,
 } from "../services/llm-provider.service";
+import { IsString, IsNotEmpty, IsOptional, IsNumber, IsEnum, IsObject } from "class-validator";
 
 class CreateProviderDto {
-  name: string;
-  type: ProviderType;
-  model: string;
-  endpoint?: string;
-  apiKey?: string;
-  maxTokens?: number;
-  temperature?: number;
-  topP?: number;
-  frequencyPenalty?: number;
-  presencePenalty?: number;
-  deploymentType: DeploymentType;
-  rateLimits?: {
+  @IsString() @IsNotEmpty() name: string;
+  @IsEnum(ProviderType) type: ProviderType;
+  @IsString() @IsNotEmpty() model: string;
+  @IsOptional() @IsString() endpoint?: string;
+  @IsOptional() @IsString() apiKey?: string;
+  @IsOptional() @IsNumber() maxTokens?: number;
+  @IsOptional() @IsNumber() temperature?: number;
+  @IsOptional() @IsNumber() topP?: number;
+  @IsOptional() @IsNumber() frequencyPenalty?: number;
+  @IsOptional() @IsNumber() presencePenalty?: number;
+  @IsEnum(DeploymentType) deploymentType: DeploymentType;
+  @IsOptional() @IsObject() rateLimits?: {
     requestsPerMinute?: number;
     tokensPerMinute?: number;
     requestsPerDay?: number;
   };
-  metadata?: Record<string, any>;
+  @IsOptional() @IsObject() metadata?: Record<string, any>;
 }
 
 class UpdateProviderDto {
-  name?: string;
-  model?: string;
-  endpoint?: string;
-  apiKey?: string;
-  maxTokens?: number;
-  temperature?: number;
-  topP?: number;
-  frequencyPenalty?: number;
-  presencePenalty?: number;
-  rateLimits?: {
+  @IsOptional() @IsString() name?: string;
+  @IsOptional() @IsString() model?: string;
+  @IsOptional() @IsString() endpoint?: string;
+  @IsOptional() @IsString() apiKey?: string;
+  @IsOptional() @IsNumber() maxTokens?: number;
+  @IsOptional() @IsNumber() temperature?: number;
+  @IsOptional() @IsNumber() topP?: number;
+  @IsOptional() @IsNumber() frequencyPenalty?: number;
+  @IsOptional() @IsNumber() presencePenalty?: number;
+  @IsOptional() @IsObject() rateLimits?: {
     requestsPerMinute?: number;
     tokensPerMinute?: number;
     requestsPerDay?: number;
   };
-  metadata?: Record<string, any>;
+  @IsOptional() @IsObject() metadata?: Record<string, any>;
 }
 
 @ApiTags("llm-providers")

@@ -371,8 +371,11 @@ export class WhatsAppController {
     // Use authenticated user's ID
     const userId = user.userId;
 
-    // Clear memory cache if requested
+    // Clear memory cache if requested (admin/owner only)
     if (clearCache === "true") {
+      if (!user.role || !['admin', 'owner'].includes(user.role)) {
+        throw new ForbiddenException('Only admins can clear cache');
+      }
       this.conversationService["conversations"].clear();
       this.conversationService["messages"].clear();
     }

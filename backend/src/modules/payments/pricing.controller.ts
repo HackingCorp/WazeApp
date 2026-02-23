@@ -39,7 +39,7 @@ export class PricingController {
     if (currency) {
       // Return pricing for specific currency
       const plans = {};
-      for (const planId of ['FREE', 'STANDARD', 'PRO', 'ENTERPRISE']) {
+      for (const planId of ['STANDARD', 'PRO', 'ENTERPRISE']) {
         const plan = this.currencyService.getPlan(planId);
         if (!plan) continue;
 

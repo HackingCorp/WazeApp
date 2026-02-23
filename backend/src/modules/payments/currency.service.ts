@@ -129,8 +129,8 @@ export class CurrencyService implements OnModuleInit {
     return {
       id: plan.code.toUpperCase(),
       name: plan.name,
-      priceUSD: plan.priceMonthlyUSD,
-      priceAnnualUSD: plan.priceAnnualUSD,
+      priceUSD: plan.priceMonthlyUSD / 100,
+      priceAnnualUSD: plan.priceAnnualUSD / 100,
       messages: plan.maxWhatsAppMessages,
       agents: plan.maxAgents,
       storage: this.formatStorageSize(plan.maxStorageBytes),
@@ -385,6 +385,9 @@ export class CurrencyService implements OnModuleInit {
     const pricing: Record<string, Record<string, any>> = {};
 
     for (const [planId, plan] of Object.entries(this.PRICING)) {
+      // Skip FREE plan from public pricing
+      if (planId === 'FREE') continue;
+
       pricing[planId] = {
         ...plan,
         prices: {},

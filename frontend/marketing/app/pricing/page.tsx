@@ -128,7 +128,6 @@ export default function PricingPage() {
 
   // Base prices in USD (fallback if API fails)
   const basePrices = {
-    FREE: { monthly: 0, annually: 0 },
     STANDARD: { monthly: 29, annually: 290 },
     PRO: { monthly: 49, annually: 490 },
     ENTERPRISE: { monthly: 199, annually: 1990 },
@@ -172,25 +171,6 @@ export default function PricingPage() {
   }
 
   const plans = [
-    {
-      id: "FREE",
-      name: t("planFree"),
-      description: t("planFreeDesc"),
-      price: { monthly: 0, annually: 0 },
-      features: [
-        { name: t("feature1Agent"), included: true },
-        { name: t("feature100Messages"), included: true },
-        { name: t("feature100MBStorage"), included: true },
-        { name: t("featureBasicAnalytics"), included: true },
-        { name: t("featureEmailSupport"), included: true },
-        { name: t("featureAPIAccess"), included: false },
-        { name: t("featureCustomIntegrations"), included: false },
-        { name: t("featurePrioritySupport"), included: false },
-        { name: t("featureWhiteLabel"), included: false },
-      ],
-      cta: t("ctaStartFree"),
-      popular: false,
-    },
     {
       id: "STANDARD",
       name: t("planStandard"),
@@ -341,7 +321,7 @@ export default function PricingPage() {
           </select>
         </motion.div>
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8 mb-20">
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 mb-20 max-w-5xl mx-auto">
           {plans.map((plan, index) => (
             <motion.div
               key={plan.name}

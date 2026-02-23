@@ -163,6 +163,9 @@ export class PendingMessageQueueService {
     try {
       this.logger.log(`🔄 Session ${sessionId} reconnected - checking pending messages queue`);
 
+      // Recover failed jobs for this session first
+      await this.recoverFailedJobs(sessionId);
+
       // Get all pending messages for this session
       const pendingJobs = await this.getPendingMessages(sessionId);
 
@@ -252,6 +255,67 @@ export class PendingMessageQueueService {
   @OnEvent('whatsapp.reconnect.success')
   async handleReconnectSuccess(payload: { sessionId: string }) {
     await this.handleSessionReady(payload);
+  }
+
+  /**
+   * Recover failed jobs for a session by re-queuing them.
+   * This handles cases where messages exhausted retries during disconnection.
+   */
+  private async recoverFailedJobs(sessionId: string): Promise<number> {
+    try {
+      const failedJobs = await this.pendingMessageQueue.getJobs(['failed']);
+      const sessionFailedJobs = failedJobs.filter(
+        (job) => job.data.sessionId === sessionId,
+      );
+
+      if (sessionFailedJobs.length === 0) return 0;
+
+      this.logger.log(
+        `🔧 Found ${sessionFailedJobs.length} failed jobs for session ${sessionId} - recovering...`,
+      );
+
+      let recovered = 0;
+      for (const job of sessionFailedJobs) {
+        try {
+          const recoveredJobId = `recovered-${job.data.id}-${Date.now()}`;
+
+          // Remove the failed job
+          await job.remove();
+
+          // Re-queue with fresh attempts and staggered delay
+          await this.pendingMessageQueue.add('send-pending', {
+            ...job.data,
+            metadata: {
+              ...job.data.metadata,
+              recoveredAt: new Date().toISOString(),
+              deferrals: 0, // Reset deferral count
+            },
+          }, {
+            jobId: recoveredJobId,
+            delay: recovered * 3000, // 3 seconds apart
+            attempts: 3,
+            backoff: { type: 'exponential', delay: 5000 },
+            removeOnComplete: true,
+            removeOnFail: false,
+          });
+
+          recovered++;
+        } catch (error) {
+          this.logger.error(`Failed to recover job ${job.id}: ${error.message}`);
+        }
+      }
+
+      if (recovered > 0) {
+        this.logger.log(
+          `✅ Recovered ${recovered}/${sessionFailedJobs.length} failed jobs for session ${sessionId}`,
+        );
+      }
+
+      return recovered;
+    } catch (error) {
+      this.logger.error(`Error recovering failed jobs for session ${sessionId}: ${error.message}`);
+      return 0;
+    }
   }
 
   /**

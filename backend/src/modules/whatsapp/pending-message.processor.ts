@@ -1,9 +1,16 @@
-import { Process, Processor, OnQueueCompleted, OnQueueFailed } from '@nestjs/bull';
+import { Process, Processor, OnQueueCompleted, OnQueueFailed, InjectQueue } from '@nestjs/bull';
 import { Logger } from '@nestjs/common';
-import { Job } from 'bull';
+import { Job, Queue } from 'bull';
 import { BaileysService } from './baileys.service';
 import { PendingMessage } from './pending-message-queue.service';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+
+/**
+ * Max times a job can be deferred due to session disconnection.
+ * At 2-minute intervals, 30 deferrals = ~1 hour of waiting.
+ * After that, the message is permanently failed.
+ */
+const MAX_DEFERRALS = 30;
 
 @Processor('pending-messages')
 export class PendingMessageProcessor {
@@ -16,6 +23,8 @@ export class PendingMessageProcessor {
   constructor(
     private baileysService: BaileysService,
     private eventEmitter: EventEmitter2,
+    @InjectQueue('pending-messages')
+    private pendingMessageQueue: Queue<PendingMessage>,
   ) {
     // Clean up old entries every minute
     setInterval(() => this.cleanupRecentlySent(), 60000);
@@ -62,6 +71,56 @@ export class PendingMessageProcessor {
     }
   }
 
+  /**
+   * Defer a job instead of throwing (which wastes retry attempts).
+   * Re-queues the message with a 2-minute delay so the session has time to reconnect.
+   * After MAX_DEFERRALS (~1 hour), the message is permanently failed.
+   */
+  private async deferJob(job: Job<PendingMessage>, reason: string): Promise<{ success: false; deferred: true; reason: string }> {
+    const deferrals = (job.data.metadata?.deferrals || 0) + 1;
+
+    if (deferrals > MAX_DEFERRALS) {
+      this.logger.error(
+        `💀 Message ${job.data.id} exceeded max deferrals (${MAX_DEFERRALS}) - permanently failed`,
+      );
+      this.eventEmitter.emit('pending-message.failed', {
+        pendingMessageId: job.data.id,
+        sessionId: job.data.sessionId,
+        to: job.data.to,
+        source: job.data.source,
+        error: `Exceeded max deferrals (${MAX_DEFERRALS}): ${reason}`,
+        permanent: true,
+      });
+      return { success: false, deferred: true, reason: 'max_deferrals_exceeded' };
+    }
+
+    // Re-queue with a new job ID and 2-minute delay
+    const deferredJobId = `deferred-${job.data.id}-${deferrals}`;
+    await this.pendingMessageQueue.add('send-pending', {
+      ...job.data,
+      metadata: {
+        ...job.data.metadata,
+        deferrals,
+        lastDeferredAt: new Date().toISOString(),
+        deferReason: reason,
+      },
+    }, {
+      jobId: deferredJobId,
+      delay: 120000, // 2 minutes
+      attempts: 3, // Real retries for actual send errors
+      backoff: { type: 'exponential', delay: 5000 },
+      removeOnComplete: true,
+      removeOnFail: false,
+    });
+
+    this.logger.warn(
+      `🔄 Deferred message ${job.data.id} (deferral ${deferrals}/${MAX_DEFERRALS}, ` +
+      `reason: ${reason}, next attempt in 2min)`,
+    );
+
+    return { success: false, deferred: true, reason: 'session_disconnected' };
+  }
+
   @Process('send-pending')
   async handleSendPending(job: Job<PendingMessage>) {
     const { sessionId, to, message, type, mediaUrl, caption, source, id } = job.data;
@@ -90,10 +149,10 @@ export class PendingMessageProcessor {
       if (sessionStatus !== 'connected') {
         this.logger.warn(
           `⚠️ Session ${sessionId} is not connected (status: ${sessionStatus}). ` +
-          `Re-queuing message ${id}...`,
+          `Deferring message ${id}...`,
         );
-        // Throw error to trigger retry with backoff
-        throw new Error(`Session ${sessionId} still disconnected`);
+        // Defer instead of throwing to preserve retry budget
+        return this.deferJob(job, `Session ${sessionId} not connected (status: ${sessionStatus})`);
       }
 
       // Send the message
@@ -134,14 +193,15 @@ export class PendingMessageProcessor {
         `❌ Failed to send pending message ${id} (attempt ${job.attemptsMade + 1}): ${errorMessage}`,
       );
 
-      // Check if error is due to disconnection
+      // Check if error is due to disconnection - defer instead of throwing
       if (
         errorMessage.includes('Connection Closed') ||
         errorMessage.includes('not connected') ||
-        errorMessage.includes('still disconnected')
+        errorMessage.includes('still disconnected') ||
+        errorMessage.includes('disconnected')
       ) {
-        // This will trigger Bull's retry mechanism
-        throw new Error(`Session disconnected: ${errorMessage}`);
+        // Defer instead of throwing to preserve retry budget
+        return this.deferJob(job, errorMessage);
       }
 
       // For other errors (invalid number, blocked, etc.), mark as permanent failure
@@ -177,7 +237,11 @@ export class PendingMessageProcessor {
 
   @OnQueueCompleted()
   onCompleted(job: Job<PendingMessage>, result: any) {
-    if (result?.success) {
+    if (result?.deferred) {
+      this.logger.debug(
+        `🔄 Job ${job.id} deferred: message ${job.data.id} re-queued for later`,
+      );
+    } else if (result?.success) {
       this.logger.debug(
         `✅ Job ${job.id} completed: sent message ${job.data.id} to ${job.data.to}`,
       );

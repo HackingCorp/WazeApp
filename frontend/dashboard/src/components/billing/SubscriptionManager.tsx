@@ -99,11 +99,10 @@ const getPlans = (t: (key: string) => string): Plan[] => [
       t('billing.feat3Agents'),
       t('billing.featAdvancedAnalyticsReports'),
       t('billing.feat247Support'),
-      t('billing.featCustomBranding'),
       t('billing.featAdvancedAutomation'),
       t('billing.featTeamCollab'),
       t('billing.featApiAccess'),
-      t('billing.feat5000Broadcast'),
+      t('billing.feat2000Broadcast'),
       t('billing.feat50Templates'),
       t('billing.featRecurringCampaigns'),
       t('billing.featWebhooksIntegration'),
@@ -111,7 +110,7 @@ const getPlans = (t: (key: string) => string): Plan[] => [
     limits: {
       maxAgents: 3,
       maxRequests: 8000,
-      maxStorage: '5GB',
+      maxStorage: '2GB',
     },
   },
   {
@@ -138,8 +137,8 @@ const getPlans = (t: (key: string) => string): Plan[] => [
     ],
     limits: {
       maxAgents: 10,
-      maxRequests: 30000,
-      maxStorage: '20GB',
+      maxRequests: -1,
+      maxStorage: '10GB',
     },
   },
 ];
@@ -525,9 +524,11 @@ export function SubscriptionManager({
               </div>
               <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-2">
                 <p className="text-lg font-bold text-gray-900 dark:text-white">
-                  {plan.limits.maxRequests >= 1000
-                    ? `${plan.limits.maxRequests / 1000}K`
-                    : plan.limits.maxRequests}
+                  {plan.limits.maxRequests === -1
+                    ? '∞'
+                    : plan.limits.maxRequests >= 1000
+                      ? `${plan.limits.maxRequests / 1000}K`
+                      : plan.limits.maxRequests}
                 </p>
                 <p className="text-xs text-gray-500 dark:text-gray-400">{t('billing.reqPerMonth')}</p>
               </div>
@@ -749,7 +750,7 @@ export function SubscriptionManager({
                 <td className="py-4 px-4 text-gray-700 dark:text-gray-300">{t('billing.monthlyRequests')}</td>
                 {plans.map(plan => (
                   <td key={plan.id} className="text-center py-4 px-4 font-semibold text-gray-900 dark:text-white">
-                    {plan.limits.maxRequests.toLocaleString()}
+                    {plan.limits.maxRequests === -1 ? t('billing.unlimited') : plan.limits.maxRequests.toLocaleString()}
                   </td>
                 ))}
               </tr>

@@ -53,13 +53,13 @@ export class StripeController {
 
     // Resolve organizationId
     let organizationId: string | undefined;
-    const org = await this.organizationRepository.findOne({ where: { ownerId: user.id } });
+    const org = await this.organizationRepository.findOne({ where: { ownerId: user.userId } });
     if (org) {
       organizationId = org.id;
     }
 
     const result = await this.stripeService.createCheckoutSession({
-      userId: user.id,
+      userId: user.userId,
       organizationId,
       planCode: dto.plan,
       billingPeriod: dto.billingPeriod || 'monthly',
@@ -84,7 +84,7 @@ export class StripeController {
     let customerId: string | null = null;
 
     // Check user's org subscription first
-    const org = await this.organizationRepository.findOne({ where: { ownerId: user.id } });
+    const org = await this.organizationRepository.findOne({ where: { ownerId: user.userId } });
     if (org) {
       const orgSub = await this.subscriptionRepository.findOne({
         where: { organizationId: org.id },
@@ -97,7 +97,7 @@ export class StripeController {
     // Fallback to user subscription
     if (!customerId) {
       const userSub = await this.subscriptionRepository.findOne({
-        where: { userId: user.id },
+        where: { userId: user.userId },
       });
       if (userSub?.stripeCustomerId) {
         customerId = userSub.stripeCustomerId;
@@ -128,13 +128,13 @@ export class StripeController {
     const dashboardUrl = this.configService.get('DASHBOARD_URL') || 'https://app.wazeapp.xyz';
 
     let organizationId: string | undefined;
-    const org = await this.organizationRepository.findOne({ where: { ownerId: user.id } });
+    const org = await this.organizationRepository.findOne({ where: { ownerId: user.userId } });
     if (org) {
       organizationId = org.id;
     }
 
     const result = await this.stripeService.createCreditCheckoutSession({
-      userId: user.id,
+      userId: user.userId,
       organizationId,
       amount: dto.amount,
       successUrl: dto.successUrl || `${dashboardUrl}/billing?payment=stripe&credits=${dto.amount}&session_id={CHECKOUT_SESSION_ID}`,

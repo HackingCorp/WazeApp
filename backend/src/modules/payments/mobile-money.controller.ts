@@ -154,13 +154,14 @@ export class MobileMoneyController {
 
     this.logger.log(`Initiating payment for plan ${paymentDto.plan}: ${priceInfo.symbol}${amount}`);
 
-    const transactionId = `WZ-${Date.now()}-${user.id.substring(0, 8)}`;
+    const userId = (user as any).userId || user.id;
+    const transactionId = `WZ-${Date.now()}-${userId.substring(0, 8)}`;
 
     const paymentRequest: S3PPaymentRequest = {
       amount,
       customerPhone: paymentDto.customerPhone,
       customerEmail: paymentDto.customerEmail || user.email,
-      customerName: paymentDto.customerName || `${user.firstName} ${user.lastName}`,
+      customerName: paymentDto.customerName || `${(user as any).firstName || ''} ${(user as any).lastName || ''}`.trim(),
       customerAddress: paymentDto.customerAddress,
       serviceNumber: paymentDto.serviceNumber,
       transactionId,
@@ -174,7 +175,7 @@ export class MobileMoneyController {
     return {
       ...paymentResult,
       metadata: {
-        userId: user.id,
+        userId,
         plan: paymentDto.plan,
         amount,
         currency,

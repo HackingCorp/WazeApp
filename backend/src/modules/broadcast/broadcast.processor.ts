@@ -386,6 +386,8 @@ export class BroadcastProcessor {
           checkedAt: now,
         });
 
+        // -1 means unlimited
+        if (dailyStats.messagesLimit === -1) return false;
         return dailyStats.messagesSentToday >= dailyStats.messagesLimit;
       } catch (error) {
         this.logger.error(`Failed to check daily quota for org ${organizationId}:`, error);
@@ -394,7 +396,8 @@ export class BroadcastProcessor {
       }
     }
 
-    // Use cached values
+    // Use cached values (-1 means unlimited)
+    if (cached.limit === -1) return false;
     return cached.sentToday >= cached.limit;
   }
 
@@ -521,14 +524,7 @@ export class BroadcastProcessor {
     await this.campaignRepository.update(campaignId, { stats: result });
   }
 
-  // TODO: Implement delivery receipt tracking for broadcast messages.
-  // Baileys emits 'messages.update' events with status updates (DELIVERY_ACK, READ)
-  // that could be used to update BroadcastMessage statuses from SENT to DELIVERED/READ.
-  // This would require:
-  // 1. Listening for 'messages.update' events in BaileysService
-  // 2. Matching whatsappMessageId to BroadcastMessage records
-  // 3. Updating BroadcastMessage.status to DELIVERED or READ accordingly
-  // 4. Calling updateCampaignStats() to refresh campaign-level stats
-  // 5. Emitting 'broadcast.message.delivered' / 'broadcast.message.read' events
-  // Currently, messages stay in SENT status after being sent successfully.
+  // Delivery receipt tracking is handled by BroadcastDeliveryService
+  // which listens to 'whatsapp.message.update' events and updates
+  // BroadcastMessage statuses from SENT to DELIVERED/READ.
 }

@@ -18,6 +18,7 @@ import { CampaignService } from './campaign.service';
 import { WebhookService } from './webhook.service';
 import { ApiKeyService } from './api-key.service';
 import { BroadcastProcessor } from './broadcast.processor';
+import { BroadcastDeliveryService } from './broadcast-delivery.service';
 import { BroadcastController } from './broadcast.controller';
 import { ExternalApiController } from './external-api.controller';
 import { WhatsAppModule } from '../whatsapp/whatsapp.module';
@@ -58,6 +59,7 @@ import { SubscriptionModule } from '../subscriptions/subscription.module';
     WebhookService,
     ApiKeyService,
     BroadcastProcessor,
+    BroadcastDeliveryService,
   ],
   exports: [
     ContactService,

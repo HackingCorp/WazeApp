@@ -848,6 +848,186 @@ export default function BroadcastPage() {
     }
   };
 
+  const handleResumeCampaign = async (id: string) => {
+    if (campaignActionRef.current.has(id)) return;
+    campaignActionRef.current.add(id);
+    try {
+      await api.resumeBroadcastCampaign(id);
+      await fetchCampaigns();
+    } catch (error) {
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Failed to resume campaign:', error);
+      }
+    } finally {
+      campaignActionRef.current.delete(id);
+    }
+  };
+
+  const handleCancelCampaign = async (id: string) => {
+    if (!confirm('Annuler cette campagne ? Les messages en attente ne seront pas envoyés.')) return;
+    if (campaignActionRef.current.has(id)) return;
+    campaignActionRef.current.add(id);
+    try {
+      await api.cancelBroadcastCampaign(id);
+      await fetchCampaigns();
+    } catch (error) {
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Failed to cancel campaign:', error);
+      }
+    } finally {
+      campaignActionRef.current.delete(id);
+    }
+  };
+
+  const handleDeleteCampaign = async (id: string) => {
+    if (!confirm('Supprimer cette campagne ?')) return;
+    try {
+      await api.deleteBroadcastCampaign(id);
+      await fetchCampaigns();
+    } catch (error) {
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Failed to delete campaign:', error);
+      }
+    }
+  };
+
+  // Campaign messages modal
+  const [showCampaignMessagesModal, setShowCampaignMessagesModal] = useState(false);
+  const [campaignMessages, setCampaignMessages] = useState<any[]>([]);
+  const [campaignMessagesTotal, setCampaignMessagesTotal] = useState(0);
+  const [campaignMessagesPage, setCampaignMessagesPage] = useState(1);
+  const [selectedCampaignId, setSelectedCampaignId] = useState<string>('');
+  const [loadingMessages, setLoadingMessages] = useState(false);
+
+  const handleViewCampaignMessages = async (campaignId: string, page = 1) => {
+    setSelectedCampaignId(campaignId);
+    setLoadingMessages(true);
+    setShowCampaignMessagesModal(true);
+    setCampaignMessagesPage(page);
+    try {
+      const response = await api.getBroadcastCampaignMessages(campaignId, { page, limit: 50 });
+      const responseData = response.data?.data || response.data;
+      if (response.success) {
+        setCampaignMessages(responseData?.data || responseData || []);
+        setCampaignMessagesTotal(responseData?.total || 0);
+      }
+    } catch (error) {
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Failed to fetch campaign messages:', error);
+      }
+    } finally {
+      setLoadingMessages(false);
+    }
+  };
+
+  // Campaign stats modal
+  const [showCampaignStatsModal, setShowCampaignStatsModal] = useState(false);
+  const [campaignStatsDetail, setCampaignStatsDetail] = useState<any>(null);
+  const [loadingStats, setLoadingStats] = useState(false);
+
+  const handleViewCampaignStats = async (campaignId: string) => {
+    setLoadingStats(true);
+    setShowCampaignStatsModal(true);
+    try {
+      const response = await api.getBroadcastCampaignStats(campaignId);
+      const statsData = response.data?.data || response.data;
+      if (response.success) {
+        setCampaignStatsDetail(statsData);
+      }
+    } catch (error) {
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Failed to fetch campaign stats:', error);
+      }
+    } finally {
+      setLoadingStats(false);
+    }
+  };
+
+  // Edit contact modal
+  const [showEditContactModal, setShowEditContactModal] = useState(false);
+  const [editingContact, setEditingContact] = useState<Contact | null>(null);
+  const [editContactData, setEditContactData] = useState({ name: '', email: '', company: '', tags: [] as string[] });
+  const [editContactTagInput, setEditContactTagInput] = useState('');
+  const [savingContact, setSavingContact] = useState(false);
+
+  const handleEditContact = (contact: Contact) => {
+    setEditingContact(contact);
+    setEditContactData({
+      name: contact.name,
+      email: contact.email || '',
+      company: contact.company || '',
+      tags: contact.tags || [],
+    });
+    setShowEditContactModal(true);
+  };
+
+  const handleSaveEditContact = async () => {
+    if (!editingContact) return;
+    setSavingContact(true);
+    try {
+      await api.updateBroadcastContact(editingContact.id, editContactData);
+      setShowEditContactModal(false);
+      setEditingContact(null);
+      await fetchContacts();
+    } catch (error) {
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Failed to update contact:', error);
+      }
+    } finally {
+      setSavingContact(false);
+    }
+  };
+
+  // Export contacts
+  const handleExportContacts = async (format: 'csv' | 'json' | 'xlsx' = 'csv') => {
+    try {
+      const response = await api.exportBroadcastContacts({ format });
+      if (response.success && response.data) {
+        // Create download link
+        const blob = new Blob([typeof response.data === 'string' ? response.data : JSON.stringify(response.data)], {
+          type: format === 'csv' ? 'text/csv' : format === 'json' ? 'application/json' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `contacts.${format}`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
+    } catch (error) {
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Failed to export contacts:', error);
+      }
+    }
+  };
+
+  // Bulk tags
+  const [showBulkTagsModal, setShowBulkTagsModal] = useState(false);
+  const [bulkTagInput, setBulkTagInput] = useState('');
+  const [bulkTags, setBulkTags] = useState<string[]>([]);
+  const [selectedContactIds, setSelectedContactIds] = useState<string[]>([]);
+  const [savingBulkTags, setSavingBulkTags] = useState(false);
+
+  const handleBulkAddTags = async () => {
+    if (selectedContactIds.length === 0 || bulkTags.length === 0) return;
+    setSavingBulkTags(true);
+    try {
+      await api.addTagsToBroadcastContacts(selectedContactIds, bulkTags);
+      setShowBulkTagsModal(false);
+      setBulkTags([]);
+      setSelectedContactIds([]);
+      await fetchContacts();
+    } catch (error) {
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Failed to add tags:', error);
+      }
+    } finally {
+      setSavingBulkTags(false);
+    }
+  };
+
   const handleDeleteContact = async (id: string) => {
     if (!confirm('Supprimer ce contact ?')) return;
     try {
@@ -954,6 +1134,23 @@ export default function BroadcastPage() {
         <div className="flex items-center gap-3">
           {activeTab === 'contacts' && (
             <>
+              <button
+                onClick={() => handleExportContacts('csv')}
+                className="flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                title="Exporter les contacts"
+              >
+                <Download className="w-4 h-4" />
+                Exporter
+              </button>
+              {selectedContactIds.length > 0 && (
+                <button
+                  onClick={() => setShowBulkTagsModal(true)}
+                  className="flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                >
+                  <Tag className="w-4 h-4" />
+                  Tags ({selectedContactIds.length})
+                </button>
+              )}
               <button
                 onClick={() => setShowImportModal(true)}
                 className="flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
@@ -1145,6 +1342,20 @@ export default function BroadcastPage() {
                 <table className="w-full">
                   <thead className="bg-gray-50 dark:bg-gray-900/50">
                     <tr>
+                      <th className="px-4 py-3 w-10">
+                        <input
+                          type="checkbox"
+                          checked={selectedContactIds.length === contacts.length && contacts.length > 0}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedContactIds(contacts.map(c => c.id));
+                            } else {
+                              setSelectedContactIds([]);
+                            }
+                          }}
+                          className="rounded border-gray-300 dark:border-gray-600"
+                        />
+                      </th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
                         Contact
                       </th>
@@ -1165,6 +1376,20 @@ export default function BroadcastPage() {
                   <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                     {contacts.map((contact) => (
                       <tr key={contact.id} className="hover:bg-gray-50 dark:hover:bg-gray-900/30">
+                        <td className="px-4 py-3 w-10">
+                          <input
+                            type="checkbox"
+                            checked={selectedContactIds.includes(contact.id)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedContactIds(prev => [...prev, contact.id]);
+                              } else {
+                                setSelectedContactIds(prev => prev.filter(id => id !== contact.id));
+                              }
+                            }}
+                            className="rounded border-gray-300 dark:border-gray-600"
+                          />
+                        </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-3">
                             <div className="w-10 h-10 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
@@ -1219,12 +1444,22 @@ export default function BroadcastPage() {
                           )}
                         </td>
                         <td className="px-4 py-3 text-right">
-                          <button
-                            onClick={() => handleDeleteContact(contact.id)}
-                            className="p-1 hover:bg-red-100 dark:hover:bg-red-900/30 rounded text-red-600"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                          <div className="flex items-center justify-end gap-1">
+                            <button
+                              onClick={() => handleEditContact(contact)}
+                              className="p-1 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded text-blue-600"
+                              title="Modifier"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteContact(contact.id)}
+                              className="p-1 hover:bg-red-100 dark:hover:bg-red-900/30 rounded text-red-600"
+                              title="Supprimer"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -1479,7 +1714,7 @@ export default function BroadcastPage() {
                           )}
                         </td>
                         <td className="px-4 py-3">
-                          <div className="flex items-center justify-end gap-2">
+                          <div className="flex items-center justify-end gap-1">
                             {(campaign.status === 'draft' || campaign.status === 'scheduled') && (
                               <button
                                 onClick={() => handleStartCampaign(campaign.id)}
@@ -1496,6 +1731,47 @@ export default function BroadcastPage() {
                                 title="Pause"
                               >
                                 <Pause className="w-4 h-4" />
+                              </button>
+                            )}
+                            {campaign.status === 'paused' && (
+                              <button
+                                onClick={() => handleResumeCampaign(campaign.id)}
+                                className="p-1 hover:bg-green-100 dark:hover:bg-green-900/30 rounded text-green-600"
+                                title="Reprendre"
+                              >
+                                <Play className="w-4 h-4" />
+                              </button>
+                            )}
+                            {(campaign.status === 'running' || campaign.status === 'paused' || campaign.status === 'scheduled') && (
+                              <button
+                                onClick={() => handleCancelCampaign(campaign.id)}
+                                className="p-1 hover:bg-red-100 dark:hover:bg-red-900/30 rounded text-red-600"
+                                title="Annuler"
+                              >
+                                <XCircle className="w-4 h-4" />
+                              </button>
+                            )}
+                            <button
+                              onClick={() => handleViewCampaignMessages(campaign.id)}
+                              className="p-1 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded text-blue-600"
+                              title="Voir les messages"
+                            >
+                              <MessageSquare className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleViewCampaignStats(campaign.id)}
+                              className="p-1 hover:bg-purple-100 dark:hover:bg-purple-900/30 rounded text-purple-600"
+                              title="Statistiques"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </button>
+                            {campaign.status !== 'running' && (
+                              <button
+                                onClick={() => handleDeleteCampaign(campaign.id)}
+                                className="p-1 hover:bg-red-100 dark:hover:bg-red-900/30 rounded text-red-500"
+                                title="Supprimer"
+                              >
+                                <Trash2 className="w-4 h-4" />
                               </button>
                             )}
                           </div>
@@ -2868,6 +3144,346 @@ export default function BroadcastPage() {
                 className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
               >
                 Fermer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Campaign Messages Modal */}
+      {showCampaignMessagesModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 w-full max-w-3xl max-h-[80vh] overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold text-gray-900 dark:text-white">Messages de la campagne</h2>
+              <button
+                onClick={() => setShowCampaignMessagesModal(false)}
+                className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {loadingMessages ? (
+              <div className="flex items-center justify-center py-12">
+                <RefreshCw className="w-6 h-6 animate-spin text-green-600" />
+              </div>
+            ) : (
+              <div className="overflow-auto flex-1">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 dark:bg-gray-900/50 sticky top-0">
+                    <tr>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Destinataire</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Statut</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Envoyé</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Erreur</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                    {campaignMessages.map((msg: any) => (
+                      <tr key={msg.id} className="hover:bg-gray-50 dark:hover:bg-gray-900/30">
+                        <td className="px-3 py-2">
+                          <div>
+                            <p className="font-medium text-gray-900 dark:text-white">{msg.contact?.name || msg.phoneNumber}</p>
+                            <p className="text-xs text-gray-500">{msg.phoneNumber}</p>
+                          </div>
+                        </td>
+                        <td className="px-3 py-2">
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                            msg.status === 'sent' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400' :
+                            msg.status === 'delivered' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' :
+                            msg.status === 'read' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400' :
+                            msg.status === 'failed' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' :
+                            'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+                          }`}>
+                            {msg.status === 'sent' ? 'Envoyé' :
+                             msg.status === 'delivered' ? 'Livré' :
+                             msg.status === 'read' ? 'Lu' :
+                             msg.status === 'failed' ? 'Échoué' :
+                             msg.status === 'pending' ? 'En attente' :
+                             msg.status}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2 text-gray-500 dark:text-gray-400">
+                          {msg.sentAt ? new Date(msg.sentAt).toLocaleString('fr-FR') : '-'}
+                        </td>
+                        <td className="px-3 py-2 text-red-500 text-xs">
+                          {msg.errorMessage || '-'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+
+                {campaignMessagesTotal > 50 && (
+                  <div className="flex items-center justify-between mt-4 px-3">
+                    <span className="text-sm text-gray-500">{campaignMessagesTotal} messages au total</span>
+                    <div className="flex gap-2">
+                      <button
+                        disabled={campaignMessagesPage <= 1}
+                        onClick={() => handleViewCampaignMessages(selectedCampaignId, campaignMessagesPage - 1)}
+                        className="px-3 py-1 border rounded text-sm disabled:opacity-50"
+                      >
+                        Précédent
+                      </button>
+                      <button
+                        disabled={campaignMessagesPage * 50 >= campaignMessagesTotal}
+                        onClick={() => handleViewCampaignMessages(selectedCampaignId, campaignMessagesPage + 1)}
+                        className="px-3 py-1 border rounded text-sm disabled:opacity-50"
+                      >
+                        Suivant
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Campaign Stats Modal */}
+      {showCampaignStatsModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 w-full max-w-md">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold text-gray-900 dark:text-white">Statistiques détaillées</h2>
+              <button
+                onClick={() => setShowCampaignStatsModal(false)}
+                className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {loadingStats ? (
+              <div className="flex items-center justify-center py-12">
+                <RefreshCw className="w-6 h-6 animate-spin text-green-600" />
+              </div>
+            ) : campaignStatsDetail ? (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-gray-50 dark:bg-gray-900/50 rounded-lg p-3 text-center">
+                    <p className="text-2xl font-bold text-gray-900 dark:text-white">{campaignStatsDetail.total || 0}</p>
+                    <p className="text-xs text-gray-500">Total</p>
+                  </div>
+                  <div className="bg-yellow-50 dark:bg-yellow-900/20 rounded-lg p-3 text-center">
+                    <p className="text-2xl font-bold text-yellow-600">{campaignStatsDetail.pending || 0}</p>
+                    <p className="text-xs text-gray-500">En attente</p>
+                  </div>
+                  <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 text-center">
+                    <p className="text-2xl font-bold text-blue-600">{campaignStatsDetail.sent || 0}</p>
+                    <p className="text-xs text-gray-500">Envoyés</p>
+                  </div>
+                  <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-3 text-center">
+                    <p className="text-2xl font-bold text-green-600">{campaignStatsDetail.delivered || 0}</p>
+                    <p className="text-xs text-gray-500">Livrés</p>
+                  </div>
+                  <div className="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-3 text-center">
+                    <p className="text-2xl font-bold text-purple-600">{campaignStatsDetail.read || 0}</p>
+                    <p className="text-xs text-gray-500">Lus</p>
+                  </div>
+                  <div className="bg-red-50 dark:bg-red-900/20 rounded-lg p-3 text-center">
+                    <p className="text-2xl font-bold text-red-600">{campaignStatsDetail.failed || 0}</p>
+                    <p className="text-xs text-gray-500">Échoués</p>
+                  </div>
+                </div>
+
+                {/* Progress bars */}
+                <div className="space-y-2">
+                  {campaignStatsDetail.total > 0 && (
+                    <>
+                      <div>
+                        <div className="flex justify-between text-xs mb-1">
+                          <span className="text-gray-500">Taux de livraison</span>
+                          <span className="text-green-600 font-medium">
+                            {Math.round(((campaignStatsDetail.delivered + campaignStatsDetail.read) / campaignStatsDetail.total) * 100)}%
+                          </span>
+                        </div>
+                        <div className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-full">
+                          <div className="h-full bg-green-600 rounded-full" style={{ width: `${((campaignStatsDetail.delivered + campaignStatsDetail.read) / campaignStatsDetail.total) * 100}%` }} />
+                        </div>
+                      </div>
+                      <div>
+                        <div className="flex justify-between text-xs mb-1">
+                          <span className="text-gray-500">Taux de lecture</span>
+                          <span className="text-purple-600 font-medium">
+                            {Math.round((campaignStatsDetail.read / campaignStatsDetail.total) * 100)}%
+                          </span>
+                        </div>
+                        <div className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-full">
+                          <div className="h-full bg-purple-600 rounded-full" style={{ width: `${(campaignStatsDetail.read / campaignStatsDetail.total) * 100}%` }} />
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <p className="text-gray-500 text-center py-4">Aucune statistique disponible</p>
+            )}
+
+            <div className="flex justify-end mt-4">
+              <button
+                onClick={() => setShowCampaignStatsModal(false)}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+              >
+                Fermer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Contact Modal */}
+      {showEditContactModal && editingContact && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 w-full max-w-md">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold text-gray-900 dark:text-white">Modifier le contact</h2>
+              <button
+                onClick={() => setShowEditContactModal(false)}
+                className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nom</label>
+                <input
+                  type="text"
+                  value={editContactData.name}
+                  onChange={(e) => setEditContactData({ ...editContactData, name: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
+                <input
+                  type="email"
+                  value={editContactData.email}
+                  onChange={(e) => setEditContactData({ ...editContactData, email: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Entreprise</label>
+                <input
+                  type="text"
+                  value={editContactData.company}
+                  onChange={(e) => setEditContactData({ ...editContactData, company: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tags</label>
+                <div className="flex flex-wrap gap-1 mb-2">
+                  {editContactData.tags.map((tag, i) => (
+                    <span key={i} className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-full text-xs">
+                      {tag}
+                      <button onClick={() => setEditContactData({ ...editContactData, tags: editContactData.tags.filter((_, idx) => idx !== i) })}>
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={editContactTagInput}
+                    onChange={(e) => setEditContactTagInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && editContactTagInput.trim()) {
+                        e.preventDefault();
+                        setEditContactData({ ...editContactData, tags: [...editContactData.tags, editContactTagInput.trim()] });
+                        setEditContactTagInput('');
+                      }
+                    }}
+                    placeholder="Ajouter un tag..."
+                    className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-sm"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 mt-6">
+              <button
+                onClick={() => setShowEditContactModal(false)}
+                className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={handleSaveEditContact}
+                disabled={savingContact || !editContactData.name}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
+              >
+                {savingContact ? 'Enregistrement...' : 'Enregistrer'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Tags Modal */}
+      {showBulkTagsModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 w-full max-w-md">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold text-gray-900 dark:text-white">
+                Ajouter des tags ({selectedContactIds.length} contacts)
+              </h2>
+              <button
+                onClick={() => setShowBulkTagsModal(false)}
+                className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex flex-wrap gap-1 mb-2">
+                {bulkTags.map((tag, i) => (
+                  <span key={i} className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-full text-xs">
+                    {tag}
+                    <button onClick={() => setBulkTags(bulkTags.filter((_, idx) => idx !== i))}>
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={bulkTagInput}
+                  onChange={(e) => setBulkTagInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && bulkTagInput.trim()) {
+                      e.preventDefault();
+                      setBulkTags([...bulkTags, bulkTagInput.trim()]);
+                      setBulkTagInput('');
+                    }
+                  }}
+                  placeholder="Tapez un tag et appuyez Entrée..."
+                  className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 mt-6">
+              <button
+                onClick={() => setShowBulkTagsModal(false)}
+                className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={handleBulkAddTags}
+                disabled={savingBulkTags || bulkTags.length === 0}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
+              >
+                {savingBulkTags ? 'Ajout...' : 'Ajouter les tags'}
               </button>
             </div>
           </div>

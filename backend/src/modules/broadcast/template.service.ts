@@ -8,6 +8,8 @@ import {
   Subscription,
 } from '../../common/entities';
 import { CreateTemplateDto, UpdateTemplateDto } from './dto/broadcast.dto';
+import { PlanService } from '../subscriptions/plan.service';
+import { SubscriptionStatus } from '../../common/enums';
 
 @Injectable()
 export class TemplateService implements OnModuleInit {
@@ -18,6 +20,7 @@ export class TemplateService implements OnModuleInit {
     private templateRepository: Repository<MessageTemplate>,
     @InjectRepository(Subscription)
     private subscriptionRepository: Repository<Subscription>,
+    private planService: PlanService,
   ) {}
 
   async onModuleInit() {
@@ -261,23 +264,23 @@ export class TemplateService implements OnModuleInit {
   }
 
   /**
-   * Get template limit based on subscription plan
+   * Get template limit based on subscription plan (from database via PlanService)
    */
   async getTemplateLimit(organizationId: string): Promise<number> {
     const subscription = await this.subscriptionRepository.findOne({
-      where: { organizationId, isActive: true },
+      where: { organizationId, status: SubscriptionStatus.ACTIVE },
       order: { createdAt: 'DESC' },
     });
 
-    const plan = subscription?.plan || 'FREE';
-    const limits = {
-      FREE: 3,
-      STANDARD: 10,
-      PRO: 50,
-      ENTERPRISE: 999999, // Unlimited
-    };
+    const plan = (subscription?.plan || 'free').toLowerCase();
+    const planData = this.planService.getPlanByCode(plan);
 
-    return limits[plan] || 3;
+    if (!planData) {
+      return 3; // Default FREE limit
+    }
+
+    // -1 means unlimited
+    return planData.maxMessageTemplates === -1 ? 999999 : planData.maxMessageTemplates;
   }
 
   /**

@@ -25,6 +25,7 @@ import { BaileysService } from '../whatsapp/baileys.service';
 import { TemplateService } from './template.service';
 import { CreateCampaignDto, UpdateCampaignDto, CampaignStatsDto } from './dto/broadcast.dto';
 import { WebhookService } from './webhook.service';
+import { PlanService } from '../subscriptions/plan.service';
 
 @Injectable()
 export class CampaignService {
@@ -47,30 +48,32 @@ export class CampaignService {
     private templateService: TemplateService,
     private webhookService: WebhookService,
     private eventEmitter: EventEmitter2,
+    private planService: PlanService,
   ) {}
 
   /**
-   * Get campaign limits based on subscription plan
+   * Get campaign limits based on subscription plan (from database via PlanService)
    */
   async getCampaignLimits(organizationId: string): Promise<{
     campaignsPerMonth: number;
-    messagesPerDay: number;
+    messagesPerCampaign: number;
   }> {
     const subscription = await this.subscriptionRepository.findOne({
       where: { organizationId, status: SubscriptionStatus.ACTIVE },
       order: { createdAt: 'DESC' },
     });
 
-    // Normalize plan name to uppercase for comparison
-    const plan = (subscription?.plan || 'FREE').toUpperCase();
-    const limits = {
-      FREE: { campaignsPerMonth: 2, messagesPerDay: 50 },
-      STANDARD: { campaignsPerMonth: 20, messagesPerDay: 500 },
-      PRO: { campaignsPerMonth: 100, messagesPerDay: 2000 },
-      ENTERPRISE: { campaignsPerMonth: 999999, messagesPerDay: 5000 },
-    };
+    const plan = (subscription?.plan || 'free').toLowerCase();
+    const planData = this.planService.getPlanByCode(plan);
 
-    return limits[plan] || limits.FREE;
+    if (!planData) {
+      return { campaignsPerMonth: 5, messagesPerCampaign: 50 };
+    }
+
+    return {
+      campaignsPerMonth: planData.maxCampaignsPerMonth,
+      messagesPerCampaign: planData.maxMessagesPerCampaign,
+    };
   }
 
   /**
@@ -78,6 +81,11 @@ export class CampaignService {
    */
   async canCreateCampaign(organizationId: string): Promise<boolean> {
     const limits = await this.getCampaignLimits(organizationId);
+
+    // -1 means unlimited
+    if (limits.campaignsPerMonth === -1) {
+      return true;
+    }
 
     // Count campaigns this month
     const startOfMonth = new Date();
@@ -302,6 +310,14 @@ export class CampaignService {
 
     if (contacts.length === 0) {
       throw new BadRequestException('No contacts to send to');
+    }
+
+    // Check maxMessagesPerCampaign limit
+    const limits = await this.getCampaignLimits(organizationId);
+    if (limits.messagesPerCampaign !== -1 && contacts.length > limits.messagesPerCampaign) {
+      throw new BadRequestException(
+        `Campaign exceeds the message limit (${contacts.length} contacts, max ${limits.messagesPerCampaign}). Upgrade your plan or reduce the number of recipients.`,
+      );
     }
 
     // Create message records
@@ -783,7 +799,7 @@ export class CampaignService {
 
     return {
       messagesSentToday,
-      messagesLimit: limits.messagesPerDay,
+      messagesLimit: limits.messagesPerCampaign,
       campaignsThisMonth,
       campaignsLimit: limits.campaignsPerMonth,
     };

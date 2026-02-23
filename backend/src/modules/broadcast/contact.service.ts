@@ -34,11 +34,11 @@ export class ContactService {
    */
   async getContactLimit(organizationId: string): Promise<number> {
     const subscription = await this.subscriptionRepository.findOne({
-      where: { organizationId },
+      where: { organizationId, status: SubscriptionStatus.ACTIVE },
       order: { createdAt: 'DESC' },
     });
 
-    const plan = subscription?.plan || 'free';
+    const plan = (subscription?.plan || 'free').toLowerCase();
     const limit = this.planService.getPlanLimits(plan).broadcastContacts;
 
     this.logger.log(`ContactLimit: orgId=${organizationId}, found=${!!subscription}, plan=${plan}, limit=${limit}`);
@@ -79,14 +79,15 @@ export class ContactService {
     organizationId: string,
     dto: CreateContactDto,
   ): Promise<BroadcastContact> {
-    // Check limit
+    // Check limit (-1 means unlimited)
     const limit = await this.getContactLimit(organizationId);
-    const count = await this.getContactCount(organizationId);
-
-    if (count >= limit) {
-      throw new BadRequestException(
-        `Contact limit reached (${limit}). Upgrade your plan to add more contacts.`,
-      );
+    if (limit !== -1) {
+      const count = await this.getContactCount(organizationId);
+      if (count >= limit) {
+        throw new BadRequestException(
+          `Contact limit reached (${limit}). Upgrade your plan to add more contacts.`,
+        );
+      }
     }
 
     // Normalize phone number
@@ -165,12 +166,13 @@ export class ContactService {
       );
     }
 
-    // Check limit
+    // Check limit (-1 means unlimited)
     const limit = await this.getContactLimit(organizationId);
-    const currentCount = await this.getContactCount(organizationId);
-    const availableSlots = limit - currentCount;
+    const isUnlimited = limit === -1;
+    const currentCount = isUnlimited ? 0 : await this.getContactCount(organizationId);
+    const availableSlots = isUnlimited ? Infinity : limit - currentCount;
 
-    if (availableSlots <= 0) {
+    if (!isUnlimited && availableSlots <= 0) {
       throw new BadRequestException(
         `Contact limit reached (${limit}). Upgrade your plan to add more contacts.`,
       );

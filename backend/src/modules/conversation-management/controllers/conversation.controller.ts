@@ -383,7 +383,7 @@ export class ConversationController {
     if (existingConversation) {
       existingConversation.metrics = {
         ...(existingConversation.metrics || {}),
-        lastActivity: new Date().toISOString(),
+        lastActivity: new Date(),
       };
       await this.conversationRepository.save(existingConversation);
     }

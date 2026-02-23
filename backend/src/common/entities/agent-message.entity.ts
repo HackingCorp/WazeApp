@@ -72,7 +72,7 @@ export class AgentMessage extends BaseEntity {
       timestamp: Date;
     };
     fromWhatsApp?: boolean;
-    originalSender?: "client" | "user" | "agent";
+    originalSender?: "client" | "user" | "agent" | "operator";
     // Catch-up processing tracking for reconnection scenarios
     catchUpProcessed?: boolean;
     catchUpProcessedAt?: string;

@@ -46,6 +46,7 @@ import {
   AgentMessage,
   ConversationContext,
 } from "../../../common/entities";
+import { EventEmitter2 } from "@nestjs/event-emitter";
 import { ConversationStateService } from "../services/conversation-state.service";
 import { MessageProcessingService } from "../services/message-processing.service";
 import { ResponseGenerationService } from "../services/response-generation.service";
@@ -96,6 +97,7 @@ export class ConversationController {
     private conversationStateService: ConversationStateService,
     private messageProcessingService: MessageProcessingService,
     private responseGenerationService: ResponseGenerationService,
+    private eventEmitter: EventEmitter2,
   ) {}
 
   @Get()
@@ -655,6 +657,16 @@ export class ConversationController {
       },
     });
     const savedMessage = await this.messageRepository.save(operatorMessage);
+
+    // Emit event to send WhatsApp message
+    this.eventEmitter.emit('operator.message.send', {
+      sessionId: conversation.sessionId,
+      clientPhoneNumber: conversation.clientPhoneNumber,
+      message: body.message,
+      conversationId: id,
+      messageId: savedMessage.id,
+      operatorId: user.userId,
+    });
 
     return savedMessage;
   }

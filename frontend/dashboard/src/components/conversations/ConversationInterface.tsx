@@ -458,7 +458,11 @@ export function ConversationInterface({
 
   const handleSendMessage = () => {
     if (messageInput.trim()) {
-      onSendMessage(messageInput.trim(), 'text');
+      if (selectedContact?.isHumanControlled && selectedContact?.assignedOperatorId && onOperatorReply) {
+        onOperatorReply(selectedContact.id, messageInput.trim());
+      } else {
+        onSendMessage(messageInput.trim(), 'text');
+      }
       setMessageInput('');
     }
   };
@@ -831,7 +835,7 @@ export function ConversationInterface({
                       target.style.height = 'auto';
                       target.style.height = `${Math.min(target.scrollHeight, 128)}px`;
                     }}
-                    placeholder={t('conversations.typeMessage')}
+                    placeholder={selectedContact?.isHumanControlled && selectedContact?.assignedOperatorId ? 'Reply as operator...' : t('conversations.typeMessage')}
                     className="w-full resize-none px-4 py-2.5 pr-12 bg-gray-100 dark:bg-gray-700 border-0 rounded-2xl text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 max-h-32"
                     rows={1}
                     style={{ minHeight: '44px' }}
@@ -849,7 +853,12 @@ export function ConversationInterface({
                 {messageInput.trim() ? (
                   <button
                     onClick={handleSendMessage}
-                    className="p-2.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-full transition-colors shadow-lg shadow-emerald-500/30"
+                    className={clsx(
+                      "p-2.5 text-white rounded-full transition-colors shadow-lg",
+                      selectedContact?.isHumanControlled && selectedContact?.assignedOperatorId
+                        ? "bg-blue-500 hover:bg-blue-600 shadow-blue-500/30"
+                        : "bg-emerald-500 hover:bg-emerald-600 shadow-emerald-500/30"
+                    )}
                     aria-label={t('conversations.sendMessage')}
                   >
                     <Send className="w-5 h-5" />

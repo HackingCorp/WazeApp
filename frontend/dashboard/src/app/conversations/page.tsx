@@ -299,6 +299,9 @@ export default function ConversationsPage() {
           unreadCount?: number;
           isOnline?: boolean;
           profilePictureUrl?: string;
+          isHumanControlled?: boolean;
+          assignedOperatorId?: string;
+          escalationReason?: string;
         }) => {
           const isGroup = conv.phoneNumber?.includes('@g.us') || false;
           const cleanedPhone = cleanPhoneNumber(conv.phoneNumber || '');
@@ -347,6 +350,9 @@ export default function ConversationsPage() {
             isOnline: conv.isOnline || false,
             isTyping: false,
             isGroup: isGroup,
+            isHumanControlled: conv.isHumanControlled || false,
+            assignedOperatorId: conv.assignedOperatorId,
+            escalationReason: conv.escalationReason,
           };
         });
 
@@ -678,10 +684,23 @@ export default function ConversationsPage() {
   const handleOperatorReply = useCallback(async (contactId: string, message: string) => {
     try {
       const result = await api.sendOperatorReply(contactId, message);
-      if (result.success) {
-        // Also send the actual WhatsApp message
-        await api.sendWhatsAppConversationMessage(contactId, message);
-      }
+      // Add message to UI immediately
+      const newMessage = {
+        id: result.id || `operator-${Date.now()}`,
+        content: message,
+        timestamp: new Date(),
+        sender: 'operator' as const,
+        type: 'text' as const,
+        status: 'sent' as const,
+      };
+      setMessages(prev => [...prev, newMessage]);
+
+      // Update contact's last message
+      setContacts(prev => prev.map(contact =>
+        contact.id === contactId
+          ? { ...contact, lastMessage: message, lastMessageTime: new Date() }
+          : contact
+      ));
     } catch (error) {
       toast.error('Failed to send operator reply');
     }

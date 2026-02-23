@@ -2628,4 +2628,38 @@ RÈGLES:
       this.logger.error(`❌ Failed to escalate conversation ${conversation.id}: ${error.message}`, error.stack);
     }
   }
+
+  @OnEvent('operator.message.send')
+  async handleOperatorMessageSend(payload: {
+    sessionId: string;
+    clientPhoneNumber: string;
+    message: string;
+    conversationId: string;
+    messageId: string;
+    operatorId: string;
+  }) {
+    try {
+      this.logger.log(`Sending operator message to ${payload.clientPhoneNumber} via session ${payload.sessionId}`);
+
+      await this.baileysService.sendMessage(payload.sessionId, {
+        to: `${payload.clientPhoneNumber}@s.whatsapp.net`,
+        type: 'text',
+        message: payload.message,
+      });
+
+      // Update message status to delivered
+      await this.messageRepository.update(payload.messageId, {
+        status: 'delivered' as any,
+      });
+
+      this.logger.log(`Operator message sent successfully to ${payload.clientPhoneNumber}`);
+    } catch (error) {
+      this.logger.error(`Failed to send operator WhatsApp message: ${error.message}`, error.stack);
+
+      // Update message status to failed
+      await this.messageRepository.update(payload.messageId, {
+        status: 'failed' as any,
+      });
+    }
+  }
 }

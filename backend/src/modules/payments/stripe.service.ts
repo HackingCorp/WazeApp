@@ -72,6 +72,11 @@ export class StripeService {
     });
 
     if (subscription?.stripeCustomerId) {
+      // Sync email/name on Stripe customer to keep it up-to-date
+      await stripe.customers.update(subscription.stripeCustomerId, {
+        email,
+        ...(name ? { name } : {}),
+      });
       return subscription.stripeCustomerId;
     }
 
@@ -84,6 +89,11 @@ export class StripeService {
           where: { organizationId: org.id },
         });
         if (orgSub?.stripeCustomerId) {
+          // Sync email/name on Stripe customer to keep it up-to-date
+          await stripe.customers.update(orgSub.stripeCustomerId, {
+            email,
+            ...(name ? { name } : {}),
+          });
           return orgSub.stripeCustomerId;
         }
       }

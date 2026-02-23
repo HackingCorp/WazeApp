@@ -746,6 +746,200 @@ export class EmailService {
     }
   }
 
+  /**
+   * Send email when subscription becomes PAST_DUE (payment overdue)
+   */
+  async sendSubscriptionPastDueEmail(
+    email: string,
+    firstName: string,
+    details: {
+      planName: string;
+      gracePeriodDays: number;
+      nextBillingDate: Date;
+    },
+  ): Promise<void> {
+    const dashboardUrl = this.getDashboardUrl();
+    const billingUrl = `${dashboardUrl}/billing`;
+
+    const deadlineDate = new Date(details.nextBillingDate);
+    deadlineDate.setDate(deadlineDate.getDate() + details.gracePeriodDays);
+
+    const html = `
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Paiement en retard</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f4f4f4; padding: 20px;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+          <tr>
+            <td style="background: linear-gradient(135deg, #e67e22 0%, #d35400 100%); padding: 30px; text-align: center;">
+              <h1 style="color: #ffffff; margin: 0; font-size: 24px;">Paiement en retard</h1>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 40px;">
+              <p style="font-size: 16px; color: #333; margin-bottom: 20px;">Bonjour ${firstName},</p>
+              <div style="background-color: #fef3cd; border-left: 4px solid #e67e22; padding: 20px; margin: 20px 0; border-radius: 4px;">
+                <p style="color: #856404; margin: 0; font-size: 16px; font-weight: bold;">
+                  Votre abonnement ${details.planName} n'a pas ete renouvele.
+                </p>
+                <p style="color: #856404; margin: 10px 0 0 0; font-size: 14px;">
+                  Le paiement prevu le ${details.nextBillingDate.toLocaleDateString('fr-FR')} n'a pas ete recu.
+                </p>
+              </div>
+              <p style="font-size: 14px; color: #666; margin: 20px 0;">
+                Vous disposez d'un <strong>delai de grace de ${details.gracePeriodDays} jours</strong>
+                (jusqu'au <strong>${deadlineDate.toLocaleDateString('fr-FR')}</strong>) pour effectuer votre paiement.
+              </p>
+              <p style="font-size: 14px; color: #666; margin: 20px 0;">
+                Passe ce delai, votre compte sera automatiquement retrograde vers le plan gratuit
+                et vous perdrez l'acces aux fonctionnalites du plan ${details.planName}.
+              </p>
+              <div style="text-align: center; margin: 30px 0;">
+                <a href="${billingUrl}" style="display: inline-block; background: linear-gradient(135deg, #25D366 0%, #128C7E 100%); color: #ffffff; text-decoration: none; padding: 15px 40px; border-radius: 25px; font-weight: bold; font-size: 16px;">Payer maintenant</a>
+              </div>
+              <p style="font-size: 14px; color: #999; text-align: center;">
+                Des questions? Contactez-nous a support@wazeapp.xyz
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td style="background-color: #f8f9fa; padding: 20px; text-align: center;">
+              <p style="margin: 0; font-size: 12px; color: #999;">
+                &copy; ${new Date().getFullYear()} WazeApp. Tous droits reserves.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+
+    if (!this.transporter) {
+      this.logger.warn(`SMTP not configured, skipping past-due email to ${email}`);
+      return;
+    }
+
+    try {
+      await this.transporter.sendMail({
+        from: `"${this.getFromName()}" <${this.getFromAddress()}>`,
+        to: email,
+        subject: `Paiement en retard - Abonnement ${details.planName}`,
+        html,
+        text: `Bonjour ${firstName},\n\nVotre abonnement ${details.planName} n'a pas ete renouvele. Le paiement prevu le ${details.nextBillingDate.toLocaleDateString('fr-FR')} n'a pas ete recu.\n\nVous avez ${details.gracePeriodDays} jours pour payer avant la retrogradation vers le plan gratuit.\n\nPayer: ${billingUrl}\n\nL'equipe WazeApp`,
+      });
+      this.logger.log(`Past-due email sent to ${email}`);
+    } catch (error) {
+      this.logger.error(`Failed to send past-due email to ${email}: ${error.message}`);
+    }
+  }
+
+  /**
+   * Send email when subscription is downgraded to FREE after grace period
+   */
+  async sendSubscriptionDowngradedEmail(
+    email: string,
+    firstName: string,
+    details: {
+      previousPlan: string;
+      gracePeriodDays: number;
+    },
+  ): Promise<void> {
+    const dashboardUrl = this.getDashboardUrl();
+    const billingUrl = `${dashboardUrl}/billing`;
+
+    const html = `
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Abonnement retrograde</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f4f4f4; padding: 20px;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+          <tr>
+            <td style="background: linear-gradient(135deg, #dc3545 0%, #c82333 100%); padding: 30px; text-align: center;">
+              <h1 style="color: #ffffff; margin: 0; font-size: 24px;">Abonnement retrograde</h1>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 40px;">
+              <p style="font-size: 16px; color: #333; margin-bottom: 20px;">Bonjour ${firstName},</p>
+              <div style="background-color: #f8d7da; border-left: 4px solid #dc3545; padding: 20px; margin: 20px 0; border-radius: 4px;">
+                <p style="color: #721c24; margin: 0; font-size: 16px; font-weight: bold;">
+                  Votre abonnement ${details.previousPlan} a ete retrograde vers le plan Gratuit.
+                </p>
+              </div>
+              <p style="font-size: 14px; color: #666; margin: 20px 0;">
+                Apres ${details.gracePeriodDays} jours sans paiement, votre compte a ete automatiquement
+                retrograde vers le plan gratuit. Vos donnees sont conservees, mais l'acces aux
+                fonctionnalites avancees est desormais limite.
+              </p>
+              <p style="font-size: 14px; color: #666; margin: 20px 0;">
+                <strong>Ce que cela signifie :</strong>
+              </p>
+              <ul style="font-size: 14px; color: #666; margin: 10px 0; padding-left: 20px;">
+                <li>Limites reduites sur les campagnes, contacts et templates</li>
+                <li>Fonctionnalites avancees desactivees (webhooks, API, etc.)</li>
+                <li>Vos donnees existantes sont conservees</li>
+              </ul>
+              <p style="font-size: 14px; color: #666; margin: 20px 0;">
+                Vous pouvez reactiver votre abonnement ${details.previousPlan} a tout moment
+                depuis votre espace de facturation.
+              </p>
+              <div style="text-align: center; margin: 30px 0;">
+                <a href="${billingUrl}" style="display: inline-block; background: linear-gradient(135deg, #25D366 0%, #128C7E 100%); color: #ffffff; text-decoration: none; padding: 15px 40px; border-radius: 25px; font-weight: bold; font-size: 16px;">Reactiver mon abonnement</a>
+              </div>
+              <p style="font-size: 14px; color: #999; text-align: center;">
+                Des questions? Contactez-nous a support@wazeapp.xyz
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td style="background-color: #f8f9fa; padding: 20px; text-align: center;">
+              <p style="margin: 0; font-size: 12px; color: #999;">
+                &copy; ${new Date().getFullYear()} WazeApp. Tous droits reserves.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+
+    if (!this.transporter) {
+      this.logger.warn(`SMTP not configured, skipping downgrade email to ${email}`);
+      return;
+    }
+
+    try {
+      await this.transporter.sendMail({
+        from: `"${this.getFromName()}" <${this.getFromAddress()}>`,
+        to: email,
+        subject: `Abonnement retrograde - Plan ${details.previousPlan} vers Gratuit`,
+        html,
+        text: `Bonjour ${firstName},\n\nVotre abonnement ${details.previousPlan} a ete retrograde vers le plan Gratuit apres ${details.gracePeriodDays} jours sans paiement.\n\nVos donnees sont conservees. Reactivez votre abonnement: ${billingUrl}\n\nL'equipe WazeApp`,
+      });
+      this.logger.log(`Downgrade email sent to ${email}`);
+    } catch (error) {
+      this.logger.error(`Failed to send downgrade email to ${email}: ${error.message}`);
+    }
+  }
+
   // ============= EMAIL TEMPLATES =============
 
   private getVerificationEmailTemplate(verificationUrl: string): string {

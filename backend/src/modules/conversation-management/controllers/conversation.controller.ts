@@ -77,6 +77,10 @@ class UpdateContextDto {
   @IsOptional() @IsNumber() unresolvedCount?: number;
 }
 
+class OperatorReplyDto {
+  @IsString() @IsNotEmpty() message: string;
+}
+
 @ApiTags("conversations")
 @Controller("conversations")
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -102,6 +106,7 @@ export class ConversationController {
     enum: ["active", "closed", "archived"],
   })
   @ApiQuery({ name: "state", required: false, enum: ConversationState })
+  @ApiQuery({ name: "isHumanControlled", required: false, type: Boolean })
   @ApiResponse({
     status: HttpStatus.OK,
     description: "Conversations retrieved successfully",
@@ -112,6 +117,7 @@ export class ConversationController {
     @Query("limit") limit: number = 20,
     @Query("status") status?: string,
     @Query("state") state?: ConversationState,
+    @Query("isHumanControlled") isHumanControlled?: string,
   ) {
     limit = Math.min(Math.max(1, Number(limit) || 20), 100);
     const queryBuilder = this.conversationRepository
@@ -139,6 +145,12 @@ export class ConversationController {
       queryBuilder
         .leftJoin("conversation.context", "ctx")
         .andWhere("ctx.currentState = :state", { state });
+    }
+
+    if (isHumanControlled !== undefined) {
+      queryBuilder.andWhere("conversation.isHumanControlled = :isHumanControlled", {
+        isHumanControlled: isHumanControlled === 'true',
+      });
     }
 
     const [conversations, total] = await queryBuilder
@@ -509,6 +521,123 @@ export class ConversationController {
     });
 
     return { success: true, message: "Conversation closed successfully" };
+  }
+
+  @Post(":id/takeover")
+  @ApiOperation({ summary: "Take over conversation as human operator" })
+  @ApiParam({ name: "id", description: "Conversation ID" })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: "Conversation taken over successfully",
+  })
+  @Roles(UserRole.MEMBER, UserRole.ADMIN, UserRole.OWNER)
+  async takeoverConversation(
+    @CurrentUser() user: AuthenticatedRequest,
+    @Param("id") id: string,
+  ) {
+    const conversation = await this.conversationRepository.findOne({
+      where: { id },
+      relations: ["agent"],
+    });
+
+    if (!conversation) {
+      throw new NotFoundException("Conversation not found");
+    }
+
+    // Verify access
+    if (user.organizationId && conversation.agent?.organizationId !== user.organizationId) {
+      throw new NotFoundException("Conversation not found");
+    }
+
+    conversation.isHumanControlled = true;
+    conversation.assignedOperatorId = user.userId;
+    await this.conversationRepository.save(conversation);
+
+    return { success: true, message: "Conversation taken over successfully" };
+  }
+
+  @Post(":id/release")
+  @ApiOperation({ summary: "Release conversation back to AI" })
+  @ApiParam({ name: "id", description: "Conversation ID" })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: "Conversation released successfully",
+  })
+  @Roles(UserRole.MEMBER, UserRole.ADMIN, UserRole.OWNER)
+  async releaseConversation(
+    @CurrentUser() user: AuthenticatedRequest,
+    @Param("id") id: string,
+  ) {
+    const conversation = await this.conversationRepository.findOne({
+      where: { id },
+      relations: ["agent"],
+    });
+
+    if (!conversation) {
+      throw new NotFoundException("Conversation not found");
+    }
+
+    if (user.organizationId && conversation.agent?.organizationId !== user.organizationId) {
+      throw new NotFoundException("Conversation not found");
+    }
+
+    conversation.isHumanControlled = false;
+    conversation.assignedOperatorId = null;
+    conversation.escalationReason = null;
+    await this.conversationRepository.save(conversation);
+
+    return { success: true, message: "Conversation released to AI" };
+  }
+
+  @Post(":id/operator-reply")
+  @ApiOperation({ summary: "Send message as human operator" })
+  @ApiParam({ name: "id", description: "Conversation ID" })
+  @ApiResponse({
+    status: HttpStatus.CREATED,
+    description: "Operator message sent successfully",
+  })
+  @Roles(UserRole.MEMBER, UserRole.ADMIN, UserRole.OWNER)
+  async operatorReply(
+    @CurrentUser() user: AuthenticatedRequest,
+    @Param("id") id: string,
+    @Body() body: OperatorReplyDto,
+  ) {
+    const conversation = await this.conversationRepository.findOne({
+      where: { id },
+      relations: ["agent"],
+    });
+
+    if (!conversation) {
+      throw new NotFoundException("Conversation not found");
+    }
+
+    if (user.organizationId && conversation.agent?.organizationId !== user.organizationId) {
+      throw new NotFoundException("Conversation not found");
+    }
+
+    if (!conversation.clientPhoneNumber || !conversation.sessionId) {
+      throw new BadRequestException("Conversation has no WhatsApp session or client phone number");
+    }
+
+    // Get next sequence number
+    const nextSeq = await this.getNextSequenceNumber(id);
+
+    // Save operator message
+    const operatorMessage = this.messageRepository.create({
+      conversationId: id,
+      role: MessageRole.OPERATOR,
+      content: body.message,
+      status: MessageStatus.SENT,
+      sequenceNumber: nextSeq,
+      metadata: {
+        operatorId: user.userId,
+        fromWhatsApp: true,
+        originalSender: "operator",
+      },
+    });
+    const savedMessage = await this.messageRepository.save(operatorMessage);
+
+    return savedMessage;
   }
 
   @Delete(":id")

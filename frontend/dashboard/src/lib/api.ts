@@ -687,6 +687,31 @@ class ApiClient {
     });
   }
 
+  // Escalation endpoints
+  async takeoverConversation(id: string) {
+    return this.request(`/conversations/${id}/takeover`, {
+      method: 'POST',
+    });
+  }
+
+  async releaseConversation(id: string) {
+    return this.request(`/conversations/${id}/release`, {
+      method: 'POST',
+    });
+  }
+
+  async sendOperatorReply(id: string, message: string) {
+    return this.request(`/conversations/${id}/operator-reply`, {
+      method: 'POST',
+      body: JSON.stringify({ message }),
+    });
+  }
+
+  async getEscalatedConversations(params?: { page?: number; limit?: number }) {
+    const queryString = params ? `?${new URLSearchParams({ ...params as any, isHumanControlled: 'true' })}` : '?isHumanControlled=true';
+    return this.request(`/conversations${queryString}`);
+  }
+
   // Generic HTTP methods
   async get(endpoint: string) {
     return this.request(endpoint, { method: 'GET' });

@@ -9,7 +9,7 @@ interface Message {
   id: string;
   content: string;
   timestamp: Date;
-  sender: 'user' | 'agent' | 'client' | 'system';
+  sender: 'user' | 'agent' | 'client' | 'system' | 'operator';
   type: 'text' | 'image' | 'audio' | 'file' | 'video';
   status?: 'sending' | 'sent' | 'delivered' | 'read';
   mediaUrl?: string;
@@ -33,6 +33,9 @@ interface Contact {
   isOnline: boolean;
   isTyping?: boolean;
   isGroup?: boolean;
+  isHumanControlled?: boolean;
+  assignedOperatorId?: string;
+  escalationReason?: string;
 }
 
 interface ConversationInterfaceProps {
@@ -42,6 +45,10 @@ interface ConversationInterfaceProps {
   onSendMessage: (content: string, type: 'text' | 'image' | 'audio' | 'file' | 'video') => void;
   onSelectContact: (contactId: string) => void;
   onArchiveContact?: (contactId: string) => void;
+  onTakeover?: (contactId: string) => void;
+  onRelease?: (contactId: string) => void;
+  onOperatorReply?: (contactId: string, message: string) => void;
+  isOperatorMode?: boolean;
   isLoading?: boolean;
 }
 
@@ -52,6 +59,10 @@ export function ConversationInterface({
   onSendMessage,
   onSelectContact,
   onArchiveContact,
+  onTakeover,
+  onRelease,
+  onOperatorReply,
+  isOperatorMode,
   isLoading = false,
 }: ConversationInterfaceProps) {
   const [messageInput, setMessageInput] = useState('');
@@ -151,8 +162,9 @@ export function ConversationInterface({
     const isAgent = message.sender === 'agent';
     const isClient = message.sender === 'client';
     const isSystem = message.sender === 'system';
+    const isOperator = message.sender === 'operator';
 
-    const isOutgoing = isAgent || isUser;
+    const isOutgoing = isAgent || isUser || isOperator;
     const isIncoming = isClient;
 
     if (isSystem) {
@@ -268,8 +280,9 @@ export function ConversationInterface({
       )}>
         <div className={clsx(
           'relative max-w-[75%] lg:max-w-[65%] px-3 py-2 shadow-sm',
-          // Outgoing messages (user/agent) - right side, green
-          isOutgoing && 'bg-emerald-500 dark:bg-emerald-600 text-white',
+          // Outgoing messages (user/agent) - right side, green; operator - blue
+          isOutgoing && !isOperator && 'bg-emerald-500 dark:bg-emerald-600 text-white',
+          isOperator && 'bg-blue-500 dark:bg-blue-600 text-white',
           // Incoming messages (client) - left side, white/gray
           isIncoming && 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white',
           // Border radius based on position
@@ -283,9 +296,14 @@ export function ConversationInterface({
           isIncoming && !isFirst && !isLast && 'rounded-2xl',
         )}>
           {/* Message tail for first message in group */}
-          {isLast && isOutgoing && (
+          {isLast && isOutgoing && !isOperator && (
             <div className="absolute -right-1 bottom-0 w-3 h-3 overflow-hidden">
               <div className="absolute -left-2 bottom-0 w-4 h-4 bg-emerald-500 dark:bg-emerald-600 rotate-45 transform origin-bottom-left" />
+            </div>
+          )}
+          {isLast && isOperator && (
+            <div className="absolute -right-1 bottom-0 w-3 h-3 overflow-hidden">
+              <div className="absolute -left-2 bottom-0 w-4 h-4 bg-blue-500 dark:bg-blue-600 rotate-45 transform origin-bottom-left" />
             </div>
           )}
           {isLast && isIncoming && (
@@ -357,6 +375,11 @@ export function ConversationInterface({
           <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
             {contact.name}
           </p>
+          {contact.isHumanControlled && (
+            <span className="ml-1 px-1.5 py-0.5 bg-orange-100 dark:bg-orange-900/40 text-orange-600 dark:text-orange-400 text-[10px] font-medium rounded-full">
+              Escalated
+            </span>
+          )}
           {contact.lastMessageTime && (
             <p className={clsx(
               'text-xs flex-shrink-0',
@@ -538,6 +561,45 @@ export function ConversationInterface({
                 </div>
               </div>
             </div>
+
+            {/* Escalation Banner */}
+            {selectedContact?.isHumanControlled && (
+              <div className="px-4 py-3 bg-orange-50 dark:bg-orange-900/30 border-b border-orange-200 dark:border-orange-800">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-orange-600 dark:text-orange-400 text-lg">⚡</span>
+                    <div>
+                      <p className="text-sm font-medium text-orange-800 dark:text-orange-200">
+                        Escalated to human
+                      </p>
+                      {selectedContact.escalationReason && (
+                        <p className="text-xs text-orange-600 dark:text-orange-400">
+                          Reason: {selectedContact.escalationReason}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    {!selectedContact.assignedOperatorId && onTakeover && (
+                      <button
+                        onClick={() => onTakeover(selectedContact.id)}
+                        className="px-3 py-1.5 bg-orange-500 hover:bg-orange-600 text-white text-sm font-medium rounded-lg transition-colors"
+                      >
+                        Take over
+                      </button>
+                    )}
+                    {selectedContact.assignedOperatorId && onRelease && (
+                      <button
+                        onClick={() => onRelease(selectedContact.id)}
+                        className="px-3 py-1.5 bg-gray-500 hover:bg-gray-600 text-white text-sm font-medium rounded-lg transition-colors"
+                      >
+                        Release to AI
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Messages Area */}
             <div

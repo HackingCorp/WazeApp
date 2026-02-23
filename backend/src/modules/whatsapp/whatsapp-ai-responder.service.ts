@@ -416,6 +416,12 @@ export class WhatsAppAIResponderService {
         conversation = await this.getOrCreateConversation(clientPhoneNumber, fullSession, agent);
       }
 
+      // Check if conversation is under human control
+      if (conversation.isHumanControlled) {
+        this.logger.log(`👤 Conversation ${conversation.id} is under human control - skipping catch-up AI response`);
+        return;
+      }
+
       this.logger.log(`🤖 Generating catch-up AI response for message: ${messageId}`);
 
       // Generate and send AI response
@@ -642,6 +648,56 @@ export class WhatsAppAIResponderService {
 
       // Get or create conversation
       const conversation = await this.getOrCreateConversation(fromNumber, session, agent);
+
+      // Check if conversation is under human control - skip AI response
+      if (conversation.isHumanControlled) {
+        this.logger.log(`👤 Conversation ${conversation.id} is under human control - saving messages but skipping AI response`);
+        // Still save incoming messages
+        for (const msg of bufferedMessages) {
+          let msgContent = msg.messageText || "";
+          if (msg.mediaAnalysis) {
+            msgContent += msg.mediaAnalysis.description ? ` [${msg.mediaAnalysis.type}: ${msg.mediaAnalysis.description}]` : ` [${msg.mediaAnalysis.type}]`;
+          }
+          if (msgContent.trim()) {
+            await this.saveIncomingMessage(conversation, msgContent.trim(), msg.event.message, msg.mediaAnalysis);
+          }
+        }
+        // Emit socket event so operator sees new messages in real-time
+        this.eventEmitter.emit('message.received', {
+          conversationId: conversation.id,
+          message: { content: fullMessageContent, role: 'user' },
+          organizationId: agent.organizationId,
+        });
+        return;
+      }
+
+      // Check for escalation keywords
+      const escalationConfig = agent.escalationConfig || {};
+      const escalationEnabled = escalationConfig.enabled !== false; // Default to true
+      if (escalationEnabled) {
+        const keywords = escalationConfig.keywords?.length
+          ? escalationConfig.keywords
+          : ['parler à un humain', 'agent humain', 'responsable', 'talk to human', 'real person', 'human agent', 'speak to someone'];
+
+        const lowerMessage = fullMessageContent.toLowerCase();
+        const matchedKeyword = keywords.find(kw => lowerMessage.includes(kw.toLowerCase()));
+
+        if (matchedKeyword) {
+          this.logger.log(`🚨 Escalation keyword detected: "${matchedKeyword}" in conversation ${conversation.id}`);
+          // Save the incoming messages first
+          for (const msg of bufferedMessages) {
+            let msgContent = msg.messageText || "";
+            if (msg.mediaAnalysis) {
+              msgContent += msg.mediaAnalysis.description ? ` [${msg.mediaAnalysis.type}: ${msg.mediaAnalysis.description}]` : ` [${msg.mediaAnalysis.type}]`;
+            }
+            if (msgContent.trim()) {
+              await this.saveIncomingMessage(conversation, msgContent.trim(), msg.event.message, msg.mediaAnalysis);
+            }
+          }
+          await this.escalateConversation(conversation, agent, session, fromNumber, `Keyword detected: ${matchedKeyword}`);
+          return;
+        }
+      }
 
       // Save all incoming messages
       for (const msg of bufferedMessages) {
@@ -1495,6 +1551,23 @@ Always respond directly in the user's language without any formatting.`,
 
       let systemPrompt = agent.systemPrompt || "Tu es un assistant IA utile.";
 
+      // Add escalation instructions if enabled
+      const escalationEnabled = (agent.escalationConfig?.enabled !== false);
+      if (escalationEnabled) {
+        systemPrompt += `\n\nESCALATION TO HUMAN OPERATOR:
+If you cannot adequately help the user, or if the request requires human intervention (complex complaint, sensitive issue, request beyond your capabilities), respond ONLY with:
+[ESCALATE] Brief reason for escalation
+
+Examples of when to escalate:
+- User is frustrated and explicitly asks for a human
+- Complex billing/payment disputes
+- Technical issues you cannot resolve
+- Sensitive personal matters
+- Requests that require human judgment or authorization
+
+Do NOT escalate for simple questions you can answer from the knowledge base.`;
+      }
+
       // FIX 5: Move KB context to the BEGINNING (right after user's system prompt)
       // to avoid "lost in the middle" problem
       if (knowledgeContext) {
@@ -1692,6 +1765,15 @@ EXEMPLES DE CONTEXTE:
         agentId: agent.id,
         priority: "high", // Higher priority for better response quality
       });
+
+      // Check for [ESCALATE] tag in AI response
+      if (response.content && response.content.includes('[ESCALATE]')) {
+        const escalateMatch = response.content.match(/\[ESCALATE\]\s*(.*)/);
+        const reason = escalateMatch?.[1]?.trim() || 'AI determined escalation needed';
+        this.logger.log(`🚨 AI triggered escalation for conversation ${conversation.id}: ${reason}`);
+        await this.escalateConversation(conversation, agent, session, fromNumber, reason);
+        return;
+      }
 
       // Get next sequence number for AI message
       const lastMessage = await this.messageRepository.findOne({
@@ -2467,5 +2549,83 @@ RÈGLES:
 - Le tag doit correspondre EXACTEMENT à un slug disponible ci-dessus`;
 
     return instructions;
+  }
+
+  /**
+   * Escalate a conversation to a human operator
+   */
+  private async escalateConversation(
+    conversation: AgentConversation,
+    agent: AiAgent,
+    session: WhatsAppSession,
+    fromNumber: string,
+    reason: string,
+  ): Promise<void> {
+    try {
+      // Update conversation to human-controlled
+      conversation.isHumanControlled = true;
+      conversation.escalationReason = reason;
+      await this.conversationRepository.save(conversation);
+
+      // Determine escalation message
+      const escalationMessage = agent.escalationConfig?.escalationMessage
+        || "Your conversation has been transferred to a human agent. Someone will assist you shortly. Thank you for your patience.";
+
+      // Send escalation message to client via WhatsApp
+      await this.baileysService.sendMessage(session.id, {
+        to: fromNumber,
+        message: escalationMessage,
+        type: "text",
+      });
+
+      // Save system message in conversation
+      const lastMessage = await this.messageRepository.findOne({
+        where: { conversationId: conversation.id },
+        order: { sequenceNumber: "DESC" },
+      });
+      const nextSequence = (lastMessage?.sequenceNumber || 0) + 1;
+
+      const systemMessage = this.messageRepository.create({
+        conversationId: conversation.id,
+        role: MessageRole.SYSTEM,
+        content: `Conversation escalated to human operator. Reason: ${reason}`,
+        status: MessageStatus.SENT,
+        sequenceNumber: nextSequence,
+        metadata: {
+          escalation: true,
+          escalationReason: reason,
+        } as any,
+      });
+      await this.messageRepository.save(systemMessage);
+
+      // Save the escalation message sent to client
+      const agentEscalationMsg = this.messageRepository.create({
+        conversationId: conversation.id,
+        role: MessageRole.AGENT,
+        content: escalationMessage,
+        status: MessageStatus.SENT,
+        sequenceNumber: nextSequence + 1,
+        metadata: {
+          fromWhatsApp: true,
+          originalSender: "agent",
+          escalationMessage: true,
+        } as any,
+      });
+      await this.messageRepository.save(agentEscalationMsg);
+
+      // Emit escalation event for real-time notification
+      this.eventEmitter.emit('conversation.escalated', {
+        conversationId: conversation.id,
+        agentId: agent.id,
+        organizationId: agent.organizationId,
+        clientPhoneNumber: fromNumber,
+        reason,
+        sessionId: session.id,
+      });
+
+      this.logger.log(`✅ Conversation ${conversation.id} escalated successfully. Reason: ${reason}`);
+    } catch (error) {
+      this.logger.error(`❌ Failed to escalate conversation ${conversation.id}: ${error.message}`, error.stack);
+    }
   }
 }

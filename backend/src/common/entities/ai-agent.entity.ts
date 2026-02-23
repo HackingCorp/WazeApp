@@ -116,6 +116,14 @@ export class AiAgent extends BaseEntity {
     signOffStyle?: "none" | "simple" | "formal";
   };
 
+  @ApiProperty({ description: "Escalation configuration for human handover" })
+  @Column({ type: "jsonb", default: {} })
+  escalationConfig: {
+    enabled?: boolean;
+    keywords?: string[];
+    escalationMessage?: string;
+  };
+
   @ApiProperty({ description: "Agent performance metrics" })
   @Column({ type: "jsonb", default: {} })
   metrics: {

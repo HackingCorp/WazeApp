@@ -117,6 +117,18 @@ export class AgentConversation extends BaseEntity {
   @Column({ nullable: true })
   clientPhoneNumber?: string;
 
+  @ApiProperty({ description: "Whether conversation is controlled by a human operator" })
+  @Column({ default: false })
+  isHumanControlled: boolean;
+
+  @ApiProperty({ description: "ID of the assigned human operator" })
+  @Column({ nullable: true })
+  assignedOperatorId?: string;
+
+  @ApiProperty({ description: "Reason for escalation" })
+  @Column({ type: "text", nullable: true })
+  escalationReason?: string;
+
   // Relationships
   @ApiProperty({ description: "AI Agent" })
   @ManyToOne(() => AiAgent, (agent) => agent.conversations, {

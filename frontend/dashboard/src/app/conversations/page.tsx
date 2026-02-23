@@ -488,16 +488,32 @@ export default function ConversationsPage() {
       }
     };
 
+    const handleConversationEscalated = (data: any) => {
+      // Update the contact's escalation status
+      setContacts(prev => prev.map(contact =>
+        contact.id === data.conversationId
+          ? { ...contact, isHumanControlled: true, escalationReason: data.reason }
+          : contact
+      ));
+
+      toast.error(`Conversation escalated: ${data.reason || 'Human agent requested'}`, {
+        duration: 5000,
+        icon: '⚡',
+      });
+    };
+
     const unsubscribeNewMessage = subscribe('whatsapp:message', handleNewMessage);
     const unsubscribeTyping = subscribe('whatsapp:typing', handleTypingUpdate);
     const unsubscribeOnlineStatus = subscribe('whatsapp:online-status', handleOnlineStatus);
     const unsubscribeSyncStatus = subscribe('whatsapp:sync-status', handleSyncStatus);
+    const unsubscribeEscalation = subscribe('conversation_escalated', handleConversationEscalated);
 
     return () => {
       unsubscribeNewMessage();
       unsubscribeTyping();
       unsubscribeOnlineStatus();
       unsubscribeSyncStatus();
+      unsubscribeEscalation();
     };
   }, [socket, subscribe, selectedContactId]);
 
@@ -577,6 +593,50 @@ export default function ConversationsPage() {
       setMessages([]);
     }
     toast.success(t('conversations.contactArchived'));
+  };
+
+  const handleTakeover = async (contactId: string) => {
+    try {
+      const result = await api.takeoverConversation(contactId);
+      if (result.success) {
+        setContacts(prev => prev.map(contact =>
+          contact.id === contactId
+            ? { ...contact, assignedOperatorId: user?.id }
+            : contact
+        ));
+        toast.success('Conversation taken over');
+      }
+    } catch (error) {
+      toast.error('Failed to take over conversation');
+    }
+  };
+
+  const handleRelease = async (contactId: string) => {
+    try {
+      const result = await api.releaseConversation(contactId);
+      if (result.success) {
+        setContacts(prev => prev.map(contact =>
+          contact.id === contactId
+            ? { ...contact, isHumanControlled: false, assignedOperatorId: undefined, escalationReason: undefined }
+            : contact
+        ));
+        toast.success('Conversation released to AI');
+      }
+    } catch (error) {
+      toast.error('Failed to release conversation');
+    }
+  };
+
+  const handleOperatorReply = async (contactId: string, message: string) => {
+    try {
+      const result = await api.sendOperatorReply(contactId, message);
+      if (result.success) {
+        // Also send the actual WhatsApp message
+        await api.sendWhatsAppConversationMessage(contactId, message);
+      }
+    } catch (error) {
+      toast.error('Failed to send operator reply');
+    }
   };
 
   if (loadingConversations) {
@@ -670,6 +730,9 @@ export default function ConversationsPage() {
           onSendMessage={handleSendMessage}
           onSelectContact={handleSelectContact}
           onArchiveContact={handleArchiveContact}
+          onTakeover={handleTakeover}
+          onRelease={handleRelease}
+          onOperatorReply={handleOperatorReply}
           isLoading={isLoading}
         />
       </div>

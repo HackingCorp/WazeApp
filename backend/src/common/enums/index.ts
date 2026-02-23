@@ -152,6 +152,7 @@ export enum MessageRole {
   USER = "user",
   AGENT = "agent",
   SYSTEM = "system",
+  OPERATOR = "operator",
 }
 
 export enum MessageStatus {

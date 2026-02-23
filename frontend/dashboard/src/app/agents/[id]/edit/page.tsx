@@ -24,6 +24,7 @@ import {
   ChevronDown,
   ChevronUp,
   RotateCcw,
+  AlertTriangle,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useI18n } from '@/providers/I18nProvider';
@@ -58,6 +59,11 @@ interface Agent {
     includeGreetings?: boolean;
     signOffStyle?: string;
   };
+  escalationConfig?: {
+    enabled?: boolean;
+    keywords?: string[];
+    escalationMessage?: string;
+  };
 }
 
 interface AgentFormData {
@@ -85,6 +91,11 @@ interface AgentFormData {
     useListsWhenAppropriate?: boolean;
     includeGreetings?: boolean;
     signOffStyle?: string;
+  };
+  escalationConfig?: {
+    enabled?: boolean;
+    keywords?: string[];
+    escalationMessage?: string;
   };
 }
 
@@ -165,6 +176,11 @@ export default function EditAgentPage() {
       includeGreetings: true,
       signOffStyle: 'none',
     },
+    escalationConfig: {
+      enabled: false,
+      keywords: [],
+      escalationMessage: '',
+    },
   });
 
   // Charger l'agent au montage
@@ -201,6 +217,11 @@ export default function EditAgentPage() {
               useListsWhenAppropriate: agentData.config?.useListsWhenAppropriate ?? false,
               includeGreetings: agentData.config?.includeGreetings ?? true,
               signOffStyle: agentData.config?.signOffStyle ?? 'none',
+            },
+            escalationConfig: {
+              enabled: agentData.escalationConfig?.enabled ?? false,
+              keywords: agentData.escalationConfig?.keywords ?? [],
+              escalationMessage: agentData.escalationConfig?.escalationMessage ?? '',
             },
           });
         } else {
@@ -394,6 +415,7 @@ export default function EditAgentPage() {
     { id: 'basic', name: 'Informations de base', icon: Bot },
     { id: 'knowledge', name: 'Base de connaissances', icon: Database },
     { id: 'advanced', name: 'Paramètres avancés', icon: Settings },
+    { id: 'escalation', name: 'Escalade', icon: AlertTriangle },
   ];
 
   const renderTabContent = () => {
@@ -1053,6 +1075,105 @@ export default function EditAgentPage() {
                   </label>
                   <p className="text-sm text-gray-500 dark:text-gray-400 font-mono">
                     {agent?.id}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+
+      case 'escalation':
+        return (
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
+                Configuration de l'escalade
+              </h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
+                Configurez quand et comment les conversations doivent être transférées à un agent humain.
+              </p>
+
+              <div className="space-y-6">
+                {/* Enable Escalation Toggle */}
+                <div className="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
+                  <div>
+                    <label className="text-sm font-medium text-gray-900 dark:text-white">
+                      Activer l'escalade humaine
+                    </label>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      Permet aux conversations d'être transférées à un opérateur humain
+                    </p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.escalationConfig?.enabled ?? false}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          escalationConfig: {
+                            ...prev.escalationConfig,
+                            enabled: e.target.checked,
+                          },
+                        }))
+                      }
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+                  </label>
+                </div>
+
+                {/* Keywords */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Mots-clés de déclenchement
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.escalationConfig?.keywords?.join(', ') || ''}
+                    onChange={(e) => {
+                      const keywordsString = e.target.value;
+                      const keywordsArray = keywordsString.split(',').map(k => k.trim()).filter(k => k);
+                      setFormData((prev) => ({
+                        ...prev,
+                        escalationConfig: {
+                          ...prev.escalationConfig,
+                          keywords: keywordsArray,
+                        },
+                      }));
+                    }}
+                    placeholder="Ex: parler à un humain, agent humain, opérateur"
+                    disabled={!formData.escalationConfig?.enabled}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  />
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    Séparez les mots-clés par des virgules. Quand un utilisateur envoie un message contenant ces mots-clés, la conversation sera escaladée.
+                  </p>
+                </div>
+
+                {/* Escalation Message */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Message d'escalade
+                  </label>
+                  <textarea
+                    value={formData.escalationConfig?.escalationMessage || ''}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        escalationConfig: {
+                          ...prev.escalationConfig,
+                          escalationMessage: e.target.value,
+                        },
+                      }))
+                    }
+                    placeholder="Ex: Votre conversation a été transférée à un agent humain. Veuillez patienter..."
+                    rows={3}
+                    disabled={!formData.escalationConfig?.enabled}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  />
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    Message envoyé à l'utilisateur quand sa conversation est transférée à un agent humain
                   </p>
                 </div>
               </div>

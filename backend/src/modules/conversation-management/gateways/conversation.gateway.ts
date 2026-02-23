@@ -473,6 +473,40 @@ export class ConversationGateway
       });
   }
 
+  @OnEvent('conversation.escalated')
+  async handleConversationEscalated(payload: {
+    conversationId: string;
+    agentId: string;
+    organizationId: string;
+    clientPhoneNumber: string;
+    reason: string;
+    sessionId: string;
+  }) {
+    this.logger.log(`🚨 Conversation escalated: ${payload.conversationId} - Reason: ${payload.reason}`);
+
+    // Broadcast to organization room for real-time notification
+    if (payload.organizationId) {
+      this.server
+        .to(`org:${payload.organizationId}`)
+        .emit("conversation_escalated", {
+          conversationId: payload.conversationId,
+          agentId: payload.agentId,
+          clientPhoneNumber: payload.clientPhoneNumber,
+          reason: payload.reason,
+          timestamp: new Date(),
+        });
+    }
+
+    // Also broadcast to specific conversation room
+    this.server
+      .to(`conversation:${payload.conversationId}`)
+      .emit("conversation_escalated", {
+        conversationId: payload.conversationId,
+        reason: payload.reason,
+        timestamp: new Date(),
+      });
+  }
+
   /**
    * Utility methods
    */

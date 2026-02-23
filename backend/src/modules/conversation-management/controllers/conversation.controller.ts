@@ -652,6 +652,7 @@ export class ConversationController {
       sequenceNumber: nextSeq,
       metadata: {
         operatorId: user.userId,
+        operatorName: user.email,
         fromWhatsApp: true,
         originalSender: "operator",
       },

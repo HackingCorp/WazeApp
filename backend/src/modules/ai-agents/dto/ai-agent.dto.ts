@@ -16,6 +16,24 @@ import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { Type, Transform } from "class-transformer";
 import { AgentStatus, AgentLanguage, AgentTone, ResponseLength, VerbosityLevel } from "../../../common/enums";
 
+export class EscalationConfigDto {
+  @ApiPropertyOptional({ description: "Enable escalation to human", default: false })
+  @IsOptional()
+  @IsBoolean()
+  enabled?: boolean;
+
+  @ApiPropertyOptional({ description: "Keywords that trigger escalation", type: [String] })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  keywords?: string[];
+
+  @ApiPropertyOptional({ description: "Message sent to client when escalated" })
+  @IsOptional()
+  @IsString()
+  escalationMessage?: string;
+}
+
 export class AgentConfigDto {
   @ApiPropertyOptional({ description: "Temperature for LLM (0-2)", minimum: 0, maximum: 2, default: 0.7 })
   @IsOptional()
@@ -164,6 +182,12 @@ export class CreateAiAgentDto {
   @IsArray()
   @IsString({ each: true })
   tags?: string[];
+
+  @ApiPropertyOptional({ description: "Escalation configuration", type: EscalationConfigDto })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => EscalationConfigDto)
+  escalationConfig?: EscalationConfigDto;
 }
 
 export class UpdateAiAgentDto {
@@ -259,6 +283,12 @@ export class UpdateAiAgentDto {
   @IsArray()
   @IsString({ each: true })
   tags?: string[];
+
+  @ApiPropertyOptional({ description: "Escalation configuration", type: EscalationConfigDto })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => EscalationConfigDto)
+  escalationConfig?: EscalationConfigDto;
 }
 
 export class AgentQueryDto {

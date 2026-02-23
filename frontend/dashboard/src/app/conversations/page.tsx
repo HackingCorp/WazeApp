@@ -560,7 +560,7 @@ export default function ConversationsPage() {
           : contact
       ));
 
-      toast.error(`Conversation escalated: ${data.reason || 'Human agent requested'}`, {
+      toast.error(`${t('conversations.escalatedNotification')}: ${data.reason || t('conversations.humanAgentRequested')}`, {
         duration: 5000,
         icon: '⚡',
       });
@@ -658,12 +658,12 @@ export default function ConversationsPage() {
             ? { ...contact, assignedOperatorId: user?.id }
             : contact
         ));
-        toast.success('Conversation taken over');
+        toast.success(t('conversations.conversationTakenOver'));
       }
     } catch (error) {
-      toast.error('Failed to take over conversation');
+      toast.error(t('conversations.failedTakeover'));
     }
-  }, [user?.id]);
+  }, [user?.id, t]);
 
   const handleRelease = useCallback(async (contactId: string) => {
     try {
@@ -674,12 +674,12 @@ export default function ConversationsPage() {
             ? { ...contact, isHumanControlled: false, assignedOperatorId: undefined, escalationReason: undefined }
             : contact
         ));
-        toast.success('Conversation released to AI');
+        toast.success(t('conversations.conversationReleased'));
       }
     } catch (error) {
-      toast.error('Failed to release conversation');
+      toast.error(t('conversations.failedRelease'));
     }
-  }, []);
+  }, [t]);
 
   const handleOperatorReply = useCallback(async (contactId: string, message: string) => {
     try {
@@ -702,9 +702,9 @@ export default function ConversationsPage() {
           : contact
       ));
     } catch (error) {
-      toast.error('Failed to send operator reply');
+      toast.error(t('conversations.failedOperatorReply'));
     }
-  }, []);
+  }, [t]);
 
   if (loadingConversations) {
     return (

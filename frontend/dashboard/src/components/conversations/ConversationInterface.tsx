@@ -407,6 +407,9 @@ const defaultT = (key: string) => {
     'conversations.escalatedToHuman': 'Escalated to human',
     'conversations.takeOver': 'Take over',
     'conversations.releaseToAI': 'Release to AI',
+    'conversations.replyAsOperator': 'Reply as operator...',
+    'conversations.escalationReason': 'Reason',
+    'conversations.escalatedConversations': 'Escalated',
     'conversations.conversations': 'Conversations',
     'conversations.searchContacts': 'Search contacts...',
     'conversations.connectWhatsApp': 'Connect WhatsApp',
@@ -446,11 +449,15 @@ export function ConversationInterface({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const [filterMode, setFilterMode] = useState<'all' | 'escalated'>('all');
   const selectedContact = contacts.find(c => c.id === selectedContactId);
-  const filteredContacts = useMemo(() => contacts.filter(contact =>
-    contact.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    contact.phone.includes(searchQuery)
-  ), [contacts, searchQuery]);
+  const escalatedCount = useMemo(() => contacts.filter(c => c.isHumanControlled).length, [contacts]);
+  const filteredContacts = useMemo(() => contacts.filter(contact => {
+    const matchesSearch = contact.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      contact.phone.includes(searchQuery);
+    const matchesFilter = filterMode === 'all' || contact.isHumanControlled;
+    return matchesSearch && matchesFilter;
+  }), [contacts, searchQuery, filterMode]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -556,6 +563,42 @@ export function ConversationInterface({
               className="w-full pl-10 pr-4 py-2.5 bg-white/10 rounded-xl text-white placeholder-emerald-200 focus:outline-none focus:bg-white/20 transition-colors"
             />
           </div>
+
+          {/* Filter Tabs */}
+          {escalatedCount > 0 && (
+            <div className="flex gap-2 mt-3">
+              <button
+                onClick={() => setFilterMode('all')}
+                className={clsx(
+                  'px-3 py-1 text-xs font-medium rounded-full transition-colors',
+                  filterMode === 'all'
+                    ? 'bg-white text-emerald-700'
+                    : 'bg-white/10 text-white hover:bg-white/20'
+                )}
+              >
+                {t('conversations.conversations')}
+              </button>
+              <button
+                onClick={() => setFilterMode('escalated')}
+                className={clsx(
+                  'px-3 py-1 text-xs font-medium rounded-full transition-colors flex items-center gap-1',
+                  filterMode === 'escalated'
+                    ? 'bg-orange-500 text-white'
+                    : 'bg-white/10 text-white hover:bg-white/20'
+                )}
+              >
+                ⚡ {t('conversations.escalatedConversations')}
+                <span className={clsx(
+                  'ml-1 px-1.5 py-0.5 text-xs rounded-full font-bold',
+                  filterMode === 'escalated'
+                    ? 'bg-white text-orange-600'
+                    : 'bg-orange-500 text-white'
+                )}>
+                  {escalatedCount}
+                </span>
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Contacts List */}
@@ -702,7 +745,7 @@ export function ConversationInterface({
                       </p>
                       {selectedContact.escalationReason && (
                         <p className="text-xs text-orange-600 dark:text-orange-400">
-                          Reason: {selectedContact.escalationReason}
+                          {t('conversations.escalationReason')}: {selectedContact.escalationReason}
                         </p>
                       )}
                     </div>
@@ -835,7 +878,7 @@ export function ConversationInterface({
                       target.style.height = 'auto';
                       target.style.height = `${Math.min(target.scrollHeight, 128)}px`;
                     }}
-                    placeholder={selectedContact?.isHumanControlled && selectedContact?.assignedOperatorId ? 'Reply as operator...' : t('conversations.typeMessage')}
+                    placeholder={selectedContact?.isHumanControlled && selectedContact?.assignedOperatorId ? t('conversations.replyAsOperator') : t('conversations.typeMessage')}
                     className="w-full resize-none px-4 py-2.5 pr-12 bg-gray-100 dark:bg-gray-700 border-0 rounded-2xl text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 max-h-32"
                     rows={1}
                     style={{ minHeight: '44px' }}

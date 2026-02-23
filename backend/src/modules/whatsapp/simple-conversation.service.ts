@@ -242,6 +242,37 @@ export class SimpleConversationService implements OnModuleDestroy {
     });
   }
 
+  @OnEvent("whatsapp.image.downloaded")
+  async handleImageDownloaded(data: {
+    sessionId: string;
+    messageId: string;
+    chatId: string;
+    imageData: string;
+    timestamp: Date;
+  }): Promise<void> {
+    try {
+      // Find the message by messageId and update its mediaUrl
+      const message = await this.messageRepository.findOne({
+        where: { messageId: data.messageId },
+      });
+
+      if (message) {
+        message.mediaUrl = data.imageData;
+        message.mediaType = 'image/jpeg';
+        // If content was placeholder, keep it
+        await this.messageRepository.save(message);
+        this.logger.log(
+          `📸 Updated media URL for message ${data.messageId}`,
+        );
+      }
+    } catch (error) {
+      this.logger.warn(
+        `Failed to update image for message ${data.messageId}:`,
+        error,
+      );
+    }
+  }
+
   @OnEvent("whatsapp.conversation.message")
   async handleWhatsAppMessage(data: {
     sessionId: string;
@@ -679,8 +710,9 @@ export class SimpleConversationService implements OnModuleDestroy {
       return true;
     }
 
-    // If it's longer than 13 digits, it's likely a LID
-    return cleaned.length > 13;
+    // If it's longer than 16 digits, it's likely a LID
+    // Real international phone numbers can be up to 15 digits (E.164 standard)
+    return cleaned.length > 16;
   }
 
   // API methods for frontend
@@ -1035,6 +1067,25 @@ export class SimpleConversationService implements OnModuleDestroy {
             effectiveMediaUrl = contentToCheck;
             const mimeMatch = contentToCheck.match(/^data:([^;]+);/);
             effectiveMediaType = mimeMatch ? mimeMatch[1] : "audio/mpeg";
+          }
+        }
+
+        // Detect media placeholder patterns in content when mediaType is null
+        // These come from historical messages where media wasn't downloaded
+        if (messageType === "text" && !effectiveMediaUrl && msg.content) {
+          const content = msg.content.trim();
+          if (content === '[Image]' || content === '[image]') {
+            messageType = "image";
+            effectiveMediaType = "image/jpeg";
+          } else if (content === '[Video]' || content === '[video]') {
+            messageType = "video";
+            effectiveMediaType = "video/mp4";
+          } else if (content === '[Audio]' || content === '[audio]') {
+            messageType = "audio";
+            effectiveMediaType = "audio/mpeg";
+          } else if (content === '[Media message]' || content === 'Media message') {
+            messageType = "file";
+            effectiveMediaType = "application/octet-stream";
           }
         }
 

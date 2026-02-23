@@ -2074,6 +2074,37 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
           } else if (message.message?.imageMessage) {
             messageText = message.message.imageMessage.caption || "[Image]";
             messageType = "image";
+
+            // Try to download the image for historical messages
+            try {
+              const sock = this.sessions.get(sessionId);
+              if (sock) {
+                const buffer = await downloadMediaMessage(
+                  message,
+                  "buffer",
+                  {},
+                  {
+                    logger: this.logger as never,
+                    reuploadRequest: sock.updateMediaMessage,
+                  },
+                );
+
+                if (buffer) {
+                  const base64 = buffer.toString("base64");
+                  const mimeType =
+                    message.message.imageMessage.mimetype || "image/jpeg";
+                  messageText = `data:${mimeType};base64,${base64}`;
+                  this.logger.log(
+                    `Downloaded image for historical message ${message.key.id}`,
+                  );
+                }
+              }
+            } catch (error) {
+              this.logger.warn(
+                `Failed to download image for historical message ${message.key.id}:`,
+                error?.message || error,
+              );
+            }
           } else if (message.message?.videoMessage) {
             messageText = message.message.videoMessage.caption || "[Video]";
             messageType = "video";

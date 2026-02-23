@@ -182,14 +182,14 @@ export default function ConversationsPage() {
     // Extract only digits
     const digitsOnly = cleaned.replace(/\D/g, '');
 
-    // Valid international phone numbers are typically 7-13 digits
-    // LIDs are usually 14+ digits
-    if (digitsOnly.length > 13) {
+    // Valid international phone numbers are up to 15 digits (E.164 standard)
+    // LIDs are usually 17+ digits
+    if (digitsOnly.length > 16) {
       return false;
     }
 
     // Check for reasonable phone number pattern
-    return /^\+?[1-9]\d{6,12}$/.test(cleaned);
+    return /^\+?[1-9]\d{6,15}$/.test(cleaned);
   }, [cleanPhoneForLookup]);
 
   // Helper function to get contact from map
@@ -221,7 +221,11 @@ export default function ConversationsPage() {
       return cleanPhone.startsWith('+') ? cleanPhone : `+${cleanPhone}`;
     }
 
-    // For LIDs or invalid numbers, return a generic placeholder
+    // For LIDs or invalid numbers, show last 8 digits as identifier
+    const digits = cleanPhone.replace(/\D/g, '');
+    if (digits.length >= 8) {
+      return `Contact ...${digits.slice(-8)}`;
+    }
     return 'Contact WhatsApp';
   }, [getContactFromMap, cleanPhoneForLookup, isLikelyValidPhone]);
 
@@ -305,7 +309,7 @@ export default function ConversationsPage() {
           if (!displayName ||
               displayName === conv.phoneNumber ||
               displayName.includes('@') ||
-              (displayName.match(/^\+?\d+$/) && displayName.length > 13)) {
+              (displayName.match(/^\+?\d+$/) && displayName.length > 16)) {
             // If backend name looks like a LID, try our local contact lookup
             displayName = getContactDisplayName(conv.phoneNumber || '');
           }

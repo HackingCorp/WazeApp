@@ -209,8 +209,43 @@ const MessageBubble = React.memo(({ message, isFirst, isLast, formatMessageTime,
             <span className="text-sm opacity-80">{message.mediaCaption || message.content || t('conversations.file')}</span>
           </a>
         );
-      default:
+      default: {
+        // Detect media placeholder patterns from historical messages
+        const content = message.content?.trim() || '';
+        if (content === '[Image]' || content === '[image]') {
+          return (
+            <div className="flex items-center gap-2 bg-black/10 dark:bg-white/10 rounded-lg p-3">
+              <span className="text-2xl">🖼️</span>
+              <span className="text-sm opacity-80">{t('conversations.image') || 'Image'}</span>
+            </div>
+          );
+        }
+        if (content === '[Video]' || content === '[video]') {
+          return (
+            <div className="flex items-center gap-2 bg-black/10 dark:bg-white/10 rounded-lg p-3">
+              <span className="text-2xl">🎬</span>
+              <span className="text-sm opacity-80">{t('conversations.video') || 'Video'}</span>
+            </div>
+          );
+        }
+        if (content === '[Audio]' || content === '[audio]') {
+          return (
+            <div className="flex items-center gap-2 bg-black/10 dark:bg-white/10 rounded-lg p-3">
+              <span className="text-2xl">🎵</span>
+              <span className="text-sm opacity-80">{t('conversations.audio') || 'Audio'}</span>
+            </div>
+          );
+        }
+        if (content === '[Media message]' || content === 'Media message' || content === '[Sticker]') {
+          return (
+            <div className="flex items-center gap-2 bg-black/10 dark:bg-white/10 rounded-lg p-3">
+              <span className="text-2xl">📎</span>
+              <span className="text-sm opacity-80">{t('conversations.file') || 'Media'}</span>
+            </div>
+          );
+        }
         return <p className="whitespace-pre-wrap break-words">{message.content}</p>;
+      }
     }
   };
 

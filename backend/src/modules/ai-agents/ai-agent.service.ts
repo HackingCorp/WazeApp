@@ -268,9 +268,10 @@ export class AiAgentService {
     // Calculate average response time from conversations with metrics
     const responseTimeStats = await this.conversationRepository
       .createQueryBuilder("conv")
-      .select("AVG((conv.metrics->>'responseTime')::numeric)", "avgResponseTime")
+      .select("AVG((conv.metrics->>'averageResponseTime')::numeric)", "avgResponseTime")
       .where("conv.agentId = :agentId", { agentId })
-      .andWhere("conv.metrics->>'responseTime' IS NOT NULL")
+      .andWhere("conv.metrics->>'averageResponseTime' IS NOT NULL")
+      .andWhere("(conv.metrics->>'averageResponseTime')::numeric > 0")
       .getRawOne();
 
     // Calculate satisfaction score from conversations

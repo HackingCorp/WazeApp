@@ -881,14 +881,18 @@ Guidelines:
     const startTime = Date.now();
 
     // Load agent with knowledge bases and catalogs
-    const agent = await this.agentRepository.findOne({
-      where: { id: agentId, organizationId },
+    // Note: organizationId may be undefined for individual users, so we also try without it
+    let agent = await this.agentRepository.findOne({
+      where: organizationId ? { id: agentId, organizationId } : { id: agentId },
       relations: ["knowledgeBases", "catalogs"],
     });
 
     if (!agent) {
       throw new NotFoundException("AI Agent not found");
     }
+
+    // Use agent's own organizationId as fallback when user's currentOrganizationId is undefined
+    const effectiveOrgId = organizationId || agent.organizationId;
 
     let knowledgeBaseSources: Array<{ document: string; chunk: string; confidence: number }> = [];
     let contextFromKB = "";
@@ -899,7 +903,7 @@ Guidelines:
         const kbIds = agent.knowledgeBases.map((kb) => kb.id);
         const searchResults = await this.vectorSearch.hybridSearch({
           query: testDto.message,
-          organizationId,
+          organizationId: effectiveOrgId,
           knowledgeBaseIds: kbIds,
           limit: 5,
           threshold: 0.6,
@@ -929,12 +933,12 @@ Guidelines:
     let foundProducts: any[] = [];
     const catalogIds = agent.catalogs?.map(c => c.id) || [];
     const hasEcommerce = catalogIds.length > 0 || agent.ecommerceEnabled;
-    this.logger.log(`[TestAgent] Agent "${agent.name}": catalogIds=${JSON.stringify(catalogIds)}, ecommerceEnabled=${agent.ecommerceEnabled}, hasEcommerce=${hasEcommerce}, orgId=${organizationId}`);
-    if (hasEcommerce && organizationId) {
+    this.logger.log(`[TestAgent] Agent "${agent.name}": catalogIds=${JSON.stringify(catalogIds)}, ecommerceEnabled=${agent.ecommerceEnabled}, hasEcommerce=${hasEcommerce}, effectiveOrgId=${effectiveOrgId}`);
+    if (hasEcommerce && effectiveOrgId) {
       try {
         // Always search products when ecommerce is enabled (don't gate on isProductQuery for test mode)
         let products = await this.productSearchService.searchProducts(
-          organizationId,
+          effectiveOrgId,
           testDto.message,
           10,
           catalogIds.length > 0 ? catalogIds : undefined,
@@ -945,7 +949,7 @@ Guidelines:
         if (products.length === 0 && catalogIds.length > 0) {
           this.logger.log(`[TestAgent] Retrying searchProducts without storeIds filter...`);
           products = await this.productSearchService.searchProducts(
-            organizationId,
+            effectiveOrgId,
             testDto.message,
             10,
           );
@@ -960,7 +964,7 @@ Guidelines:
         this.logger.warn("Product search failed during agent test:", error.message);
       }
     } else {
-      this.logger.log(`[TestAgent] Skipping product search: hasEcommerce=${hasEcommerce}, orgId=${organizationId}`);
+      this.logger.log(`[TestAgent] Skipping product search: hasEcommerce=${hasEcommerce}, effectiveOrgId=${effectiveOrgId}`);
     }
 
     // Collect media items from products
@@ -1006,7 +1010,7 @@ Guidelines:
     try {
       const llmResponse = await this.llmRouter.generateResponse({
         messages,
-        organizationId,
+        organizationId: effectiveOrgId,
         agentId,
         temperature: agent.config?.temperature || 0.7,
         maxTokens: agent.config?.maxTokens || 2000,

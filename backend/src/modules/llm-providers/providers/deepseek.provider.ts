@@ -64,7 +64,19 @@ export class DeepSeekProvider extends BaseLLMProvider {
       } catch (error) {
         lastError = error;
         const status = error.response?.status;
+        const errorBody = error.response?.data;
         const isRateLimited = status === 429 || error.message?.includes('rate limit');
+
+        // Log detailed error for debugging
+        if (errorBody) {
+          this.logger.error(`DeepSeek API error ${status}: ${JSON.stringify(errorBody)}`);
+        }
+
+        // Don't retry on 400 (bad request) - it won't succeed
+        if (status === 400) {
+          const detail = errorBody?.error?.message || error.message;
+          throw new Error(`DeepSeek generation failed (400): ${detail}`);
+        }
 
         if (isRateLimited && attempt < maxRetries) {
           // Exponential backoff: 2s, 4s, 8s
@@ -193,7 +205,7 @@ export class DeepSeekProvider extends BaseLLMProvider {
   }
 
   private buildRequestPayload(request: LLMRequest): any {
-    return {
+    const payload: any = {
       model: this.config.model,
       messages: request.messages,
       max_tokens: request.maxTokens || this.config.maxTokens || 2000,
@@ -204,9 +216,17 @@ export class DeepSeekProvider extends BaseLLMProvider {
       presence_penalty:
         request.presencePenalty ?? this.config.presencePenalty ?? 0,
       stream: request.stream || false,
-      functions: request.functions,
-      function_call: request.functionCall,
     };
+
+    // Only include functions/function_call if defined (DeepSeek rejects undefined/null)
+    if (request.functions) {
+      payload.functions = request.functions;
+    }
+    if (request.functionCall) {
+      payload.function_call = request.functionCall;
+    }
+
+    return payload;
   }
 
   private parseResponse(apiResponse: any, responseTime: number): LLMResponse {

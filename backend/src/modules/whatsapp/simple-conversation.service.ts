@@ -253,7 +253,7 @@ export class SimpleConversationService implements OnModuleDestroy {
     try {
       // Find the message by messageId and update its mediaUrl
       const message = await this.messageRepository.findOne({
-        where: { messageId: data.messageId },
+        where: { externalMessageId: data.messageId },
       });
 
       if (message) {

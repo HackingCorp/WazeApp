@@ -70,17 +70,55 @@ export class EMarketService {
     }
   }
 
+  private async fetchWithRetry(
+    url: string,
+    headers: Record<string, string>,
+    retries = 3,
+  ): Promise<Response> {
+    for (let attempt = 1; attempt <= retries; attempt++) {
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 30000);
+        const response = await fetch(url, {
+          headers,
+          signal: controller.signal,
+        });
+        clearTimeout(timeout);
+
+        if (response.status >= 500 && attempt < retries) {
+          this.logger.warn(
+            `E-Market API returned ${response.status}, retrying (${attempt}/${retries})...`,
+          );
+          await new Promise((r) => setTimeout(r, 2000 * attempt));
+          continue;
+        }
+
+        return response;
+      } catch (error) {
+        if (attempt < retries) {
+          this.logger.warn(
+            `E-Market API request failed: ${error instanceof Error ? error.message : error}, retrying (${attempt}/${retries})...`,
+          );
+          await new Promise((r) => setTimeout(r, 2000 * attempt));
+          continue;
+        }
+        throw error;
+      }
+    }
+    throw new Error("E-Market API: max retries exceeded");
+  }
+
   async fetchAllProducts(store: EcommerceStore): Promise<EMarketProduct[]> {
     const products: EMarketProduct[] = [];
     let page = 1;
-    const limit = 100;
+    const limit = 20;
     const baseUrl = store.storeUrl.replace(/\/$/, "");
     const headers = { "X-API-Key": store.credentials.apiKey };
 
     while (true) {
-      const response = await fetch(
+      const response = await this.fetchWithRetry(
         `${baseUrl}/products?page=${page}&limit=${limit}`,
-        { headers },
+        headers,
       );
 
       if (!response.ok) {
@@ -89,6 +127,10 @@ export class EMarketService {
 
       const data: EMarketResponse = await response.json();
       products.push(...data.data);
+
+      this.logger.log(
+        `E-Market sync: fetched page ${page}/${data.pagination.total_pages} (${products.length}/${data.pagination.total} products)`,
+      );
 
       if (page >= data.pagination.total_pages) break;
       page++;

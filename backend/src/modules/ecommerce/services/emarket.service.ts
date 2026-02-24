@@ -1,7 +1,9 @@
 import { Injectable, Logger, BadRequestException } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import { EcommerceStore } from "@/common/entities";
 import { EcommercePlatform, ProductStatus } from "@/common/enums";
 import * as crypto from "crypto";
+import { ConnectEMarketDto } from "../dto/store.dto";
 
 interface EMarketProduct {
   id: string;
@@ -41,79 +43,83 @@ interface EMarketResponse {
 export class EMarketService {
   private readonly logger = new Logger(EMarketService.name);
 
-  private async getAuthHeaders(
-    credentials: Record<string, any>,
-  ): Promise<Record<string, string>> {
-    const authMethod = credentials.authMethod || "api_key";
+  constructor(private readonly configService: ConfigService) {}
 
-    if (authMethod === "oauth2") {
-      const token = await this.fetchOAuth2Token(credentials);
-      return { Authorization: `Bearer ${token}` };
+  generateAuthUrl(dto: ConnectEMarketDto, organizationId: string): string {
+    const redirectUri = `${this.configService.get<string>("API_URL", "https://api.wazeapp.xyz")}/api/v1/ecommerce/stores/emarket/callback`;
+
+    const state = Buffer.from(
+      JSON.stringify({
+        organizationId,
+        storeUrl: dto.storeUrl,
+        tokenUrl: dto.tokenUrl,
+        clientId: dto.clientId,
+        clientSecret: dto.clientSecret,
+        name: dto.name,
+      }),
+    ).toString("base64");
+
+    const params = new URLSearchParams({
+      client_id: dto.clientId,
+      redirect_uri: redirectUri,
+      response_type: "code",
+      state,
+    });
+
+    if (dto.scopes) {
+      params.set("scope", dto.scopes);
     }
 
-    if (authMethod === "bearer") {
-      return { Authorization: `Bearer ${credentials.apiKey}` };
-    }
-
-    // Default: api_key
-    return { "X-API-Key": credentials.apiKey };
+    return `${dto.authUrl}?${params.toString()}`;
   }
 
-  private async fetchOAuth2Token(
-    credentials: Record<string, any>,
+  async exchangeCodeForToken(
+    tokenUrl: string,
+    code: string,
+    clientId: string,
+    clientSecret: string,
+    redirectUri: string,
   ): Promise<string> {
-    const { clientId, clientSecret, tokenUrl } = credentials;
+    const body = new URLSearchParams({
+      grant_type: "authorization_code",
+      code,
+      client_id: clientId,
+      client_secret: clientSecret,
+      redirect_uri: redirectUri,
+    });
 
-    if (!tokenUrl || !clientId || !clientSecret) {
+    const response = await fetch(tokenUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: body.toString(),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => response.statusText);
       throw new BadRequestException(
-        "OAuth2 requires tokenUrl, clientId, and clientSecret",
+        `E-Market OAuth token exchange failed: ${errorText}`,
       );
     }
 
-    try {
-      const response = await fetch(tokenUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({
-          grant_type: "client_credentials",
-          client_id: clientId,
-          client_secret: clientSecret,
-        }).toString(),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text().catch(() => response.statusText);
-        throw new BadRequestException(
-          `OAuth2 token request failed: ${errorText}`,
-        );
-      }
-
-      const data = await response.json();
-      if (!data.access_token) {
-        throw new BadRequestException(
-          "OAuth2 response missing access_token",
-        );
-      }
-
-      return data.access_token;
-    } catch (error) {
-      if (error instanceof BadRequestException) throw error;
+    const data = await response.json();
+    if (!data.access_token) {
       throw new BadRequestException(
-        `OAuth2 token request error: ${error.message}`,
+        "E-Market OAuth response missing access_token",
       );
     }
+
+    return data.access_token;
   }
 
   async testConnection(
     storeUrl: string,
-    credentials: Record<string, any>,
+    accessToken: string,
   ): Promise<boolean> {
     const baseUrl = storeUrl.replace(/\/$/, "");
 
     try {
-      const headers = await this.getAuthHeaders(credentials);
       const response = await fetch(`${baseUrl}/products?limit=1`, {
-        headers,
+        headers: { Authorization: `Bearer ${accessToken}` },
       });
 
       if (!response.ok) {
@@ -135,7 +141,7 @@ export class EMarketService {
     let page = 1;
     const limit = 100;
     const baseUrl = store.storeUrl.replace(/\/$/, "");
-    const headers = await this.getAuthHeaders(store.credentials);
+    const headers = { Authorization: `Bearer ${store.credentials.accessToken}` };
 
     while (true) {
       const response = await fetch(

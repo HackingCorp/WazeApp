@@ -13,7 +13,7 @@ import {
   AuditAction,
 } from "@/common/enums";
 import { AuditService } from "../../audit/audit.service";
-import { ConnectWooCommerceDto, ConnectEMarketDto, CreateManualCatalogDto } from "../dto/store.dto";
+import { ConnectWooCommerceDto, CreateManualCatalogDto } from "../dto/store.dto";
 
 @Injectable()
 export class StoreService {
@@ -166,20 +166,16 @@ export class StoreService {
   async createEMarketStore(
     organizationId: string,
     userId: string,
-    dto: ConnectEMarketDto,
+    storeUrl: string,
+    accessToken: string,
+    name?: string,
   ): Promise<EcommerceStore> {
     const store = this.storeRepository.create({
-      name: dto.name || new URL(dto.storeUrl).hostname,
+      name: name || new URL(storeUrl).hostname,
       platform: EcommercePlatform.EMARKET,
       status: StoreConnectionStatus.CONNECTED,
-      storeUrl: dto.storeUrl,
-      credentials: {
-        authMethod: dto.authMethod || "api_key",
-        apiKey: dto.apiKey,
-        clientId: dto.clientId,
-        clientSecret: dto.clientSecret,
-        tokenUrl: dto.tokenUrl,
-      },
+      storeUrl,
+      credentials: { accessToken },
       syncConfig: {
         autoSync: true,
         syncIntervalMinutes: 30,
@@ -197,8 +193,8 @@ export class StoreService {
       action: AuditAction.CREATE,
       resourceType: "ecommerce_store",
       resourceId: saved.id,
-      description: `Connected E-Market store: ${dto.storeUrl}`,
-      metadata: { platform: "emarket", storeUrl: dto.storeUrl },
+      description: `Connected E-Market store: ${storeUrl}`,
+      metadata: { platform: "emarket", storeUrl },
     });
 
     return saved;

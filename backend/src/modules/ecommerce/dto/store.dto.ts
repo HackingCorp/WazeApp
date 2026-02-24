@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsUrl, MaxLength, IsIn } from "class-validator";
+import { IsString, IsOptional, IsUrl, MaxLength } from "class-validator";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 
 export class ConnectShopifyDto {
@@ -27,40 +27,30 @@ export class ConnectWooCommerceDto {
 }
 
 export class ConnectEMarketDto {
-  @ApiProperty({ description: "E-Market store base URL" })
+  @ApiProperty({ description: "E-Market store API URL (products endpoint)" })
   @IsString()
   storeUrl: string;
 
-  @ApiProperty({
-    description: "Authentication method",
-    enum: ["api_key", "bearer", "oauth2"],
-    default: "api_key",
-  })
-  @IsOptional()
-  @IsIn(["api_key", "bearer", "oauth2"])
-  authMethod?: "api_key" | "bearer" | "oauth2";
+  @ApiProperty({ description: "OAuth2 Authorization URL" })
+  @IsString()
+  authUrl: string;
 
-  @ApiPropertyOptional({ description: "API Key (for api_key or bearer auth)" })
+  @ApiProperty({ description: "OAuth2 Token endpoint URL" })
+  @IsString()
+  tokenUrl: string;
+
+  @ApiProperty({ description: "OAuth2 Client ID" })
+  @IsString()
+  clientId: string;
+
+  @ApiProperty({ description: "OAuth2 Client Secret" })
+  @IsString()
+  clientSecret: string;
+
+  @ApiPropertyOptional({ description: "OAuth2 scopes (e.g. read_products)" })
   @IsOptional()
   @IsString()
-  apiKey?: string;
-
-  @ApiPropertyOptional({ description: "OAuth2 Client ID" })
-  @IsOptional()
-  @IsString()
-  clientId?: string;
-
-  @ApiPropertyOptional({ description: "OAuth2 Client Secret" })
-  @IsOptional()
-  @IsString()
-  clientSecret?: string;
-
-  @ApiPropertyOptional({
-    description: "OAuth2 Token URL (e.g. https://auth.example.com/oauth/token)",
-  })
-  @IsOptional()
-  @IsString()
-  tokenUrl?: string;
+  scopes?: string;
 
   @ApiPropertyOptional({ description: "Store name" })
   @IsOptional()

@@ -175,43 +175,69 @@ export class StoreController {
     return { data: store };
   }
 
-  @Post("emarket/connect")
+  @Post("emarket/auth-url")
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
-  @ApiOperation({ summary: "Connect E-Market store" })
-  @ApiResponse({ status: 201, description: "Store connected" })
-  async connectEMarket(
+  @ApiOperation({ summary: "Generate E-Market OAuth2 URL" })
+  @ApiResponse({ status: 200, description: "OAuth URL generated" })
+  async getEMarketAuthUrl(
     @CurrentUser() user: User,
     @Body() dto: ConnectEMarketDto,
   ) {
     const organizationId = (user as any).organizationId || user.id;
+    const authUrl = this.eMarketService.generateAuthUrl(dto, organizationId);
+    return { data: { authUrl } };
+  }
 
-    // Auto-detect auth method from provided fields
-    let authMethod = dto.authMethod || "api_key";
-    if (!dto.authMethod && dto.clientId && dto.clientSecret && dto.tokenUrl) {
-      authMethod = "oauth2";
-    }
-
-    // Test connection first
-    const credentials: Record<string, any> = {
-      authMethod,
-      apiKey: dto.apiKey,
-      clientId: dto.clientId,
-      clientSecret: dto.clientSecret,
-      tokenUrl: dto.tokenUrl,
-    };
-    await this.eMarketService.testConnection(dto.storeUrl, credentials);
-
-    const store = await this.storeService.createEMarketStore(
-      organizationId,
-      user.id,
-      dto,
+  @Get("emarket/callback")
+  @Public()
+  @ApiOperation({ summary: "E-Market OAuth2 callback" })
+  async eMarketCallback(
+    @Query("code") code: string,
+    @Query("state") state: string,
+    @Res() res: Response,
+  ) {
+    const dashboardUrl = this.configService.get<string>(
+      "DASHBOARD_URL",
+      "https://app.wazeapp.xyz",
     );
 
-    // Trigger initial sync
-    await this.syncService.triggerFullSync(store.id);
+    try {
+      const { organizationId, storeUrl, tokenUrl, clientId, clientSecret, name } =
+        JSON.parse(Buffer.from(state, "base64").toString());
 
-    return { data: store };
+      const redirectUri = `${this.configService.get<string>("API_URL", "https://api.wazeapp.xyz")}/api/v1/ecommerce/stores/emarket/callback`;
+
+      const accessToken = await this.eMarketService.exchangeCodeForToken(
+        tokenUrl,
+        code,
+        clientId,
+        clientSecret,
+        redirectUri,
+      );
+
+      // Test connection with the obtained token
+      await this.eMarketService.testConnection(storeUrl, accessToken);
+
+      const store = await this.storeService.createEMarketStore(
+        organizationId,
+        "system",
+        storeUrl,
+        accessToken,
+        name,
+      );
+
+      // Trigger initial sync
+      await this.syncService.triggerFullSync(store.id);
+
+      return res.redirect(
+        `${dashboardUrl}/products/stores?connected=emarket`,
+      );
+    } catch (error) {
+      return res.redirect(
+        `${dashboardUrl}/products/stores?error=${encodeURIComponent(error.message)}`,
+      );
+    }
   }
 
   @Post(":id/sync")

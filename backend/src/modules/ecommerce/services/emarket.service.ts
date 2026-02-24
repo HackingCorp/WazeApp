@@ -50,15 +50,16 @@ export class EMarketService {
       });
 
       if (!response.ok) {
+        const errorBody = await response.text().catch(() => "");
         throw new BadRequestException(
-          `E-Market connection failed: ${response.statusText}`,
+          `E-Market connection failed (${response.status}): ${errorBody || response.statusText}`,
         );
       }
       return true;
     } catch (error) {
       if (error instanceof BadRequestException) throw error;
       throw new BadRequestException(
-        `Cannot connect to E-Market store: ${error.message}`,
+        `Cannot connect to E-Market store: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
   }

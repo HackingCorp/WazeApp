@@ -9,6 +9,7 @@ import {
   Res,
   UseGuards,
   ParseUUIDPipe,
+  Logger,
 } from "@nestjs/common";
 import {
   ApiTags,
@@ -32,6 +33,8 @@ import { ConnectShopifyDto, ConnectWooCommerceDto, ConnectEMarketDto, CreateManu
 @ApiTags("E-Commerce - Stores")
 @Controller("ecommerce/stores")
 export class StoreController {
+  private readonly logger = new Logger(StoreController.name);
+
   constructor(
     private readonly storeService: StoreService,
     private readonly shopifyService: ShopifyService,
@@ -186,8 +189,12 @@ export class StoreController {
   ) {
     const organizationId = (user as any).organizationId || user.id;
 
-    // Test connection first
-    await this.eMarketService.testConnection(dto.storeUrl, dto.apiKey);
+    // Test connection first (skip if it fails, still save the store)
+    try {
+      await this.eMarketService.testConnection(dto.storeUrl, dto.apiKey);
+    } catch (error) {
+      this.logger.warn(`E-Market connection test failed: ${error.message}`);
+    }
 
     const store = await this.storeService.createEMarketStore(
       organizationId,

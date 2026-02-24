@@ -131,8 +131,8 @@ export function AgentTestModal({
       inputRef.current.style.height = 'auto';
     }
 
-    // Build conversation history from existing messages (exclude system/error messages)
-    const conversationHistory = [...messages, userMessage]
+    // Build conversation history from previous messages only (exclude current message, system/error)
+    const conversationHistory = messages
       .filter(m => (m.role === 'user' || m.role === 'assistant') && !m.isError)
       .map(m => ({ role: m.role as 'user' | 'assistant', content: m.content }));
 

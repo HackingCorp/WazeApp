@@ -891,9 +891,8 @@ Guidelines:
       response = llmResponse.content;
       tokensUsed = llmResponse.usage?.totalTokens || 0;
     } catch (error) {
-      // Fallback response if LLM fails
-      response = `Error generating response: ${error.message}. Agent test mode - system prompt: "${agent.systemPrompt.substring(0, 100)}..."`;
-      tokensUsed = Math.ceil(response.length / 4);
+      // Throw error so frontend can display it properly
+      throw new Error(`Erreur de generation: ${error.message}`);
     }
 
     const responseTime = Date.now() - startTime;

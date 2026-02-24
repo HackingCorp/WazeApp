@@ -167,7 +167,7 @@ export class StoreService {
     organizationId: string,
     userId: string,
     storeUrl: string,
-    accessToken: string,
+    apiKey: string,
     name?: string,
   ): Promise<EcommerceStore> {
     const store = this.storeRepository.create({
@@ -175,7 +175,7 @@ export class StoreService {
       platform: EcommercePlatform.EMARKET,
       status: StoreConnectionStatus.CONNECTED,
       storeUrl,
-      credentials: { accessToken },
+      credentials: { apiKey },
       syncConfig: {
         autoSync: true,
         syncIntervalMinutes: 30,

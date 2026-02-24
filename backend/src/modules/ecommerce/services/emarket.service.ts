@@ -1,5 +1,4 @@
 import { Injectable, Logger, BadRequestException } from "@nestjs/common";
-import { ConfigService } from "@nestjs/config";
 import { EcommerceStore } from "@/common/entities";
 import { EcommercePlatform, ProductStatus } from "@/common/enums";
 import * as crypto from "crypto";
@@ -42,78 +41,12 @@ interface EMarketResponse {
 export class EMarketService {
   private readonly logger = new Logger(EMarketService.name);
 
-  constructor(private readonly configService: ConfigService) {}
-
-  generateAuthUrl(storeUrl: string, organizationId: string, name?: string): string {
-    const clientId = this.configService.get<string>("EMARKET_CLIENT_ID");
-    const authUrl = this.configService.get<string>("EMARKET_AUTH_URL");
-    const scopes = this.configService.get<string>("EMARKET_SCOPES", "");
-    const redirectUri = `${this.configService.get<string>("API_URL", "https://api.wazeapp.xyz")}/api/v1/ecommerce/stores/emarket/callback`;
-
-    const state = Buffer.from(
-      JSON.stringify({ organizationId, storeUrl, name }),
-    ).toString("base64");
-
-    const params = new URLSearchParams({
-      client_id: clientId,
-      redirect_uri: redirectUri,
-      response_type: "code",
-      state,
-    });
-
-    if (scopes) {
-      params.set("scope", scopes);
-    }
-
-    return `${authUrl}?${params.toString()}`;
-  }
-
-  async exchangeCodeForToken(code: string): Promise<string> {
-    const tokenUrl = this.configService.get<string>("EMARKET_TOKEN_URL");
-    const clientId = this.configService.get<string>("EMARKET_CLIENT_ID");
-    const clientSecret = this.configService.get<string>("EMARKET_CLIENT_SECRET");
-    const redirectUri = `${this.configService.get<string>("API_URL", "https://api.wazeapp.xyz")}/api/v1/ecommerce/stores/emarket/callback`;
-
-    const body = new URLSearchParams({
-      grant_type: "authorization_code",
-      code,
-      client_id: clientId,
-      client_secret: clientSecret,
-      redirect_uri: redirectUri,
-    });
-
-    const response = await fetch(tokenUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: body.toString(),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text().catch(() => response.statusText);
-      throw new BadRequestException(
-        `E-Market OAuth token exchange failed: ${errorText}`,
-      );
-    }
-
-    const data = await response.json();
-    if (!data.access_token) {
-      throw new BadRequestException(
-        "E-Market OAuth response missing access_token",
-      );
-    }
-
-    return data.access_token;
-  }
-
-  async testConnection(
-    storeUrl: string,
-    accessToken: string,
-  ): Promise<boolean> {
+  async testConnection(storeUrl: string, apiKey: string): Promise<boolean> {
     const baseUrl = storeUrl.replace(/\/$/, "");
 
     try {
       const response = await fetch(`${baseUrl}/products?limit=1`, {
-        headers: { Authorization: `Bearer ${accessToken}` },
+        headers: { "X-API-Key": apiKey },
       });
 
       if (!response.ok) {
@@ -135,7 +68,7 @@ export class EMarketService {
     let page = 1;
     const limit = 100;
     const baseUrl = store.storeUrl.replace(/\/$/, "");
-    const headers = { Authorization: `Bearer ${store.credentials.accessToken}` };
+    const headers = { "X-API-Key": store.credentials.apiKey };
 
     while (true) {
       const response = await fetch(

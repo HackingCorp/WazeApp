@@ -30,6 +30,7 @@ export default function ImportProductsPage() {
 
   // E-Market state
   const [eMarketUrl, setEMarketUrl] = useState('');
+  const [eMarketApiKey, setEMarketApiKey] = useState('');
   const [connectingEMarket, setConnectingEMarket] = useState(false);
 
   const handleConnectShopify = async () => {
@@ -86,22 +87,20 @@ export default function ImportProductsPage() {
   };
 
   const handleConnectEMarket = async () => {
-    if (!eMarketUrl.trim()) {
-      toast.error(t('products.eMarketFillFields') || 'Please enter the E-Market store URL');
+    if (!eMarketUrl.trim() || !eMarketApiKey.trim()) {
+      toast.error(t('products.eMarketFillFields') || 'Please fill in all E-Market fields');
       return;
     }
 
     setConnectingEMarket(true);
     try {
-      const response = await api.connectEMarketStore(eMarketUrl.trim());
-      if (response.success && response.data) {
-        const authUrl = response.data.data?.authUrl || response.data.authUrl;
-        if (authUrl) {
-          window.location.href = authUrl;
-        } else {
-          toast.success(t('products.storeConnected'));
-          router.push('/products/stores');
-        }
+      const response = await api.connectEMarketStore({
+        storeUrl: eMarketUrl.trim(),
+        apiKey: eMarketApiKey.trim(),
+      });
+      if (response.success) {
+        toast.success(t('products.storeConnected'));
+        router.push('/products/stores');
       } else {
         toast.error(response.error || 'Failed to connect E-Market store');
       }
@@ -280,15 +279,28 @@ export default function ImportProductsPage() {
                 />
               </div>
 
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  {t('products.eMarketApiKey')}
+                </label>
+                <input
+                  type="password"
+                  value={eMarketApiKey}
+                  onChange={(e) => setEMarketApiKey(e.target.value)}
+                  placeholder={t('products.eMarketApiKeyPlaceholder')}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                />
+              </div>
+
               <button
                 onClick={handleConnectEMarket}
-                disabled={connectingEMarket || !eMarketUrl.trim()}
+                disabled={connectingEMarket || !eMarketUrl.trim() || !eMarketApiKey.trim()}
                 className="w-full flex items-center justify-center px-4 py-3 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50 transition-colors"
               >
                 {connectingEMarket ? (
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                 ) : (
-                  <ExternalLink className="w-4 h-4 mr-2" />
+                  <Globe className="w-4 h-4 mr-2" />
                 )}
                 {t('products.connectEMarket')}
               </button>

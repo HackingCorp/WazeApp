@@ -31,6 +31,10 @@ export class ConnectEMarketDto {
   @IsString()
   storeUrl: string;
 
+  @ApiProperty({ description: "API Key" })
+  @IsString()
+  apiKey: string;
+
   @ApiPropertyOptional({ description: "Store name" })
   @IsOptional()
   @IsString()

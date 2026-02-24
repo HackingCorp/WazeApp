@@ -174,7 +174,11 @@ export class StoreService {
       status: StoreConnectionStatus.CONNECTED,
       storeUrl: dto.storeUrl,
       credentials: {
+        authMethod: dto.authMethod || "api_key",
         apiKey: dto.apiKey,
+        clientId: dto.clientId,
+        clientSecret: dto.clientSecret,
+        tokenUrl: dto.tokenUrl,
       },
       syncConfig: {
         autoSync: true,

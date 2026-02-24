@@ -30,7 +30,11 @@ export default function ImportProductsPage() {
 
   // E-Market state
   const [eMarketUrl, setEMarketUrl] = useState('');
+  const [eMarketAuthMethod, setEMarketAuthMethod] = useState<'api_key' | 'bearer' | 'oauth2'>('api_key');
   const [eMarketApiKey, setEMarketApiKey] = useState('');
+  const [eMarketClientId, setEMarketClientId] = useState('');
+  const [eMarketClientSecret, setEMarketClientSecret] = useState('');
+  const [eMarketTokenUrl, setEMarketTokenUrl] = useState('');
   const [connectingEMarket, setConnectingEMarket] = useState(false);
 
   const handleConnectShopify = async () => {
@@ -87,7 +91,17 @@ export default function ImportProductsPage() {
   };
 
   const handleConnectEMarket = async () => {
-    if (!eMarketUrl.trim() || !eMarketApiKey.trim()) {
+    if (!eMarketUrl.trim()) {
+      toast.error(t('products.eMarketFillFields') || 'Please fill in all E-Market fields');
+      return;
+    }
+
+    if (eMarketAuthMethod === 'oauth2') {
+      if (!eMarketClientId.trim() || !eMarketClientSecret.trim() || !eMarketTokenUrl.trim()) {
+        toast.error('Please fill in Client ID, Client Secret, and Token URL');
+        return;
+      }
+    } else if (!eMarketApiKey.trim()) {
       toast.error(t('products.eMarketFillFields') || 'Please fill in all E-Market fields');
       return;
     }
@@ -96,7 +110,11 @@ export default function ImportProductsPage() {
     try {
       const response = await api.connectEMarketStore({
         storeUrl: eMarketUrl.trim(),
-        apiKey: eMarketApiKey.trim(),
+        authMethod: eMarketAuthMethod,
+        apiKey: eMarketApiKey.trim() || undefined,
+        clientId: eMarketClientId.trim() || undefined,
+        clientSecret: eMarketClientSecret.trim() || undefined,
+        tokenUrl: eMarketTokenUrl.trim() || undefined,
       });
       if (response.success) {
         toast.success(t('products.storeConnected'));
@@ -281,20 +299,78 @@ export default function ImportProductsPage() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  {t('products.eMarketApiKey')}
+                  {t('products.eMarketAuthMethod') || 'Authentication Method'}
                 </label>
-                <input
-                  type="password"
-                  value={eMarketApiKey}
-                  onChange={(e) => setEMarketApiKey(e.target.value)}
-                  placeholder={t('products.eMarketApiKeyPlaceholder')}
+                <select
+                  value={eMarketAuthMethod}
+                  onChange={(e) => setEMarketAuthMethod(e.target.value as 'api_key' | 'bearer' | 'oauth2')}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                />
+                >
+                  <option value="api_key">API Key (X-API-Key)</option>
+                  <option value="bearer">Bearer Token</option>
+                  <option value="oauth2">OAuth2 (Client Credentials)</option>
+                </select>
               </div>
+
+              {eMarketAuthMethod !== 'oauth2' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    {eMarketAuthMethod === 'bearer' ? 'Bearer Token' : (t('products.eMarketApiKey') || 'API Key')}
+                  </label>
+                  <input
+                    type="password"
+                    value={eMarketApiKey}
+                    onChange={(e) => setEMarketApiKey(e.target.value)}
+                    placeholder={t('products.eMarketApiKeyPlaceholder')}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                  />
+                </div>
+              )}
+
+              {eMarketAuthMethod === 'oauth2' && (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Token URL
+                    </label>
+                    <input
+                      type="text"
+                      value={eMarketTokenUrl}
+                      onChange={(e) => setEMarketTokenUrl(e.target.value)}
+                      placeholder="https://auth.example.com/oauth/token"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Client ID
+                    </label>
+                    <input
+                      type="text"
+                      value={eMarketClientId}
+                      onChange={(e) => setEMarketClientId(e.target.value)}
+                      placeholder="your-client-id"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Client Secret
+                    </label>
+                    <input
+                      type="password"
+                      value={eMarketClientSecret}
+                      onChange={(e) => setEMarketClientSecret(e.target.value)}
+                      placeholder="your-client-secret"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                    />
+                  </div>
+                </>
+              )}
 
               <button
                 onClick={handleConnectEMarket}
-                disabled={connectingEMarket || !eMarketUrl.trim() || !eMarketApiKey.trim()}
+                disabled={connectingEMarket || !eMarketUrl.trim() || (eMarketAuthMethod !== 'oauth2' && !eMarketApiKey.trim()) || (eMarketAuthMethod === 'oauth2' && (!eMarketClientId.trim() || !eMarketClientSecret.trim() || !eMarketTokenUrl.trim()))}
                 className="w-full flex items-center justify-center px-4 py-3 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50 transition-colors"
               >
                 {connectingEMarket ? (

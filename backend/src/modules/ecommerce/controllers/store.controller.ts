@@ -187,7 +187,14 @@ export class StoreController {
     const organizationId = (user as any).organizationId || user.id;
 
     // Test connection first
-    await this.eMarketService.testConnection(dto.storeUrl, dto.apiKey);
+    const credentials: Record<string, any> = {
+      authMethod: dto.authMethod || "api_key",
+      apiKey: dto.apiKey,
+      clientId: dto.clientId,
+      clientSecret: dto.clientSecret,
+      tokenUrl: dto.tokenUrl,
+    };
+    await this.eMarketService.testConnection(dto.storeUrl, credentials);
 
     const store = await this.storeService.createEMarketStore(
       organizationId,

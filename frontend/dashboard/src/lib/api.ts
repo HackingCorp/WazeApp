@@ -821,7 +821,7 @@ class ApiClient {
     });
   }
 
-  async connectEMarketStore(data: { storeUrl: string; apiKey: string; name?: string }) {
+  async connectEMarketStore(data: { storeUrl: string; authMethod?: string; apiKey?: string; clientId?: string; clientSecret?: string; tokenUrl?: string; name?: string }) {
     return this.request('/ecommerce/stores/emarket/connect', {
       method: 'POST',
       body: JSON.stringify(data),

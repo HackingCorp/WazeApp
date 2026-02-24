@@ -41,12 +41,79 @@ interface EMarketResponse {
 export class EMarketService {
   private readonly logger = new Logger(EMarketService.name);
 
-  async testConnection(storeUrl: string, apiKey: string): Promise<boolean> {
+  private async getAuthHeaders(
+    credentials: Record<string, any>,
+  ): Promise<Record<string, string>> {
+    const authMethod = credentials.authMethod || "api_key";
+
+    if (authMethod === "oauth2") {
+      const token = await this.fetchOAuth2Token(credentials);
+      return { Authorization: `Bearer ${token}` };
+    }
+
+    if (authMethod === "bearer") {
+      return { Authorization: `Bearer ${credentials.apiKey}` };
+    }
+
+    // Default: api_key
+    return { "X-API-Key": credentials.apiKey };
+  }
+
+  private async fetchOAuth2Token(
+    credentials: Record<string, any>,
+  ): Promise<string> {
+    const { clientId, clientSecret, tokenUrl } = credentials;
+
+    if (!tokenUrl || !clientId || !clientSecret) {
+      throw new BadRequestException(
+        "OAuth2 requires tokenUrl, clientId, and clientSecret",
+      );
+    }
+
+    try {
+      const response = await fetch(tokenUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+          grant_type: "client_credentials",
+          client_id: clientId,
+          client_secret: clientSecret,
+        }).toString(),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => response.statusText);
+        throw new BadRequestException(
+          `OAuth2 token request failed: ${errorText}`,
+        );
+      }
+
+      const data = await response.json();
+      if (!data.access_token) {
+        throw new BadRequestException(
+          "OAuth2 response missing access_token",
+        );
+      }
+
+      return data.access_token;
+    } catch (error) {
+      if (error instanceof BadRequestException) throw error;
+      throw new BadRequestException(
+        `OAuth2 token request error: ${error.message}`,
+      );
+    }
+  }
+
+  async testConnection(
+    storeUrl: string,
+    credentials: Record<string, any>,
+  ): Promise<boolean> {
     const baseUrl = storeUrl.replace(/\/$/, "");
 
     try {
+      const headers = await this.getAuthHeaders(credentials);
       const response = await fetch(`${baseUrl}/products?limit=1`, {
-        headers: { "X-API-Key": apiKey },
+        headers,
       });
 
       if (!response.ok) {
@@ -68,14 +135,12 @@ export class EMarketService {
     let page = 1;
     const limit = 100;
     const baseUrl = store.storeUrl.replace(/\/$/, "");
-    const apiKey = store.credentials.apiKey;
+    const headers = await this.getAuthHeaders(store.credentials);
 
     while (true) {
       const response = await fetch(
         `${baseUrl}/products?page=${page}&limit=${limit}`,
-        {
-          headers: { "X-API-Key": apiKey },
-        },
+        { headers },
       );
 
       if (!response.ok) {

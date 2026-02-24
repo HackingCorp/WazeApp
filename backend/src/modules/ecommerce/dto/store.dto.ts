@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsUrl, MaxLength } from "class-validator";
+import { IsString, IsOptional, IsUrl, MaxLength, IsIn } from "class-validator";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 
 export class ConnectShopifyDto {
@@ -31,9 +31,36 @@ export class ConnectEMarketDto {
   @IsString()
   storeUrl: string;
 
-  @ApiProperty({ description: "E-Market API Key" })
+  @ApiProperty({
+    description: "Authentication method",
+    enum: ["api_key", "bearer", "oauth2"],
+    default: "api_key",
+  })
+  @IsOptional()
+  @IsIn(["api_key", "bearer", "oauth2"])
+  authMethod?: "api_key" | "bearer" | "oauth2";
+
+  @ApiPropertyOptional({ description: "API Key (for api_key or bearer auth)" })
+  @IsOptional()
   @IsString()
-  apiKey: string;
+  apiKey?: string;
+
+  @ApiPropertyOptional({ description: "OAuth2 Client ID" })
+  @IsOptional()
+  @IsString()
+  clientId?: string;
+
+  @ApiPropertyOptional({ description: "OAuth2 Client Secret" })
+  @IsOptional()
+  @IsString()
+  clientSecret?: string;
+
+  @ApiPropertyOptional({
+    description: "OAuth2 Token URL (e.g. https://auth.example.com/oauth/token)",
+  })
+  @IsOptional()
+  @IsString()
+  tokenUrl?: string;
 
   @ApiPropertyOptional({ description: "Store name" })
   @IsOptional()

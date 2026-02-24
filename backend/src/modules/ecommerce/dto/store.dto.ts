@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsUrl } from "class-validator";
+import { IsString, IsOptional, IsUrl, MaxLength } from "class-validator";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 
 export class ConnectShopifyDto {
@@ -24,4 +24,16 @@ export class ConnectWooCommerceDto {
   @IsOptional()
   @IsString()
   name?: string;
+}
+
+export class CreateManualCatalogDto {
+  @ApiProperty({ description: "Catalog name" })
+  @IsString()
+  @MaxLength(255)
+  name: string;
+
+  @ApiPropertyOptional({ description: "Catalog description" })
+  @IsOptional()
+  @IsString()
+  description?: string;
 }

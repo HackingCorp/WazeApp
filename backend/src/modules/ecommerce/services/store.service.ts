@@ -13,7 +13,7 @@ import {
   AuditAction,
 } from "@/common/enums";
 import { AuditService } from "../../audit/audit.service";
-import { ConnectWooCommerceDto } from "../dto/store.dto";
+import { ConnectWooCommerceDto, CreateManualCatalogDto } from "../dto/store.dto";
 
 @Injectable()
 export class StoreService {
@@ -57,6 +57,36 @@ export class StoreService {
       throw new NotFoundException(`Store ${id} not found`);
     }
     return store;
+  }
+
+  async createManualCatalog(
+    organizationId: string,
+    userId: string,
+    dto: CreateManualCatalogDto,
+  ): Promise<EcommerceStore> {
+    const store = this.storeRepository.create({
+      name: dto.name,
+      platform: EcommercePlatform.MANUAL,
+      status: StoreConnectionStatus.CONNECTED,
+      credentials: {},
+      syncConfig: {},
+      organizationId,
+      createdBy: userId,
+    });
+
+    const saved = await this.storeRepository.save(store);
+
+    await this.auditService.log({
+      organizationId,
+      userId,
+      action: AuditAction.CREATE,
+      resourceType: "ecommerce_store",
+      resourceId: saved.id,
+      description: `Created manual catalog: ${dto.name}`,
+      metadata: { platform: "manual", name: dto.name },
+    });
+
+    return saved;
   }
 
   async createShopifyStore(

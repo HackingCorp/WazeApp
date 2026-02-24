@@ -26,7 +26,7 @@ import { StoreService } from "../services/store.service";
 import { ShopifyService } from "../services/shopify.service";
 import { WooCommerceService } from "../services/woocommerce.service";
 import { SyncService } from "../services/sync.service";
-import { ConnectShopifyDto, ConnectWooCommerceDto } from "../dto/store.dto";
+import { ConnectShopifyDto, ConnectWooCommerceDto, CreateManualCatalogDto } from "../dto/store.dto";
 
 @ApiTags("E-Commerce - Stores")
 @Controller("ecommerce/stores")
@@ -48,6 +48,24 @@ export class StoreController {
     const organizationId = (user as any).organizationId || null;
     const stores = await this.storeService.findAll(organizationId);
     return { data: stores };
+  }
+
+  @Post("manual")
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: "Create a manual catalog" })
+  @ApiResponse({ status: 201, description: "Catalog created" })
+  async createManualCatalog(
+    @CurrentUser() user: User,
+    @Body() dto: CreateManualCatalogDto,
+  ) {
+    const organizationId = (user as any).organizationId || user.id;
+    const store = await this.storeService.createManualCatalog(
+      organizationId,
+      user.id,
+      dto,
+    );
+    return { data: store };
   }
 
   @Get(":id")

@@ -108,14 +108,21 @@ export default function ImportProductsPage() {
 
     setConnectingEMarket(true);
     try {
-      const response = await api.connectEMarketStore({
+      const payload: Record<string, string> = {
         storeUrl: eMarketUrl.trim(),
-        authMethod: eMarketAuthMethod,
-        apiKey: eMarketApiKey.trim() || undefined,
-        clientId: eMarketClientId.trim() || undefined,
-        clientSecret: eMarketClientSecret.trim() || undefined,
-        tokenUrl: eMarketTokenUrl.trim() || undefined,
-      });
+      };
+      if (eMarketAuthMethod !== 'api_key') {
+        payload.authMethod = eMarketAuthMethod;
+      }
+      if (eMarketAuthMethod !== 'oauth2' && eMarketApiKey.trim()) {
+        payload.apiKey = eMarketApiKey.trim();
+      }
+      if (eMarketAuthMethod === 'oauth2') {
+        payload.clientId = eMarketClientId.trim();
+        payload.clientSecret = eMarketClientSecret.trim();
+        payload.tokenUrl = eMarketTokenUrl.trim();
+      }
+      const response = await api.connectEMarketStore(payload);
       if (response.success) {
         toast.success(t('products.storeConnected'));
         router.push('/products/stores');

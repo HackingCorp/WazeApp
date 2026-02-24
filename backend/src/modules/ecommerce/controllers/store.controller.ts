@@ -186,9 +186,15 @@ export class StoreController {
   ) {
     const organizationId = (user as any).organizationId || user.id;
 
+    // Auto-detect auth method from provided fields
+    let authMethod = dto.authMethod || "api_key";
+    if (!dto.authMethod && dto.clientId && dto.clientSecret && dto.tokenUrl) {
+      authMethod = "oauth2";
+    }
+
     // Test connection first
     const credentials: Record<string, any> = {
-      authMethod: dto.authMethod || "api_key",
+      authMethod,
       apiKey: dto.apiKey,
       clientId: dto.clientId,
       clientSecret: dto.clientSecret,

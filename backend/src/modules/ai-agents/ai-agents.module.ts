@@ -10,6 +10,7 @@ import {
   User,
   AuditLog,
   Subscription,
+  EcommerceStore,
 } from "../../common/entities";
 import { AiAgentService } from "./ai-agent.service";
 import { ConversationService } from "./conversation.service";
@@ -31,6 +32,7 @@ import { VectorSearchModule } from "../vector-search/vector-search.module";
       User,
       AuditLog,
       Subscription,
+      EcommerceStore,
     ]),
     AuditModule,
     forwardRef(() => LlmProvidersModule),

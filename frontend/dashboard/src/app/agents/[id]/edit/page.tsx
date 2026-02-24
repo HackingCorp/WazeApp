@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useI18n } from '@/providers/I18nProvider';
+import { AgentTestModal } from '@/components/agents/AgentTestModal';
 import toast from 'react-hot-toast';
 import clsx from 'clsx';
 
@@ -60,11 +61,18 @@ interface Agent {
     signOffStyle?: string;
   };
   ecommerceEnabled?: boolean;
+  catalogs?: { id: string; name: string; platform: string }[];
   escalationConfig?: {
     enabled?: boolean;
     keywords?: string[];
     escalationMessage?: string;
   };
+}
+
+interface CatalogStore {
+  id: string;
+  name: string;
+  platform: string;
 }
 
 interface AgentFormData {
@@ -94,6 +102,7 @@ interface AgentFormData {
     signOffStyle?: string;
   };
   ecommerceEnabled?: boolean;
+  catalogIds?: string[];
   escalationConfig?: {
     enabled?: boolean;
     keywords?: string[];
@@ -147,6 +156,8 @@ export default function EditAgentPage() {
   const [promptHistory, setPromptHistory] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [expandedVersion, setExpandedVersion] = useState<number | null>(null);
+  const [availableCatalogs, setAvailableCatalogs] = useState<CatalogStore[]>([]);
+  const [isTestModalOpen, setIsTestModalOpen] = useState(false);
 
   const router = useRouter();
   const params = useParams();
@@ -179,6 +190,7 @@ export default function EditAgentPage() {
       signOffStyle: 'none',
     },
     ecommerceEnabled: false,
+    catalogIds: [],
     escalationConfig: {
       enabled: false,
       keywords: [],
@@ -222,6 +234,7 @@ export default function EditAgentPage() {
               signOffStyle: agentData.config?.signOffStyle ?? 'none',
             },
             ecommerceEnabled: agentData.ecommerceEnabled ?? false,
+            catalogIds: agentData.catalogs?.map((c: any) => c.id) || [],
             escalationConfig: {
               enabled: agentData.escalationConfig?.enabled ?? false,
               keywords: agentData.escalationConfig?.keywords ?? [],
@@ -247,6 +260,20 @@ export default function EditAgentPage() {
       loadAgent();
     }
   }, [agentId, router]);
+
+  // Load available catalogs
+  useEffect(() => {
+    const fetchCatalogs = async () => {
+      try {
+        const response = await api.getEcommerceStores();
+        if (response.success && response.data) {
+          const data = response.data.data || response.data;
+          setAvailableCatalogs(Array.isArray(data) ? data : []);
+        }
+      } catch { /* optional */ }
+    };
+    fetchCatalogs();
+  }, []);
 
   const updateFormData = (updates: Partial<AgentFormData>) => {
     setFormData(prev => ({ ...prev, ...updates }));
@@ -912,30 +939,52 @@ export default function EditAgentPage() {
               </div>
             </div>
 
-            {/* E-commerce Integration */}
+            {/* E-commerce Catalogs */}
             <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
-              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
-                E-commerce
+              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+                {t('products.assignCatalogs')}
               </h3>
-              <div className="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
-                <div>
-                  <label className="text-sm font-medium text-gray-900 dark:text-white">
-                    {t('products.ecommerceEnabled')}
-                  </label>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    {t('products.ecommerceEnabledDescription')}
-                  </p>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                {t('products.assignCatalogsDescription')}
+              </p>
+              {availableCatalogs.length > 0 ? (
+                <div className="space-y-2">
+                  {availableCatalogs.map(catalog => (
+                    <label
+                      key={catalog.id}
+                      className="flex items-center gap-3 p-3 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={formData.catalogIds?.includes(catalog.id) ?? false}
+                        onChange={(e) => {
+                          const current = formData.catalogIds || [];
+                          const updated = e.target.checked
+                            ? [...current, catalog.id]
+                            : current.filter(id => id !== catalog.id);
+                          updateFormData({
+                            catalogIds: updated,
+                            ecommerceEnabled: updated.length > 0,
+                          });
+                        }}
+                        className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                      />
+                      <div>
+                        <span className="text-sm font-medium text-gray-900 dark:text-white">
+                          {catalog.name}
+                        </span>
+                        <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
+                          ({catalog.platform})
+                        </span>
+                      </div>
+                    </label>
+                  ))}
                 </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={formData.ecommerceEnabled ?? false}
-                    onChange={(e) => updateFormData({ ecommerceEnabled: e.target.checked })}
-                    className="sr-only peer"
-                  />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
-                </label>
-              </div>
+              ) : (
+                <p className="text-sm text-gray-500 dark:text-gray-400 italic">
+                  {t('products.noCatalogs')}
+                </p>
+              )}
             </div>
 
             {/* Response Style Options */}
@@ -1247,6 +1296,13 @@ export default function EditAgentPage() {
         
         <div className="flex items-center space-x-3">
           <button
+            onClick={() => setIsTestModalOpen(true)}
+            className="flex items-center px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-colors"
+          >
+            <TestTube className="w-4 h-4 mr-2" />
+            Tester en live
+          </button>
+          <button
             onClick={handleSave}
             disabled={saving}
             className="flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg transition-colors"
@@ -1289,6 +1345,22 @@ export default function EditAgentPage() {
           </div>
         </div>
       </div>
+
+      {/* Agent Test Modal */}
+      {agent && (
+        <AgentTestModal
+          isOpen={isTestModalOpen}
+          onClose={() => setIsTestModalOpen(false)}
+          agent={{
+            id: agent.id,
+            name: agent.name,
+            welcomeMessage: formData.welcomeMessage,
+            systemPrompt: formData.systemPrompt,
+            primaryLanguage: formData.primaryLanguage,
+          }}
+          systemPromptOverride={formData.systemPrompt}
+        />
+      )}
     </div>
   );
 }

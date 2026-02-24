@@ -13,6 +13,7 @@ import { BaseEntity } from "./base.entity";
 import { Organization } from "./organization.entity";
 import { User } from "./user.entity";
 import { KnowledgeBase } from "./knowledge-base.entity";
+import { EcommerceStore } from "./ecommerce-store.entity";
 import { AgentConversation } from "./agent-conversation.entity";
 import { WhatsAppSession } from "./whatsapp-session.entity";
 import {
@@ -184,6 +185,15 @@ export class AiAgent extends BaseEntity {
     inverseJoinColumn: { name: "knowledgeBaseId", referencedColumnName: "id" },
   })
   knowledgeBases: KnowledgeBase[];
+
+  @ApiProperty({ description: "Associated e-commerce catalogs" })
+  @ManyToMany(() => EcommerceStore)
+  @JoinTable({
+    name: "agent_store_catalogs",
+    joinColumn: { name: "agentId", referencedColumnName: "id" },
+    inverseJoinColumn: { name: "storeId", referencedColumnName: "id" },
+  })
+  catalogs: EcommerceStore[];
 
   @OneToMany(() => AgentConversation, (conversation) => conversation.agent)
   conversations: AgentConversation[];

@@ -18,10 +18,12 @@ import {
   Search,
   Filter,
   MoreVertical,
+  TestTube,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { apiHelpers, api } from '@/lib/api';
 import { useI18n } from '@/providers/I18nProvider';
+import { AgentTestModal } from '@/components/agents/AgentTestModal';
 import clsx from 'clsx';
 import toast from 'react-hot-toast';
 
@@ -48,6 +50,7 @@ export default function AgentsPage() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedAgents, setSelectedAgents] = useState<string[]>([]);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [testingAgent, setTestingAgent] = useState<Agent | null>(null);
 
   const router = useRouter();
   const { t } = useI18n();
@@ -359,6 +362,16 @@ export default function AgentsPage() {
                   )}
                 </button>
 
+                {/* Test */}
+                <button
+                  onClick={() => setTestingAgent(agent)}
+                  className="p-2 text-emerald-600 hover:bg-emerald-100 dark:hover:bg-emerald-900/20 dark:text-emerald-400 rounded-lg transition-colors"
+                  title="Tester l'agent"
+                  aria-label="Test agent"
+                >
+                  <TestTube className="w-4 h-4" />
+                </button>
+
                 {/* Edit */}
                 <button
                   onClick={() => router.push(`/agents/${agent.id}/edit`)}
@@ -453,6 +466,19 @@ export default function AgentsPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Agent Test Modal */}
+      {testingAgent && (
+        <AgentTestModal
+          isOpen={!!testingAgent}
+          onClose={() => setTestingAgent(null)}
+          agent={{
+            id: testingAgent.id,
+            name: testingAgent.name,
+            avatarUrl: testingAgent.avatar,
+          }}
+        />
       )}
     </div>
   );

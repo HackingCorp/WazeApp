@@ -188,6 +188,12 @@ export class CreateAiAgentDto {
   @ValidateNested()
   @Type(() => EscalationConfigDto)
   escalationConfig?: EscalationConfigDto;
+
+  @ApiPropertyOptional({ description: "E-commerce catalog IDs to associate" })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  catalogIds?: string[];
 }
 
 export class UpdateAiAgentDto {
@@ -289,6 +295,12 @@ export class UpdateAiAgentDto {
   @ValidateNested()
   @Type(() => EscalationConfigDto)
   escalationConfig?: EscalationConfigDto;
+
+  @ApiPropertyOptional({ description: "E-commerce catalog IDs to associate" })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  catalogIds?: string[];
 }
 
 export class AgentQueryDto {
@@ -441,4 +453,19 @@ export class TestAgentDto {
   @Type(() => Boolean)
   @IsBoolean()
   includeSources?: boolean = false;
+
+  @ApiPropertyOptional({
+    description: "Conversation history for multi-turn test conversations",
+    type: [Object],
+  })
+  @IsOptional()
+  @IsArray()
+  conversationHistory?: Array<{ role: 'user' | 'assistant'; content: string }>;
+
+  @ApiPropertyOptional({
+    description: "Override system prompt for testing unsaved edits",
+  })
+  @IsOptional()
+  @IsString()
+  systemPromptOverride?: string;
 }

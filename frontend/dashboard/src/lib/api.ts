@@ -350,7 +350,12 @@ class ApiClient {
   }
 
   // Agent Testing
-  async testAgent(agentId: string, data: { message: string; includeSources?: boolean }) {
+  async testAgent(agentId: string, data: {
+    message: string;
+    conversationHistory?: Array<{ role: 'user' | 'assistant'; content: string }>;
+    includeSources?: boolean;
+    systemPromptOverride?: string;
+  }) {
     return this.request(`/agents/${agentId}/test`, {
       method: 'POST',
       body: JSON.stringify(data)
@@ -793,6 +798,13 @@ class ApiClient {
 
   async getEcommerceStore(id: string) {
     return this.request(`/ecommerce/stores/${id}`);
+  }
+
+  async createManualCatalog(data: { name: string; description?: string }) {
+    return this.request('/ecommerce/stores/manual', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
   }
 
   async connectShopifyStore(shopDomain: string) {

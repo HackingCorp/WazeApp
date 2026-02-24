@@ -17,6 +17,7 @@ import {
   User,
   Subscription,
   KnowledgeDocument,
+  EcommerceStore,
 } from "../../common/entities";
 import {
   AgentStatus,
@@ -63,6 +64,9 @@ export class AiAgentService {
 
     @InjectRepository(AgentMessage)
     private readonly messageRepository: Repository<AgentMessage>,
+
+    @InjectRepository(EcommerceStore)
+    private readonly ecommerceStoreRepository: Repository<EcommerceStore>,
 
     private readonly auditService: AuditService,
 
@@ -131,6 +135,16 @@ export class AiAgentService {
       await this.agentRepository.save(saved);
     }
 
+    // Associate catalogs if provided
+    if (createDto.catalogIds?.length) {
+      const catalogs = await this.ecommerceStoreRepository.findBy({
+        id: In(createDto.catalogIds),
+      });
+      saved.catalogs = catalogs;
+      saved.ecommerceEnabled = true;
+      await this.agentRepository.save(saved);
+    }
+
     await this.auditService.log({
       organizationId,
       userId,
@@ -152,7 +166,8 @@ export class AiAgentService {
     const queryBuilder = this.agentRepository
       .createQueryBuilder("agent")
       .leftJoinAndSelect("agent.creator", "creator")
-      .leftJoinAndSelect("agent.knowledgeBases", "knowledgeBases");
+      .leftJoinAndSelect("agent.knowledgeBases", "knowledgeBases")
+      .leftJoinAndSelect("agent.catalogs", "catalogs");
 
     // Filter by organization if available, otherwise by creator
     if (organizationId) {
@@ -271,7 +286,7 @@ export class AiAgentService {
   async findOne(organizationId: string, id: string): Promise<AiAgent> {
     const agent = await this.agentRepository.findOne({
       where: { id, organizationId },
-      relations: ["creator", "knowledgeBases", "conversations"],
+      relations: ["creator", "knowledgeBases", "catalogs", "conversations"],
     });
 
     if (!agent) {
@@ -295,7 +310,7 @@ export class AiAgentService {
           { id, organizationId },
           { id, createdBy: userId, organizationId: IsNull() }
         ],
-        relations: ["creator", "knowledgeBases", "conversations"],
+        relations: ["creator", "knowledgeBases", "catalogs", "conversations"],
       });
     } else {
       // User without organization - find any agent they created OR any agent accessible to them
@@ -304,7 +319,7 @@ export class AiAgentService {
           { id, createdBy: userId },
           { id, organizationId: IsNull() }
         ],
-        relations: ["creator", "knowledgeBases", "conversations"],
+        relations: ["creator", "knowledgeBases", "catalogs", "conversations"],
       });
     }
 
@@ -371,6 +386,21 @@ export class AiAgentService {
         updated.knowledgeBases = knowledgeBases;
       } else {
         updated.knowledgeBases = [];
+      }
+      await this.agentRepository.save(updated);
+    }
+
+    // Update catalog associations if provided
+    if (updateDto.catalogIds !== undefined) {
+      if (updateDto.catalogIds.length > 0) {
+        const catalogs = await this.ecommerceStoreRepository.findBy({
+          id: In(updateDto.catalogIds),
+        });
+        updated.catalogs = catalogs;
+        updated.ecommerceEnabled = true;
+      } else {
+        updated.catalogs = [];
+        updated.ecommerceEnabled = false;
       }
       await this.agentRepository.save(updated);
     }
@@ -444,6 +474,21 @@ export class AiAgentService {
         updated.knowledgeBases = knowledgeBases;
       } else {
         updated.knowledgeBases = [];
+      }
+      await this.agentRepository.save(updated);
+    }
+
+    // Update catalog associations if provided
+    if (updateDto.catalogIds !== undefined) {
+      if (updateDto.catalogIds.length > 0) {
+        const catalogs = await this.ecommerceStoreRepository.findBy({
+          id: In(updateDto.catalogIds),
+        });
+        updated.catalogs = catalogs;
+        updated.ecommerceEnabled = true;
+      } else {
+        updated.catalogs = [];
+        updated.ecommerceEnabled = false;
       }
       await this.agentRepository.save(updated);
     }
@@ -814,8 +859,21 @@ Guidelines:
       }
     }
 
-    // Build system prompt with agent's configuration
-    const systemPrompt = this.buildSystemPrompt(agent, contextFromKB);
+    // Build system prompt: use override if provided, otherwise build from agent config
+    const systemPrompt = testDto.systemPromptOverride
+      ? this.buildSystemPrompt({ ...agent, systemPrompt: testDto.systemPromptOverride } as any, contextFromKB)
+      : this.buildSystemPrompt(agent, contextFromKB);
+
+    // Build messages array: system prompt + conversation history + new user message
+    const messages: Array<{ role: 'user' | 'system' | 'assistant'; content: string }> = [
+      { role: "system", content: systemPrompt },
+    ];
+
+    if (testDto.conversationHistory?.length) {
+      messages.push(...testDto.conversationHistory);
+    }
+
+    messages.push({ role: "user", content: testDto.message });
 
     // Call LLM to get actual response
     let response: string;
@@ -823,10 +881,7 @@ Guidelines:
 
     try {
       const llmResponse = await this.llmRouter.generateResponse({
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: testDto.message },
-        ],
+        messages,
         organizationId,
         agentId,
         temperature: agent.config?.temperature || 0.7,

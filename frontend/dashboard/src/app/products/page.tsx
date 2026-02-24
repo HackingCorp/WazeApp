@@ -34,6 +34,7 @@ interface Product {
   stockQuantity: number;
   inStock: boolean;
   status: 'active' | 'draft' | 'archived';
+  type?: 'product' | 'service';
   source: 'manual' | 'shopify' | 'woocommerce';
   images?: { url: string; isPrimary: boolean }[];
   categories?: { id: string; name: string }[];
@@ -55,6 +56,9 @@ export default function ProductsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [sourceFilter, setSourceFilter] = useState('');
+  const [typeFilter, setTypeFilter] = useState('');
+  const [storeFilter, setStoreFilter] = useState('');
+  const [stores, setStores] = useState<{id: string; name: string}[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -69,6 +73,8 @@ export default function ProductsPage() {
         search: searchQuery || undefined,
         status: statusFilter || undefined,
         source: sourceFilter || undefined,
+        type: typeFilter || undefined,
+        storeId: storeFilter || undefined,
         page,
         limit,
       });
@@ -85,7 +91,7 @@ export default function ProductsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [searchQuery, statusFilter, sourceFilter, page]);
+  }, [searchQuery, statusFilter, sourceFilter, typeFilter, storeFilter, page]);
 
   const fetchStats = useCallback(async () => {
     try {
@@ -107,6 +113,19 @@ export default function ProductsPage() {
   useEffect(() => {
     fetchStats();
   }, [fetchStats]);
+
+  useEffect(() => {
+    const fetchStores = async () => {
+      try {
+        const res = await api.getEcommerceStores();
+        if (res.success && res.data) {
+          const data = res.data.data || res.data;
+          setStores(Array.isArray(data) ? data : []);
+        }
+      } catch {}
+    };
+    fetchStores();
+  }, []);
 
   const handleDelete = async (id: string) => {
     if (!window.confirm(t('products.confirmDelete'))) return;
@@ -203,6 +222,21 @@ export default function ProductsPage() {
           </span>
         );
     }
+  };
+
+  const getTypeBadge = (type?: string) => {
+    if (type === 'service') {
+      return (
+        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200">
+          {t('products.productTypeService')}
+        </span>
+      );
+    }
+    return (
+      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-200">
+        {t('products.productTypeProduct')}
+      </span>
+    );
   };
 
   const getPrimaryImage = (product: Product) => {
@@ -329,6 +363,29 @@ export default function ProductsPage() {
                 <option value="woocommerce">{t('products.woocommerce')}</option>
               </select>
             </div>
+            <div className="lg:w-48">
+              <select
+                value={typeFilter}
+                onChange={(e) => { setTypeFilter(e.target.value); setPage(1); }}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              >
+                <option value="">{t('products.allTypes')}</option>
+                <option value="product">{t('products.productTypeProduct')}</option>
+                <option value="service">{t('products.productTypeService')}</option>
+              </select>
+            </div>
+            <div className="lg:w-48">
+              <select
+                value={storeFilter}
+                onChange={(e) => { setStoreFilter(e.target.value); setPage(1); }}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              >
+                <option value="">{t('products.allCatalogs')}</option>
+                {stores.map(s => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
 
@@ -401,6 +458,9 @@ export default function ProductsPage() {
                         {t('products.name')}
                       </th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                        {t('products.productType')}
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                         {t('products.price')}
                       </th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
@@ -454,6 +514,9 @@ export default function ProductsPage() {
                               )}
                             </div>
                           </div>
+                        </td>
+                        <td className="px-4 py-4">
+                          {getTypeBadge(product.type)}
                         </td>
                         <td className="px-4 py-4">
                           <div>

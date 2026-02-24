@@ -15,6 +15,8 @@ import {
   Plus,
   Loader2,
   Unplug,
+  Package,
+  X,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { useI18n } from '@/providers/I18nProvider';
@@ -24,7 +26,7 @@ import toast from 'react-hot-toast';
 interface EcommerceStore {
   id: string;
   name: string;
-  platform: 'shopify' | 'woocommerce';
+  platform: 'shopify' | 'woocommerce' | 'manual';
   storeUrl: string;
   status: 'connected' | 'disconnected' | 'syncing' | 'error';
   productCount: number;
@@ -38,6 +40,9 @@ export default function StoresPage() {
   const [stores, setStores] = useState<EcommerceStore[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [syncingStoreId, setSyncingStoreId] = useState<string | null>(null);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [newCatalogName, setNewCatalogName] = useState('');
+  const [creatingCatalog, setCreatingCatalog] = useState(false);
 
   const fetchStores = useCallback(async () => {
     try {
@@ -114,6 +119,26 @@ export default function StoresPage() {
     }
   };
 
+  const handleCreateCatalog = async () => {
+    if (!newCatalogName.trim()) return;
+    setCreatingCatalog(true);
+    try {
+      const response = await api.createManualCatalog({ name: newCatalogName.trim() });
+      if (response.success) {
+        toast.success(t('products.catalogCreated'));
+        setShowCreateModal(false);
+        setNewCatalogName('');
+        fetchStores();
+      } else {
+        toast.error(response.error || 'Error');
+      }
+    } catch {
+      toast.error('Error creating catalog');
+    } finally {
+      setCreatingCatalog(false);
+    }
+  };
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'connected':
@@ -153,6 +178,8 @@ export default function StoresPage() {
         return <ShoppingCart className="w-6 h-6 text-green-600" />;
       case 'woocommerce':
         return <Store className="w-6 h-6 text-purple-600" />;
+      case 'manual':
+        return <Package className="w-6 h-6 text-blue-600" />;
       default:
         return <Store className="w-6 h-6 text-gray-600" />;
     }
@@ -179,13 +206,22 @@ export default function StoresPage() {
               </p>
             </div>
           </div>
-          <button
-            onClick={() => router.push('/products/import')}
-            className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            {t('products.connectStore')}
-          </button>
+          <div className="flex items-center space-x-3">
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+            >
+              <Package className="w-4 h-4 mr-2" />
+              {t('products.createCatalog')}
+            </button>
+            <button
+              onClick={() => router.push('/products/import')}
+              className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              {t('products.connectStore')}
+            </button>
+          </div>
         </div>
 
         {/* Stores List */}
@@ -231,15 +267,17 @@ export default function StoresPage() {
                         {getStatusBadge(store.status)}
                       </div>
                       <div className="flex items-center space-x-4 mt-1">
-                        <a
-                          href={store.storeUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-sm text-blue-600 dark:text-blue-400 hover:underline flex items-center"
-                        >
-                          {store.storeUrl}
-                          <ExternalLink className="w-3 h-3 ml-1" />
-                        </a>
+                        {store.storeUrl && (
+                          <a
+                            href={store.storeUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sm text-blue-600 dark:text-blue-400 hover:underline flex items-center"
+                          >
+                            {store.storeUrl}
+                            <ExternalLink className="w-3 h-3 ml-1" />
+                          </a>
+                        )}
                         <span className="text-sm text-gray-500 dark:text-gray-400">
                           {store.productCount} {t('products.productsImported')}
                         </span>
@@ -253,31 +291,72 @@ export default function StoresPage() {
                   </div>
 
                   <div className="flex items-center space-x-2">
-                    <button
-                      onClick={() => handleSync(store.id)}
-                      disabled={syncingStoreId === store.id || store.status === 'disconnected'}
-                      className={clsx(
-                        'flex items-center px-3 py-2 text-sm rounded-lg transition-colors',
-                        syncingStoreId === store.id
-                          ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
-                          : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600',
-                        (store.status === 'disconnected') && 'opacity-50 cursor-not-allowed'
-                      )}
-                    >
-                      <RefreshCw className={clsx('w-4 h-4 mr-1', syncingStoreId === store.id && 'animate-spin')} />
-                      {syncingStoreId === store.id ? t('products.syncing') : t('products.syncNow')}
-                    </button>
-                    <button
-                      onClick={() => handleDisconnect(store.id)}
-                      className="flex items-center px-3 py-2 text-sm bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300 rounded-lg hover:bg-red-200 dark:hover:bg-red-800 transition-colors"
-                    >
-                      <Unplug className="w-4 h-4 mr-1" />
-                      Disconnect
-                    </button>
+                    {store.platform === 'manual' ? (
+                      <span className="text-sm text-gray-500 dark:text-gray-400 italic">
+                        {t('products.manualCatalog')}
+                      </span>
+                    ) : (
+                      <>
+                        <button
+                          onClick={() => handleSync(store.id)}
+                          disabled={syncingStoreId === store.id || store.status === 'disconnected'}
+                          className={clsx(
+                            'flex items-center px-3 py-2 text-sm rounded-lg transition-colors',
+                            syncingStoreId === store.id
+                              ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
+                              : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600',
+                            (store.status === 'disconnected') && 'opacity-50 cursor-not-allowed'
+                          )}
+                        >
+                          <RefreshCw className={clsx('w-4 h-4 mr-1', syncingStoreId === store.id && 'animate-spin')} />
+                          {syncingStoreId === store.id ? t('products.syncing') : t('products.syncNow')}
+                        </button>
+                        <button
+                          onClick={() => handleDisconnect(store.id)}
+                          className="flex items-center px-3 py-2 text-sm bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300 rounded-lg hover:bg-red-200 dark:hover:bg-red-800 transition-colors"
+                        >
+                          <Unplug className="w-4 h-4 mr-1" />
+                          Disconnect
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>
             ))}
+          </div>
+        )}
+
+        {showCreateModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{t('products.createCatalog')}</h3>
+                <button onClick={() => setShowCreateModal(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t('products.catalogName')}</label>
+                <input
+                  type="text"
+                  value={newCatalogName}
+                  onChange={(e) => setNewCatalogName(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleCreateCatalog()}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-green-500"
+                  placeholder={t('products.catalogName')}
+                  autoFocus
+                />
+              </div>
+              <div className="flex justify-end space-x-3">
+                <button onClick={() => setShowCreateModal(false)} className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800">
+                  {t('products.cancel')}
+                </button>
+                <button onClick={handleCreateCatalog} disabled={creatingCatalog || !newCatalogName.trim()} className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50">
+                  {creatingCatalog ? '...' : t('products.createCatalog')}
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </div>

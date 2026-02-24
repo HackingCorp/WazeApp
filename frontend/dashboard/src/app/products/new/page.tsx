@@ -44,6 +44,8 @@ interface ProductFormData {
   stockQuantity: number;
   inStock: boolean;
   status: 'active' | 'draft' | 'archived';
+  type: 'product' | 'service';
+  storeId: string;
   tags: string[];
   categoryIds: string[];
   images: ProductImage[];
@@ -55,6 +57,12 @@ interface Category {
   name: string;
 }
 
+interface CatalogStore {
+  id: string;
+  name: string;
+  platform: string;
+}
+
 export default function NewProductPage() {
   const router = useRouter();
   const { t } = useI18n();
@@ -63,6 +71,7 @@ export default function NewProductPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [newImageUrl, setNewImageUrl] = useState('');
   const [tagInput, setTagInput] = useState('');
+  const [catalogs, setCatalogs] = useState<CatalogStore[]>([]);
 
   const [formData, setFormData] = useState<ProductFormData>({
     name: '',
@@ -75,6 +84,8 @@ export default function NewProductPage() {
     stockQuantity: 0,
     inStock: true,
     status: 'draft',
+    type: 'product',
+    storeId: '',
     tags: [],
     categoryIds: [],
     images: [],
@@ -82,18 +93,25 @@ export default function NewProductPage() {
   });
 
   useEffect(() => {
-    const fetchCategories = async () => {
+    const fetchData = async () => {
       try {
-        const response = await api.getProductCategories({ limit: 100 });
-        if (response.success && response.data) {
-          const data = response.data.data || response.data;
+        const [catRes, storeRes] = await Promise.all([
+          api.getProductCategories({ limit: 100 }),
+          api.getEcommerceStores(),
+        ]);
+        if (catRes.success && catRes.data) {
+          const data = catRes.data.data || catRes.data;
           setCategories(Array.isArray(data) ? data : data.items || []);
         }
+        if (storeRes.success && storeRes.data) {
+          const data = storeRes.data.data || storeRes.data;
+          setCatalogs(Array.isArray(data) ? data : []);
+        }
       } catch {
-        // Categories are optional
+        // Optional data
       }
     };
-    fetchCategories();
+    fetchData();
   }, []);
 
   const updateFormData = (updates: Partial<ProductFormData>) => {
@@ -163,7 +181,10 @@ export default function NewProductPage() {
 
     setSaving(true);
     try {
-      const response = await api.createProduct(formData);
+      const response = await api.createProduct({
+        ...formData,
+        storeId: formData.storeId || undefined,
+      });
       if (response.success) {
         toast.success(t('products.productCreated'));
         router.push('/products');
@@ -281,6 +302,37 @@ export default function NewProductPage() {
                       onChange={(e) => updateFormData({ name: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-green-500 focus:border-green-500"
                     />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        {t('products.productType')}
+                      </label>
+                      <select
+                        value={formData.type}
+                        onChange={(e) => updateFormData({ type: e.target.value as any })}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      >
+                        <option value="product">{t('products.productTypeProduct')}</option>
+                        <option value="service">{t('products.productTypeService')}</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        {t('products.selectCatalog')}
+                      </label>
+                      <select
+                        value={formData.storeId}
+                        onChange={(e) => updateFormData({ storeId: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      >
+                        <option value="">{t('products.allCatalogs')}</option>
+                        {catalogs.map(c => (
+                          <option key={c.id} value={c.id}>{c.name}</option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
 
                   <div>

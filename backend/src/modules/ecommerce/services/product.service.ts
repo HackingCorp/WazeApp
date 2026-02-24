@@ -39,13 +39,14 @@ export class ProductService {
     userId: string,
     dto: CreateProductDto,
   ): Promise<Product> {
-    const { variants, images, categoryIds, ...productData } = dto;
+    const { variants, images, categoryIds, storeId, ...productData } = dto;
 
     const product = this.productRepository.create({
       ...productData,
       source: EcommercePlatform.MANUAL,
       organizationId: organizationId || undefined,
       createdBy: userId,
+      storeId: storeId || undefined,
     });
 
     const saved = await this.productRepository.save(product);
@@ -128,6 +129,10 @@ export class ProductService {
 
     if (query.storeId) {
       qb.andWhere("product.storeId = :storeId", { storeId: query.storeId });
+    }
+
+    if (query.type) {
+      qb.andWhere("product.type = :type", { type: query.type });
     }
 
     if (query.categoryId) {

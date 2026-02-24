@@ -11,7 +11,7 @@ import {
 } from "class-validator";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { Type, Transform } from "class-transformer";
-import { ProductStatus } from "@/common/enums";
+import { ProductStatus, ProductType } from "@/common/enums";
 
 export class CreateProductVariantDto {
   @ApiProperty({ description: "Variant name" })
@@ -123,6 +123,16 @@ export class CreateProductDto {
   @IsEnum(ProductStatus)
   status?: ProductStatus;
 
+  @ApiPropertyOptional({ description: "Product type", enum: ProductType, default: ProductType.PRODUCT })
+  @IsOptional()
+  @IsEnum(ProductType)
+  type?: ProductType;
+
+  @ApiPropertyOptional({ description: "Store/catalog ID to assign product to" })
+  @IsOptional()
+  @IsString()
+  storeId?: string;
+
   @ApiPropertyOptional({ description: "Tags", type: [String] })
   @IsOptional()
   @IsArray()
@@ -207,6 +217,16 @@ export class UpdateProductDto {
   @IsEnum(ProductStatus)
   status?: ProductStatus;
 
+  @ApiPropertyOptional({ description: "Product type", enum: ProductType, default: ProductType.PRODUCT })
+  @IsOptional()
+  @IsEnum(ProductType)
+  type?: ProductType;
+
+  @ApiPropertyOptional({ description: "Store/catalog ID to assign product to" })
+  @IsOptional()
+  @IsString()
+  storeId?: string;
+
   @ApiPropertyOptional({ description: "Tags", type: [String] })
   @IsOptional()
   @IsArray()
@@ -273,6 +293,11 @@ export class ProductQueryDto {
   @IsOptional()
   @IsString()
   source?: string;
+
+  @ApiPropertyOptional({ description: "Filter by type", enum: ProductType })
+  @IsOptional()
+  @IsEnum(ProductType)
+  type?: ProductType;
 
   @ApiPropertyOptional({ description: "Minimum price" })
   @IsOptional()

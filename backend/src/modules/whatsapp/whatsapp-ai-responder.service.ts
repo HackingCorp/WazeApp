@@ -373,6 +373,7 @@ export class WhatsAppAIResponderService {
             "organization",
             "agent",
             "agent.knowledgeBases",
+            "agent.catalogs",
             "knowledgeBase",
           ],
         });
@@ -474,6 +475,7 @@ export class WhatsAppAIResponderService {
           "organization",
           "agent",
           "agent.knowledgeBases",
+          "agent.catalogs",
           "knowledgeBase",
         ],
       });
@@ -832,7 +834,7 @@ export class WhatsAppAIResponderService {
       // Try to find existing active agent with knowledgeBases loaded
       let agent = await this.agentRepository.findOne({
         where: { organizationId, status: AgentStatus.ACTIVE },
-        relations: ["knowledgeBases"],
+        relations: ["knowledgeBases", "catalogs"],
         order: { createdAt: "DESC" },
       });
 
@@ -1522,7 +1524,9 @@ Always respond directly in the user's language without any formatting.`,
 
       // Search product catalog if e-commerce is enabled for this agent
       let productContext = "";
-      if (agent.ecommerceEnabled && agent.organizationId) {
+      const catalogIds = agent.catalogs?.map(c => c.id);
+      const hasEcommerce = (catalogIds && catalogIds.length > 0) || agent.ecommerceEnabled;
+      if (hasEcommerce && agent.organizationId) {
         if (this.productSearchService.isProductQuery(userMessage)) {
           try {
             this.logger.log(`Searching product catalog for: "${userMessage}"`);
@@ -1530,6 +1534,7 @@ Always respond directly in the user's language without any formatting.`,
               agent.organizationId,
               userMessage,
               5,
+              catalogIds?.length > 0 ? catalogIds : undefined,
             );
             if (products.length > 0) {
               productContext = this.productSearchService.formatProductsForPrompt(products);

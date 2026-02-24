@@ -64,6 +64,7 @@ export class ProductSearchService {
     organizationId: string,
     query: string,
     limit: number = 5,
+    storeIds?: string[],
   ): Promise<Product[]> {
     const qb = this.productRepository
       .createQueryBuilder("product")
@@ -72,6 +73,10 @@ export class ProductSearchService {
       .leftJoinAndSelect("product.categories", "categories")
       .where("product.organizationId = :organizationId", { organizationId })
       .andWhere("product.status = :status", { status: "active" });
+
+    if (storeIds && storeIds.length > 0) {
+      qb.andWhere("product.storeId IN (:...storeIds)", { storeIds });
+    }
 
     // Search across multiple fields
     qb.andWhere(

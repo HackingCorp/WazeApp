@@ -144,6 +144,10 @@ export function AgentTestModal({
         systemPromptOverride: systemPromptOverride || undefined,
       });
 
+      if (!response.success || !response.data) {
+        throw new Error(response.message || 'Erreur lors de la generation de la reponse.');
+      }
+
       const data = response.data;
       const assistantMessage: ChatMessage = {
         id: `assistant-${Date.now()}`,

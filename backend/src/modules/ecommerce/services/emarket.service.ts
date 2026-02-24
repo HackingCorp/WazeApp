@@ -3,7 +3,6 @@ import { ConfigService } from "@nestjs/config";
 import { EcommerceStore } from "@/common/entities";
 import { EcommercePlatform, ProductStatus } from "@/common/enums";
 import * as crypto from "crypto";
-import { ConnectEMarketDto } from "../dto/store.dto";
 
 interface EMarketProduct {
   id: string;
@@ -45,41 +44,36 @@ export class EMarketService {
 
   constructor(private readonly configService: ConfigService) {}
 
-  generateAuthUrl(dto: ConnectEMarketDto, organizationId: string): string {
+  generateAuthUrl(storeUrl: string, organizationId: string, name?: string): string {
+    const clientId = this.configService.get<string>("EMARKET_CLIENT_ID");
+    const authUrl = this.configService.get<string>("EMARKET_AUTH_URL");
+    const scopes = this.configService.get<string>("EMARKET_SCOPES", "");
     const redirectUri = `${this.configService.get<string>("API_URL", "https://api.wazeapp.xyz")}/api/v1/ecommerce/stores/emarket/callback`;
 
     const state = Buffer.from(
-      JSON.stringify({
-        organizationId,
-        storeUrl: dto.storeUrl,
-        tokenUrl: dto.tokenUrl,
-        clientId: dto.clientId,
-        clientSecret: dto.clientSecret,
-        name: dto.name,
-      }),
+      JSON.stringify({ organizationId, storeUrl, name }),
     ).toString("base64");
 
     const params = new URLSearchParams({
-      client_id: dto.clientId,
+      client_id: clientId,
       redirect_uri: redirectUri,
       response_type: "code",
       state,
     });
 
-    if (dto.scopes) {
-      params.set("scope", dto.scopes);
+    if (scopes) {
+      params.set("scope", scopes);
     }
 
-    return `${dto.authUrl}?${params.toString()}`;
+    return `${authUrl}?${params.toString()}`;
   }
 
-  async exchangeCodeForToken(
-    tokenUrl: string,
-    code: string,
-    clientId: string,
-    clientSecret: string,
-    redirectUri: string,
-  ): Promise<string> {
+  async exchangeCodeForToken(code: string): Promise<string> {
+    const tokenUrl = this.configService.get<string>("EMARKET_TOKEN_URL");
+    const clientId = this.configService.get<string>("EMARKET_CLIENT_ID");
+    const clientSecret = this.configService.get<string>("EMARKET_CLIENT_SECRET");
+    const redirectUri = `${this.configService.get<string>("API_URL", "https://api.wazeapp.xyz")}/api/v1/ecommerce/stores/emarket/callback`;
+
     const body = new URLSearchParams({
       grant_type: "authorization_code",
       code,

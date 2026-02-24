@@ -185,7 +185,11 @@ export class StoreController {
     @Body() dto: ConnectEMarketDto,
   ) {
     const organizationId = (user as any).organizationId || user.id;
-    const authUrl = this.eMarketService.generateAuthUrl(dto, organizationId);
+    const authUrl = this.eMarketService.generateAuthUrl(
+      dto.storeUrl,
+      organizationId,
+      dto.name,
+    );
     return { data: { authUrl } };
   }
 
@@ -203,18 +207,11 @@ export class StoreController {
     );
 
     try {
-      const { organizationId, storeUrl, tokenUrl, clientId, clientSecret, name } =
-        JSON.parse(Buffer.from(state, "base64").toString());
-
-      const redirectUri = `${this.configService.get<string>("API_URL", "https://api.wazeapp.xyz")}/api/v1/ecommerce/stores/emarket/callback`;
-
-      const accessToken = await this.eMarketService.exchangeCodeForToken(
-        tokenUrl,
-        code,
-        clientId,
-        clientSecret,
-        redirectUri,
+      const { organizationId, storeUrl, name } = JSON.parse(
+        Buffer.from(state, "base64").toString(),
       );
+
+      const accessToken = await this.eMarketService.exchangeCodeForToken(code);
 
       // Test connection with the obtained token
       await this.eMarketService.testConnection(storeUrl, accessToken);

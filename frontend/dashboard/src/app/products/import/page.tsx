@@ -30,11 +30,6 @@ export default function ImportProductsPage() {
 
   // E-Market state
   const [eMarketUrl, setEMarketUrl] = useState('');
-  const [eMarketAuthUrl, setEMarketAuthUrl] = useState('');
-  const [eMarketTokenUrl, setEMarketTokenUrl] = useState('');
-  const [eMarketClientId, setEMarketClientId] = useState('');
-  const [eMarketClientSecret, setEMarketClientSecret] = useState('');
-  const [eMarketScopes, setEMarketScopes] = useState('');
   const [connectingEMarket, setConnectingEMarket] = useState(false);
 
   const handleConnectShopify = async () => {
@@ -91,21 +86,14 @@ export default function ImportProductsPage() {
   };
 
   const handleConnectEMarket = async () => {
-    if (!eMarketUrl.trim() || !eMarketAuthUrl.trim() || !eMarketTokenUrl.trim() || !eMarketClientId.trim() || !eMarketClientSecret.trim()) {
-      toast.error(t('products.eMarketFillFields') || 'Please fill in all required E-Market fields');
+    if (!eMarketUrl.trim()) {
+      toast.error(t('products.eMarketFillFields') || 'Please enter the E-Market store URL');
       return;
     }
 
     setConnectingEMarket(true);
     try {
-      const response = await api.connectEMarketStore({
-        storeUrl: eMarketUrl.trim(),
-        authUrl: eMarketAuthUrl.trim(),
-        tokenUrl: eMarketTokenUrl.trim(),
-        clientId: eMarketClientId.trim(),
-        clientSecret: eMarketClientSecret.trim(),
-        ...(eMarketScopes.trim() && { scopes: eMarketScopes.trim() }),
-      });
+      const response = await api.connectEMarketStore(eMarketUrl.trim());
       if (response.success && response.data) {
         const authUrl = response.data.data?.authUrl || response.data.authUrl;
         if (authUrl) {
@@ -292,74 +280,9 @@ export default function ImportProductsPage() {
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  {t('products.eMarketAuthUrl')}
-                </label>
-                <input
-                  type="text"
-                  value={eMarketAuthUrl}
-                  onChange={(e) => setEMarketAuthUrl(e.target.value)}
-                  placeholder={t('products.eMarketAuthUrlPlaceholder')}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  {t('products.eMarketTokenUrl')}
-                </label>
-                <input
-                  type="text"
-                  value={eMarketTokenUrl}
-                  onChange={(e) => setEMarketTokenUrl(e.target.value)}
-                  placeholder={t('products.eMarketTokenUrlPlaceholder')}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  {t('products.eMarketClientId')}
-                </label>
-                <input
-                  type="text"
-                  value={eMarketClientId}
-                  onChange={(e) => setEMarketClientId(e.target.value)}
-                  placeholder="your-client-id"
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  {t('products.eMarketClientSecret')}
-                </label>
-                <input
-                  type="password"
-                  value={eMarketClientSecret}
-                  onChange={(e) => setEMarketClientSecret(e.target.value)}
-                  placeholder="your-client-secret"
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  {t('products.eMarketScopes')}
-                </label>
-                <input
-                  type="text"
-                  value={eMarketScopes}
-                  onChange={(e) => setEMarketScopes(e.target.value)}
-                  placeholder={t('products.eMarketScopesPlaceholder')}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                />
-              </div>
-
               <button
                 onClick={handleConnectEMarket}
-                disabled={connectingEMarket || !eMarketUrl.trim() || !eMarketAuthUrl.trim() || !eMarketTokenUrl.trim() || !eMarketClientId.trim() || !eMarketClientSecret.trim()}
+                disabled={connectingEMarket || !eMarketUrl.trim()}
                 className="w-full flex items-center justify-center px-4 py-3 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50 transition-colors"
               >
                 {connectingEMarket ? (

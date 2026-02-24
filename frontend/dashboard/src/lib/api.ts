@@ -821,10 +821,10 @@ class ApiClient {
     });
   }
 
-  async connectEMarketStore(data: { storeUrl: string; authUrl: string; tokenUrl: string; clientId: string; clientSecret: string; scopes?: string; name?: string }) {
+  async connectEMarketStore(storeUrl: string) {
     return this.request('/ecommerce/stores/emarket/auth-url', {
       method: 'POST',
-      body: JSON.stringify(data),
+      body: JSON.stringify({ storeUrl }),
     });
   }
 

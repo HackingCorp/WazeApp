@@ -27,30 +27,9 @@ export class ConnectWooCommerceDto {
 }
 
 export class ConnectEMarketDto {
-  @ApiProperty({ description: "E-Market store API URL (products endpoint)" })
+  @ApiProperty({ description: "E-Market store URL" })
   @IsString()
   storeUrl: string;
-
-  @ApiProperty({ description: "OAuth2 Authorization URL" })
-  @IsString()
-  authUrl: string;
-
-  @ApiProperty({ description: "OAuth2 Token endpoint URL" })
-  @IsString()
-  tokenUrl: string;
-
-  @ApiProperty({ description: "OAuth2 Client ID" })
-  @IsString()
-  clientId: string;
-
-  @ApiProperty({ description: "OAuth2 Client Secret" })
-  @IsString()
-  clientSecret: string;
-
-  @ApiPropertyOptional({ description: "OAuth2 scopes (e.g. read_products)" })
-  @IsOptional()
-  @IsString()
-  scopes?: string;
 
   @ApiPropertyOptional({ description: "Store name" })
   @IsOptional()

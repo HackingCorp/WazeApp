@@ -155,6 +155,10 @@ export class AiAgent extends BaseEntity {
   @Column({ type: "text", array: true, default: [] })
   tags: string[];
 
+  @ApiProperty({ description: "Enable e-commerce product catalog for this agent" })
+  @Column({ default: false })
+  ecommerceEnabled: boolean;
+
   // Relationships
   @ApiProperty({ description: "Organization" })
   @ManyToOne(() => Organization, { onDelete: "CASCADE" })

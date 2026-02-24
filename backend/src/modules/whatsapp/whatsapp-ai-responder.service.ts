@@ -36,6 +36,7 @@ import { WebSearchService } from "./web-search.service";
 import { MediaAnalysisService } from "./media-analysis.service";
 import { QuotaEnforcementService } from "../subscriptions/quota-enforcement.service";
 import { VectorSearchService } from "../vector-search/vector-search.service";
+import { ProductSearchService } from "../ecommerce/services/product-search.service";
 
 interface WhatsAppMessageEvent {
   sessionId: string;
@@ -255,6 +256,7 @@ export class WhatsAppAIResponderService {
     private eventEmitter: EventEmitter2,
     private quotaEnforcementService: QuotaEnforcementService,
     private vectorSearchService: VectorSearchService,
+    private productSearchService: ProductSearchService,
   ) {
     this.logger.log('WhatsAppAIResponderService initialized');
   }
@@ -1518,6 +1520,27 @@ Always respond directly in the user's language without any formatting.`,
         agent,
       );
 
+      // Search product catalog if e-commerce is enabled for this agent
+      let productContext = "";
+      if (agent.ecommerceEnabled && agent.organizationId) {
+        if (this.productSearchService.isProductQuery(userMessage)) {
+          try {
+            this.logger.log(`Searching product catalog for: "${userMessage}"`);
+            const products = await this.productSearchService.searchProducts(
+              agent.organizationId,
+              userMessage,
+              5,
+            );
+            if (products.length > 0) {
+              productContext = this.productSearchService.formatProductsForPrompt(products);
+              this.logger.log(`Found ${products.length} products for AI context`);
+            }
+          } catch (error) {
+            this.logger.warn(`Product search failed: ${error.message}`);
+          }
+        }
+      }
+
       // Search web if needed and knowledge base doesn't have enough info
       let webContext = "";
       if (
@@ -1572,6 +1595,11 @@ Do NOT escalate for simple questions you can answer from the knowledge base.`;
       // to avoid "lost in the middle" problem
       if (knowledgeContext) {
         systemPrompt += `\n\n${knowledgeContext}`;
+      }
+
+      // Add product catalog context if available
+      if (productContext) {
+        systemPrompt += `\n\n${productContext}`;
       }
 
       // Add response style instructions based on agent configuration

@@ -37,3 +37,10 @@ export { BroadcastMessage, BroadcastMessageStatus } from "./broadcast-message.en
 export { ApiKey, ApiKeyPermission } from "./api-key.entity";
 export { WebhookConfig, WebhookEvent as WebhookEventType } from "./webhook-config.entity";
 export { MessageCredit, MessageCreditStatus } from "./message-credit.entity";
+
+// E-Commerce Entities
+export { EcommerceStore } from "./ecommerce-store.entity";
+export { Product } from "./product.entity";
+export { ProductVariant } from "./product-variant.entity";
+export { ProductImage } from "./product-image.entity";
+export { ProductCategory } from "./product-category.entity";

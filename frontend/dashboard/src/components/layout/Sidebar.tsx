@@ -20,6 +20,7 @@ import {
   Headphones,
   Smartphone,
   Radio,
+  ShoppingCart,
   Key,
 } from 'lucide-react';
 import { useI18n } from '@/providers/I18nProvider';
@@ -72,6 +73,12 @@ export function Sidebar({ collapsed, onToggleCollapse }: SidebarProps) {
       name: t('sidebar.broadcast'),
       href: '/broadcast',
       icon: Radio,
+      permission: null,
+    },
+    {
+      name: t('sidebar.products'),
+      href: '/products',
+      icon: ShoppingCart,
       permission: null,
     },
   ];

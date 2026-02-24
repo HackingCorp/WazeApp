@@ -38,6 +38,9 @@ import { PostHogModule } from "./modules/posthog/posthog.module";
 // Geo detection
 import { GeoModule } from "./modules/geo/geo.module";
 
+// E-Commerce
+import { EcommerceModule } from "./modules/ecommerce/ecommerce.module";
+
 // Guards
 import { JwtAuthGuard } from "./common/guards/jwt-auth.guard";
 import { ThrottlerGuard } from "@nestjs/throttler";
@@ -148,6 +151,9 @@ import { AppController } from "./app.controller";
 
     // Geo detection
     GeoModule,
+
+    // E-Commerce
+    EcommerceModule,
   ],
   providers: [
     // Global guards

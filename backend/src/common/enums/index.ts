@@ -186,5 +186,26 @@ export enum DeploymentType {
   HYBRID = "hybrid",
 }
 
+// E-Commerce Enums
+export enum EcommercePlatform {
+  MANUAL = "manual",
+  SHOPIFY = "shopify",
+  WOOCOMMERCE = "woocommerce",
+}
+
+export enum StoreConnectionStatus {
+  PENDING = "pending",
+  CONNECTED = "connected",
+  DISCONNECTED = "disconnected",
+  ERROR = "error",
+  SYNCING = "syncing",
+}
+
+export enum ProductStatus {
+  ACTIVE = "active",
+  DRAFT = "draft",
+  ARCHIVED = "archived",
+}
+
 // Re-export conversation enums
 export * from "./conversation.enum";

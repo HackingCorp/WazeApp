@@ -712,6 +712,147 @@ class ApiClient {
     return this.request(`/conversations${queryString}`);
   }
 
+  // ============================================
+  // E-COMMERCE ENDPOINTS
+  // ============================================
+
+  // Products
+  async getProducts(params?: {
+    search?: string;
+    status?: string;
+    categoryId?: string;
+    storeId?: string;
+    source?: string;
+    page?: number;
+    limit?: number;
+    sortBy?: string;
+    sortOrder?: string;
+    minPrice?: number;
+    maxPrice?: number;
+  }) {
+    const queryParams = new URLSearchParams();
+    if (params?.search) queryParams.append('search', params.search);
+    if (params?.status) queryParams.append('status', params.status);
+    if (params?.categoryId) queryParams.append('categoryId', params.categoryId);
+    if (params?.storeId) queryParams.append('storeId', params.storeId);
+    if (params?.source) queryParams.append('source', params.source);
+    if (params?.page) queryParams.append('page', params.page.toString());
+    if (params?.limit) queryParams.append('limit', params.limit.toString());
+    if (params?.sortBy) queryParams.append('sortBy', params.sortBy);
+    if (params?.sortOrder) queryParams.append('sortOrder', params.sortOrder);
+    if (params?.minPrice !== undefined) queryParams.append('minPrice', params.minPrice.toString());
+    if (params?.maxPrice !== undefined) queryParams.append('maxPrice', params.maxPrice.toString());
+    const query = queryParams.toString();
+    return this.request(`/ecommerce/products${query ? `?${query}` : ''}`);
+  }
+
+  async getProduct(id: string) {
+    return this.request(`/ecommerce/products/${id}`);
+  }
+
+  async createProduct(data: any) {
+    return this.request('/ecommerce/products', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateProduct(id: string, data: any) {
+    return this.request(`/ecommerce/products/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteProduct(id: string) {
+    return this.request(`/ecommerce/products/${id}`, { method: 'DELETE' });
+  }
+
+  async getProductStats() {
+    return this.request('/ecommerce/products/stats');
+  }
+
+  async bulkDeleteProducts(ids: string[]) {
+    return this.request('/ecommerce/products/bulk-delete', {
+      method: 'POST',
+      body: JSON.stringify({ ids }),
+    });
+  }
+
+  async bulkUpdateProductStatus(ids: string[], status: string) {
+    return this.request('/ecommerce/products/bulk-status', {
+      method: 'POST',
+      body: JSON.stringify({ ids, status }),
+    });
+  }
+
+  // E-commerce Stores
+  async getEcommerceStores() {
+    return this.request('/ecommerce/stores');
+  }
+
+  async getEcommerceStore(id: string) {
+    return this.request(`/ecommerce/stores/${id}`);
+  }
+
+  async connectShopifyStore(shopDomain: string) {
+    return this.request('/ecommerce/stores/shopify/auth-url', {
+      method: 'POST',
+      body: JSON.stringify({ shopDomain }),
+    });
+  }
+
+  async connectWooCommerceStore(data: { storeUrl: string; consumerKey: string; consumerSecret: string; name?: string }) {
+    return this.request('/ecommerce/stores/woocommerce/connect', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async syncStore(id: string) {
+    return this.request(`/ecommerce/stores/${id}/sync`, { method: 'POST' });
+  }
+
+  async getStoreSyncStatus(id: string) {
+    return this.request(`/ecommerce/stores/${id}/sync-status`);
+  }
+
+  async disconnectStore(id: string) {
+    return this.request(`/ecommerce/stores/${id}/disconnect`, { method: 'POST' });
+  }
+
+  async deleteStore(id: string) {
+    return this.request(`/ecommerce/stores/${id}`, { method: 'DELETE' });
+  }
+
+  // E-commerce Categories
+  async getProductCategories(params?: { search?: string; page?: number; limit?: number }) {
+    const queryParams = new URLSearchParams();
+    if (params?.search) queryParams.append('search', params.search);
+    if (params?.page) queryParams.append('page', params.page.toString());
+    if (params?.limit) queryParams.append('limit', params.limit.toString());
+    const query = queryParams.toString();
+    return this.request(`/ecommerce/categories${query ? `?${query}` : ''}`);
+  }
+
+  async createProductCategory(data: { name: string; description?: string; parentId?: string; imageUrl?: string }) {
+    return this.request('/ecommerce/categories', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateProductCategory(id: string, data: any) {
+    return this.request(`/ecommerce/categories/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteProductCategory(id: string) {
+    return this.request(`/ecommerce/categories/${id}`, { method: 'DELETE' });
+  }
+
   // Generic HTTP methods
   async get(endpoint: string) {
     return this.request(endpoint, { method: 'GET' });

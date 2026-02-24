@@ -1526,18 +1526,27 @@ Always respond directly in the user's language without any formatting.`,
       // Search product catalog if e-commerce is enabled for this agent
       let productContext = "";
       let foundProducts: Product[] = [];
-      const catalogIds = agent.catalogs?.map(c => c.id);
-      const hasEcommerce = (catalogIds && catalogIds.length > 0) || agent.ecommerceEnabled;
+      const catalogIds = agent.catalogs?.map(c => c.id) || [];
+      const hasEcommerce = catalogIds.length > 0 || agent.ecommerceEnabled;
       if (hasEcommerce && agent.organizationId) {
         if (this.productSearchService.isProductQuery(userMessage)) {
           try {
-            this.logger.log(`Searching product catalog for: "${userMessage}"`);
-            const products = await this.productSearchService.searchProducts(
+            this.logger.log(`Searching product catalog for: "${userMessage}" (catalogIds: ${JSON.stringify(catalogIds)})`);
+            let products = await this.productSearchService.searchProducts(
               agent.organizationId,
               userMessage,
-              5,
-              catalogIds?.length > 0 ? catalogIds : undefined,
+              10,
+              catalogIds.length > 0 ? catalogIds : undefined,
             );
+            // Fallback: if no products found with storeIds filter, try without
+            if (products.length === 0 && catalogIds.length > 0) {
+              this.logger.log(`No products with catalog filter, retrying without filter`);
+              products = await this.productSearchService.searchProducts(
+                agent.organizationId,
+                userMessage,
+                10,
+              );
+            }
             if (products.length > 0) {
               foundProducts = products;
               productContext = this.productSearchService.formatProductsForPrompt(products);

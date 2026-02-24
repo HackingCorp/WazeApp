@@ -867,25 +867,40 @@ Guidelines:
     // Search product catalog if agent has catalogs or ecommerce enabled
     let productContext = "";
     let foundProducts: any[] = [];
-    const catalogIds = agent.catalogs?.map(c => c.id);
-    const hasEcommerce = (catalogIds && catalogIds.length > 0) || agent.ecommerceEnabled;
+    const catalogIds = agent.catalogs?.map(c => c.id) || [];
+    const hasEcommerce = catalogIds.length > 0 || agent.ecommerceEnabled;
+    console.log(`[TestAgent] Agent "${agent.name}": catalogIds=${JSON.stringify(catalogIds)}, ecommerceEnabled=${agent.ecommerceEnabled}, hasEcommerce=${hasEcommerce}, orgId=${organizationId}`);
     if (hasEcommerce && organizationId) {
-      if (this.productSearchService.isProductQuery(testDto.message)) {
-        try {
-          const products = await this.productSearchService.searchProducts(
+      try {
+        // Always search products when ecommerce is enabled (don't gate on isProductQuery for test mode)
+        let products = await this.productSearchService.searchProducts(
+          organizationId,
+          testDto.message,
+          10,
+          catalogIds.length > 0 ? catalogIds : undefined,
+        );
+        console.log(`[TestAgent] searchProducts (with storeIds filter) returned ${products.length} products`);
+
+        // Fallback: if no products found with storeIds filter, try without filter
+        if (products.length === 0 && catalogIds.length > 0) {
+          console.log(`[TestAgent] Retrying searchProducts without storeIds filter...`);
+          products = await this.productSearchService.searchProducts(
             organizationId,
             testDto.message,
-            5,
-            catalogIds?.length > 0 ? catalogIds : undefined,
+            10,
           );
-          if (products.length > 0) {
-            productContext = this.productSearchService.formatProductsForPrompt(products);
-            foundProducts = products;
-          }
-        } catch (error) {
-          console.warn("Product search failed during agent test:", error.message);
+          console.log(`[TestAgent] searchProducts (no filter) returned ${products.length} products`);
         }
+
+        if (products.length > 0) {
+          productContext = this.productSearchService.formatProductsForPrompt(products);
+          foundProducts = products;
+        }
+      } catch (error) {
+        console.warn("Product search failed during agent test:", error.message);
       }
+    } else {
+      console.log(`[TestAgent] Skipping product search: hasEcommerce=${hasEcommerce}, orgId=${organizationId}`);
     }
 
     // Collect media items from products

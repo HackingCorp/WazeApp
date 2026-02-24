@@ -41,6 +41,10 @@ import { GeoModule } from "./modules/geo/geo.module";
 // E-Commerce
 import { EcommerceModule } from "./modules/ecommerce/ecommerce.module";
 
+// Orders & Appointments
+import { OrdersModule } from "./modules/orders/orders.module";
+import { AppointmentsModule } from "./modules/appointments/appointments.module";
+
 // Guards
 import { JwtAuthGuard } from "./common/guards/jwt-auth.guard";
 import { ThrottlerGuard } from "@nestjs/throttler";
@@ -154,6 +158,10 @@ import { AppController } from "./app.controller";
 
     // E-Commerce
     EcommerceModule,
+
+    // Orders & Appointments
+    OrdersModule,
+    AppointmentsModule,
   ],
   providers: [
     // Global guards

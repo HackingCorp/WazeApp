@@ -473,6 +473,60 @@ export class ConversationGateway
       });
   }
 
+  @OnEvent('order.created')
+  async handleOrderCreated(payload: {
+    order: any;
+    organizationId: string;
+    conversationId?: string;
+  }) {
+    this.logger.log(`🛒 New order created: ${payload.order.orderNumber}`);
+
+    if (payload.organizationId) {
+      this.server
+        .to(`org:${payload.organizationId}`)
+        .emit("order_created", {
+          order: payload.order,
+          timestamp: new Date(),
+        });
+    }
+
+    if (payload.conversationId) {
+      this.server
+        .to(`conversation:${payload.conversationId}`)
+        .emit("order_created", {
+          order: payload.order,
+          timestamp: new Date(),
+        });
+    }
+  }
+
+  @OnEvent('appointment.created')
+  async handleAppointmentCreated(payload: {
+    appointment: any;
+    organizationId: string;
+    conversationId?: string;
+  }) {
+    this.logger.log(`📅 New appointment created: ${payload.appointment.id}`);
+
+    if (payload.organizationId) {
+      this.server
+        .to(`org:${payload.organizationId}`)
+        .emit("appointment_created", {
+          appointment: payload.appointment,
+          timestamp: new Date(),
+        });
+    }
+
+    if (payload.conversationId) {
+      this.server
+        .to(`conversation:${payload.conversationId}`)
+        .emit("appointment_created", {
+          appointment: payload.appointment,
+          timestamp: new Date(),
+        });
+    }
+  }
+
   @OnEvent('conversation.escalated')
   async handleConversationEscalated(payload: {
     conversationId: string;

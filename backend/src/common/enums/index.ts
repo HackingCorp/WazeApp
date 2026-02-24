@@ -213,5 +213,39 @@ export enum ProductType {
   SERVICE = "service",
 }
 
+// Order & Appointment Enums
+export enum OrderStatus {
+  PENDING = "pending",
+  CONFIRMED = "confirmed",
+  PROCESSING = "processing",
+  SHIPPED = "shipped",
+  DELIVERED = "delivered",
+  CANCELLED = "cancelled",
+}
+
+export enum OrderSource {
+  WHATSAPP_AI = "whatsapp_ai",
+  DASHBOARD = "dashboard",
+  API = "api",
+}
+
+export enum AppointmentStatus {
+  PENDING = "pending",
+  CONFIRMED = "confirmed",
+  CANCELLED = "cancelled",
+  COMPLETED = "completed",
+  NO_SHOW = "no_show",
+}
+
+export enum DayOfWeek {
+  MONDAY = "monday",
+  TUESDAY = "tuesday",
+  WEDNESDAY = "wednesday",
+  THURSDAY = "thursday",
+  FRIDAY = "friday",
+  SATURDAY = "saturday",
+  SUNDAY = "sunday",
+}
+
 // Re-export conversation enums
 export * from "./conversation.enum";

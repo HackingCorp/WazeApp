@@ -38,6 +38,9 @@ import { MediaAnalysisService } from "./media-analysis.service";
 import { QuotaEnforcementService } from "../subscriptions/quota-enforcement.service";
 import { VectorSearchService } from "../vector-search/vector-search.service";
 import { ProductSearchService } from "../ecommerce/services/product-search.service";
+import { OrderTagParserService } from "../orders/services/order-tag-parser.service";
+import { AppointmentTagParserService } from "../appointments/services/appointment-tag-parser.service";
+import { AvailabilityService } from "../appointments/services/availability.service";
 
 interface WhatsAppMessageEvent {
   sessionId: string;
@@ -258,6 +261,9 @@ export class WhatsAppAIResponderService {
     private quotaEnforcementService: QuotaEnforcementService,
     private vectorSearchService: VectorSearchService,
     private productSearchService: ProductSearchService,
+    private orderTagParserService: OrderTagParserService,
+    private appointmentTagParserService: AppointmentTagParserService,
+    private availabilityService: AvailabilityService,
   ) {
     this.logger.log('WhatsAppAIResponderService initialized');
   }
@@ -1619,6 +1625,46 @@ Do NOT escalate for simple questions you can answer from the knowledge base.`;
         systemPrompt += `\n\n${productContext}`;
       }
 
+      // Add ORDER instructions if e-commerce is enabled
+      if (agent.ecommerceEnabled) {
+        systemPrompt += `\n\nORDER CREATION:
+When a customer confirms they want to purchase products, create an order by including a structured tag in your response.
+Format: [ORDER]{"items":[{"productName":"Product Name","variantName":"Variant (optional)","quantity":1}],"clientName":"Customer Name (if known)","deliveryAddress":{"street":"...","city":"..."},"notes":"Any special instructions"}[/ORDER]
+
+IMPORTANT RULES:
+- Only create an order when the customer EXPLICITLY confirms they want to buy
+- Include ALL products the customer wants in a single order
+- Use exact product names from the catalog
+- Ask for delivery address if needed before creating the order
+- You can include the order tag alongside your confirmation message
+- If a product has an external URL, mention it so the customer can also buy directly`;
+      }
+
+      // Add APPOINTMENT instructions if appointments are enabled
+      if (agent.appointmentsEnabled) {
+        try {
+          const availabilityText = await this.availabilityService.getFormattedSlotsForNextDays(
+            agent.organizationId,
+            agent.id,
+            7,
+          );
+          systemPrompt += `\n\nAPPOINTMENT BOOKING:
+When a customer wants to schedule an appointment, propose available slots and create a booking.
+Format: [APPOINTMENT]{"date":"YYYY-MM-DD","startTime":"HH:MM","durationMinutes":30,"clientName":"Customer Name (if known)","title":"Appointment title","description":"Details"}[/APPOINTMENT]
+
+AVAILABLE SLOTS (next 7 days):
+${availabilityText}
+
+IMPORTANT RULES:
+- Only propose slots that are listed as available above
+- Confirm the date and time with the customer before creating the appointment
+- Include the appointment tag alongside your confirmation message
+- If no slots are available for the requested date, suggest alternative dates`;
+        } catch (error) {
+          this.logger.warn(`Failed to get availability for appointment prompt: ${error.message}`);
+        }
+      }
+
       // Add response style instructions based on agent configuration
       systemPrompt += this.buildResponseStyleInstructions(agent);
 
@@ -1818,6 +1864,50 @@ EXEMPLES DE CONTEXTE:
         this.logger.log(`🚨 AI triggered escalation for conversation ${conversation.id}: ${reason}`);
         await this.escalateConversation(conversation, agent, session, fromNumber, reason);
         return;
+      }
+
+      // Check for [ORDER] tag in AI response
+      if (response.content && response.content.includes('[ORDER]')) {
+        try {
+          const { cleanResponse, order } = await this.orderTagParserService.parseAndProcess(
+            response.content,
+            {
+              organizationId: agent.organizationId,
+              agentId: agent.id,
+              conversationId: conversation.id,
+              clientPhoneNumber: fromNumber,
+            },
+          );
+          if (order) {
+            this.logger.log(`🛒 Order created from AI: ${order.orderNumber}`);
+            response.content = cleanResponse;
+          }
+        } catch (error) {
+          this.logger.error(`Failed to process ORDER tag: ${error.message}`);
+          response.content = response.content.replace(/\[ORDER\][\s\S]*?\[\/ORDER\]/, '').trim();
+        }
+      }
+
+      // Check for [APPOINTMENT] tag in AI response
+      if (response.content && response.content.includes('[APPOINTMENT]')) {
+        try {
+          const { cleanResponse, appointment } = await this.appointmentTagParserService.parseAndProcess(
+            response.content,
+            {
+              organizationId: agent.organizationId,
+              agentId: agent.id,
+              conversationId: conversation.id,
+              clientPhoneNumber: fromNumber,
+            },
+          );
+          if (appointment) {
+            this.logger.log(`📅 Appointment created from AI: ${appointment.id}`);
+            response.content = cleanResponse;
+          }
+        } catch (error) {
+          this.logger.error(`Failed to process APPOINTMENT tag: ${error.message}`);
+          response.content = response.content.replace(/\[APPOINTMENT\][\s\S]*?\[\/APPOINTMENT\]/, '').trim();
+        }
       }
 
       // Get next sequence number for AI message

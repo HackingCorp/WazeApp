@@ -44,3 +44,10 @@ export { Product } from "./product.entity";
 export { ProductVariant } from "./product-variant.entity";
 export { ProductImage } from "./product-image.entity";
 export { ProductCategory } from "./product-category.entity";
+
+// Order & Appointment Entities
+export { Order } from "./order.entity";
+export { OrderItem } from "./order-item.entity";
+export { Appointment } from "./appointment.entity";
+export { BusinessHours } from "./business-hours.entity";
+export { DayOff } from "./day-off.entity";

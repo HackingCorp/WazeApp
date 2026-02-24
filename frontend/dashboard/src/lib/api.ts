@@ -872,6 +872,128 @@ class ApiClient {
     return this.request(`/ecommerce/categories/${id}`, { method: 'DELETE' });
   }
 
+  // ============================================
+  // ORDERS ENDPOINTS
+  // ============================================
+
+  async getOrders(params?: {
+    status?: string;
+    search?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    page?: number;
+    limit?: number;
+  }) {
+    const queryParams = new URLSearchParams();
+    if (params?.status) queryParams.append('status', params.status);
+    if (params?.search) queryParams.append('search', params.search);
+    if (params?.dateFrom) queryParams.append('dateFrom', params.dateFrom);
+    if (params?.dateTo) queryParams.append('dateTo', params.dateTo);
+    if (params?.page) queryParams.append('page', params.page.toString());
+    if (params?.limit) queryParams.append('limit', params.limit.toString());
+    const query = queryParams.toString();
+    return this.request(`/orders${query ? `?${query}` : ''}`);
+  }
+
+  async getOrder(id: string) {
+    return this.request(`/orders/${id}`);
+  }
+
+  async getOrderStats() {
+    return this.request('/orders/stats');
+  }
+
+  async updateOrderStatus(id: string, status: string, reason?: string) {
+    return this.request(`/orders/${id}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status, ...(reason && { cancellationReason: reason }) }),
+    });
+  }
+
+  async createOrder(data: any) {
+    return this.request('/orders', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // ============================================
+  // APPOINTMENTS ENDPOINTS
+  // ============================================
+
+  async getAppointments(params?: {
+    status?: string;
+    search?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    agentId?: string;
+    page?: number;
+    limit?: number;
+  }) {
+    const queryParams = new URLSearchParams();
+    if (params?.status) queryParams.append('status', params.status);
+    if (params?.search) queryParams.append('search', params.search);
+    if (params?.dateFrom) queryParams.append('dateFrom', params.dateFrom);
+    if (params?.dateTo) queryParams.append('dateTo', params.dateTo);
+    if (params?.agentId) queryParams.append('agentId', params.agentId);
+    if (params?.page) queryParams.append('page', params.page.toString());
+    if (params?.limit) queryParams.append('limit', params.limit.toString());
+    const query = queryParams.toString();
+    return this.request(`/appointments${query ? `?${query}` : ''}`);
+  }
+
+  async getAppointment(id: string) {
+    return this.request(`/appointments/${id}`);
+  }
+
+  async getAppointmentStats() {
+    return this.request('/appointments/stats');
+  }
+
+  async updateAppointmentStatus(id: string, status: string, reason?: string) {
+    return this.request(`/appointments/${id}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status, ...(reason && { cancellationReason: reason }) }),
+    });
+  }
+
+  async getBusinessHours(agentId?: string) {
+    const query = agentId ? `?agentId=${agentId}` : '';
+    return this.request(`/appointments/availability/hours${query}`);
+  }
+
+  async setBusinessHours(hours: any[], agentId?: string) {
+    return this.request('/appointments/availability/hours', {
+      method: 'PUT',
+      body: JSON.stringify({ hours, ...(agentId && { agentId }) }),
+    });
+  }
+
+  async getDaysOff(params?: { agentId?: string; page?: number; limit?: number }) {
+    const queryParams = new URLSearchParams();
+    if (params?.agentId) queryParams.append('agentId', params.agentId);
+    if (params?.page) queryParams.append('page', params.page.toString());
+    if (params?.limit) queryParams.append('limit', params.limit.toString());
+    const query = queryParams.toString();
+    return this.request(`/appointments/availability/days-off${query ? `?${query}` : ''}`);
+  }
+
+  async addDayOff(data: { date: string; reason?: string; allDay?: boolean; startTime?: string; endTime?: string; agentId?: string }) {
+    return this.request('/appointments/availability/days-off', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async removeDayOff(id: string) {
+    return this.request(`/appointments/availability/days-off/${id}`, { method: 'DELETE' });
+  }
+
+  async getAvailableSlots(date: string, agentId?: string) {
+    const query = agentId ? `?date=${date}&agentId=${agentId}` : `?date=${date}`;
+    return this.request(`/appointments/availability/slots${query}`);
+  }
+
   // Generic HTTP methods
   async get(endpoint: string) {
     return this.request(endpoint, { method: 'GET' });

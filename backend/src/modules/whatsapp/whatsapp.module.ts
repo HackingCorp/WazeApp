@@ -41,6 +41,8 @@ import { SubscriptionModule } from "../subscriptions/subscription.module";
 import { LlmProvidersModule } from "../llm-providers/llm-providers.module";
 import { VectorSearchModule } from "../vector-search/vector-search.module";
 import { EcommerceModule } from "../ecommerce/ecommerce.module";
+import { OrdersModule } from "../orders/orders.module";
+import { AppointmentsModule } from "../appointments/appointments.module";
 
 @Module({
   imports: [
@@ -70,6 +72,8 @@ import { EcommerceModule } from "../ecommerce/ecommerce.module";
     LlmProvidersModule,
     VectorSearchModule,
     EcommerceModule,
+    OrdersModule,
+    AppointmentsModule,
     EmailModule,
     BullModule.registerQueue({
       name: "message-catchup",

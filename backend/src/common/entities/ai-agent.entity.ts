@@ -160,6 +160,10 @@ export class AiAgent extends BaseEntity {
   @Column({ default: false })
   ecommerceEnabled: boolean;
 
+  @ApiProperty({ description: "Enable appointment booking for this agent" })
+  @Column({ default: false })
+  appointmentsEnabled: boolean;
+
   // Relationships
   @ApiProperty({ description: "Organization" })
   @ManyToOne(() => Organization, { onDelete: "CASCADE" })

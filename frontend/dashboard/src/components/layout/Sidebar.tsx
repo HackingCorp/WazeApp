@@ -21,6 +21,8 @@ import {
   Smartphone,
   Radio,
   ShoppingCart,
+  ClipboardList,
+  Calendar,
   Key,
 } from 'lucide-react';
 import { useI18n } from '@/providers/I18nProvider';
@@ -79,6 +81,18 @@ export function Sidebar({ collapsed, onToggleCollapse }: SidebarProps) {
       name: t('sidebar.products'),
       href: '/products',
       icon: ShoppingCart,
+      permission: null,
+    },
+    {
+      name: t('sidebar.orders'),
+      href: '/orders',
+      icon: ClipboardList,
+      permission: null,
+    },
+    {
+      name: t('sidebar.appointments'),
+      href: '/appointments',
+      icon: Calendar,
       permission: null,
     },
   ];

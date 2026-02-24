@@ -214,6 +214,20 @@ export class AiAgentController {
     );
   }
 
+  @Get(":id/debug-catalog")
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.OWNER, UserRole.ADMIN, UserRole.MEMBER)
+  @ApiOperation({ summary: "Debug agent catalog resolution" })
+  async debugCatalog(
+    @CurrentUser() user: User,
+    @Param("id", ParseUUIDPipe) id: string,
+  ) {
+    return this.aiAgentService.debugCatalog(
+      user.currentOrganizationId,
+      id,
+    );
+  }
+
   @Post(":id/test")
   @UseGuards(RolesGuard)
   @Roles(UserRole.OWNER, UserRole.ADMIN, UserRole.MEMBER)

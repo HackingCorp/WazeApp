@@ -1,5 +1,6 @@
 import {
   Injectable,
+  Logger,
   NotFoundException,
   BadRequestException,
   ForbiddenException,
@@ -41,6 +42,8 @@ import { ProductSearchService } from "../ecommerce/services/product-search.servi
 
 @Injectable()
 export class AiAgentService {
+  private readonly logger = new Logger(AiAgentService.name);
+
   constructor(
     @InjectRepository(AiAgent)
     private readonly agentRepository: Repository<AiAgent>,
@@ -808,6 +811,63 @@ Guidelines:
     return faqItems;
   }
 
+  async debugCatalog(organizationId: string, agentId: string) {
+    const agent = await this.agentRepository.findOne({
+      where: { id: agentId, organizationId },
+      relations: ["knowledgeBases", "catalogs"],
+    });
+
+    if (!agent) {
+      // Try without organizationId filter
+      const agentNoOrg = await this.agentRepository.findOne({
+        where: { id: agentId },
+        relations: ["knowledgeBases", "catalogs"],
+      });
+      return {
+        error: "Agent not found with orgId filter",
+        organizationId,
+        agentId,
+        agentExistsWithoutOrgFilter: !!agentNoOrg,
+        agentOrgId: agentNoOrg?.organizationId,
+      };
+    }
+
+    const catalogIds = agent.catalogs?.map(c => c.id) || [];
+    const hasEcommerce = catalogIds.length > 0 || agent.ecommerceEnabled;
+
+    let productCount = 0;
+    let productsNoFilter = 0;
+    try {
+      const products = await this.productSearchService.searchProducts(
+        organizationId, "test", 10, catalogIds.length > 0 ? catalogIds : undefined,
+      );
+      productCount = products.length;
+    } catch (e) {
+      // ignore
+    }
+    try {
+      const products2 = await this.productSearchService.searchProducts(
+        organizationId, "test", 10,
+      );
+      productsNoFilter = products2.length;
+    } catch (e) {
+      // ignore
+    }
+
+    return {
+      agentName: agent.name,
+      organizationId,
+      agentOrganizationId: agent.organizationId,
+      ecommerceEnabled: agent.ecommerceEnabled,
+      catalogs: agent.catalogs?.map(c => ({ id: c.id, name: c.name, platform: c.platform })) || [],
+      catalogIds,
+      hasEcommerce,
+      knowledgeBases: agent.knowledgeBases?.map(kb => ({ id: kb.id, name: kb.name })) || [],
+      productCountWithCatalogFilter: productCount,
+      productCountNoFilter: productsNoFilter,
+    };
+  }
+
   async testAgent(
     organizationId: string,
     agentId: string,
@@ -860,7 +920,7 @@ Guidelines:
         }
       } catch (error) {
         // Log error but continue with test
-        console.warn("KB search failed during agent test:", error.message);
+        this.logger.warn("KB search failed during agent test:", error.message);
       }
     }
 
@@ -869,7 +929,7 @@ Guidelines:
     let foundProducts: any[] = [];
     const catalogIds = agent.catalogs?.map(c => c.id) || [];
     const hasEcommerce = catalogIds.length > 0 || agent.ecommerceEnabled;
-    console.log(`[TestAgent] Agent "${agent.name}": catalogIds=${JSON.stringify(catalogIds)}, ecommerceEnabled=${agent.ecommerceEnabled}, hasEcommerce=${hasEcommerce}, orgId=${organizationId}`);
+    this.logger.log(`[TestAgent] Agent "${agent.name}": catalogIds=${JSON.stringify(catalogIds)}, ecommerceEnabled=${agent.ecommerceEnabled}, hasEcommerce=${hasEcommerce}, orgId=${organizationId}`);
     if (hasEcommerce && organizationId) {
       try {
         // Always search products when ecommerce is enabled (don't gate on isProductQuery for test mode)
@@ -879,17 +939,17 @@ Guidelines:
           10,
           catalogIds.length > 0 ? catalogIds : undefined,
         );
-        console.log(`[TestAgent] searchProducts (with storeIds filter) returned ${products.length} products`);
+        this.logger.log(`[TestAgent] searchProducts (with storeIds filter) returned ${products.length} products`);
 
         // Fallback: if no products found with storeIds filter, try without filter
         if (products.length === 0 && catalogIds.length > 0) {
-          console.log(`[TestAgent] Retrying searchProducts without storeIds filter...`);
+          this.logger.log(`[TestAgent] Retrying searchProducts without storeIds filter...`);
           products = await this.productSearchService.searchProducts(
             organizationId,
             testDto.message,
             10,
           );
-          console.log(`[TestAgent] searchProducts (no filter) returned ${products.length} products`);
+          this.logger.log(`[TestAgent] searchProducts (no filter) returned ${products.length} products`);
         }
 
         if (products.length > 0) {
@@ -897,10 +957,10 @@ Guidelines:
           foundProducts = products;
         }
       } catch (error) {
-        console.warn("Product search failed during agent test:", error.message);
+        this.logger.warn("Product search failed during agent test:", error.message);
       }
     } else {
-      console.log(`[TestAgent] Skipping product search: hasEcommerce=${hasEcommerce}, orgId=${organizationId}`);
+      this.logger.log(`[TestAgent] Skipping product search: hasEcommerce=${hasEcommerce}, orgId=${organizationId}`);
     }
 
     // Collect media items from products
@@ -955,7 +1015,7 @@ Guidelines:
       response = llmResponse.content;
       tokensUsed = llmResponse.usage?.totalTokens || 0;
     } catch (error) {
-      console.error(`Agent test LLM error: ${error.message}`);
+      this.logger.error(`Agent test LLM error: ${error.message}`);
       throw new BadRequestException(
         `Erreur de generation IA: ${error.message}`,
       );

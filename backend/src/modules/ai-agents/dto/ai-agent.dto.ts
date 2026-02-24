@@ -301,6 +301,11 @@ export class UpdateAiAgentDto {
   @IsArray()
   @IsString({ each: true })
   catalogIds?: string[];
+
+  @ApiPropertyOptional({ description: "Enable e-commerce product catalog" })
+  @IsOptional()
+  @IsBoolean()
+  ecommerceEnabled?: boolean;
 }
 
 export class AgentQueryDto {

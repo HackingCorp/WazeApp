@@ -37,6 +37,7 @@ import {
 import { AuditService } from "../audit/audit.service";
 import { LLMRouterService } from "../llm-providers/llm-router.service";
 import { VectorSearchService } from "../vector-search/vector-search.service";
+import { ProductSearchService } from "../ecommerce/services/product-search.service";
 
 @Injectable()
 export class AiAgentService {
@@ -75,6 +76,9 @@ export class AiAgentService {
 
     @Inject(forwardRef(() => VectorSearchService))
     private readonly vectorSearch: VectorSearchService,
+
+    @Inject(forwardRef(() => ProductSearchService))
+    private readonly productSearchService: ProductSearchService,
   ) {}
 
   async create(
@@ -815,10 +819,10 @@ Guidelines:
   }> {
     const startTime = Date.now();
 
-    // Load agent with knowledge bases
+    // Load agent with knowledge bases and catalogs
     const agent = await this.agentRepository.findOne({
       where: { id: agentId, organizationId },
-      relations: ["knowledgeBases"],
+      relations: ["knowledgeBases", "catalogs"],
     });
 
     if (!agent) {
@@ -859,10 +863,33 @@ Guidelines:
       }
     }
 
+    // Search product catalog if agent has catalogs or ecommerce enabled
+    let productContext = "";
+    const catalogIds = agent.catalogs?.map(c => c.id);
+    const hasEcommerce = (catalogIds && catalogIds.length > 0) || agent.ecommerceEnabled;
+    if (hasEcommerce && organizationId) {
+      if (this.productSearchService.isProductQuery(testDto.message)) {
+        try {
+          const products = await this.productSearchService.searchProducts(
+            organizationId,
+            testDto.message,
+            5,
+            catalogIds?.length > 0 ? catalogIds : undefined,
+          );
+          if (products.length > 0) {
+            productContext = this.productSearchService.formatProductsForPrompt(products);
+          }
+        } catch (error) {
+          console.warn("Product search failed during agent test:", error.message);
+        }
+      }
+    }
+
     // Build system prompt: use override if provided, otherwise build from agent config
+    const fullKBContext = contextFromKB + productContext;
     const systemPrompt = testDto.systemPromptOverride
-      ? this.buildSystemPrompt({ ...agent, systemPrompt: testDto.systemPromptOverride } as any, contextFromKB)
-      : this.buildSystemPrompt(agent, contextFromKB);
+      ? this.buildSystemPrompt({ ...agent, systemPrompt: testDto.systemPromptOverride } as any, fullKBContext)
+      : this.buildSystemPrompt(agent, fullKBContext);
 
     // Build messages array: system prompt + conversation history + new user message
     const messages: Array<{ role: 'user' | 'system' | 'assistant'; content: string }> = [

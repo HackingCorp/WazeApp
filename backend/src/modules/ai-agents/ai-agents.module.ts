@@ -19,6 +19,7 @@ import { ConversationController } from "./conversation.controller";
 import { AuditModule } from "../audit/audit.module";
 import { LlmProvidersModule } from "../llm-providers/llm-providers.module";
 import { VectorSearchModule } from "../vector-search/vector-search.module";
+import { EcommerceModule } from "../ecommerce/ecommerce.module";
 
 @Module({
   imports: [
@@ -37,6 +38,7 @@ import { VectorSearchModule } from "../vector-search/vector-search.module";
     AuditModule,
     forwardRef(() => LlmProvidersModule),
     forwardRef(() => VectorSearchModule),
+    forwardRef(() => EcommerceModule),
   ],
   controllers: [AiAgentController, ConversationController],
   providers: [AiAgentService, ConversationService],

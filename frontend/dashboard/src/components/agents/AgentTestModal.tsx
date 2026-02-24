@@ -137,10 +137,18 @@ export function AgentTestModal({
       setInputValue('');
       setIsLoading(false);
       setExpandedSources(new Set());
-      // Focus input after modal opens
-      setTimeout(() => inputRef.current?.focus(), 100);
     }
   }, [isOpen, agent.welcomeMessage]);
+
+  // Focus input when chat opens or loading finishes
+  useEffect(() => {
+    if (isOpen && !isLoading) {
+      // Use requestAnimationFrame to ensure DOM is ready
+      requestAnimationFrame(() => {
+        inputRef.current?.focus();
+      });
+    }
+  }, [isOpen, isLoading]);
 
   // Auto-scroll to bottom on new messages
   useEffect(() => {
@@ -161,7 +169,6 @@ export function AgentTestModal({
     setInputValue('');
     setIsLoading(false);
     setExpandedSources(new Set());
-    inputRef.current?.focus();
   }, [agent.welcomeMessage]);
 
   const toggleSources = useCallback((messageId: string) => {
@@ -265,13 +272,8 @@ export function AgentTestModal({
   if (!isOpen) return null;
 
   return (
-    <div
-      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg h-[80vh] flex flex-col overflow-hidden sm:max-h-[80vh] max-h-[95vh]">
+    <div className="fixed bottom-4 right-4 z-50 sm:bottom-6 sm:right-6">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-[380px] h-[560px] sm:w-[400px] sm:h-[600px] flex flex-col overflow-hidden border border-gray-200 dark:border-gray-700">
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 bg-emerald-600 dark:bg-emerald-700 flex-shrink-0">
           <div className="flex items-center gap-3">

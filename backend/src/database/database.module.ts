@@ -32,6 +32,12 @@ import {
   Invoice,
   Plan,
   MessageCredit,
+  // E-Commerce entities
+  EcommerceStore,
+  Product,
+  ProductVariant,
+  ProductImage,
+  ProductCategory,
 } from "../common/entities";
 
 @Module({
@@ -76,10 +82,17 @@ import {
           Invoice,
           Plan,
           MessageCredit,
+          // E-Commerce entities
+          EcommerceStore,
+          Product,
+          ProductVariant,
+          ProductImage,
+          ProductCategory,
         ],
+        migrations: [__dirname + '/migrations/*{.ts,.js}'],
         synchronize:
           configService.get("DATABASE_SYNCHRONIZE", "false") === "true",
-        migrationsRun: false,
+        migrationsRun: true,
         logging: configService.get("NODE_ENV") === "development",
         ssl:
           configService.get("DATABASE_SSL_ENABLED") === "true"

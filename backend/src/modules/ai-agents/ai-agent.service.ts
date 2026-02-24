@@ -891,8 +891,10 @@ Guidelines:
       response = llmResponse.content;
       tokensUsed = llmResponse.usage?.totalTokens || 0;
     } catch (error) {
-      // Throw error so frontend can display it properly
-      throw new Error(`Erreur de generation: ${error.message}`);
+      console.error(`Agent test LLM error: ${error.message}`);
+      throw new BadRequestException(
+        `Erreur de generation IA: ${error.message}`,
+      );
     }
 
     const responseTime = Date.now() - startTime;

@@ -1528,7 +1528,7 @@ Always respond directly in the user's language without any formatting.`,
       let foundProducts: Product[] = [];
       const catalogIds = agent.catalogs?.map(c => c.id) || [];
       const hasEcommerce = catalogIds.length > 0 || agent.ecommerceEnabled;
-      if (hasEcommerce && agent.organizationId) {
+      if (hasEcommerce) {
         if (this.productSearchService.isProductQuery(userMessage)) {
           try {
             this.logger.log(`Searching product catalog for: "${userMessage}" (catalogIds: ${JSON.stringify(catalogIds)})`);

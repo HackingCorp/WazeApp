@@ -141,13 +141,19 @@ export class ProductSearchService {
     limit: number = 10,
     storeIds?: string[],
   ): Promise<Product[]> {
+    this.logger.log(`[searchProducts] orgId=${organizationId}, storeIds=${JSON.stringify(storeIds)}, query="${query?.substring(0, 50)}"`);
+
     const qb = this.productRepository
       .createQueryBuilder("product")
       .leftJoinAndSelect("product.variants", "variants")
       .leftJoinAndSelect("product.images", "images")
-      .leftJoinAndSelect("product.categories", "categories")
-      .where("product.organizationId = :organizationId", { organizationId })
-      .andWhere("product.status = :status", { status: "active" });
+      .leftJoinAndSelect("product.categories", "categories");
+
+    // Filter by organization: match orgId OR products with NULL orgId (for users without org)
+    if (organizationId) {
+      qb.where("(product.organizationId = :organizationId OR product.organizationId IS NULL)", { organizationId });
+    }
+    qb.andWhere("product.status = :status", { status: "active" });
 
     if (storeIds && storeIds.length > 0) {
       qb.andWhere("product.storeId IN (:...storeIds)", { storeIds });
@@ -176,7 +182,48 @@ export class ProductSearchService {
 
     qb.orderBy("product.name", "ASC").take(limit);
 
-    return qb.getMany();
+    const results = await qb.getMany();
+    this.logger.log(`[searchProducts] Found ${results.length} products`);
+    return results;
+  }
+
+  /**
+   * Diagnostic: count products by different criteria
+   */
+  async countProductsDiagnostic(organizationId?: string): Promise<Record<string, number>> {
+    const totalAll = await this.productRepository.count();
+    const totalActive = await this.productRepository.count({ where: { status: "active" as any } });
+    const totalNullOrg = await this.productRepository
+      .createQueryBuilder("p")
+      .where("p.organizationId IS NULL")
+      .getCount();
+    const totalNullOrgActive = await this.productRepository
+      .createQueryBuilder("p")
+      .where("p.organizationId IS NULL")
+      .andWhere("p.status = :s", { s: "active" })
+      .getCount();
+
+    const result: Record<string, number> = {
+      totalAllProducts: totalAll,
+      totalActiveProducts: totalActive,
+      totalNullOrgProducts: totalNullOrg,
+      totalNullOrgActiveProducts: totalNullOrgActive,
+    };
+
+    if (organizationId) {
+      const totalForOrg = await this.productRepository.count({
+        where: { organizationId } as any,
+      });
+      const totalForOrgActive = await this.productRepository
+        .createQueryBuilder("p")
+        .where("p.organizationId = :orgId", { orgId: organizationId })
+        .andWhere("p.status = :s", { s: "active" })
+        .getCount();
+      result.totalForOrg = totalForOrg;
+      result.totalForOrgActive = totalForOrgActive;
+    }
+
+    return result;
   }
 
   formatProductsForPrompt(products: Product[]): string {

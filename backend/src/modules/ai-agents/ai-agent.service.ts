@@ -812,59 +812,68 @@ Guidelines:
   }
 
   async debugCatalog(organizationId: string, agentId: string) {
-    const agent = await this.agentRepository.findOne({
-      where: { id: agentId, organizationId },
+    // Try to find agent with org filter, then without
+    let agent = await this.agentRepository.findOne({
+      where: organizationId ? { id: agentId, organizationId } : { id: agentId },
       relations: ["knowledgeBases", "catalogs"],
     });
 
     if (!agent) {
-      // Try without organizationId filter
-      const agentNoOrg = await this.agentRepository.findOne({
+      agent = await this.agentRepository.findOne({
         where: { id: agentId },
         relations: ["knowledgeBases", "catalogs"],
       });
-      return {
-        error: "Agent not found with orgId filter",
-        organizationId,
-        agentId,
-        agentExistsWithoutOrgFilter: !!agentNoOrg,
-        agentOrgId: agentNoOrg?.organizationId,
-      };
+      if (!agent) {
+        return { error: "Agent not found", organizationId, agentId };
+      }
     }
 
+    const effectiveOrgId = organizationId || agent.organizationId;
     const catalogIds = agent.catalogs?.map(c => c.id) || [];
     const hasEcommerce = catalogIds.length > 0 || agent.ecommerceEnabled;
 
-    let productCount = 0;
-    let productsNoFilter = 0;
+    // Raw DB counts for diagnostics
+    let productDiagnostics: Record<string, number> = {};
+    try {
+      productDiagnostics = await this.productSearchService.countProductsDiagnostic(effectiveOrgId);
+    } catch (e) {
+      this.logger.error(`debugCatalog diagnostic error: ${e.message}`);
+    }
+
+    // Search with catalog filter (using general catalog query to get ALL products, not "test")
+    let productCountWithCatalog = 0;
+    let productCountNoCatalog = 0;
     try {
       const products = await this.productSearchService.searchProducts(
-        organizationId, "test", 10, catalogIds.length > 0 ? catalogIds : undefined,
+        effectiveOrgId, "quels produits avez-vous en stock", 50,
+        catalogIds.length > 0 ? catalogIds : undefined,
       );
-      productCount = products.length;
+      productCountWithCatalog = products.length;
     } catch (e) {
-      // ignore
+      this.logger.error(`debugCatalog search error: ${e.message}`);
     }
     try {
       const products2 = await this.productSearchService.searchProducts(
-        organizationId, "test", 10,
+        effectiveOrgId, "quels produits avez-vous en stock", 50,
       );
-      productsNoFilter = products2.length;
+      productCountNoCatalog = products2.length;
     } catch (e) {
-      // ignore
+      this.logger.error(`debugCatalog search2 error: ${e.message}`);
     }
 
     return {
       agentName: agent.name,
-      organizationId,
+      passedOrganizationId: organizationId,
       agentOrganizationId: agent.organizationId,
+      effectiveOrgId,
       ecommerceEnabled: agent.ecommerceEnabled,
       catalogs: agent.catalogs?.map(c => ({ id: c.id, name: c.name, platform: c.platform })) || [],
       catalogIds,
       hasEcommerce,
       knowledgeBases: agent.knowledgeBases?.map(kb => ({ id: kb.id, name: kb.name })) || [],
-      productCountWithCatalogFilter: productCount,
-      productCountNoFilter: productsNoFilter,
+      productDiagnostics,
+      productCountWithCatalog,
+      productCountNoCatalog,
     };
   }
 
@@ -934,7 +943,7 @@ Guidelines:
     const catalogIds = agent.catalogs?.map(c => c.id) || [];
     const hasEcommerce = catalogIds.length > 0 || agent.ecommerceEnabled;
     this.logger.log(`[TestAgent] Agent "${agent.name}": catalogIds=${JSON.stringify(catalogIds)}, ecommerceEnabled=${agent.ecommerceEnabled}, hasEcommerce=${hasEcommerce}, effectiveOrgId=${effectiveOrgId}`);
-    if (hasEcommerce && effectiveOrgId) {
+    if (hasEcommerce) {
       try {
         // Always search products when ecommerce is enabled (don't gate on isProductQuery for test mode)
         let products = await this.productSearchService.searchProducts(

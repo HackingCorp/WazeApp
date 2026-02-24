@@ -816,6 +816,7 @@ Guidelines:
     response: string;
     sources?: Array<{ document: string; chunk: string; confidence: number }>;
     metrics: { responseTime: number; tokensUsed: number; confidence: number };
+    media?: Array<{ type: 'image' | 'video' | 'audio'; url: string; caption?: string }>;
   }> {
     const startTime = Date.now();
 
@@ -865,6 +866,7 @@ Guidelines:
 
     // Search product catalog if agent has catalogs or ecommerce enabled
     let productContext = "";
+    let foundProducts: any[] = [];
     const catalogIds = agent.catalogs?.map(c => c.id);
     const hasEcommerce = (catalogIds && catalogIds.length > 0) || agent.ecommerceEnabled;
     if (hasEcommerce && organizationId) {
@@ -878,9 +880,25 @@ Guidelines:
           );
           if (products.length > 0) {
             productContext = this.productSearchService.formatProductsForPrompt(products);
+            foundProducts = products;
           }
         } catch (error) {
           console.warn("Product search failed during agent test:", error.message);
+        }
+      }
+    }
+
+    // Collect media items from products
+    const mediaItems: Array<{ type: 'image' | 'video' | 'audio'; url: string; caption?: string }> = [];
+    for (const product of foundProducts) {
+      if (product.images?.length > 0) {
+        const primaryImg = product.images.find((img: any) => img.isPrimary) || product.images[0];
+        if (primaryImg?.url) {
+          mediaItems.push({
+            type: 'image',
+            url: primaryImg.url,
+            caption: `${product.name}${product.price ? ` - ${product.price} ${product.currency}` : ''}`,
+          });
         }
       }
     }
@@ -928,9 +946,39 @@ Guidelines:
       );
     }
 
+    // Parse [IMAGE:slug] tags from LLM response
+    const imageTagRegex = /\[IMAGE:([^\]]+)\]/g;
+    let cleanResponse = response;
+    let imageMatch;
+    while ((imageMatch = imageTagRegex.exec(response)) !== null) {
+      const slug = imageMatch[1];
+      try {
+        const kbIds = agent.knowledgeBases?.map(kb => kb.id) || [];
+        if (kbIds.length > 0) {
+          const doc = await this.knowledgeDocumentRepository.findOne({
+            where: { slug, knowledgeBaseId: In(kbIds) },
+          });
+          if (doc?.filePath) {
+            mediaItems.push({
+              type: doc.type === 'video' ? 'video' : doc.type === 'audio' ? 'audio' : 'image',
+              url: doc.filePath,
+              caption: doc.title || slug,
+            });
+          }
+        }
+      } catch (e) { /* ignore */ }
+      cleanResponse = cleanResponse.replace(imageMatch[0], '').trim();
+    }
+    response = cleanResponse;
+
     const responseTime = Date.now() - startTime;
 
-    const result = {
+    const result: {
+      response: string;
+      sources?: Array<{ document: string; chunk: string; confidence: number }>;
+      metrics: { responseTime: number; tokensUsed: number; confidence: number };
+      media?: Array<{ type: 'image' | 'video' | 'audio'; url: string; caption?: string }>;
+    } = {
       response,
       metrics: {
         responseTime,
@@ -940,7 +988,11 @@ Guidelines:
     };
 
     if (testDto.includeSources && knowledgeBaseSources.length > 0) {
-      result["sources"] = knowledgeBaseSources;
+      result.sources = knowledgeBaseSources;
+    }
+
+    if (mediaItems.length > 0) {
+      result.media = mediaItems;
     }
 
     return result;

@@ -1160,19 +1160,28 @@ export class SimpleConversationService implements OnModuleDestroy {
     conversationId: string,
     content: string,
     userId: string,
+    mediaOptions?: { mediaUrl?: string; mediaType?: 'image' | 'video' | 'audio' | 'document'; caption?: string; filename?: string },
   ): Promise<MessageData> {
     const conversation = this.conversations.get(conversationId);
     if (!conversation || conversation.userId !== userId) {
       throw new Error("Conversation not found");
     }
 
+    const isMedia = mediaOptions?.mediaUrl;
+    const messageType = isMedia ? (mediaOptions.mediaType || 'image') : 'text';
+
     const newMessage: MessageData = {
       id: uuidv4(),
-      content,
+      content: isMedia ? (mediaOptions.caption || content || `[${messageType}]`) : content,
       timestamp: new Date(),
       sender: "user", // Messages sent by us through the interface should be 'user' (right side in UI)
-      type: "text",
+      type: messageType as MessageData['type'],
       status: "sending",
+      ...(isMedia ? {
+        mediaUrl: mediaOptions.mediaUrl,
+        mediaType: `${messageType}/*`,
+        mediaCaption: mediaOptions.caption || content,
+      } : {}),
     };
 
     this.addMessage(conversationId, newMessage);
@@ -1184,11 +1193,24 @@ export class SimpleConversationService implements OnModuleDestroy {
     this.logger.log(
       `🚀 EMITTING whatsapp.send.message for ${conversation.phoneNumber}, sessionId: ${conversation.sessionId}`,
     );
-    this.eventEmitter.emit("whatsapp.send.message", {
-      sessionId: conversation.sessionId,
-      phoneNumber: conversation.phoneNumber,
-      message: content,
-    });
+
+    if (isMedia) {
+      this.eventEmitter.emit("whatsapp.send.message", {
+        sessionId: conversation.sessionId,
+        phoneNumber: conversation.phoneNumber,
+        message: mediaOptions.caption || content || '',
+        mediaUrl: mediaOptions.mediaUrl,
+        type: messageType,
+        caption: mediaOptions.caption || content || '',
+        filename: mediaOptions.filename,
+      });
+    } else {
+      this.eventEmitter.emit("whatsapp.send.message", {
+        sessionId: conversation.sessionId,
+        phoneNumber: conversation.phoneNumber,
+        message: content,
+      });
+    }
 
     // Update message status
     setTimeout(() => {
@@ -1196,7 +1218,7 @@ export class SimpleConversationService implements OnModuleDestroy {
     }, 1000);
 
     // Update conversation
-    conversation.lastMessage = content;
+    conversation.lastMessage = isMedia ? (mediaOptions.caption || content || `[${messageType}]`) : content;
     conversation.lastMessageTime = new Date();
     this.conversations.set(conversationId, conversation);
 

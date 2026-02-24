@@ -440,14 +440,21 @@ export class WhatsAppController {
   @ApiResponse({ status: 201, description: "Message sent successfully" })
   async sendConversationMessage(
     @Param("id") id: string,
-    @Body() body: { content: string },
+    @Body() body: { content: string; mediaUrl?: string; mediaType?: 'image' | 'video' | 'audio' | 'document'; caption?: string; filename?: string },
     @CurrentUser() user: AuthenticatedRequest,
   ) {
     const userId = user.userId;
+    const mediaOptions = body.mediaUrl ? {
+      mediaUrl: body.mediaUrl,
+      mediaType: body.mediaType,
+      caption: body.caption,
+      filename: body.filename,
+    } : undefined;
     const message = await this.conversationService.sendMessage(
       id,
       body.content,
       userId,
+      mediaOptions,
     );
     return {
       success: true,

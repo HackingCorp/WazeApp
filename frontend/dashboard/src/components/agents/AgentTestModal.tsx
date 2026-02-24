@@ -104,6 +104,7 @@ interface ChatMessage {
   sources?: Source[];
   metrics?: MessageMetrics;
   isError?: boolean;
+  media?: Array<{ type: string; url: string; caption?: string }>;
 }
 
 export function AgentTestModal({
@@ -220,6 +221,7 @@ export function AgentTestModal({
         timestamp: new Date(),
         sources: data.sources,
         metrics: data.metrics,
+        media: data.media,
       };
 
       setMessages(prev => [...prev, assistantMessage]);
@@ -360,6 +362,33 @@ export function AgentTestModal({
                     )}
                   >
                     <div className="whitespace-pre-wrap break-words text-sm">{formatWhatsAppText(message.content)}</div>
+                    {message.media && message.media.length > 0 && (
+                      <div className="mt-2 space-y-2">
+                        {message.media.map((item, idx) => (
+                          <div key={idx}>
+                            {item.type === 'image' && (
+                              <div>
+                                <img
+                                  src={item.url}
+                                  alt={item.caption || 'Image'}
+                                  className="max-w-[250px] rounded-lg cursor-pointer hover:opacity-90"
+                                  onClick={() => window.open(item.url, '_blank')}
+                                />
+                                {item.caption && (
+                                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{item.caption}</p>
+                                )}
+                              </div>
+                            )}
+                            {item.type === 'video' && (
+                              <video src={item.url} controls className="max-w-[250px] rounded-lg" />
+                            )}
+                            {item.type === 'audio' && (
+                              <audio src={item.url} controls className="max-w-full" />
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                     <div
                       className={clsx(
                         'flex items-center justify-end gap-1 mt-1 text-[10px]',

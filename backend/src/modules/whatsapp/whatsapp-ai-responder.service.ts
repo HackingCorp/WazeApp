@@ -16,6 +16,7 @@ import {
   KnowledgeDocument,
   DocumentChunk,
   UsageMetric,
+  Product,
 } from "@/common/entities";
 import {
   WhatsAppSessionStatus,
@@ -1524,6 +1525,7 @@ Always respond directly in the user's language without any formatting.`,
 
       // Search product catalog if e-commerce is enabled for this agent
       let productContext = "";
+      let foundProducts: Product[] = [];
       const catalogIds = agent.catalogs?.map(c => c.id);
       const hasEcommerce = (catalogIds && catalogIds.length > 0) || agent.ecommerceEnabled;
       if (hasEcommerce && agent.organizationId) {
@@ -1537,6 +1539,7 @@ Always respond directly in the user's language without any formatting.`,
               catalogIds?.length > 0 ? catalogIds : undefined,
             );
             if (products.length > 0) {
+              foundProducts = products;
               productContext = this.productSearchService.formatProductsForPrompt(products);
               this.logger.log(`Found ${products.length} products for AI context`);
             }
@@ -1882,6 +1885,30 @@ EXEMPLES DE CONTEXTE:
               }
             } catch (imgError) {
               this.logger.warn(`📷 Failed to send image [${slug}]: ${imgError.message}`);
+            }
+          }
+        }
+
+        // Send product images as WhatsApp media (max 3)
+        if (foundProducts && foundProducts.length > 0) {
+          const productsWithImages = foundProducts
+            .filter(p => p.images?.length > 0)
+            .slice(0, 3);
+
+          for (const product of productsWithImages) {
+            const primaryImage = product.images.find(img => img.isPrimary) || product.images[0];
+            if (primaryImage?.url) {
+              try {
+                await this.baileysService.sendMessage(session.id, {
+                  to: fromNumber,
+                  message: primaryImage.url,
+                  type: 'image',
+                  mediaUrl: primaryImage.url,
+                  caption: `${product.name}${product.price ? ` - ${product.price} ${product.currency}` : ''}`,
+                });
+              } catch (imgError) {
+                this.logger.warn(`Failed to send product image for ${product.name}: ${imgError.message}`);
+              }
             }
           }
         }
@@ -2265,19 +2292,36 @@ EXEMPLE DE BONNE RÉPONSE AUTOMATIQUE:
         this.logger.log(`Converted to public URL: ${mediaUrl}`);
       }
 
-      // Determine media type based on document type or mime type
-      const mediaType = mediaDocument.type === 'video' ? 'video' : 'image';
+      // Determine media type based on document type
+      let mediaType: string;
+      if (mediaDocument.type === 'video') {
+        mediaType = 'video';
+      } else if (mediaDocument.type === 'audio') {
+        mediaType = 'audio';
+      } else {
+        mediaType = 'image';
+      }
 
-      // Use only the title for caption (content often contains unreadable OCR text)
-      const caption = `📁 ${mediaDocument.title}`;
+      if (mediaType === 'audio') {
+        // WhatsApp audio messages don't support captions
+        await this.baileysService.sendMessage(session.id, {
+          to: fromNumber,
+          message: '',
+          type: 'audio',
+          mediaUrl: mediaUrl,
+        });
+      } else {
+        // Use only the title for caption (content often contains unreadable OCR text)
+        const caption = `📁 ${mediaDocument.title}`;
 
-      await this.baileysService.sendMessage(session.id, {
-        to: fromNumber,
-        message: caption,
-        type: mediaType,
-        mediaUrl: mediaUrl,
-        caption: caption
-      });
+        await this.baileysService.sendMessage(session.id, {
+          to: fromNumber,
+          message: caption,
+          type: mediaType,
+          mediaUrl: mediaUrl,
+          caption: caption
+        });
+      }
 
       // Track sent message for usage statistics
       await this.trackSentMessage(session.organizationId);
@@ -2341,13 +2385,13 @@ EXEMPLE DE BONNE RÉPONSE AUTOMATIQUE:
         return [];
       }
 
-      const knowledgeBaseId = agent.knowledgeBases[0].id;
+      const knowledgeBaseIds = agent.knowledgeBases.map(kb => kb.id);
 
       const mediaDocuments = await this.knowledgeDocumentRepository
         .createQueryBuilder('doc')
         .select(['doc.slug', 'doc.title', 'doc.type'])
-        .where('doc.knowledgeBaseId = :knowledgeBaseId', { knowledgeBaseId })
-        .andWhere('doc.type IN (:...mediaTypes)', { mediaTypes: ['image', 'video'] })
+        .where('doc.knowledgeBaseId IN (:...knowledgeBaseIds)', { knowledgeBaseIds })
+        .andWhere('doc.type IN (:...mediaTypes)', { mediaTypes: ['image', 'video', 'audio'] })
         .andWhere('doc.status IN (:...statuses)', { statuses: ['processed', 'uploaded'] })
         .andWhere('doc.slug IS NOT NULL')
         .orderBy('doc.title', 'ASC')
@@ -2376,13 +2420,13 @@ EXEMPLE DE BONNE RÉPONSE AUTOMATIQUE:
         return null;
       }
 
-      const knowledgeBaseId = agent.knowledgeBases[0].id;
+      const knowledgeBaseIds = agent.knowledgeBases.map(kb => kb.id);
 
       const document = await this.knowledgeDocumentRepository.findOne({
         where: {
-          knowledgeBaseId,
+          knowledgeBaseId: In(knowledgeBaseIds),
           slug,
-          type: In(['image', 'video']),
+          type: In(['image', 'video', 'audio']),
         },
       });
 
@@ -2394,21 +2438,21 @@ EXEMPLE DE BONNE RÉPONSE AUTOMATIQUE:
   }
 
   /**
-   * Parse [IMAGE:slug] tags from AI response and return clean text + image slugs
+   * Parse [IMAGE:slug], [VIDEO:slug], and [AUDIO:slug] tags from AI response and return clean text + media slugs
    */
   private parseImageTags(response: string): { cleanText: string; imageSlugs: string[] } {
-    const imageTagRegex = /\[IMAGE:([^\]]+)\]/gi;
+    const mediaTagRegex = /\[(?:IMAGE|VIDEO|AUDIO):([^\]]+)\]/gi;
     const imageSlugs: string[] = [];
 
-    // Extract all image slugs
+    // Extract all media slugs
     let match;
-    while ((match = imageTagRegex.exec(response)) !== null) {
+    while ((match = mediaTagRegex.exec(response)) !== null) {
       imageSlugs.push(match[1].trim().toLowerCase());
     }
 
     // Remove tags from response
     const cleanText = response
-      .replace(imageTagRegex, '')
+      .replace(mediaTagRegex, '')
       .replace(/\n{3,}/g, '\n\n') // Clean up extra newlines
       .trim();
 
@@ -2562,19 +2606,30 @@ EXEMPLE DE BONNE RÉPONSE AUTOMATIQUE:
       .map(m => `  - [VIDEO:${m.slug}] → ${m.title}`)
       .join('\n');
 
+    const audioList = availableMedia
+      .filter(m => m.type === 'audio')
+      .map(m => `  - [AUDIO:${m.slug}] → ${m.title}`)
+      .join('\n');
+
+    const mediaTypes = ['images'];
+    if (videoList) mediaTypes.push('vidéos');
+    if (audioList) mediaTypes.push('audios');
+    const mediaTypesStr = mediaTypes.join('/');
+
     let instructions = `
 
-📷 ENVOI D'IMAGES/VIDÉOS:
-Tu peux envoyer des images de la base de connaissances en incluant un tag dans ta réponse.
-Le tag sera automatiquement retiré et l'image envoyée après ton message.
+📷 ENVOI D'IMAGES/VIDÉOS/AUDIOS:
+Tu peux envoyer des ${mediaTypesStr} de la base de connaissances en incluant un tag dans ta réponse.
+Le tag sera automatiquement retiré et le média envoyé après ton message.
 
 IMAGES DISPONIBLES:
 ${imageList || '  (aucune image disponible)'}
 ${videoList ? `\nVIDÉOS DISPONIBLES:\n${videoList}` : ''}
+${audioList ? `\nAUDIOS DISPONIBLES:\n${audioList}` : ''}
 
 EXEMPLE D'UTILISATION:
 "Voici notre produit phare ! [IMAGE:box-tv-android]"
-→ Le client recevra ton message PUIS l'image correspondante.
+→ Le client recevra ton message PUIS le média correspondant.
 
 RÈGLES:
 - N'utilise ce tag QUE si c'est pertinent (demande du client, présentation produit)

@@ -153,6 +153,16 @@ export class ProductSearchService {
         result += `Link: ${product.externalUrl}\n`;
       }
 
+      if (product.images?.length > 0) {
+        const sorted = [...product.images].sort(
+          (a, b) => (b.isPrimary ? 1 : 0) - (a.isPrimary ? 1 : 0),
+        );
+        result += `Images:\n`;
+        sorted.forEach((img) => {
+          result += `  - ${img.isPrimary ? "[PRIMARY] " : ""}${img.url}${img.altText ? ` (${img.altText})` : ""}\n`;
+        });
+      }
+
       result += "\n";
     });
 

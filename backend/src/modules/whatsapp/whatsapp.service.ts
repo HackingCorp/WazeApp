@@ -1456,11 +1456,15 @@ export class WhatsAppService {
     sessionId: string;
     phoneNumber: string;
     message: string;
+    mediaUrl?: string;
+    type?: string;
+    caption?: string;
+    filename?: string;
   }) {
-    const { sessionId, phoneNumber, message } = data;
+    const { sessionId, phoneNumber, message, mediaUrl, type, caption, filename } = data;
 
     this.logger.log(
-      `📨 RECEIVED whatsapp.send.message event: sessionId=${sessionId}, phoneNumber=${phoneNumber}, message="${message}"`,
+      `📨 RECEIVED whatsapp.send.message event: sessionId=${sessionId}, phoneNumber=${phoneNumber}, type=${type || 'text'}, message="${message}"`,
     );
 
     try {
@@ -1474,19 +1478,30 @@ export class WhatsAppService {
         return;
       }
 
+      // Build message DTO with media support
+      const messageDto: any = {
+        to: phoneNumber,
+        message: message || caption || '',
+        type: mediaUrl ? (type || 'image') : 'text',
+      };
+
+      if (mediaUrl) {
+        messageDto.mediaUrl = mediaUrl;
+        messageDto.caption = caption || message || '';
+        if (filename) {
+          messageDto.filename = filename;
+        }
+      }
+
       // Use the existing sendMessage method with correct userId
       await this.sendMessage(
         sessionId,
-        {
-          to: phoneNumber,
-          message,
-          type: "text",
-        },
+        messageDto,
         session.userId,
         session.organizationId,
       );
 
-      this.logger.log(`Sent automated message to ${phoneNumber}: ${message}`);
+      this.logger.log(`Sent automated message to ${phoneNumber}: type=${messageDto.type}, message="${message}"`);
     } catch (error) {
       this.logger.error(
         `Failed to send automated message to ${phoneNumber}:`,

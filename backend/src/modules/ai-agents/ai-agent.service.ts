@@ -870,7 +870,11 @@ Guidelines:
     ];
 
     if (testDto.conversationHistory?.length) {
-      messages.push(...testDto.conversationHistory);
+      for (const msg of testDto.conversationHistory) {
+        if (msg.role && msg.content) {
+          messages.push({ role: msg.role, content: msg.content });
+        }
+      }
     }
 
     messages.push({ role: "user", content: testDto.message });

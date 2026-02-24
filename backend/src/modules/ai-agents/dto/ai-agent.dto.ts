@@ -431,6 +431,17 @@ export class GenerateFaqDto {
   language?: AgentLanguage;
 }
 
+export class ConversationHistoryMessageDto {
+  @ApiProperty({ description: "Message role", enum: ['user', 'assistant'] })
+  @IsString()
+  @IsIn(['user', 'assistant'])
+  role: 'user' | 'assistant';
+
+  @ApiProperty({ description: "Message content" })
+  @IsString()
+  content: string;
+}
+
 export class TestAgentDto {
   @ApiProperty({ description: "Test message to send to agent" })
   @IsString()
@@ -461,11 +472,13 @@ export class TestAgentDto {
 
   @ApiPropertyOptional({
     description: "Conversation history for multi-turn test conversations",
-    type: [Object],
+    type: [ConversationHistoryMessageDto],
   })
   @IsOptional()
   @IsArray()
-  conversationHistory?: Array<{ role: 'user' | 'assistant'; content: string }>;
+  @ValidateNested({ each: true })
+  @Type(() => ConversationHistoryMessageDto)
+  conversationHistory?: ConversationHistoryMessageDto[];
 
   @ApiPropertyOptional({
     description: "Override system prompt for testing unsaved edits",

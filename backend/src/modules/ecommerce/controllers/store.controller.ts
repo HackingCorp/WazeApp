@@ -25,8 +25,9 @@ import { User } from "@/common/entities";
 import { StoreService } from "../services/store.service";
 import { ShopifyService } from "../services/shopify.service";
 import { WooCommerceService } from "../services/woocommerce.service";
+import { EMarketService } from "../services/emarket.service";
 import { SyncService } from "../services/sync.service";
-import { ConnectShopifyDto, ConnectWooCommerceDto, CreateManualCatalogDto } from "../dto/store.dto";
+import { ConnectShopifyDto, ConnectWooCommerceDto, ConnectEMarketDto, CreateManualCatalogDto } from "../dto/store.dto";
 
 @ApiTags("E-Commerce - Stores")
 @Controller("ecommerce/stores")
@@ -35,6 +36,7 @@ export class StoreController {
     private readonly storeService: StoreService,
     private readonly shopifyService: ShopifyService,
     private readonly wooCommerceService: WooCommerceService,
+    private readonly eMarketService: EMarketService,
     private readonly syncService: SyncService,
     private readonly configService: ConfigService,
   ) {}
@@ -162,6 +164,32 @@ export class StoreController {
     );
 
     const store = await this.storeService.createWooCommerceStore(
+      organizationId,
+      user.id,
+      dto,
+    );
+
+    // Trigger initial sync
+    await this.syncService.triggerFullSync(store.id);
+
+    return { data: store };
+  }
+
+  @Post("emarket/connect")
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: "Connect E-Market store" })
+  @ApiResponse({ status: 201, description: "Store connected" })
+  async connectEMarket(
+    @CurrentUser() user: User,
+    @Body() dto: ConnectEMarketDto,
+  ) {
+    const organizationId = (user as any).organizationId || user.id;
+
+    // Test connection first
+    await this.eMarketService.testConnection(dto.storeUrl, dto.apiKey);
+
+    const store = await this.storeService.createEMarketStore(
       organizationId,
       user.id,
       dto,

@@ -821,6 +821,13 @@ class ApiClient {
     });
   }
 
+  async connectEMarketStore(data: { storeUrl: string; apiKey: string; name?: string }) {
+    return this.request('/ecommerce/stores/emarket/connect', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
   async syncStore(id: string) {
     return this.request(`/ecommerce/stores/${id}/sync`, { method: 'POST' });
   }

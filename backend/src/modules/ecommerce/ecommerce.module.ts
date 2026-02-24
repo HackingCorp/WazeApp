@@ -24,6 +24,7 @@ import { StoreService } from "./services/store.service";
 import { CategoryService } from "./services/category.service";
 import { ShopifyService } from "./services/shopify.service";
 import { WooCommerceService } from "./services/woocommerce.service";
+import { EMarketService } from "./services/emarket.service";
 import { SyncService } from "./services/sync.service";
 import { ProductSearchService } from "./services/product-search.service";
 
@@ -70,6 +71,7 @@ import { AuditService } from "../audit/audit.service";
     CategoryService,
     ShopifyService,
     WooCommerceService,
+    EMarketService,
     SyncService,
     ProductSearchService,
     SyncConsumer,

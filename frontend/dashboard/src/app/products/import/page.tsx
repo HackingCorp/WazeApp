@@ -8,6 +8,7 @@ import {
   ShoppingCart,
   ExternalLink,
   Loader2,
+  Globe,
 } from 'lucide-react';
 import { useI18n } from '@/providers/I18nProvider';
 import { api } from '@/lib/api';
@@ -26,6 +27,11 @@ export default function ImportProductsPage() {
   const [wooKey, setWooKey] = useState('');
   const [wooSecret, setWooSecret] = useState('');
   const [connectingWoo, setConnectingWoo] = useState(false);
+
+  // E-Market state
+  const [eMarketUrl, setEMarketUrl] = useState('');
+  const [eMarketApiKey, setEMarketApiKey] = useState('');
+  const [connectingEMarket, setConnectingEMarket] = useState(false);
 
   const handleConnectShopify = async () => {
     if (!shopifyDomain.trim()) {
@@ -80,6 +86,31 @@ export default function ImportProductsPage() {
     }
   };
 
+  const handleConnectEMarket = async () => {
+    if (!eMarketUrl.trim() || !eMarketApiKey.trim()) {
+      toast.error(t('products.eMarketFillFields') || 'Please fill in all E-Market fields');
+      return;
+    }
+
+    setConnectingEMarket(true);
+    try {
+      const response = await api.connectEMarketStore({
+        storeUrl: eMarketUrl.trim(),
+        apiKey: eMarketApiKey.trim(),
+      });
+      if (response.success) {
+        toast.success(t('products.storeConnected'));
+        router.push('/products/stores');
+      } else {
+        toast.error(response.error || 'Failed to connect E-Market store');
+      }
+    } catch {
+      toast.error('Failed to connect E-Market store');
+    } finally {
+      setConnectingEMarket(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <div className="container mx-auto px-6 py-8 max-w-4xl">
@@ -101,7 +132,7 @@ export default function ImportProductsPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {/* Shopify Card */}
           <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
             <div className="flex items-center space-x-3 mb-6">
@@ -214,6 +245,64 @@ export default function ImportProductsPage() {
                   <Store className="w-4 h-4 mr-2" />
                 )}
                 {t('products.connectWooCommerce')}
+              </button>
+            </div>
+          </div>
+
+          {/* E-Market Card */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+            <div className="flex items-center space-x-3 mb-6">
+              <div className="w-12 h-12 bg-orange-100 dark:bg-orange-900/30 rounded-lg flex items-center justify-center">
+                <Globe className="w-6 h-6 text-orange-600 dark:text-orange-400" />
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  {t('products.connectEMarket')}
+                </h2>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  {t('products.eMarketDescription')}
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  {t('products.eMarketUrl')}
+                </label>
+                <input
+                  type="text"
+                  value={eMarketUrl}
+                  onChange={(e) => setEMarketUrl(e.target.value)}
+                  placeholder={t('products.eMarketUrlPlaceholder')}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  {t('products.eMarketApiKey')}
+                </label>
+                <input
+                  type="password"
+                  value={eMarketApiKey}
+                  onChange={(e) => setEMarketApiKey(e.target.value)}
+                  placeholder={t('products.eMarketApiKeyPlaceholder')}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                />
+              </div>
+
+              <button
+                onClick={handleConnectEMarket}
+                disabled={connectingEMarket || !eMarketUrl.trim() || !eMarketApiKey.trim()}
+                className="w-full flex items-center justify-center px-4 py-3 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50 transition-colors"
+              >
+                {connectingEMarket ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Globe className="w-4 h-4 mr-2" />
+                )}
+                {t('products.connectEMarket')}
               </button>
             </div>
           </div>

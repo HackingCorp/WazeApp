@@ -191,6 +191,7 @@ export enum EcommercePlatform {
   MANUAL = "manual",
   SHOPIFY = "shopify",
   WOOCOMMERCE = "woocommerce",
+  EMARKET = "emarket",
 }
 
 export enum StoreConnectionStatus {

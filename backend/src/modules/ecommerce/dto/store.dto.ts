@@ -26,6 +26,21 @@ export class ConnectWooCommerceDto {
   name?: string;
 }
 
+export class ConnectEMarketDto {
+  @ApiProperty({ description: "E-Market store base URL" })
+  @IsString()
+  storeUrl: string;
+
+  @ApiProperty({ description: "E-Market API Key" })
+  @IsString()
+  apiKey: string;
+
+  @ApiPropertyOptional({ description: "Store name" })
+  @IsOptional()
+  @IsString()
+  name?: string;
+}
+
 export class CreateManualCatalogDto {
   @ApiProperty({ description: "Catalog name" })
   @IsString()

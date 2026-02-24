@@ -10,6 +10,7 @@ import { ProductService } from "../services/product.service";
 import { StoreService } from "../services/store.service";
 import { ShopifyService } from "../services/shopify.service";
 import { WooCommerceService } from "../services/woocommerce.service";
+import { EMarketService } from "../services/emarket.service";
 
 @Injectable()
 @Processor("ecommerce-sync")
@@ -25,6 +26,7 @@ export class SyncConsumer {
     private readonly storeService: StoreService,
     private readonly shopifyService: ShopifyService,
     private readonly wooCommerceService: WooCommerceService,
+    private readonly eMarketService: EMarketService,
     private readonly eventEmitter: EventEmitter2,
   ) {}
 
@@ -46,6 +48,8 @@ export class SyncConsumer {
         syncedCount = await this.syncShopify(store, job);
       } else if (store.platform === EcommercePlatform.WOOCOMMERCE) {
         syncedCount = await this.syncWooCommerce(store, job);
+      } else if (store.platform === EcommercePlatform.EMARKET) {
+        syncedCount = await this.syncEMarket(store, job);
       }
 
       // Update store sync config
@@ -150,6 +154,37 @@ export class SyncConsumer {
       count++;
 
       const progress = 30 + Math.floor((count / wooProducts.length) * 60);
+      await job.progress(Math.min(progress, 90));
+    }
+
+    await this.removeOrphanedProducts(store.id, externalIds);
+    await job.progress(95);
+
+    return count;
+  }
+
+  private async syncEMarket(store: EcommerceStore, job: Job): Promise<number> {
+    const eMarketProducts = await this.eMarketService.fetchAllProducts(store);
+    await job.progress(30);
+
+    const externalIds = new Set<string>();
+    let count = 0;
+
+    for (const ep of eMarketProducts) {
+      const { product, variants, images } = this.eMarketService.mapToProduct(ep, store);
+      externalIds.add(String(ep.id));
+
+      await this.productService.upsertFromExternal(
+        store.organizationId,
+        store.id,
+        String(ep.id),
+        product,
+        variants,
+        images,
+      );
+      count++;
+
+      const progress = 30 + Math.floor((count / eMarketProducts.length) * 60);
       await job.progress(Math.min(progress, 90));
     }
 

@@ -16,6 +16,7 @@ import {
   Loader2,
   Unplug,
   Package,
+  Globe,
   X,
 } from 'lucide-react';
 import clsx from 'clsx';
@@ -26,7 +27,7 @@ import toast from 'react-hot-toast';
 interface EcommerceStore {
   id: string;
   name: string;
-  platform: 'shopify' | 'woocommerce' | 'manual';
+  platform: 'shopify' | 'woocommerce' | 'emarket' | 'manual';
   storeUrl: string;
   status: 'connected' | 'disconnected' | 'syncing' | 'error';
   productCount: number;
@@ -178,6 +179,8 @@ export default function StoresPage() {
         return <ShoppingCart className="w-6 h-6 text-green-600" />;
       case 'woocommerce':
         return <Store className="w-6 h-6 text-purple-600" />;
+      case 'emarket':
+        return <Globe className="w-6 h-6 text-orange-600" />;
       case 'manual':
         return <Package className="w-6 h-6 text-blue-600" />;
       default:

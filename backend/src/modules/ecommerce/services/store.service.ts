@@ -13,7 +13,7 @@ import {
   AuditAction,
 } from "@/common/enums";
 import { AuditService } from "../../audit/audit.service";
-import { ConnectWooCommerceDto, CreateManualCatalogDto } from "../dto/store.dto";
+import { ConnectWooCommerceDto, ConnectEMarketDto, CreateManualCatalogDto } from "../dto/store.dto";
 
 @Injectable()
 export class StoreService {
@@ -158,6 +158,43 @@ export class StoreService {
       resourceId: saved.id,
       description: `Connected WooCommerce store: ${dto.storeUrl}`,
       metadata: { platform: "woocommerce", storeUrl: dto.storeUrl },
+    });
+
+    return saved;
+  }
+
+  async createEMarketStore(
+    organizationId: string,
+    userId: string,
+    dto: ConnectEMarketDto,
+  ): Promise<EcommerceStore> {
+    const store = this.storeRepository.create({
+      name: dto.name || new URL(dto.storeUrl).hostname,
+      platform: EcommercePlatform.EMARKET,
+      status: StoreConnectionStatus.CONNECTED,
+      storeUrl: dto.storeUrl,
+      credentials: {
+        apiKey: dto.apiKey,
+      },
+      syncConfig: {
+        autoSync: true,
+        syncIntervalMinutes: 30,
+        totalProductsSynced: 0,
+      },
+      organizationId,
+      createdBy: userId,
+    });
+
+    const saved = await this.storeRepository.save(store);
+
+    await this.auditService.log({
+      organizationId,
+      userId,
+      action: AuditAction.CREATE,
+      resourceType: "ecommerce_store",
+      resourceId: saved.id,
+      description: `Connected E-Market store: ${dto.storeUrl}`,
+      metadata: { platform: "emarket", storeUrl: dto.storeUrl },
     });
 
     return saved;

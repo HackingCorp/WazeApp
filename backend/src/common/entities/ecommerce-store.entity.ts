@@ -30,6 +30,7 @@ export class EcommerceStore extends BaseEntity {
     accessToken?: string;
     consumerKey?: string;
     consumerSecret?: string;
+    apiKey?: string;
   };
 
   @ApiProperty({ description: "Sync configuration" })

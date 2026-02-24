@@ -207,5 +207,10 @@ export enum ProductStatus {
   ARCHIVED = "archived",
 }
 
+export enum ProductType {
+  PRODUCT = "product",
+  SERVICE = "service",
+}
+
 // Re-export conversation enums
 export * from "./conversation.enum";

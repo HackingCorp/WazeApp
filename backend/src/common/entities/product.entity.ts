@@ -6,7 +6,7 @@ import { EcommerceStore } from "./ecommerce-store.entity";
 import { ProductVariant } from "./product-variant.entity";
 import { ProductImage } from "./product-image.entity";
 import { ProductCategory } from "./product-category.entity";
-import { ProductStatus, EcommercePlatform } from "../enums";
+import { ProductStatus, ProductType, EcommercePlatform } from "../enums";
 
 @Entity("products")
 @Index("IDX_PRODUCT_ORG", ["organizationId"])
@@ -42,6 +42,10 @@ export class Product extends BaseEntity {
   @ApiProperty({ description: "Currency" })
   @Column({ default: "XAF" })
   currency: string;
+
+  @ApiProperty({ description: "Product type", enum: ProductType })
+  @Column({ type: "enum", enum: ProductType, default: ProductType.PRODUCT })
+  type: ProductType;
 
   @ApiProperty({ description: "Product status", enum: ProductStatus })
   @Column({ type: "enum", enum: ProductStatus, default: ProductStatus.ACTIVE })

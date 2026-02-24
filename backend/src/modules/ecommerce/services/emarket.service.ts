@@ -4,37 +4,43 @@ import { EcommercePlatform, ProductStatus } from "@/common/enums";
 import * as crypto from "crypto";
 
 interface EMarketProduct {
-  id: string;
+  id: number;
   name: string;
   description: string;
-  shortDescription?: string;
-  price: number;
-  compareAtPrice?: number;
-  currency: string;
+  short_description?: string;
   sku?: string;
-  status: string;
-  stockQuantity?: number;
-  inStock: boolean;
-  url?: string;
-  tags?: string[];
-  images?: { url: string; alt?: string; isPrimary?: boolean }[];
+  price: number;
+  compare_at_price?: number;
+  tax_rate?: number;
+  currency: string;
+  stock_quantity?: number;
+  total_stock?: number;
+  in_stock: boolean;
+  is_active: boolean;
+  product_type?: string;
+  images?: { url: string; position: number }[];
   variants?: {
-    id: string;
+    id: number;
     name: string;
-    price: number;
     sku?: string;
-    stockQuantity?: number;
-    inStock: boolean;
-    options?: Record<string, string>;
+    price: number;
+    stock_quantity?: number;
+    total_stock?: number;
+    attributes?: Record<string, string>;
   }[];
-  categories?: string[];
+  category?: { id: number; name: string };
+  created_at?: string;
+  updated_at?: string;
 }
 
 interface EMarketResponse {
-  products: EMarketProduct[];
-  total: number;
-  page: number;
-  limit: number;
+  data: EMarketProduct[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    total_pages: number;
+  };
 }
 
 @Injectable()
@@ -82,9 +88,9 @@ export class EMarketService {
       }
 
       const data: EMarketResponse = await response.json();
-      products.push(...data.products);
+      products.push(...data.data);
 
-      if (data.products.length < limit) break;
+      if (page >= data.pagination.total_pages) break;
       page++;
     }
 
@@ -103,25 +109,22 @@ export class EMarketService {
       product: {
         name: ext.name,
         description: ext.description || null,
-        shortDescription: ext.shortDescription || null,
+        shortDescription: ext.short_description || null,
         source: EcommercePlatform.EMARKET,
         externalId: String(ext.id),
-        externalUrl: ext.url || null,
+        externalUrl: null,
         price: ext.price ?? null,
-        compareAtPrice: ext.compareAtPrice ?? null,
+        compareAtPrice: ext.compare_at_price ?? null,
         currency: ext.currency || "XAF",
         sku: ext.sku || null,
-        stockQuantity: ext.stockQuantity ?? null,
-        inStock: ext.inStock ?? true,
-        status:
-          ext.status === "active"
-            ? ProductStatus.ACTIVE
-            : ext.status === "draft"
-              ? ProductStatus.DRAFT
-              : ProductStatus.ARCHIVED,
-        tags: ext.tags || [],
+        stockQuantity: ext.stock_quantity ?? ext.total_stock ?? null,
+        inStock: ext.in_stock ?? true,
+        status: ext.is_active ? ProductStatus.ACTIVE : ProductStatus.ARCHIVED,
+        tags: [],
         metadata: {
-          categories: ext.categories || [],
+          category: ext.category ? ext.category.name : null,
+          productType: ext.product_type || null,
+          taxRate: ext.tax_rate ?? null,
         },
       },
       variants: (ext.variants || []).map((v, i) => ({
@@ -129,19 +132,21 @@ export class EMarketService {
         sku: v.sku || null,
         price: v.price ?? null,
         compareAtPrice: null,
-        stockQuantity: v.stockQuantity ?? null,
-        inStock: v.inStock ?? true,
+        stockQuantity: v.stock_quantity ?? v.total_stock ?? null,
+        inStock: (v.stock_quantity ?? v.total_stock ?? 0) > 0,
         externalId: String(v.id),
-        options: v.options || {},
+        options: v.attributes || {},
         imageUrl: null,
         sortOrder: i,
       })),
-      images: (ext.images || []).map((img, i) => ({
-        url: img.url,
-        altText: img.alt || null,
-        sortOrder: i,
-        isPrimary: img.isPrimary ?? i === 0,
-      })),
+      images: (ext.images || [])
+        .sort((a, b) => a.position - b.position)
+        .map((img, i) => ({
+          url: img.url,
+          altText: null,
+          sortOrder: img.position,
+          isPrimary: i === 0,
+        })),
     };
   }
 

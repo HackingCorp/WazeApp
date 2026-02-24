@@ -189,7 +189,7 @@ export class AiAgentController {
     @CurrentUser() user: User,
     @Param("id", ParseUUIDPipe) id: string,
   ) {
-    await this.aiAgentService.delete(user.currentOrganizationId, user.id, id);
+    await this.aiAgentService.delete(user.currentOrganizationId || (user as any).organizationId || null, user.id, id);
     return { message: "AI agent deleted successfully" };
   }
 
@@ -208,7 +208,7 @@ export class AiAgentController {
     @Body() generateDto: GenerateFaqDto,
   ) {
     return this.aiAgentService.generateFaq(
-      user.currentOrganizationId,
+      user.currentOrganizationId || (user as any).organizationId || null,
       id,
       generateDto,
     );
@@ -223,7 +223,7 @@ export class AiAgentController {
     @Param("id", ParseUUIDPipe) id: string,
   ) {
     return this.aiAgentService.debugCatalog(
-      user.currentOrganizationId,
+      user.currentOrganizationId || (user as any).organizationId || null,
       id,
     );
   }
@@ -243,7 +243,7 @@ export class AiAgentController {
     @Body() testDto: TestAgentDto,
   ) {
     return this.aiAgentService.testAgent(
-      user.currentOrganizationId,
+      user.currentOrganizationId || (user as any).organizationId || null,
       id,
       testDto,
     );

@@ -111,32 +111,54 @@ export class EMarketService {
   async fetchAllProducts(store: EcommerceStore): Promise<EMarketProduct[]> {
     const products: EMarketProduct[] = [];
     let page = 1;
-    const limit = 10;
+    const limit = 5;
+    let totalPages = 1;
+    let failedPages = 0;
     const baseUrl = store.storeUrl.replace(/\/$/, "");
     const headers = { "X-API-Key": store.credentials.apiKey };
 
-    while (true) {
-      const response = await this.fetchWithRetry(
-        `${baseUrl}/products?page=${page}&limit=${limit}`,
-        headers,
-      );
+    while (page <= totalPages) {
+      try {
+        const response = await this.fetchWithRetry(
+          `${baseUrl}/products?page=${page}&limit=${limit}`,
+          headers,
+        );
 
-      if (!response.ok) {
-        throw new Error(`E-Market API error: ${response.statusText}`);
+        if (!response.ok) {
+          this.logger.warn(
+            `E-Market sync: page ${page} failed with ${response.status}, skipping...`,
+          );
+          failedPages++;
+          page++;
+          await new Promise((r) => setTimeout(r, 5000));
+          continue;
+        }
+
+        const data: EMarketResponse = await response.json();
+        products.push(...data.data);
+        totalPages = data.pagination.total_pages;
+
+        this.logger.log(
+          `E-Market sync: fetched page ${page}/${totalPages} (${products.length}/${data.pagination.total} products)`,
+        );
+      } catch (error) {
+        this.logger.warn(
+          `E-Market sync: page ${page} error: ${error instanceof Error ? error.message : error}, skipping...`,
+        );
+        failedPages++;
       }
 
-      const data: EMarketResponse = await response.json();
-      products.push(...data.data);
-
-      this.logger.log(
-        `E-Market sync: fetched page ${page}/${data.pagination.total_pages} (${products.length}/${data.pagination.total} products)`,
-      );
-
-      if (page >= data.pagination.total_pages) break;
       page++;
+      // Longer delay between pages to give the API time to recover
+      await new Promise((r) => setTimeout(r, 3000));
+    }
 
-      // Delay between pages to avoid overwhelming the API
-      await new Promise((r) => setTimeout(r, 1000));
+    this.logger.log(
+      `E-Market sync: completed with ${products.length} products fetched, ${failedPages} pages failed`,
+    );
+
+    if (products.length === 0) {
+      throw new Error("E-Market sync: no products fetched, all pages failed");
     }
 
     return products;

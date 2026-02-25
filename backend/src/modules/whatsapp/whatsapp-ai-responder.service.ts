@@ -1982,22 +1982,22 @@ EXEMPLES DE CONTEXTE:
           }
         }
 
-        // Send product images as WhatsApp media — ONLY for products the AI actually mentioned
+        // Send product images as WhatsApp media — ONLY for products the AI actually mentioned by name
         if (foundProducts && foundProducts.length > 0) {
-          const responseTextLower = cleanText.toLowerCase();
-          // Filter to products whose name appears in the AI response text
+          const normalize = (s: string) => s.toLowerCase().replace(/[–—\-,;:!?.'\"&()\[\]{}*_]/g, ' ').replace(/\s+/g, ' ').trim();
+          const responseNorm = normalize(cleanText);
           const mentionedProducts = foundProducts.filter(p => {
             if (!p.images?.length) return false;
-            const nameLower = p.name?.toLowerCase() || '';
-            // Check if the product name (or a significant part of it) is mentioned in the response
-            // Use the first 3+ words or the full name if short
-            const nameWords = nameLower.split(/\s+/).filter(w => w.length > 2);
-            if (nameWords.length <= 2) {
-              return responseTextLower.includes(nameLower);
+            const nameNorm = normalize(p.name || '');
+            // Direct full name substring match
+            if (responseNorm.includes(nameNorm)) return true;
+            // Try progressively shorter prefixes of the product name (contiguous words)
+            const nameWords = nameNorm.split(' ').filter(w => w.length > 1);
+            for (let len = nameWords.length; len >= Math.min(3, nameWords.length); len--) {
+              const prefix = nameWords.slice(0, len).join(' ');
+              if (prefix.length >= 8 && responseNorm.includes(prefix)) return true;
             }
-            // For longer names, check if at least 2 significant words appear
-            const matchCount = nameWords.filter(w => responseTextLower.includes(w)).length;
-            return matchCount >= Math.min(2, nameWords.length);
+            return false;
           });
 
           this.logger.log(`[ProductImages] ${foundProducts.length} found, ${mentionedProducts.length} mentioned in AI response`);

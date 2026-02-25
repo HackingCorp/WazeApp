@@ -55,15 +55,16 @@ export class ProductSearchService {
   // Patterns that indicate a general catalog browsing question (not searching for a specific product)
   private readonly generalCatalogPatterns = [
     // French
-    /quel(?:s|les?)?\s+(?:produit|article|service)/i,
+    /quel(?:s|les?)?\s+(?:produit|article|service|modèle|modele)/i,
     /avez[- ]vous\s+(?:des\s+)?(?:produit|article|service)/i,
     /(?:montrez|voir|consulter|afficher)\s+(?:le\s+)?(?:catalogue|produit|article|service)/i,
-    /(?:qu'est-ce que|que)\s+(?:vous\s+)?(?:vendez|proposez|offrez)/i,
+    /(?:qu'est-ce que|que)\s+(?:vous\s+)?(?:vendez|proposez|offrez|avez)/i,
     /(?:liste|lister)\s+(?:des\s+|les\s+)?(?:produit|article|service)/i,
     /(?:tout|tous)\s+(?:les|vos)\s+(?:produit|article|service)/i,
     /en\s+stock/i,
     /votre\s+(?:catalogue|boutique|magasin|offre)/i,
     /vos\s+(?:produit|article|service|offre|prestation)/i,
+    /(?:qu.est.ce qui est)\s+disponible/i,
     // English
     /what\s+(?:product|item|service)s?\s+(?:do you|are)/i,
     /(?:show|list|see|view|browse)\s+(?:all\s+)?(?:product|item|catalog|service)/i,
@@ -125,14 +126,26 @@ export class ProductSearchService {
       "please", "thanks", "thank",
     ]);
 
-    // Also exclude the product trigger keywords themselves
+    // Also exclude the product trigger keywords themselves (including plurals)
     const triggerWords = new Set(this.productKeywords);
+    // Add common plural/variant forms
+    for (const kw of this.productKeywords) {
+      triggerWords.add(kw + "s");
+      triggerWords.add(kw + "es");
+    }
+    // Add extra stop words for product search context
+    const extraStops = new Set([
+      "besoin", "bonjour", "bonsoir", "salut", "hello", "hey",
+      "oui", "non", "bon", "merci", "svp",
+      "modèle", "modele", "modèles", "modeles",
+      "quelles", "quel", "quelle",
+    ]);
 
     return message
       .toLowerCase()
       .replace(/[?!.,;:'"()\[\]{}]/g, " ")
       .split(/\s+/)
-      .filter(word => word.length > 2 && !stopWords.has(word) && !triggerWords.has(word));
+      .filter(word => word.length > 2 && !stopWords.has(word) && !triggerWords.has(word) && !extraStops.has(word));
   }
 
   async searchProducts(

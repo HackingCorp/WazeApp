@@ -1535,32 +1535,40 @@ Always respond directly in the user's language without any formatting.`,
       const catalogIds = agent.catalogs?.map(c => c.id) || [];
       const hasEcommerce = catalogIds.length > 0 || agent.ecommerceEnabled;
       if (hasEcommerce) {
-        if (this.productSearchService.isProductQuery(userMessage)) {
-          try {
-            this.logger.log(`Searching product catalog for: "${userMessage}" (catalogIds: ${JSON.stringify(catalogIds)})`);
-            let products = await this.productSearchService.searchProducts(
+        // Always search products when e-commerce is enabled (don't gate on isProductQuery)
+        // Build search query using current message + recent conversation context
+        const recentUserMessages = recentMessages
+          .filter(m => m.role === 'user')
+          .slice(0, 3)
+          .map(m => m.content)
+          .reverse();
+        const searchQuery = recentUserMessages.length > 1
+          ? recentUserMessages.join(' ') // combine last few user messages for context
+          : userMessage;
+        try {
+          this.logger.log(`Searching product catalog for: "${searchQuery.substring(0, 100)}" (catalogIds: ${JSON.stringify(catalogIds)})`);
+          let products = await this.productSearchService.searchProducts(
+            agent.organizationId,
+            searchQuery,
+            10,
+            catalogIds.length > 0 ? catalogIds : undefined,
+          );
+          // Fallback: if no products found with storeIds filter, try without
+          if (products.length === 0 && catalogIds.length > 0) {
+            this.logger.log(`No products with catalog filter, retrying without filter`);
+            products = await this.productSearchService.searchProducts(
               agent.organizationId,
-              userMessage,
+              searchQuery,
               10,
-              catalogIds.length > 0 ? catalogIds : undefined,
             );
-            // Fallback: if no products found with storeIds filter, try without
-            if (products.length === 0 && catalogIds.length > 0) {
-              this.logger.log(`No products with catalog filter, retrying without filter`);
-              products = await this.productSearchService.searchProducts(
-                agent.organizationId,
-                userMessage,
-                10,
-              );
-            }
-            if (products.length > 0) {
-              foundProducts = products;
-              productContext = this.productSearchService.formatProductsForPrompt(products);
-              this.logger.log(`Found ${products.length} products for AI context`);
-            }
-          } catch (error) {
-            this.logger.warn(`Product search failed: ${error.message}`);
           }
+          if (products.length > 0) {
+            foundProducts = products;
+            productContext = this.productSearchService.formatProductsForPrompt(products);
+            this.logger.log(`Found ${products.length} products for AI context`);
+          }
+        } catch (error) {
+          this.logger.warn(`Product search failed: ${error.message}`);
         }
       }
 

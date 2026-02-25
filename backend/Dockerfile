@@ -26,6 +26,9 @@ COPY tsconfig*.json ./
 # Copy source code
 COPY src/ ./src/
 
+# Ensure SWC native binary is properly installed for Alpine/musl
+RUN npm rebuild @swc/core 2>/dev/null || true
+
 # Build with SWC (faster than tsc, configured in nest-cli.json)
 RUN NODE_OPTIONS="--max-old-space-size=2048" npx nest build
 

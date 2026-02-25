@@ -80,9 +80,11 @@ export default function ProductsPage() {
         limit,
       });
       if (response.success && response.data) {
-        const data = response.data.data || response.data;
-        setProducts(Array.isArray(data) ? data : data.items || []);
-        const total = data.total || data.length || 0;
+        const data = response.data;
+        const items = Array.isArray(data) ? data : (data.data || data.items || []);
+        // Use pagination metadata from API response (preserved from backend { data, total, page, limit })
+        const total = response.total || (Array.isArray(data) ? data.length : (data.total || items.length || 0));
+        setProducts(items);
         setTotalPages(Math.ceil(total / limit) || 1);
       }
     } catch (error) {

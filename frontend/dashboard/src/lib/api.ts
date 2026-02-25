@@ -16,6 +16,9 @@ interface ApiResponse<T = any> {
   data: T;
   message?: string;
   error?: string;
+  total?: number;
+  page?: number;
+  limit?: number;
 }
 
 class ApiClient {
@@ -81,6 +84,9 @@ class ApiClient {
         success: true,
         data: data.data || data,
         message: data.message,
+        total: data.total,
+        page: data.page,
+        limit: data.limit,
       };
     } catch (error) {
       console.error(`API request failed: ${endpoint}`, error);

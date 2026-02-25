@@ -1016,7 +1016,7 @@ Guidelines:
       );
     }
 
-    // Parse [IMAGE:slug] tags from LLM response
+    // Parse [IMAGE:slug] tags from LLM response (Knowledge Base images)
     const imageTagRegex = /\[IMAGE:([^\]]+)\]/g;
     let cleanResponse = response;
     let imageMatch;
@@ -1039,39 +1039,39 @@ Guidelines:
       } catch (e) { /* ignore */ }
       cleanResponse = cleanResponse.replace(imageMatch[0], '').trim();
     }
-    response = cleanResponse;
 
-    // Add product images ONLY for products the AI actually mentioned by name in its response
+    // Parse [PRODUCT_IMAGE:N] tags from LLM response (product catalog images)
+    // The AI decides which product images to show — only products it actively presents
     if (foundProducts.length > 0) {
-      const normalize = (s: string) => s.toLowerCase().replace(/[–—\-,;:!?.'\"&()\[\]{}*_]/g, ' ').replace(/\s+/g, ' ').trim();
-      const responseNorm = normalize(response);
-      const mentionedProducts = foundProducts.filter(p => {
-        if (!p.images?.length) return false;
-        const nameNorm = normalize(p.name || '');
-        // Direct full name substring match
-        if (responseNorm.includes(nameNorm)) return true;
-        // Try progressively shorter prefixes of the product name (contiguous words)
-        const nameWords = nameNorm.split(' ').filter(w => w.length > 1);
-        for (let len = nameWords.length; len >= Math.min(3, nameWords.length); len--) {
-          const prefix = nameWords.slice(0, len).join(' ');
-          if (prefix.length >= 8 && responseNorm.includes(prefix)) return true;
+      const productImageRegex = /\[PRODUCT_IMAGE:(\d+)\]/g;
+      let productMatch;
+      const shownProductIndices = new Set<number>();
+      while ((productMatch = productImageRegex.exec(cleanResponse)) !== null) {
+        const idx = parseInt(productMatch[1], 10) - 1; // 1-based in prompt → 0-based
+        if (idx >= 0 && idx < foundProducts.length) {
+          shownProductIndices.add(idx);
         }
-        return false;
-      });
+        cleanResponse = cleanResponse.replace(productMatch[0], '').trim();
+      }
 
-      this.logger.log(`[TestAgent] Products: ${foundProducts.length} found, ${mentionedProducts.length} mentioned in AI response`);
+      this.logger.log(`[TestAgent] Products: ${foundProducts.length} found, AI requested images for ${shownProductIndices.size} products`);
 
-      for (const product of mentionedProducts.slice(0, 5)) {
-        const primaryImg = product.images.find((img: any) => img.isPrimary) || product.images[0];
-        if (primaryImg?.url) {
-          mediaItems.push({
-            type: 'image',
-            url: primaryImg.url,
-            caption: `${product.name}${product.price ? ` - ${product.price} ${product.currency}` : ''}`,
-          });
+      for (const idx of shownProductIndices) {
+        const product = foundProducts[idx];
+        if (product.images?.length > 0) {
+          const primaryImg = product.images.find((img: any) => img.isPrimary) || product.images[0];
+          if (primaryImg?.url) {
+            mediaItems.push({
+              type: 'image',
+              url: primaryImg.url,
+              caption: `${product.name}${product.price ? ` - ${product.price} ${product.currency}` : ''}`,
+            });
+          }
         }
       }
     }
+
+    response = cleanResponse;
 
     const responseTime = Date.now() - startTime;
 

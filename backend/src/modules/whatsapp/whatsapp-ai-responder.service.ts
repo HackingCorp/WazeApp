@@ -1930,9 +1930,9 @@ EXEMPLES DE CONTEXTE:
       // Send response via WhatsApp
       try {
         // Parse image tags from AI response
-        const { cleanText, imageSlugs } = this.parseImageTags(response.content);
+        const { cleanText, imageSlugs, productImageIndices } = this.parseImageTags(response.content);
 
-        this.logger.log(`📷 Image tags found: ${imageSlugs.length > 0 ? imageSlugs.join(', ') : 'none'}`);
+        this.logger.log(`📷 Image tags: KB=${imageSlugs.length}, Products=${productImageIndices.length}`);
 
         // Convert markdown to WhatsApp format (use clean text without image tags)
         const whatsappMessage = this.convertToWhatsAppFormat(cleanText);
@@ -1965,7 +1965,7 @@ EXEMPLES DE CONTEXTE:
           `AI response sent successfully to ${fromNumber}: "${cleanText.substring(0, 50)}..."`,
         );
 
-        // Send images based on [IMAGE:slug] tags found in AI response
+        // Send images based on [IMAGE:slug] tags found in AI response (Knowledge Base)
         if (imageSlugs.length > 0) {
           for (const slug of imageSlugs) {
             try {
@@ -1982,40 +1982,28 @@ EXEMPLES DE CONTEXTE:
           }
         }
 
-        // Send product images as WhatsApp media — ONLY for products the AI actually mentioned by name
-        if (foundProducts && foundProducts.length > 0) {
-          const normalize = (s: string) => s.toLowerCase().replace(/[–—\-,;:!?.'\"&()\[\]{}*_]/g, ' ').replace(/\s+/g, ' ').trim();
-          const responseNorm = normalize(cleanText);
-          const mentionedProducts = foundProducts.filter(p => {
-            if (!p.images?.length) return false;
-            const nameNorm = normalize(p.name || '');
-            // Direct full name substring match
-            if (responseNorm.includes(nameNorm)) return true;
-            // Try progressively shorter prefixes of the product name (contiguous words)
-            const nameWords = nameNorm.split(' ').filter(w => w.length > 1);
-            for (let len = nameWords.length; len >= Math.min(3, nameWords.length); len--) {
-              const prefix = nameWords.slice(0, len).join(' ');
-              if (prefix.length >= 8 && responseNorm.includes(prefix)) return true;
-            }
-            return false;
-          });
+        // Send product images based on [PRODUCT_IMAGE:N] tags — AI decides which products to show
+        if (foundProducts && foundProducts.length > 0 && productImageIndices.length > 0) {
+          this.logger.log(`[ProductImages] AI requested ${productImageIndices.length} product images out of ${foundProducts.length} found`);
 
-          this.logger.log(`[ProductImages] ${foundProducts.length} found, ${mentionedProducts.length} mentioned in AI response`);
-
-          const productsToSend = mentionedProducts.slice(0, 3);
-          for (const product of productsToSend) {
-            const primaryImage = product.images.find(img => img.isPrimary) || product.images[0];
-            if (primaryImage?.url) {
-              try {
-                await this.baileysService.sendMessage(session.id, {
-                  to: fromNumber,
-                  message: primaryImage.url,
-                  type: 'image',
-                  mediaUrl: primaryImage.url,
-                  caption: `${product.name}${product.price ? ` - ${product.price} ${product.currency}` : ''}`,
-                });
-              } catch (imgError) {
-                this.logger.warn(`Failed to send product image for ${product.name}: ${imgError.message}`);
+          for (const idx of productImageIndices.slice(0, 3)) {
+            if (idx < foundProducts.length) {
+              const product = foundProducts[idx];
+              if (product.images?.length > 0) {
+                const primaryImage = product.images.find(img => img.isPrimary) || product.images[0];
+                if (primaryImage?.url) {
+                  try {
+                    await this.baileysService.sendMessage(session.id, {
+                      to: fromNumber,
+                      message: primaryImage.url,
+                      type: 'image',
+                      mediaUrl: primaryImage.url,
+                      caption: `${product.name}${product.price ? ` - ${product.price} ${product.currency}` : ''}`,
+                    });
+                  } catch (imgError) {
+                    this.logger.warn(`Failed to send product image for ${product.name}: ${imgError.message}`);
+                  }
+                }
               }
             }
           }
@@ -2548,23 +2536,35 @@ EXEMPLE DE BONNE RÉPONSE AUTOMATIQUE:
   /**
    * Parse [IMAGE:slug], [VIDEO:slug], and [AUDIO:slug] tags from AI response and return clean text + media slugs
    */
-  private parseImageTags(response: string): { cleanText: string; imageSlugs: string[] } {
+  private parseImageTags(response: string): { cleanText: string; imageSlugs: string[]; productImageIndices: number[] } {
     const mediaTagRegex = /\[(?:IMAGE|VIDEO|AUDIO):([^\]]+)\]/gi;
+    const productImageRegex = /\[PRODUCT_IMAGE:(\d+)\]/gi;
     const imageSlugs: string[] = [];
+    const productImageIndices: number[] = [];
 
-    // Extract all media slugs
+    // Extract all media slugs (KB images)
     let match;
     while ((match = mediaTagRegex.exec(response)) !== null) {
       imageSlugs.push(match[1].trim().toLowerCase());
     }
 
-    // Remove tags from response
+    // Extract product image indices (1-based from AI → 0-based)
+    let productMatch;
+    while ((productMatch = productImageRegex.exec(response)) !== null) {
+      const idx = parseInt(productMatch[1], 10) - 1;
+      if (idx >= 0 && !productImageIndices.includes(idx)) {
+        productImageIndices.push(idx);
+      }
+    }
+
+    // Remove all tags from response
     const cleanText = response
       .replace(mediaTagRegex, '')
-      .replace(/\n{3,}/g, '\n\n') // Clean up extra newlines
+      .replace(productImageRegex, '')
+      .replace(/\n{3,}/g, '\n\n')
       .trim();
 
-    return { cleanText, imageSlugs };
+    return { cleanText, imageSlugs, productImageIndices };
   }
 
   /**

@@ -272,6 +272,7 @@ export class ProductSearchService {
     products.forEach((product, i) => {
       result += `--- Product ${i + 1} ---\n`;
       result += `Name: ${product.name}\n`;
+      result += `Image Tag: [PRODUCT_IMAGE:${i + 1}]\n`;
 
       if (product.description) {
         const desc =
@@ -316,21 +317,15 @@ export class ProductSearchService {
         result += `Link: ${product.externalUrl}\n`;
       }
 
-      if (product.images?.length > 0) {
-        const sorted = [...product.images].sort(
-          (a, b) => (b.isPrimary ? 1 : 0) - (a.isPrimary ? 1 : 0),
-        );
-        result += `Images:\n`;
-        sorted.forEach((img) => {
-          result += `  - ${img.isPrimary ? "[PRIMARY] " : ""}${img.url}${img.altText ? ` (${img.altText})` : ""}\n`;
-        });
-      }
-
       result += "\n";
     });
 
     result +=
-      "=== END CATALOG ===\n\nCRITICAL INSTRUCTIONS: You MUST use the products listed above to answer the customer. These are YOUR products that you sell. Present matching products with their exact names, prices, and stock status. NEVER claim you don't have a product if it appears in the catalog above.\n";
+      "=== END CATALOG ===\n\nCRITICAL INSTRUCTIONS:\n" +
+      "- You MUST use the products listed above to answer the customer. Present matching products with their exact names, prices, and stock status.\n" +
+      "- NEVER claim you don't have a product if it appears in the catalog above.\n" +
+      "- When you present a product to the customer, include its image tag (e.g. [PRODUCT_IMAGE:1]) in your response so the customer can see the product photo.\n" +
+      "- ONLY include image tags for products you are actively presenting or discussing. Do NOT include image tags for products you are not talking about.\n";
 
     return result;
   }

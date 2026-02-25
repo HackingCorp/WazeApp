@@ -977,6 +977,23 @@ Guidelines:
     // This ensures the LLM treats it as the actual product catalog, not just reference info
     if (productContext) {
       systemPrompt += `\n\n${productContext}`;
+
+      // Add ORDER instructions for e-commerce agents
+      systemPrompt += `\n\nORDER CREATION VIA WHATSAPP:
+You are communicating with the customer via WhatsApp. There is NO website, NO shopping cart, NO online checkout.
+The entire ordering process happens through this conversation.
+
+When a customer wants to buy a product:
+1. Confirm the product, variant, and quantity with the customer
+2. Ask for their full name (if not already known)
+3. Ask for their delivery address (city, neighborhood/street)
+4. Ask for their preferred payment method (Mobile Money, cash on delivery, etc.)
+5. Once all information is collected, confirm the order summary
+
+IMPORTANT RULES:
+- NEVER mention a shopping cart, checkout page, website, or "add to cart" button — the customer is on WhatsApp
+- The ordering process is conversational: collect information step by step through messages
+- Use exact product names from the catalog`;
     }
 
     // Build messages array: system prompt + conversation history + new user message

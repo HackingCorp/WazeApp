@@ -1621,17 +1621,26 @@ Do NOT escalate for simple questions you can answer from the knowledge base.`;
 
       // Add ORDER instructions only if agent has actual catalogs linked
       if (catalogIds.length > 0) {
-        systemPrompt += `\n\nORDER CREATION:
-When a customer confirms they want to purchase products, create an order by including a structured tag in your response.
-Format: [ORDER]{"items":[{"productName":"Product Name","variantName":"Variant (optional)","quantity":1}],"clientName":"Customer Name (if known)","deliveryAddress":{"street":"...","city":"..."},"notes":"Any special instructions"}[/ORDER]
+        systemPrompt += `\n\nORDER CREATION VIA WHATSAPP:
+You are communicating with the customer via WhatsApp. There is NO website, NO shopping cart, NO online checkout.
+The entire ordering process happens through this WhatsApp conversation.
+
+When a customer wants to buy a product:
+1. Confirm the product, variant, and quantity with the customer
+2. Ask for their full name (if not already known)
+3. Ask for their delivery address (city, neighborhood/street)
+4. Ask for their preferred payment method (Mobile Money, cash on delivery, etc.)
+5. Once all information is collected, create the order using the tag below
+
+Format: [ORDER]{"items":[{"productName":"Product Name","variantName":"Variant (optional)","quantity":1}],"clientName":"Customer Name","deliveryAddress":{"street":"...","city":"..."},"notes":"Any special instructions"}[/ORDER]
 
 IMPORTANT RULES:
-- Only create an order when the customer EXPLICITLY confirms they want to buy
+- NEVER mention a shopping cart, checkout page, website, or "add to cart" button — the customer is on WhatsApp
+- Only create the [ORDER] tag when you have: product confirmed, customer name, and delivery address
 - Include ALL products the customer wants in a single order
 - Use exact product names from the catalog
-- Ask for delivery address if needed before creating the order
 - You can include the order tag alongside your confirmation message
-- If a product has an external URL, mention it so the customer can also buy directly`;
+- If a product has an external URL, you may share it as additional information`;
       }
 
       // Add APPOINTMENT instructions if appointments are enabled

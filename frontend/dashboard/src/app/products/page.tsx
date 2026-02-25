@@ -35,7 +35,7 @@ interface Product {
   inStock: boolean;
   status: 'active' | 'draft' | 'archived';
   type?: 'product' | 'service';
-  source: 'manual' | 'shopify' | 'woocommerce';
+  source: 'manual' | 'shopify' | 'woocommerce' | 'emarket';
   images?: { url: string; isPrimary: boolean }[];
   categories?: { id: string; name: string }[];
   createdAt: string;
@@ -46,6 +46,7 @@ interface ProductStats {
   active: number;
   fromShopify: number;
   fromWooCommerce: number;
+  fromEmarket: number;
 }
 
 export default function ProductsPage() {
@@ -97,7 +98,16 @@ export default function ProductsPage() {
     try {
       const response = await api.getProductStats();
       if (response.success && response.data) {
-        setStats(response.data.data || response.data);
+        const raw = response.data.data || response.data;
+        // Map bySource to expected fields
+        const bySource = raw.bySource || {};
+        setStats({
+          total: raw.total || 0,
+          active: raw.active || 0,
+          fromShopify: bySource.shopify || raw.fromShopify || 0,
+          fromWooCommerce: bySource.woocommerce || raw.fromWooCommerce || 0,
+          fromEmarket: bySource.emarket || raw.fromEmarket || 0,
+        });
       }
     } catch (error) {
       if (process.env.NODE_ENV === 'development') {
@@ -215,6 +225,12 @@ export default function ProductsPage() {
             {t('products.woocommerce')}
           </span>
         );
+      case 'emarket':
+        return (
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200">
+            E-Market
+          </span>
+        );
       default:
         return (
           <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200">
@@ -321,6 +337,17 @@ export default function ProductsPage() {
                 <Store className="w-8 h-8 text-indigo-500" />
               </div>
             </div>
+            {(stats.fromEmarket > 0) && (
+              <div className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-sm">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Depuis E-Market</p>
+                    <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.fromEmarket}</p>
+                  </div>
+                  <ShoppingCart className="w-8 h-8 text-orange-500" />
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -361,6 +388,7 @@ export default function ProductsPage() {
                 <option value="manual">{t('products.manual')}</option>
                 <option value="shopify">{t('products.shopify')}</option>
                 <option value="woocommerce">{t('products.woocommerce')}</option>
+                <option value="emarket">E-Market</option>
               </select>
             </div>
             <div className="lg:w-48">

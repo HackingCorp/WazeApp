@@ -86,7 +86,7 @@ export class EMarketService {
         });
         clearTimeout(timeout);
 
-        if ((response.status >= 500 || response.status === 404) && attempt < retries) {
+        if ((response.status >= 500 || response.status === 404 || response.status === 401) && attempt < retries) {
           this.logger.warn(
             `E-Market API returned ${response.status} for ${url}, retrying (${attempt}/${retries})...`,
           );

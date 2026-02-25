@@ -141,11 +141,34 @@ export class ProductSearchService {
       "quelles", "quel", "quelle",
     ]);
 
-    return message
+    const words = message
       .toLowerCase()
       .replace(/[?!.,;:'"()\[\]{}]/g, " ")
       .split(/\s+/)
       .filter(word => word.length > 2 && !stopWords.has(word) && !triggerWords.has(word) && !extraStops.has(word));
+
+    // Stem each word to its root form for better matching
+    // e.g., "drones" → "drone", "sacs" → "sac", "chaussures" → "chaussur"
+    return words.map(word => this.stemWord(word));
+  }
+
+  /**
+   * Simple stemming: strip common French/English plural suffixes
+   * to get shorter root that matches both singular and plural via ILIKE
+   * e.g., "drones" → "drone" so %drone% matches "Drone" and "Drones"
+   */
+  private stemWord(word: string): string {
+    // Don't stem very short words
+    if (word.length <= 3) return word;
+
+    // French/English plural suffixes (order matters - check longer suffixes first)
+    if (word.endsWith("eaux")) return word.slice(0, -1);  // chapeaux → chapeau (keep 'eau')
+    if (word.endsWith("aux") && word.length > 4) return word.slice(0, -2);  // animaux → anima (rough but ILIKE will match)
+    if (word.endsWith("ies") && word.length > 4) return word.slice(0, -2);  // batteries → batteri
+    if (word.endsWith("ses") && word.length > 4) return word.slice(0, -2);  // chaussures → keep, but "courses" → "cour" - too aggressive
+    if (word.endsWith("es") && word.length > 4) return word.slice(0, -1);   // drones → drone, chaussures → chaussure
+    if (word.endsWith("s") && !word.endsWith("ss") && word.length > 3) return word.slice(0, -1); // sacs → sac, drones handled above
+    return word;
   }
 
   async searchProducts(

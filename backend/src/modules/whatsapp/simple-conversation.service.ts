@@ -786,7 +786,7 @@ export class SimpleConversationService implements OnModuleDestroy {
         const lastMessages = await this.messageRepository
           .createQueryBuilder('m')
           .where('m.conversationId IN (:...convIds)', { convIds })
-          .andWhere('m.id = (SELECT m2.id FROM agent_message m2 WHERE m2."conversationId" = m."conversationId" ORDER BY m2."createdAt" DESC LIMIT 1)')
+          .andWhere('m.id = (SELECT m2.id FROM agent_messages m2 WHERE m2."conversationId" = m."conversationId" ORDER BY m2."createdAt" DESC LIMIT 1)')
           .getMany();
         for (const msg of lastMessages) {
           lastMessagesMap.set(msg.conversationId, msg);
@@ -1256,7 +1256,7 @@ export class SimpleConversationService implements OnModuleDestroy {
         const lastMessages = await this.messageRepository
           .createQueryBuilder('m')
           .where('m.conversationId IN (:...convIds)', { convIds })
-          .andWhere('m.id = (SELECT m2.id FROM agent_message m2 WHERE m2."conversationId" = m."conversationId" ORDER BY m2."createdAt" DESC LIMIT 1)')
+          .andWhere('m.id = (SELECT m2.id FROM agent_messages m2 WHERE m2."conversationId" = m."conversationId" ORDER BY m2."createdAt" DESC LIMIT 1)')
           .getMany();
         for (const msg of lastMessages) {
           lastMessagesMap.set(msg.conversationId, msg);

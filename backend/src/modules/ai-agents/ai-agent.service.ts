@@ -831,7 +831,7 @@ Guidelines:
 
     const effectiveOrgId = organizationId || agent.organizationId;
     const catalogIds = agent.catalogs?.map(c => c.id) || [];
-    const hasEcommerce = catalogIds.length > 0 || agent.ecommerceEnabled;
+    const hasEcommerce = catalogIds.length > 0;
 
     // Raw DB counts for diagnostics
     let productDiagnostics: Record<string, number> = {};
@@ -938,33 +938,21 @@ Guidelines:
       }
     }
 
-    // Search product catalog if agent has catalogs or ecommerce enabled
+    // Search product catalog ONLY if agent has actual catalogs linked
     let productContext = "";
     let foundProducts: any[] = [];
     const catalogIds = agent.catalogs?.map(c => c.id) || [];
-    const hasEcommerce = catalogIds.length > 0 || agent.ecommerceEnabled;
+    const hasEcommerce = catalogIds.length > 0;
     this.logger.log(`[TestAgent] Agent "${agent.name}": catalogIds=${JSON.stringify(catalogIds)}, ecommerceEnabled=${agent.ecommerceEnabled}, hasEcommerce=${hasEcommerce}, effectiveOrgId=${effectiveOrgId}`);
     if (hasEcommerce) {
       try {
-        // Always search products when ecommerce is enabled (don't gate on isProductQuery for test mode)
-        let products = await this.productSearchService.searchProducts(
+        const products = await this.productSearchService.searchProducts(
           effectiveOrgId,
           testDto.message,
           10,
-          catalogIds.length > 0 ? catalogIds : undefined,
+          catalogIds,
         );
-        this.logger.log(`[TestAgent] searchProducts (with storeIds filter) returned ${products.length} products`);
-
-        // Fallback: if no products found with storeIds filter, try without filter
-        if (products.length === 0 && catalogIds.length > 0) {
-          this.logger.log(`[TestAgent] Retrying searchProducts without storeIds filter...`);
-          products = await this.productSearchService.searchProducts(
-            effectiveOrgId,
-            testDto.message,
-            10,
-          );
-          this.logger.log(`[TestAgent] searchProducts (no filter) returned ${products.length} products`);
-        }
+        this.logger.log(`[TestAgent] searchProducts returned ${products.length} products`);
 
         if (products.length > 0) {
           productContext = this.productSearchService.formatProductsForPrompt(products);

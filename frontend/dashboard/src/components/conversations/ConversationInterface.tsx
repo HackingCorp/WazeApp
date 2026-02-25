@@ -83,11 +83,11 @@ const MessageStatus = React.memo(({ status }: MessageStatusProps) => {
   return (
     <span className="ml-1 inline-flex">
       {status === 'sending' && (
-        <div className="w-3 h-3 rounded-full border border-current border-t-transparent animate-spin" />
+        <div className="w-3 h-3 rounded-full border border-[#667781] border-t-transparent animate-spin" />
       )}
-      {status === 'sent' && <Check className="w-3.5 h-3.5" />}
-      {status === 'delivered' && <CheckCheck className="w-3.5 h-3.5" />}
-      {status === 'read' && <CheckCheck className="w-3.5 h-3.5 text-blue-400" />}
+      {status === 'sent' && <Check className="w-4 h-4 text-[#667781]" />}
+      {status === 'delivered' && <CheckCheck className="w-4 h-4 text-[#667781]" />}
+      {status === 'read' && <CheckCheck className="w-4 h-4 text-[#53bdeb]" />}
       {status === 'failed' && <AlertCircle className="w-4 h-4 text-red-500" />}
     </span>
   );
@@ -109,7 +109,7 @@ const MessageBubble = React.memo(({ message, isFirst, isLast, formatMessageTime,
   if (isSystem) {
     return (
       <div className="flex justify-center my-2">
-        <div className="bg-white/80 dark:bg-gray-700/80 backdrop-blur-sm text-gray-600 dark:text-gray-300 text-xs px-3 py-1.5 rounded-lg shadow-sm">
+        <div className="bg-[#d1f4cc] dark:bg-[#182229] text-[#54656f] dark:text-[#8696a0] text-[11px] px-3 py-1 rounded-md shadow-sm">
           {message.content}
         </div>
       </div>
@@ -256,40 +256,40 @@ const MessageBubble = React.memo(({ message, isFirst, isLast, formatMessageTime,
       isLast && 'mb-3'
     )}>
       <div className={clsx(
-        'relative max-w-[75%] lg:max-w-[65%] px-3 py-2 shadow-sm',
-        isOutgoing && !isOperator && 'bg-emerald-500 dark:bg-emerald-600 text-white',
-        isOperator && 'bg-blue-500 dark:bg-blue-600 text-white',
-        isIncoming && 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white',
-        isOutgoing && isFirst && isLast && 'rounded-2xl rounded-br-md',
-        isOutgoing && isFirst && !isLast && 'rounded-2xl rounded-br-md',
-        isOutgoing && !isFirst && isLast && 'rounded-2xl rounded-br-md',
-        isOutgoing && !isFirst && !isLast && 'rounded-2xl',
-        isIncoming && isFirst && isLast && 'rounded-2xl rounded-bl-md',
-        isIncoming && isFirst && !isLast && 'rounded-2xl rounded-bl-md',
-        isIncoming && !isFirst && isLast && 'rounded-2xl rounded-bl-md',
-        isIncoming && !isFirst && !isLast && 'rounded-2xl',
+        'relative max-w-[75%] lg:max-w-[65%] px-2 py-1.5 shadow-sm text-[14.2px]',
+        isOutgoing && !isOperator && 'bg-[#d9fdd3] dark:bg-[#005c4b] text-[#111b21] dark:text-[#e9edef]',
+        isOperator && 'bg-[#d1e7ff] dark:bg-[#1a3a5c] text-[#111b21] dark:text-[#e9edef]',
+        isIncoming && 'bg-white dark:bg-[#202c33] text-[#111b21] dark:text-[#e9edef]',
+        isOutgoing && isFirst && isLast && 'rounded-lg rounded-tr-none',
+        isOutgoing && isFirst && !isLast && 'rounded-lg rounded-tr-none',
+        isOutgoing && !isFirst && isLast && 'rounded-lg',
+        isOutgoing && !isFirst && !isLast && 'rounded-lg',
+        isIncoming && isFirst && isLast && 'rounded-lg rounded-tl-none',
+        isIncoming && isFirst && !isLast && 'rounded-lg rounded-tl-none',
+        isIncoming && !isFirst && isLast && 'rounded-lg',
+        isIncoming && !isFirst && !isLast && 'rounded-lg',
       )}>
-        {isLast && isOutgoing && !isOperator && (
-          <div className="absolute -right-1 bottom-0 w-3 h-3 overflow-hidden">
-            <div className="absolute -left-2 bottom-0 w-4 h-4 bg-emerald-500 dark:bg-emerald-600 rotate-45 transform origin-bottom-left" />
+        {isFirst && isOutgoing && !isOperator && (
+          <div className="absolute -right-2 top-0 w-2 h-3 overflow-hidden">
+            <div className="absolute left-0 top-0 w-2 h-3 bg-[#d9fdd3] dark:bg-[#005c4b]" style={{ clipPath: 'polygon(0 0, 0 100%, 100% 0)' }} />
           </div>
         )}
-        {isLast && isOperator && (
-          <div className="absolute -right-1 bottom-0 w-3 h-3 overflow-hidden">
-            <div className="absolute -left-2 bottom-0 w-4 h-4 bg-blue-500 dark:bg-blue-600 rotate-45 transform origin-bottom-left" />
+        {isFirst && isOperator && (
+          <div className="absolute -right-2 top-0 w-2 h-3 overflow-hidden">
+            <div className="absolute left-0 top-0 w-2 h-3 bg-[#d1e7ff] dark:bg-[#1a3a5c]" style={{ clipPath: 'polygon(0 0, 0 100%, 100% 0)' }} />
           </div>
         )}
-        {isLast && isIncoming && (
-          <div className="absolute -left-1 bottom-0 w-3 h-3 overflow-hidden">
-            <div className="absolute -right-2 bottom-0 w-4 h-4 bg-white dark:bg-gray-700 rotate-45 transform origin-bottom-right" />
+        {isFirst && isIncoming && (
+          <div className="absolute -left-2 top-0 w-2 h-3 overflow-hidden">
+            <div className="absolute right-0 top-0 w-2 h-3 bg-white dark:bg-[#202c33]" style={{ clipPath: 'polygon(100% 0, 0 0, 100% 100%)' }} />
           </div>
         )}
 
         {renderMessageContent()}
 
         <div className={clsx(
-          'flex items-center justify-end gap-1 mt-1 text-[10px]',
-          isOutgoing ? 'text-white/70' : 'text-gray-500 dark:text-gray-400'
+          'flex items-center justify-end gap-1 mt-0.5 text-[11px]',
+          isOutgoing ? 'text-[#667781] dark:text-[#8696a0]' : 'text-[#667781] dark:text-[#8696a0]'
         )}>
           <span>{formatMessageTime(message.timestamp)}</span>
           {isOutgoing && <MessageStatus status={message.status} />}
@@ -310,8 +310,8 @@ const ContactItem = React.memo(({ contact, isSelected, onClick, formatContactTim
       onClick={onClick}
       aria-selected={isSelected}
       className={clsx(
-        'w-full px-4 py-3 flex items-center gap-3 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors border-b border-gray-100 dark:border-gray-800',
-        isSelected && 'bg-emerald-50 dark:bg-emerald-900/20 hover:bg-emerald-50 dark:hover:bg-emerald-900/20'
+        'w-full px-3 py-3 flex items-center gap-3 hover:bg-[#f5f6f6] dark:hover:bg-[#202c33] transition-colors border-b border-[#e9edef] dark:border-[#222d34]',
+        isSelected && 'bg-[#f0f2f5] dark:bg-[#2a3942] hover:bg-[#f0f2f5] dark:hover:bg-[#2a3942]'
       )}
     >
       {/* Avatar */}
@@ -332,21 +332,23 @@ const ContactItem = React.memo(({ contact, isSelected, onClick, formatContactTim
         <div className={clsx(
           "w-12 h-12 rounded-full flex items-center justify-center text-white font-semibold text-sm",
           contact.isGroup
-            ? "bg-gradient-to-br from-blue-400 to-purple-500"
-            : "bg-gradient-to-br from-emerald-400 to-teal-500",
+            ? "bg-[#6a7175]"
+            : "bg-[#dfe5e7] dark:bg-[#6a7175]",
           contact.avatar && "hidden"
         )}>
-          {contact.isGroup ? '👥' : contact.name.substring(0, 2).toUpperCase()}
+          <span className={clsx(!contact.isGroup && "text-[#cfd4d6] dark:text-white text-lg")}>
+            {contact.isGroup ? '👥' : contact.name.substring(0, 2).toUpperCase()}
+          </span>
         </div>
         {!contact.isGroup && contact.isOnline && (
-          <div className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-emerald-400 border-2 border-white dark:border-gray-900 rounded-full" />
+          <div className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-[#25d366] border-2 border-white dark:border-[#111b21] rounded-full" />
         )}
       </div>
 
       {/* Content */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between gap-2">
-          <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+          <p className="text-[16px] font-normal text-[#111b21] dark:text-[#e9edef] truncate">
             {contact.name}
           </p>
           {contact.isHumanControlled && (
@@ -357,22 +359,22 @@ const ContactItem = React.memo(({ contact, isSelected, onClick, formatContactTim
           {contact.lastMessageTime && (
             <p className={clsx(
               'text-xs flex-shrink-0',
-              contact.unreadCount > 0 ? 'text-emerald-600 dark:text-emerald-400 font-medium' : 'text-gray-500 dark:text-gray-400'
+              contact.unreadCount > 0 ? 'text-[#25d366] dark:text-[#00a884] font-medium' : 'text-[#667781] dark:text-[#8696a0]'
             )}>
               {formatContactTime(contact.lastMessageTime)}
             </p>
           )}
         </div>
         <div className="flex items-center justify-between gap-2 mt-0.5">
-          <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
+          <p className="text-[13px] text-[#667781] dark:text-[#8696a0] truncate">
             {contact.isTyping ? (
-              <span className="text-emerald-600 dark:text-emerald-400 italic">{t('conversations.typing')}</span>
+              <span className="text-[#25d366] dark:text-[#00a884] italic">{t('conversations.typing')}</span>
             ) : (
               contact.lastMessage || contact.phone
             )}
           </p>
           {contact.unreadCount > 0 && (
-            <span className="flex-shrink-0 bg-emerald-500 text-white text-xs font-medium rounded-full min-w-[20px] h-5 flex items-center justify-center px-1.5">
+            <span className="flex-shrink-0 bg-[#25d366] dark:bg-[#00a884] text-white text-[11px] font-medium rounded-full min-w-[20px] h-[20px] flex items-center justify-center px-1">
               {contact.unreadCount > 99 ? '99+' : contact.unreadCount}
             </span>
           )}
@@ -533,47 +535,49 @@ export function ConversationInterface({
     <div className="flex h-full overflow-hidden">
       {/* Contacts Sidebar */}
       <div className={clsx(
-        "h-full bg-white dark:bg-gray-800 flex flex-col overflow-hidden shadow-sm transition-all",
-        "md:w-[340px]",
+        "h-full bg-white dark:bg-[#111b21] flex flex-col overflow-hidden transition-all",
+        "md:w-[340px] border-r border-[#e9edef] dark:border-[#222d34]",
         showSidebar ? "w-full" : "hidden md:block"
       )}>
         {/* Sidebar Header */}
-        <div className="p-4 bg-emerald-600 dark:bg-emerald-700">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-white">
+        <div className="bg-[#f0f2f5] dark:bg-[#202c33]">
+          <div className="flex items-center justify-between px-4 py-3">
+            <h2 className="text-[16px] font-semibold text-[#111b21] dark:text-[#e9edef]">
               {t('conversations.conversations')}
             </h2>
             <button
-              className="p-2 hover:bg-white/10 rounded-full transition-colors"
+              className="p-2 hover:bg-[#e9edef] dark:hover:bg-[#374248] rounded-full transition-colors"
               aria-label="Settings"
             >
-              <Settings className="w-5 h-5 text-white/80" />
+              <Settings className="w-5 h-5 text-[#54656f] dark:text-[#aebac1]" />
             </button>
           </div>
 
           {/* Search */}
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-emerald-200" />
-            <input
-              type="text"
-              placeholder={t('conversations.searchContacts')}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              aria-label={t('conversations.searchContacts')}
-              className="w-full pl-10 pr-4 py-2.5 bg-white/10 rounded-xl text-white placeholder-emerald-200 focus:outline-none focus:bg-white/20 transition-colors"
-            />
+          <div className="px-3 pb-2">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[#54656f] dark:text-[#8696a0]" />
+              <input
+                type="text"
+                placeholder={t('conversations.searchContacts')}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                aria-label={t('conversations.searchContacts')}
+                className="w-full pl-10 pr-4 py-1.5 bg-white dark:bg-[#2a3942] rounded-lg text-[#111b21] dark:text-[#e9edef] placeholder-[#667781] dark:placeholder-[#8696a0] text-sm focus:outline-none border border-transparent focus:border-[#00a884] transition-colors"
+              />
+            </div>
           </div>
 
           {/* Filter Tabs */}
           {escalatedCount > 0 && (
-            <div className="flex gap-2 mt-3">
+            <div className="flex gap-2 px-3 pb-2">
               <button
                 onClick={() => setFilterMode('all')}
                 className={clsx(
                   'px-3 py-1 text-xs font-medium rounded-full transition-colors',
                   filterMode === 'all'
-                    ? 'bg-white text-emerald-700'
-                    : 'bg-white/10 text-white hover:bg-white/20'
+                    ? 'bg-[#00a884] text-white'
+                    : 'bg-[#e9edef] dark:bg-[#374248] text-[#54656f] dark:text-[#8696a0] hover:bg-[#d1d7db] dark:hover:bg-[#3b4a54]'
                 )}
               >
                 {t('conversations.conversations')}
@@ -584,7 +588,7 @@ export function ConversationInterface({
                   'px-3 py-1 text-xs font-medium rounded-full transition-colors flex items-center gap-1',
                   filterMode === 'escalated'
                     ? 'bg-orange-500 text-white'
-                    : 'bg-white/10 text-white hover:bg-white/20'
+                    : 'bg-[#e9edef] dark:bg-[#374248] text-[#54656f] dark:text-[#8696a0] hover:bg-[#d1d7db] dark:hover:bg-[#3b4a54]'
                 )}
               >
                 ⚡ {t('conversations.escalatedConversations')}
@@ -602,16 +606,16 @@ export function ConversationInterface({
         </div>
 
         {/* Contacts List */}
-        <div className="flex-1 overflow-y-auto" role="list">
+        <div className="flex-1 overflow-y-auto bg-white dark:bg-[#111b21]" role="list">
           {filteredContacts.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full p-6 text-center">
-              <div className="w-20 h-20 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mb-4">
-                <MessageCircle className="w-10 h-10 text-gray-400 dark:text-gray-500" />
+              <div className="w-20 h-20 bg-[#f0f2f5] dark:bg-[#202c33] rounded-full flex items-center justify-center mb-4">
+                <MessageCircle className="w-10 h-10 text-[#8696a0]" />
               </div>
-              <h3 className="text-gray-900 dark:text-white font-medium mb-1">
+              <h3 className="text-[#111b21] dark:text-[#e9edef] font-medium mb-1">
                 {searchQuery ? t('conversations.noContacts') : t('conversations.noConversationsYet')}
               </h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
+              <p className="text-sm text-[#667781] dark:text-[#8696a0]">
                 {searchQuery ? t('conversations.tryDifferent') : t('conversations.connectToStart')}
               </p>
             </div>
@@ -637,22 +641,22 @@ export function ConversationInterface({
 
       {/* Chat Area */}
       <div className={clsx(
-        "flex-1 flex flex-col h-full overflow-hidden bg-white dark:bg-gray-800",
+        "flex-1 flex flex-col h-full overflow-hidden bg-[#efeae2] dark:bg-[#0b141a]",
         showSidebar && selectedContactId ? "hidden md:flex" : "flex"
       )}>
         {selectedContact ? (
           <>
             {/* Chat Header */}
-            <div className="px-4 py-3 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm">
+            <div className="px-4 py-2 bg-[#f0f2f5] dark:bg-[#202c33] border-b border-[#e9edef] dark:border-[#222d34]">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   {/* Back button for mobile */}
                   <button
                     onClick={() => setShowSidebar(true)}
-                    className="md:hidden p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
+                    className="md:hidden p-2 hover:bg-[#e9edef] dark:hover:bg-[#374248] rounded-full transition-colors"
                     aria-label="Back to contacts"
                   >
-                    <ArrowLeft className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                    <ArrowLeft className="w-5 h-5 text-[#54656f] dark:text-[#aebac1]" />
                   </button>
                   <div className="relative">
                     {selectedContact.avatar ? (
@@ -671,27 +675,29 @@ export function ConversationInterface({
                     <div className={clsx(
                       "w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold text-sm",
                       selectedContact.isGroup
-                        ? "bg-gradient-to-br from-blue-400 to-purple-500"
-                        : "bg-gradient-to-br from-emerald-400 to-teal-500",
+                        ? "bg-[#6a7175]"
+                        : "bg-[#dfe5e7] dark:bg-[#6a7175]",
                       selectedContact.avatar && "hidden"
                     )}>
-                      {selectedContact.isGroup ? '👥' : selectedContact.name.substring(0, 2).toUpperCase()}
+                      <span className={clsx(!selectedContact.isGroup && "text-[#cfd4d6] dark:text-white")}>
+                        {selectedContact.isGroup ? '👥' : selectedContact.name.substring(0, 2).toUpperCase()}
+                      </span>
                     </div>
                     {!selectedContact.isGroup && selectedContact.isOnline && (
-                      <div className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-400 border-2 border-white dark:border-gray-800 rounded-full" />
+                      <div className="absolute bottom-0 right-0 w-3 h-3 bg-[#25d366] border-2 border-[#f0f2f5] dark:border-[#202c33] rounded-full" />
                     )}
                   </div>
                   <div>
-                    <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
+                    <h3 className="text-[16px] font-normal text-[#111b21] dark:text-[#e9edef]">
                       {selectedContact.name}
                     </h3>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                    <p className="text-[13px] text-[#667781] dark:text-[#8696a0]">
                       {selectedContact.isGroup ? (
                         selectedContact.phone
                       ) : selectedContact.isTyping ? (
-                        <span className="text-emerald-600 dark:text-emerald-400">{t('conversations.typing')}</span>
+                        <span className="text-[#25d366] dark:text-[#00a884]">{t('conversations.typing')}</span>
                       ) : selectedContact.isOnline ? (
-                        <span className="text-emerald-600 dark:text-emerald-400">{t('conversations.online')}</span>
+                        <span className="text-[#25d366] dark:text-[#00a884]">{t('conversations.online')}</span>
                       ) : (
                         selectedContact.phone
                       )}
@@ -701,33 +707,33 @@ export function ConversationInterface({
 
                 <div className="flex items-center gap-1">
                   <button
-                    className="p-2.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors opacity-50 cursor-not-allowed"
+                    className="p-2.5 hover:bg-[#e9edef] dark:hover:bg-[#374248] rounded-full transition-colors opacity-50 cursor-not-allowed"
                     aria-label="Video call"
                     disabled
                   >
-                    <Video className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                    <Video className="w-5 h-5 text-[#54656f] dark:text-[#aebac1]" />
                   </button>
                   <button
-                    className="p-2.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors opacity-50 cursor-not-allowed"
+                    className="p-2.5 hover:bg-[#e9edef] dark:hover:bg-[#374248] rounded-full transition-colors opacity-50 cursor-not-allowed"
                     aria-label="Voice call"
                     disabled
                   >
-                    <Phone className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                    <Phone className="w-5 h-5 text-[#54656f] dark:text-[#aebac1]" />
                   </button>
                   {onArchiveContact && (
                     <button
                       onClick={() => onArchiveContact(selectedContact.id)}
-                      className="p-2.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
+                      className="p-2.5 hover:bg-[#e9edef] dark:hover:bg-[#374248] rounded-full transition-colors"
                       aria-label="Archive conversation"
                     >
-                      <Archive className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                      <Archive className="w-5 h-5 text-[#54656f] dark:text-[#aebac1]" />
                     </button>
                   )}
                   <button
-                    className="p-2.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
+                    className="p-2.5 hover:bg-[#e9edef] dark:hover:bg-[#374248] rounded-full transition-colors"
                     aria-label="More options"
                   >
-                    <MoreVertical className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                    <MoreVertical className="w-5 h-5 text-[#54656f] dark:text-[#aebac1]" />
                   </button>
                 </div>
               </div>
@@ -735,7 +741,7 @@ export function ConversationInterface({
 
             {/* Escalation Banner */}
             {selectedContact?.isHumanControlled && (
-              <div className="px-4 py-3 bg-orange-50 dark:bg-orange-900/30 border-b border-orange-200 dark:border-orange-800">
+              <div className="px-4 py-2.5 bg-[#fef3c7] dark:bg-[#3b2e14] border-b border-[#e9edef] dark:border-[#222d34]">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <span className="text-orange-600 dark:text-orange-400 text-lg">⚡</span>
@@ -774,7 +780,7 @@ export function ConversationInterface({
 
             {/* Messages Area */}
             <div
-              className="flex-1 overflow-y-auto px-4 py-3 bg-gray-100 dark:bg-gray-900"
+              className="flex-1 overflow-y-auto px-[3%] lg:px-[5%] py-3 bg-[#efeae2] dark:bg-[#0b141a] bg-[url('data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22200%22%20height%3D%22200%22%20viewBox%3D%220%200%20200%20200%22%3E%3Cg%20fill%3D%22%23d1d7db%22%20fill-opacity%3D%220.4%22%3E%3Ccircle%20cx%3D%2220%22%20cy%3D%2220%22%20r%3D%222%22%2F%3E%3Ccircle%20cx%3D%2260%22%20cy%3D%2240%22%20r%3D%221.5%22%2F%3E%3Ccircle%20cx%3D%22100%22%20cy%3D%2215%22%20r%3D%222%22%2F%3E%3Ccircle%20cx%3D%22140%22%20cy%3D%2235%22%20r%3D%221.5%22%2F%3E%3Ccircle%20cx%3D%22180%22%20cy%3D%2225%22%20r%3D%222%22%2F%3E%3Ccircle%20cx%3D%2230%22%20cy%3D%2270%22%20r%3D%221.5%22%2F%3E%3Ccircle%20cx%3D%2270%22%20cy%3D%2280%22%20r%3D%222%22%2F%3E%3Ccircle%20cx%3D%22110%22%20cy%3D%2265%22%20r%3D%221.5%22%2F%3E%3Ccircle%20cx%3D%22150%22%20cy%3D%2275%22%20r%3D%222%22%2F%3E%3Ccircle%20cx%3D%22190%22%20cy%3D%2260%22%20r%3D%221.5%22%2F%3E%3Ccircle%20cx%3D%2215%22%20cy%3D%22120%22%20r%3D%222%22%2F%3E%3Ccircle%20cx%3D%2255%22%20cy%3D%22130%22%20r%3D%221.5%22%2F%3E%3Ccircle%20cx%3D%2295%22%20cy%3D%22115%22%20r%3D%222%22%2F%3E%3Ccircle%20cx%3D%22135%22%20cy%3D%22125%22%20r%3D%221.5%22%2F%3E%3Ccircle%20cx%3D%22175%22%20cy%3D%22110%22%20r%3D%222%22%2F%3E%3Ccircle%20cx%3D%2240%22%20cy%3D%22165%22%20r%3D%221.5%22%2F%3E%3Ccircle%20cx%3D%2280%22%20cy%3D%22175%22%20r%3D%222%22%2F%3E%3Ccircle%20cx%3D%22120%22%20cy%3D%22160%22%20r%3D%221.5%22%2F%3E%3Ccircle%20cx%3D%22160%22%20cy%3D%22170%22%20r%3D%222%22%2F%3E%3Ccircle%20cx%3D%22195%22%20cy%3D%22155%22%20r%3D%221.5%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E')]"
               role="log"
               aria-live="polite"
             >
@@ -782,10 +788,10 @@ export function ConversationInterface({
                 <div className="flex justify-center items-center h-full">
                   <div className="flex flex-col items-center gap-3 text-center">
                     <AlertCircle className="w-10 h-10 text-red-400" />
-                    <span className="text-sm text-gray-500 dark:text-gray-400">{t('conversations.messageFailed')}</span>
+                    <span className="text-sm text-[#667781]">{t('conversations.messageFailed')}</span>
                     <button
                       onClick={() => setLoadError(false)}
-                      className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-medium rounded-lg transition-colors"
+                      className="px-4 py-2 bg-[#00a884] hover:bg-[#008069] text-white text-sm font-medium rounded-lg transition-colors"
                     >
                       Retry
                     </button>
@@ -794,20 +800,20 @@ export function ConversationInterface({
               ) : isLoading ? (
                 <div className="flex justify-center items-center h-full">
                   <div className="flex flex-col items-center gap-3">
-                    <div className="w-10 h-10 border-3 border-emerald-500 border-t-transparent rounded-full animate-spin" />
-                    <span className="text-sm text-gray-500 dark:text-gray-400">{t('conversations.loading')}</span>
+                    <div className="w-10 h-10 border-3 border-[#00a884] border-t-transparent rounded-full animate-spin" />
+                    <span className="text-sm text-[#667781]">{t('conversations.loading')}</span>
                   </div>
                 </div>
               ) : !Array.isArray(messages) || messages.length === 0 ? (
                 <div className="flex flex-col justify-center items-center h-full">
-                  <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl p-8 text-center shadow-lg max-w-sm">
-                    <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <MessageCircle className="w-8 h-8 text-emerald-600 dark:text-emerald-400" />
+                  <div className="bg-white/90 dark:bg-[#202c33]/90 backdrop-blur-sm rounded-xl p-8 text-center shadow-lg max-w-sm">
+                    <div className="w-16 h-16 bg-[#00a884]/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <MessageCircle className="w-8 h-8 text-[#00a884]" />
                     </div>
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                    <h3 className="text-lg font-semibold text-[#111b21] dark:text-[#e9edef] mb-2">
                       {t('conversations.startConversation')}
                     </h3>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                    <p className="text-sm text-[#667781] dark:text-[#8696a0]">
                       {t('conversations.sendMessageTo')} {selectedContact.name}
                     </p>
                   </div>
@@ -817,8 +823,8 @@ export function ConversationInterface({
                   {groupedMessages.map((group, groupIndex) => (
                     <div key={group.date}>
                       {/* Date separator */}
-                      <div className="flex justify-center my-4">
-                        <div className="bg-white/90 dark:bg-gray-700/90 backdrop-blur-sm text-gray-600 dark:text-gray-300 text-xs font-medium px-3 py-1.5 rounded-lg shadow-sm">
+                      <div className="flex justify-center my-3">
+                        <div className="bg-white dark:bg-[#182229] text-[#54656f] dark:text-[#8696a0] text-[12.5px] px-3 py-1 rounded-md shadow-sm">
                           {group.date}
                         </div>
                       </div>
@@ -850,7 +856,7 @@ export function ConversationInterface({
             </div>
 
             {/* Message Input */}
-            <div className="px-4 py-3 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
+            <div className="px-3 py-2 bg-[#f0f2f5] dark:bg-[#202c33]">
               <div className="flex items-end gap-2">
                 <input
                   type="file"
@@ -861,11 +867,19 @@ export function ConversationInterface({
                 />
 
                 <button
+                  onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                  className="p-2 text-[#54656f] dark:text-[#8696a0] hover:text-[#3b4a54] dark:hover:text-[#e9edef] transition-colors"
+                  aria-label="Add emoji"
+                >
+                  <Smile className="w-6 h-6" />
+                </button>
+
+                <button
                   onClick={() => fileInputRef.current?.click()}
-                  className="p-2.5 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
+                  className="p-2 text-[#54656f] dark:text-[#8696a0] hover:text-[#3b4a54] dark:hover:text-[#e9edef] transition-colors"
                   aria-label="Attach file"
                 >
-                  <Paperclip className="w-5 h-5" />
+                  <Paperclip className="w-6 h-6" />
                 </button>
 
                 <div className="flex-1 relative">
@@ -879,32 +893,24 @@ export function ConversationInterface({
                       target.style.height = `${Math.min(target.scrollHeight, 128)}px`;
                     }}
                     placeholder={selectedContact?.isHumanControlled && selectedContact?.assignedOperatorId ? t('conversations.replyAsOperator') : t('conversations.typeMessage')}
-                    className="w-full resize-none px-4 py-2.5 pr-12 bg-gray-100 dark:bg-gray-700 border-0 rounded-2xl text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 max-h-32"
+                    className="w-full resize-none px-3 py-2.5 bg-white dark:bg-[#2a3942] border-0 rounded-lg text-[#111b21] dark:text-[#e9edef] placeholder-[#667781] dark:placeholder-[#8696a0] focus:outline-none text-[15px] max-h-32"
                     rows={1}
-                    style={{ minHeight: '44px' }}
+                    style={{ minHeight: '42px' }}
                   />
-
-                  <button
-                    onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
-                    aria-label="Add emoji"
-                  >
-                    <Smile className="w-5 h-5" />
-                  </button>
                 </div>
 
                 {messageInput.trim() ? (
                   <button
                     onClick={handleSendMessage}
                     className={clsx(
-                      "p-2.5 text-white rounded-full transition-colors shadow-lg",
+                      "p-2 rounded-full transition-colors",
                       selectedContact?.isHumanControlled && selectedContact?.assignedOperatorId
-                        ? "bg-blue-500 hover:bg-blue-600 shadow-blue-500/30"
-                        : "bg-emerald-500 hover:bg-emerald-600 shadow-emerald-500/30"
+                        ? "text-[#54656f] dark:text-[#8696a0] hover:text-blue-500"
+                        : "text-[#54656f] dark:text-[#8696a0] hover:text-[#00a884]"
                     )}
                     aria-label={t('conversations.sendMessage')}
                   >
-                    <Send className="w-5 h-5" />
+                    <Send className="w-6 h-6" />
                   </button>
                 ) : (
                   <button
@@ -912,14 +918,14 @@ export function ConversationInterface({
                     onMouseUp={() => setIsRecording(false)}
                     onMouseLeave={() => setIsRecording(false)}
                     className={clsx(
-                      'p-2.5 rounded-full transition-colors',
+                      'p-2 rounded-full transition-colors',
                       isRecording
-                        ? 'bg-red-500 text-white shadow-lg shadow-red-500/30'
-                        : 'bg-emerald-500 hover:bg-emerald-600 text-white shadow-lg shadow-emerald-500/30'
+                        ? 'text-red-500'
+                        : 'text-[#54656f] dark:text-[#8696a0] hover:text-[#3b4a54] dark:hover:text-[#e9edef]'
                     )}
                     aria-label="Record voice message"
                   >
-                    <Mic className="w-5 h-5" />
+                    <Mic className="w-6 h-6" />
                   </button>
                 )}
               </div>
@@ -935,19 +941,20 @@ export function ConversationInterface({
         ) : (
           /* No Contact Selected */
           <div
-            className="flex-1 flex items-center justify-center bg-gray-100 dark:bg-gray-800"
-            style={{
-              backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%239C92AC' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-            }}
+            className="flex-1 flex flex-col items-center justify-center bg-[#f0f2f5] dark:bg-[#222e35]"
           >
-            <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-2xl p-10 text-center shadow-xl max-w-md mx-4">
-              <div className="w-24 h-24 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg shadow-emerald-500/30">
-                <MessageCircle className="w-12 h-12 text-white" />
+            <div className="text-center max-w-md mx-4">
+              <div className="w-[320px] h-[188px] mx-auto mb-8 flex items-center justify-center">
+                <div className="relative">
+                  <div className="w-28 h-28 rounded-full bg-[#00a884]/10 flex items-center justify-center">
+                    <MessageCircle className="w-14 h-14 text-[#00a884]" />
+                  </div>
+                </div>
               </div>
-              <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">
+              <h3 className="text-[28px] font-light text-[#41525d] dark:text-[#e9edef] mb-3">
                 WhatsApp Conversations
               </h3>
-              <p className="text-gray-600 dark:text-gray-400 mb-6">
+              <p className="text-[14px] text-[#667781] dark:text-[#8696a0] mb-8 leading-5">
                 {contacts.length === 0
                   ? t('conversations.connectToStart')
                   : t('conversations.selectConversation')
@@ -956,12 +963,16 @@ export function ConversationInterface({
               {contacts.length === 0 && (
                 <a
                   href="/dashboard/whatsapp"
-                  className="inline-flex items-center gap-2 px-6 py-3 bg-emerald-500 hover:bg-emerald-600 text-white font-medium rounded-xl transition-colors shadow-lg shadow-emerald-500/30"
+                  className="inline-flex items-center gap-2 px-6 py-3 bg-[#00a884] hover:bg-[#008069] text-white font-medium rounded-full transition-colors"
                 >
                   <Phone className="w-5 h-5" />
                   {t('conversations.connectWhatsApp')}
                 </a>
               )}
+            </div>
+            <div className="mt-10 flex items-center gap-1 text-[#667781] dark:text-[#8696a0] text-[14px]">
+              <span>🔒</span>
+              <span>End-to-end encrypted</span>
             </div>
           </div>
         )}

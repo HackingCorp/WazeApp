@@ -619,12 +619,8 @@ export class WhatsAppAIResponderService {
       // Get agent ONLY from session - NO FALLBACK to prevent agent mixing
       let agent = session.agent;
 
-      // === DEBUG: Log session-agent linkage ===
-      this.logger.log(`🔗 SESSION-AGENT DEBUG:`);
-      this.logger.log(`   Session ID: ${session.id}`);
-      this.logger.log(`   Session Name: ${session.name || 'N/A'}`);
-      this.logger.log(`   Session.agentId (DB column): ${session.agentId || 'NULL'}`);
-      this.logger.log(`   Session.agent (relation loaded): ${session.agent ? `${session.agent.id} - ${session.agent.name}` : 'NULL'}`);
+      // === DEBUG: Log session-agent linkage with WhatsApp number ===
+      this.logger.log(`🔗 MESSAGE ROUTING: Session "${session.name || 'N/A'}" (${session.id}) | WhatsApp: ${session.phoneNumber || 'unknown'} | Agent: ${session.agent ? session.agent.name : 'NONE'} | From: ${fromNumber} | CatalogIds: ${JSON.stringify(session.agent?.catalogs?.map(c => c.id) || [])}`);
 
       if (!agent) {
         // 🚨 CRITICAL: Do NOT fall back to any other agent - this causes agent mixing issues
@@ -1529,13 +1525,12 @@ Always respond directly in the user's language without any formatting.`,
         agent,
       );
 
-      // Search product catalog if e-commerce is enabled for this agent
+      // Search product catalog ONLY if agent has actual catalogs linked
+      // Using catalogIds.length > 0 (not ecommerceEnabled flag) to prevent product leaking to non-ecommerce agents
       let productContext = "";
       let foundProducts: Product[] = [];
       const catalogIds = agent.catalogs?.map(c => c.id) || [];
-      const hasEcommerce = catalogIds.length > 0 || agent.ecommerceEnabled;
-      if (hasEcommerce) {
-        // Always search products when e-commerce is enabled (don't gate on isProductQuery)
+      if (catalogIds.length > 0) {
         // Build search query using current message + recent conversation context
         const recentUserMessages = recentMessages
           .filter(m => m.role === 'user')
@@ -1547,21 +1542,12 @@ Always respond directly in the user's language without any formatting.`,
           : userMessage;
         try {
           this.logger.log(`Searching product catalog for: "${searchQuery.substring(0, 100)}" (catalogIds: ${JSON.stringify(catalogIds)})`);
-          let products = await this.productSearchService.searchProducts(
+          const products = await this.productSearchService.searchProducts(
             agent.organizationId,
             searchQuery,
             10,
-            catalogIds.length > 0 ? catalogIds : undefined,
+            catalogIds,
           );
-          // Fallback: if no products found with storeIds filter, try without
-          if (products.length === 0 && catalogIds.length > 0) {
-            this.logger.log(`No products with catalog filter, retrying without filter`);
-            products = await this.productSearchService.searchProducts(
-              agent.organizationId,
-              searchQuery,
-              10,
-            );
-          }
           if (products.length > 0) {
             foundProducts = products;
             productContext = this.productSearchService.formatProductsForPrompt(products);
@@ -1633,8 +1619,8 @@ Do NOT escalate for simple questions you can answer from the knowledge base.`;
         systemPrompt += `\n\n${productContext}`;
       }
 
-      // Add ORDER instructions if e-commerce is enabled
-      if (agent.ecommerceEnabled) {
+      // Add ORDER instructions only if agent has actual catalogs linked
+      if (catalogIds.length > 0) {
         systemPrompt += `\n\nORDER CREATION:
 When a customer confirms they want to purchase products, create an order by including a structured tag in your response.
 Format: [ORDER]{"items":[{"productName":"Product Name","variantName":"Variant (optional)","quantity":1}],"clientName":"Customer Name (if known)","deliveryAddress":{"street":"...","city":"..."},"notes":"Any special instructions"}[/ORDER]

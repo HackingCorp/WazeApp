@@ -1982,13 +1982,28 @@ EXEMPLES DE CONTEXTE:
           }
         }
 
-        // Send product images as WhatsApp media (max 3)
+        // Send product images as WhatsApp media — ONLY for products the AI actually mentioned
         if (foundProducts && foundProducts.length > 0) {
-          const productsWithImages = foundProducts
-            .filter(p => p.images?.length > 0)
-            .slice(0, 3);
+          const responseTextLower = cleanText.toLowerCase();
+          // Filter to products whose name appears in the AI response text
+          const mentionedProducts = foundProducts.filter(p => {
+            if (!p.images?.length) return false;
+            const nameLower = p.name?.toLowerCase() || '';
+            // Check if the product name (or a significant part of it) is mentioned in the response
+            // Use the first 3+ words or the full name if short
+            const nameWords = nameLower.split(/\s+/).filter(w => w.length > 2);
+            if (nameWords.length <= 2) {
+              return responseTextLower.includes(nameLower);
+            }
+            // For longer names, check if at least 2 significant words appear
+            const matchCount = nameWords.filter(w => responseTextLower.includes(w)).length;
+            return matchCount >= Math.min(2, nameWords.length);
+          });
 
-          for (const product of productsWithImages) {
+          this.logger.log(`[ProductImages] ${foundProducts.length} found, ${mentionedProducts.length} mentioned in AI response`);
+
+          const productsToSend = mentionedProducts.slice(0, 3);
+          for (const product of productsToSend) {
             const primaryImage = product.images.find(img => img.isPrimary) || product.images[0];
             if (primaryImage?.url) {
               try {

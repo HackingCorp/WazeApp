@@ -965,20 +965,8 @@ Guidelines:
       this.logger.log(`[TestAgent] Skipping product search: hasEcommerce=${hasEcommerce}, effectiveOrgId=${effectiveOrgId}`);
     }
 
-    // Collect media items from products
+    // Media items will be populated AFTER LLM response (to filter by what the AI actually mentions)
     const mediaItems: Array<{ type: 'image' | 'video' | 'audio'; url: string; caption?: string }> = [];
-    for (const product of foundProducts) {
-      if (product.images?.length > 0) {
-        const primaryImg = product.images.find((img: any) => img.isPrimary) || product.images[0];
-        if (primaryImg?.url) {
-          mediaItems.push({
-            type: 'image',
-            url: primaryImg.url,
-            caption: `${product.name}${product.price ? ` - ${product.price} ${product.currency}` : ''}`,
-          });
-        }
-      }
-    }
 
     // Build system prompt: KB context goes into buildSystemPrompt, product context appended separately
     let systemPrompt = testDto.systemPromptOverride
@@ -1052,6 +1040,35 @@ Guidelines:
       cleanResponse = cleanResponse.replace(imageMatch[0], '').trim();
     }
     response = cleanResponse;
+
+    // Add product images ONLY for products the AI actually mentioned in its response
+    if (foundProducts.length > 0) {
+      const responseTextLower = response.toLowerCase();
+      const mentionedProducts = foundProducts.filter(p => {
+        if (!p.images?.length) return false;
+        const nameLower = p.name?.toLowerCase() || '';
+        const nameWords = nameLower.split(/\s+/).filter(w => w.length > 2);
+        if (nameWords.length <= 2) {
+          return responseTextLower.includes(nameLower);
+        }
+        // For longer names, check if at least 2 significant words appear
+        const matchCount = nameWords.filter(w => responseTextLower.includes(w)).length;
+        return matchCount >= Math.min(2, nameWords.length);
+      });
+
+      this.logger.log(`[TestAgent] Products: ${foundProducts.length} found, ${mentionedProducts.length} mentioned in AI response`);
+
+      for (const product of mentionedProducts.slice(0, 5)) {
+        const primaryImg = product.images.find((img: any) => img.isPrimary) || product.images[0];
+        if (primaryImg?.url) {
+          mediaItems.push({
+            type: 'image',
+            url: primaryImg.url,
+            caption: `${product.name}${product.price ? ` - ${product.price} ${product.currency}` : ''}`,
+          });
+        }
+      }
+    }
 
     const responseTime = Date.now() - startTime;
 

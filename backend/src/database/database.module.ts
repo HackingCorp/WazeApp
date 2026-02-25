@@ -38,6 +38,10 @@ import {
   ProductVariant,
   ProductImage,
   ProductCategory,
+  // Order & Appointment entities
+  Order,
+  OrderItem,
+  Appointment,
 } from "../common/entities";
 
 @Module({
@@ -88,6 +92,10 @@ import {
           ProductVariant,
           ProductImage,
           ProductCategory,
+          // Order & Appointment entities
+          Order,
+          OrderItem,
+          Appointment,
         ],
         migrations: [__dirname + '/migrations/*{.ts,.js}'],
         synchronize:

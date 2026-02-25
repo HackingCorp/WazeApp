@@ -110,14 +110,37 @@ export class EMarketService {
 
   async fetchAllProducts(store: EcommerceStore): Promise<EMarketProduct[]> {
     const products: EMarketProduct[] = [];
-    let page = 1;
     const limit = 5;
-    let totalPages = 1;
     let failedPages = 0;
     const baseUrl = store.storeUrl.replace(/\/$/, "");
     const headers = { "X-API-Key": store.credentials.apiKey };
 
-    while (page <= totalPages) {
+    // First: probe to get total pages count
+    let totalPages: number;
+    try {
+      const probe = await this.fetchWithRetry(
+        `${baseUrl}/products?page=1&limit=${limit}`,
+        headers,
+      );
+      if (!probe.ok) {
+        throw new Error(`E-Market API probe failed: ${probe.status}`);
+      }
+      const probeData: EMarketResponse = await probe.json();
+      totalPages = probeData.pagination.total_pages;
+      products.push(...probeData.data);
+      this.logger.log(
+        `E-Market sync: probe OK — ${probeData.pagination.total} products across ${totalPages} pages`,
+      );
+    } catch (error) {
+      throw new Error(
+        `E-Market sync: cannot reach API — ${error instanceof Error ? error.message : error}`,
+      );
+    }
+
+    // Then: fetch remaining pages (start at 2 since page 1 is already fetched)
+    for (let page = 2; page <= totalPages; page++) {
+      await new Promise((r) => setTimeout(r, 3000));
+
       try {
         const response = await this.fetchWithRetry(
           `${baseUrl}/products?page=${page}&limit=${limit}`,
@@ -126,40 +149,29 @@ export class EMarketService {
 
         if (!response.ok) {
           this.logger.warn(
-            `E-Market sync: page ${page} failed with ${response.status}, skipping...`,
+            `E-Market sync: page ${page}/${totalPages} failed with ${response.status}, skipping`,
           );
           failedPages++;
-          page++;
-          await new Promise((r) => setTimeout(r, 5000));
           continue;
         }
 
         const data: EMarketResponse = await response.json();
         products.push(...data.data);
-        totalPages = data.pagination.total_pages;
 
         this.logger.log(
-          `E-Market sync: fetched page ${page}/${totalPages} (${products.length}/${data.pagination.total} products)`,
+          `E-Market sync: fetched page ${page}/${totalPages} (${products.length} products so far)`,
         );
       } catch (error) {
         this.logger.warn(
-          `E-Market sync: page ${page} error: ${error instanceof Error ? error.message : error}, skipping...`,
+          `E-Market sync: page ${page}/${totalPages} error: ${error instanceof Error ? error.message : error}, skipping`,
         );
         failedPages++;
       }
-
-      page++;
-      // Longer delay between pages to give the API time to recover
-      await new Promise((r) => setTimeout(r, 3000));
     }
 
     this.logger.log(
-      `E-Market sync: completed with ${products.length} products fetched, ${failedPages} pages failed`,
+      `E-Market sync: done — ${products.length} products fetched, ${failedPages}/${totalPages} pages failed`,
     );
-
-    if (products.length === 0) {
-      throw new Error("E-Market sync: no products fetched, all pages failed");
-    }
 
     return products;
   }

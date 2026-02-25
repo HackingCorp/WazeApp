@@ -73,23 +73,23 @@ export class EMarketService {
   private async fetchWithRetry(
     url: string,
     headers: Record<string, string>,
-    retries = 3,
+    retries = 5,
   ): Promise<Response> {
     for (let attempt = 1; attempt <= retries; attempt++) {
       try {
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 30000);
+        const timeout = setTimeout(() => controller.abort(), 60000);
         const response = await fetch(url, {
           headers,
           signal: controller.signal,
         });
         clearTimeout(timeout);
 
-        if (response.status >= 500 && attempt < retries) {
+        if ((response.status >= 500 || response.status === 404) && attempt < retries) {
           this.logger.warn(
-            `E-Market API returned ${response.status}, retrying (${attempt}/${retries})...`,
+            `E-Market API returned ${response.status} for ${url}, retrying (${attempt}/${retries})...`,
           );
-          await new Promise((r) => setTimeout(r, 2000 * attempt));
+          await new Promise((r) => setTimeout(r, 3000 * attempt));
           continue;
         }
 
@@ -99,7 +99,7 @@ export class EMarketService {
           this.logger.warn(
             `E-Market API request failed: ${error instanceof Error ? error.message : error}, retrying (${attempt}/${retries})...`,
           );
-          await new Promise((r) => setTimeout(r, 2000 * attempt));
+          await new Promise((r) => setTimeout(r, 3000 * attempt));
           continue;
         }
         throw error;
@@ -111,7 +111,7 @@ export class EMarketService {
   async fetchAllProducts(store: EcommerceStore): Promise<EMarketProduct[]> {
     const products: EMarketProduct[] = [];
     let page = 1;
-    const limit = 20;
+    const limit = 10;
     const baseUrl = store.storeUrl.replace(/\/$/, "");
     const headers = { "X-API-Key": store.credentials.apiKey };
 
@@ -134,6 +134,9 @@ export class EMarketService {
 
       if (page >= data.pagination.total_pages) break;
       page++;
+
+      // Delay between pages to avoid overwhelming the API
+      await new Promise((r) => setTimeout(r, 1000));
     }
 
     return products;

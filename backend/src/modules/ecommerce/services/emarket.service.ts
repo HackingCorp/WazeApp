@@ -29,6 +29,7 @@ interface EMarketProduct {
     attributes?: Record<string, string>;
   }[];
   category?: { id: number; name: string };
+  product_url?: string;
   created_at?: string;
   updated_at?: string;
 }
@@ -191,7 +192,7 @@ export class EMarketService {
         shortDescription: ext.short_description || null,
         source: EcommercePlatform.EMARKET,
         externalId: String(ext.id),
-        externalUrl: null,
+        externalUrl: ext.product_url || null,
         price: ext.price ?? null,
         compareAtPrice: ext.compare_at_price ?? null,
         currency: ext.currency || "XAF",

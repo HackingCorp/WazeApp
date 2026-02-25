@@ -265,9 +265,9 @@ export class ProductSearchService {
   formatProductsForPrompt(products: Product[]): string {
     if (!products.length) return "";
 
-    let result = "\n\n=== PRODUCT CATALOG ===\n";
+    let result = "\n\n=== YOUR PRODUCT CATALOG ===\n";
     result +=
-      "Here are products from the catalog that may be relevant to the customer's question:\n\n";
+      "IMPORTANT: The following products are from YOUR store catalog. These are real products that you sell. When the customer asks about any of these products, you MUST present them with their names, prices, and availability. NEVER say you don't have a product if it appears in this list.\n\n";
 
     products.forEach((product, i) => {
       result += `--- Product ${i + 1} ---\n`;
@@ -330,7 +330,7 @@ export class ProductSearchService {
     });
 
     result +=
-      "=== END CATALOG ===\n\nUse the above product information to help the customer. Mention exact prices and availability. If a product is out of stock, let the customer know.\n";
+      "=== END CATALOG ===\n\nCRITICAL INSTRUCTIONS: You MUST use the products listed above to answer the customer. These are YOUR products that you sell. Present matching products with their exact names, prices, and stock status. NEVER claim you don't have a product if it appears in the catalog above.\n";
 
     return result;
   }

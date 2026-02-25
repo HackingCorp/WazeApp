@@ -980,11 +980,16 @@ Guidelines:
       }
     }
 
-    // Build system prompt: use override if provided, otherwise build from agent config
-    const fullKBContext = contextFromKB + productContext;
-    const systemPrompt = testDto.systemPromptOverride
-      ? this.buildSystemPrompt({ ...agent, systemPrompt: testDto.systemPromptOverride } as any, fullKBContext)
-      : this.buildSystemPrompt(agent, fullKBContext);
+    // Build system prompt: KB context goes into buildSystemPrompt, product context appended separately
+    let systemPrompt = testDto.systemPromptOverride
+      ? this.buildSystemPrompt({ ...agent, systemPrompt: testDto.systemPromptOverride } as any, contextFromKB || undefined)
+      : this.buildSystemPrompt(agent, contextFromKB || undefined);
+
+    // Append product catalog DIRECTLY to system prompt (not wrapped in KB context)
+    // This ensures the LLM treats it as the actual product catalog, not just reference info
+    if (productContext) {
+      systemPrompt += `\n\n${productContext}`;
+    }
 
     // Build messages array: system prompt + conversation history + new user message
     const messages: Array<{ role: 'user' | 'system' | 'assistant'; content: string }> = [

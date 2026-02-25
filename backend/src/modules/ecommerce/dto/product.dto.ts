@@ -174,6 +174,77 @@ export class CreateProductDto {
   categoryIds?: string[];
 }
 
+export class UpdateProductVariantDto {
+  @ApiPropertyOptional({ description: "Variant ID (for existing variants)" })
+  @IsOptional()
+  @IsString()
+  id?: string;
+
+  @ApiPropertyOptional({ description: "Variant name" })
+  @IsOptional()
+  @IsString()
+  name?: string;
+
+  @ApiPropertyOptional({ description: "Variant SKU" })
+  @IsOptional()
+  @IsString()
+  sku?: string;
+
+  @ApiPropertyOptional({ description: "Variant price" })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  price?: number;
+
+  @ApiPropertyOptional({ description: "Compare at price" })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  compareAtPrice?: number;
+
+  @ApiPropertyOptional({ description: "Stock quantity" })
+  @IsOptional()
+  @IsNumber()
+  stockQuantity?: number;
+
+  @ApiPropertyOptional({ description: "In stock" })
+  @IsOptional()
+  @IsBoolean()
+  inStock?: boolean;
+
+  @ApiPropertyOptional({ description: "Variant options" })
+  @IsOptional()
+  options?: Record<string, string>;
+
+  @ApiPropertyOptional({ description: "Image URL" })
+  @IsOptional()
+  @IsString()
+  imageUrl?: string;
+
+  @ApiPropertyOptional({ description: "Sort order" })
+  @IsOptional()
+  @IsNumber()
+  sortOrder?: number;
+
+  @ApiPropertyOptional({ description: "External ID" })
+  @IsOptional()
+  @IsString()
+  externalId?: string;
+
+  @ApiPropertyOptional({ description: "Product ID" })
+  @IsOptional()
+  @IsString()
+  productId?: string;
+
+  @ApiPropertyOptional({ description: "Created at" })
+  @IsOptional()
+  createdAt?: any;
+
+  @ApiPropertyOptional({ description: "Updated at" })
+  @IsOptional()
+  updatedAt?: any;
+}
+
 export class UpdateProductDto {
   @ApiPropertyOptional({ description: "Product name" })
   @IsOptional()
@@ -247,12 +318,12 @@ export class UpdateProductDto {
   @IsOptional()
   metadata?: Record<string, any>;
 
-  @ApiPropertyOptional({ description: "Variants", type: [CreateProductVariantDto] })
+  @ApiPropertyOptional({ description: "Variants", type: [UpdateProductVariantDto] })
   @IsOptional()
   @IsArray()
   @ValidateNested({ each: true })
-  @Type(() => CreateProductVariantDto)
-  variants?: CreateProductVariantDto[];
+  @Type(() => UpdateProductVariantDto)
+  variants?: UpdateProductVariantDto[];
 
   @ApiPropertyOptional({ description: "Images", type: [CreateProductImageDto] })
   @IsOptional()

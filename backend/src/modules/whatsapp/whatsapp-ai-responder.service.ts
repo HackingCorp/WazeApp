@@ -1510,11 +1510,11 @@ Always respond directly in the user's language without any formatting.`,
         `Generating AI response for conversation: ${conversation.id}`,
       );
 
-      // Get conversation history (last 30 messages for hybrid buffer approach)
+      // Get conversation history (last 50 messages for hybrid buffer approach)
       const recentMessages = await this.messageRepository.find({
         where: { conversationId: conversation.id },
         order: { createdAt: "DESC" },
-        take: 30,
+        take: 50,
       });
 
       // Search knowledge base for relevant information

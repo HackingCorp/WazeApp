@@ -72,9 +72,9 @@ export default function OrdersPage() {
       });
       if (response.success && response.data) {
         const data = response.data.data || response.data;
-        setOrders(Array.isArray(data) ? data : data.items || []);
-        const total = data.total || data.length || 0;
-        setTotalPages(Math.ceil(total / limit) || 1);
+        setOrders(Array.isArray(data) ? data : data.orders || data.items || []);
+        const total = data.total || data.totalPages || 0;
+        setTotalPages(data.totalPages || Math.ceil(total / limit) || 1);
       }
     } catch (error) {
       if (process.env.NODE_ENV === 'development') {

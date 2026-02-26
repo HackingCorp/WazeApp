@@ -725,12 +725,16 @@ export class SimpleConversationService implements OnModuleDestroy {
         `📋 Getting conversations for user ${userId}${sessionId ? `, sessionId: ${sessionId}` : ""}`,
       );
 
-      // Get conversations from database
+      // Get conversations from database (filter by sessionId at DB level if provided)
+      const where: any = {
+        channel: ConversationChannel.WHATSAPP,
+        userId: userId,
+      };
+      if (sessionId && sessionId.trim() !== "") {
+        where.sessionId = sessionId;
+      }
       const dbConversations = await this.conversationRepository.find({
-        where: {
-          channel: ConversationChannel.WHATSAPP,
-          userId: userId,
-        },
+        where,
         order: { updatedAt: "DESC" },
         take: 100,
       });
@@ -780,30 +784,32 @@ export class SimpleConversationService implements OnModuleDestroy {
       // Get last messages and unread counts for all conversations with targeted queries
       const convIds = dbConversations.map(c => c.id);
 
-      // Batch query: last message per conversation
+      // Batch queries: last message + unread count per conversation (run in parallel)
       const lastMessagesMap = new Map<string, AgentMessage>();
+      const unreadCountsMap = new Map<string, number>();
       if (convIds.length > 0) {
-        const lastMessages = await this.messageRepository
-          .createQueryBuilder('m')
-          .where('m.conversationId IN (:...convIds)', { convIds })
-          .andWhere('m.id = (SELECT m2.id FROM agent_messages m2 WHERE m2."conversationId" = m."conversationId" ORDER BY m2."createdAt" DESC LIMIT 1)')
-          .getMany();
+        const [lastMessages, unreadCounts] = await Promise.all([
+          // Last message per conversation using DISTINCT ON (single pass, no correlated subquery)
+          this.messageRepository
+            .createQueryBuilder('m')
+            .distinctOn(['m.conversationId'])
+            .where('m.conversationId IN (:...convIds)', { convIds })
+            .orderBy('m.conversationId')
+            .addOrderBy('m.createdAt', 'DESC')
+            .getMany(),
+          // Unread count per conversation
+          this.messageRepository
+            .createQueryBuilder('m')
+            .select('m.conversationId', 'conversationId')
+            .addSelect('COUNT(*)', 'count')
+            .where('m.conversationId IN (:...convIds)', { convIds })
+            .andWhere('m.status = :status', { status: MessageStatus.DELIVERED })
+            .groupBy('m.conversationId')
+            .getRawMany(),
+        ]);
         for (const msg of lastMessages) {
           lastMessagesMap.set(msg.conversationId, msg);
         }
-      }
-
-      // Batch query: unread count per conversation
-      const unreadCountsMap = new Map<string, number>();
-      if (convIds.length > 0) {
-        const unreadCounts = await this.messageRepository
-          .createQueryBuilder('m')
-          .select('m.conversationId', 'conversationId')
-          .addSelect('COUNT(*)', 'count')
-          .where('m.conversationId IN (:...convIds)', { convIds })
-          .andWhere('m.status = :status', { status: MessageStatus.DELIVERED })
-          .groupBy('m.conversationId')
-          .getRawMany();
         for (const row of unreadCounts) {
           unreadCountsMap.set(row.conversationId, parseInt(row.count));
         }
@@ -960,13 +966,6 @@ export class SimpleConversationService implements OnModuleDestroy {
       this.logger.log(
         `📞 After deduplication: ${allConversations.length} unique conversations`,
       );
-
-      // Filter by sessionId if provided and not empty (after merging)
-      if (sessionId && sessionId.trim() !== "") {
-        allConversations = allConversations.filter(
-          (conv) => conv.sessionId === sessionId,
-        );
-      }
 
       // Sort by last message time
       return allConversations.sort(

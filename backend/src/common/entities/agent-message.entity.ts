@@ -22,6 +22,7 @@ export enum MessageStatus {
 @Index("IDX_MSG_ROLE", ["role"])
 @Index("IDX_MSG_TIMESTAMP", ["createdAt"])
 @Index("IDX_MSG_CONV_DATE", ["conversationId", "createdAt"])
+@Index("IDX_MSG_CONV_STATUS", ["conversationId", "status"])
 export class AgentMessage extends BaseEntity {
   @ApiProperty({ description: "Message content" })
   @Column({ type: "text" })

@@ -83,17 +83,13 @@ export default function ConversationsPage() {
     }
   }, [user]);
 
-  // Load contacts when session changes
+  // Load contacts and conversations in parallel when session changes
   useEffect(() => {
     if (selectedSessionId) {
-      loadContactsForSession(selectedSessionId);
-    }
-  }, [selectedSessionId]);
-
-  // Load conversations when selected session changes
-  useEffect(() => {
-    if (selectedSessionId) {
-      loadConversations();
+      Promise.all([
+        loadContactsForSession(selectedSessionId),
+        loadConversations(),
+      ]);
     } else {
       setContacts([]);
       setLoadingConversations(false);
@@ -356,30 +352,8 @@ export default function ConversationsPage() {
           };
         });
 
-        // Deduplicate by cleaned phone number - keep the most recent conversation
-        const deduplicatedContacts = formattedContacts.reduce((acc: Contact[], contact: Contact) => {
-          const existingIndex = acc.findIndex(c => c.cleanedPhone === contact.cleanedPhone);
-          if (existingIndex === -1) {
-            acc.push(contact);
-          } else {
-            // Keep the one with the more recent lastMessageTime
-            const existing = acc[existingIndex];
-            if (contact.lastMessageTime > existing.lastMessageTime) {
-              acc[existingIndex] = contact;
-            } else {
-              // Merge unread counts
-              acc[existingIndex].unreadCount += contact.unreadCount;
-            }
-          }
-          return acc;
-        }, []);
-
-        // Sort by last message time (most recent first)
-        deduplicatedContacts.sort((a: Contact, b: Contact) =>
-          b.lastMessageTime.getTime() - a.lastMessageTime.getTime()
-        );
-
-        setContacts(deduplicatedContacts);
+        // Backend already deduplicates and sorts by last message time
+        setContacts(formattedContacts);
       } else {
         // No real conversations, show empty state
         setContacts([]);

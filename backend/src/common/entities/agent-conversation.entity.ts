@@ -36,6 +36,7 @@ export enum ConversationChannel {
 @Index("IDX_CONV_EXTERNAL_ID", ["externalId"])
 @Index("IDX_CONV_CLIENT_PHONE", ["clientPhoneNumber"])
 @Index("IDX_CONV_SESSION", ["sessionId"])
+@Index("IDX_CONV_USER_CHANNEL", ["userId", "channel"])
 export class AgentConversation extends BaseEntity {
   @ApiProperty({ description: "Conversation title" })
   @Column({ nullable: true })

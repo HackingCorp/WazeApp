@@ -352,7 +352,7 @@ export class WhatsAppAIResponderService {
       // Find the conversation for this contact
       const fromNumber = remoteJid.replace("@s.whatsapp.net", "");
       const conversation = await this.conversationRepository.findOne({
-        where: { phoneNumber: fromNumber, agentId: session.agent.id },
+        where: { clientPhoneNumber: fromNumber, agentId: session.agent.id },
       });
 
       if (!conversation) return;
@@ -379,14 +379,16 @@ export class WhatsAppAIResponderService {
       // Save the owner's message in the conversation history
       const messageText = this.extractMessageText(message);
       if (messageText?.trim()) {
-        await this.messageRepository.save(
-          this.messageRepository.create({
-            conversationId: conversation.id,
-            role: 'operator' as any,
-            content: messageText.trim(),
-            metadata: { fromPhone: true },
-          }),
-        );
+        const msg = this.messageRepository.create({
+          content: messageText.trim(),
+          role: 'operator' as any,
+          status: 'sent' as any,
+          sequenceNumber: 0,
+          metadata: { fromWhatsApp: true, originalSender: 'user' } as any,
+          timestamp: new Date(),
+        });
+        msg.conversationId = conversation.id;
+        await this.messageRepository.save(msg);
       }
     } catch (error) {
       this.logger.warn(`Error handling fromMe message: ${error.message}`);

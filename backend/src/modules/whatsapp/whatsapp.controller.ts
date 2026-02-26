@@ -391,6 +391,7 @@ export class WhatsAppController {
         .replace("@s.whatsapp.net", "")
         .replace("@g.us", "")
         .replace(/\s+/g, "")
+        .replace(/^\+/, "")
         .trim();
     };
 
@@ -408,9 +409,7 @@ export class WhatsAppController {
         phoneGroups.set(key, {
           ...conv,
           phoneNumber: normalizedPhone,
-          name: normalizedPhone.startsWith("+")
-            ? normalizedPhone
-            : `+${normalizedPhone}`,
+          name: `+${normalizedPhone}`,
         });
       }
     });
@@ -670,6 +669,7 @@ export class WhatsAppController {
         .replace("@s.whatsapp.net", "")
         .replace("@g.us", "")
         .replace(/\s+/g, "")
+        .replace(/^\+/, "")
         .trim();
     };
 

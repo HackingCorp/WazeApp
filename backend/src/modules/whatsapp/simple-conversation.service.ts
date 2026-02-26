@@ -503,6 +503,7 @@ export class SimpleConversationService implements OnModuleDestroy {
       .replace(/@g\.us$/i, "")
       .replace(/@lid$/i, "")
       .replace(/\s+/g, "")
+      .replace(/^\+/, "")
       .trim();
   }
 

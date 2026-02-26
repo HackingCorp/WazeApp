@@ -182,14 +182,14 @@ export default function ConversationsPage() {
     // Extract only digits
     const digitsOnly = cleaned.replace(/\D/g, '');
 
-    // Valid international phone numbers are up to 15 digits (E.164 standard)
-    // LIDs are usually 17+ digits
-    if (digitsOnly.length > 16) {
+    // Real international phone numbers are typically 7-13 digits
+    // Numbers with 14+ digits are almost certainly WhatsApp LIDs
+    if (digitsOnly.length > 13) {
       return false;
     }
 
     // Check for reasonable phone number pattern
-    return /^\+?[1-9]\d{6,15}$/.test(cleaned);
+    return /^\+?[1-9]\d{6,12}$/.test(cleaned);
   }, [cleanPhoneForLookup]);
 
   // Helper function to get contact from map
@@ -312,7 +312,7 @@ export default function ConversationsPage() {
           if (!displayName ||
               displayName === conv.phoneNumber ||
               displayName.includes('@') ||
-              (displayName.match(/^\+?\d+$/) && displayName.length > 16)) {
+              (displayName.match(/^\+?\d+$/) && displayName.replace(/\D/g, '').length > 13)) {
             // If backend name looks like a LID, try our local contact lookup
             displayName = getContactDisplayName(conv.phoneNumber || '');
           }

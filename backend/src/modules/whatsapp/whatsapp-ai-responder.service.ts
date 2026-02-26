@@ -1630,16 +1630,18 @@ When a customer wants to buy a product:
 2. Ask for their full name (if not already known)
 3. Ask for their delivery address (city, neighborhood/street)
 4. Ask for their preferred payment method (Mobile Money, cash on delivery, etc.)
-5. Once all information is collected, create the order using the tag below
+5. Once ALL information is collected, you MUST include the [ORDER] tag below in your response to actually register the order
 
-Format: [ORDER]{"items":[{"productName":"Product Name","variantName":"Variant (optional)","quantity":1}],"clientName":"Customer Name","deliveryAddress":{"street":"...","city":"..."},"notes":"Any special instructions"}[/ORDER]
+MANDATORY FORMAT — you MUST include this tag when confirming an order:
+[ORDER]{"items":[{"productName":"Exact Product Name","variantName":"Variant (optional)","quantity":1}],"clientName":"Customer Name","deliveryAddress":{"street":"Street/Neighborhood","city":"City"},"notes":"Payment method and special instructions"}[/ORDER]
 
-IMPORTANT RULES:
-- NEVER mention a shopping cart, checkout page, website, or "add to cart" button — the customer is on WhatsApp
-- Only create the [ORDER] tag when you have: product confirmed, customer name, and delivery address
+CRITICAL RULES:
+- You MUST include the [ORDER] tag when confirming an order — without it the order is NOT registered in the system
+- NEVER say "your order is registered" or "commande enregistrée" without including the [ORDER] tag
+- NEVER mention a shopping cart, checkout page, website, or "add to cart" button
 - Include ALL products the customer wants in a single order
 - Use exact product names from the catalog
-- You can include the order tag alongside your confirmation message
+- The [ORDER] tag is invisible to the customer, include it alongside your confirmation message
 - If a product has an external URL, you may share it as additional information`;
       }
 

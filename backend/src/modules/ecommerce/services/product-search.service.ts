@@ -325,7 +325,8 @@ export class ProductSearchService {
       "- You MUST use the products listed above to answer the customer. Present matching products with their exact names, prices, and stock status.\n" +
       "- NEVER claim you don't have a product if it appears in the catalog above.\n" +
       "- When you present a product to the customer, include its image tag (e.g. [PRODUCT_IMAGE:1]) in your response so the customer can see the product photo.\n" +
-      "- ONLY include image tags for products you are actively presenting or discussing. Do NOT include image tags for products you are not talking about.\n";
+      "- ONLY include image tags for products you are actively presenting or discussing. Do NOT include image tags for products you are not talking about.\n" +
+      "- ORDERING: When confirming a customer order, you MUST include the [ORDER] tag. Without this tag, the order is NOT saved. See ORDER CREATION instructions above.\n";
 
     return result;
   }

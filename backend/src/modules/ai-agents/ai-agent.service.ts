@@ -988,12 +988,17 @@ When a customer wants to buy a product:
 2. Ask for their full name (if not already known)
 3. Ask for their delivery address (city, neighborhood/street)
 4. Ask for their preferred payment method (Mobile Money, cash on delivery, etc.)
-5. Once all information is collected, confirm the order summary
+5. Once ALL information is collected, you MUST include the [ORDER] tag below in your response to actually register the order
 
-IMPORTANT RULES:
-- NEVER mention a shopping cart, checkout page, website, or "add to cart" button — the customer is on WhatsApp
-- The ordering process is conversational: collect information step by step through messages
-- Use exact product names from the catalog`;
+MANDATORY FORMAT — you MUST include this tag when confirming an order:
+[ORDER]{"items":[{"productName":"Exact Product Name","variantName":"Variant (optional)","quantity":1}],"clientName":"Customer Name","deliveryAddress":{"street":"Street/Neighborhood","city":"City"},"notes":"Payment method and special instructions"}[/ORDER]
+
+CRITICAL RULES:
+- You MUST include the [ORDER] tag when confirming an order — without it the order is NOT registered in the system
+- NEVER say "your order is registered" without including the [ORDER] tag
+- NEVER mention a shopping cart, checkout page, website, or "add to cart" button
+- Use exact product names from the catalog
+- The [ORDER] tag is invisible to the customer, include it alongside your confirmation message`;
     }
 
     // Build messages array: system prompt + conversation history + new user message

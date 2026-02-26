@@ -710,9 +710,9 @@ export class SimpleConversationService implements OnModuleDestroy {
       return true;
     }
 
-    // If it's longer than 16 digits, it's likely a LID
-    // Real international phone numbers can be up to 15 digits (E.164 standard)
-    return cleaned.length > 16;
+    // Real international phone numbers are typically 7-13 digits
+    // Numbers with 14+ digits are almost certainly WhatsApp LIDs
+    return cleaned.length > 13;
   }
 
   // API methods for frontend
@@ -1014,18 +1014,25 @@ export class SimpleConversationService implements OnModuleDestroy {
       // Convert database messages to MessageData format
       const formattedMessages: MessageData[] = dbMessages.map((msg) => {
         // Check if this is a message from WhatsApp client by examining metadata
+        const meta = msg.metadata as Record<string, unknown> | null;
         const isFromWhatsAppClient =
-          msg.metadata &&
-          ((msg.metadata as Record<string, unknown>).fromWhatsApp === true ||
-            (msg.metadata as Record<string, unknown>).messageId ||
-            (msg.metadata as Record<string, unknown>).fromNumber ||
-            (msg.metadata as Record<string, unknown>).originalSender === "client");
+          meta &&
+          (meta.fromWhatsApp === true ||
+            meta.messageId ||
+            meta.fromNumber ||
+            meta.originalSender === "client" ||
+            meta.whatsappMessageId); // Also check whatsappMessageId as fallback
 
         let sender: "user" | "agent" | "client";
         if (msg.role === "agent") {
           sender = "agent";
         } else if (msg.role === "user" && isFromWhatsAppClient) {
-          sender = "client"; // WhatsApp client messages
+          // Check if originalSender explicitly says "user" (sent from dashboard/us)
+          if (meta?.originalSender === "user") {
+            sender = "user"; // Sent by us through WhatsApp
+          } else {
+            sender = "client"; // WhatsApp client messages (incoming)
+          }
         } else {
           sender = "user"; // Web interface messages
         }
@@ -1073,17 +1080,20 @@ export class SimpleConversationService implements OnModuleDestroy {
         // Detect media placeholder patterns in content when mediaType is null
         // These come from historical messages where media wasn't downloaded
         if (messageType === "text" && !effectiveMediaUrl && msg.content) {
-          const content = msg.content.trim();
-          if (content === '[Image]' || content === '[image]') {
+          const content = msg.content.trim().toLowerCase();
+          if (content === '[image]' || content === 'image') {
             messageType = "image";
             effectiveMediaType = "image/jpeg";
-          } else if (content === '[Video]' || content === '[video]') {
+          } else if (content === '[video]' || content === 'video') {
             messageType = "video";
             effectiveMediaType = "video/mp4";
-          } else if (content === '[Audio]' || content === '[audio]') {
+          } else if (content === '[audio]' || content === 'audio') {
             messageType = "audio";
             effectiveMediaType = "audio/mpeg";
-          } else if (content === '[Media message]' || content === 'Media message') {
+          } else if (content === '[document]' || content === '[file]') {
+            messageType = "file";
+            effectiveMediaType = "application/octet-stream";
+          } else if (content === '[media message]' || content === 'media message' || content === '[media]' || content === '[sticker]') {
             messageType = "file";
             effectiveMediaType = "application/octet-stream";
           }

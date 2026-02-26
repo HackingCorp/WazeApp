@@ -210,9 +210,9 @@ const MessageBubble = React.memo(({ message, isFirst, isLast, formatMessageTime,
           </a>
         );
       default: {
-        // Detect media placeholder patterns from historical messages
-        const content = message.content?.trim() || '';
-        if (content === '[Image]' || content === '[image]') {
+        // Detect media placeholder patterns from historical messages (case-insensitive)
+        const content = message.content?.trim().toLowerCase() || '';
+        if (content === '[image]' || content === 'image') {
           return (
             <div className="flex items-center gap-2 bg-black/10 dark:bg-white/10 rounded-lg p-3">
               <span className="text-2xl">🖼️</span>
@@ -220,7 +220,7 @@ const MessageBubble = React.memo(({ message, isFirst, isLast, formatMessageTime,
             </div>
           );
         }
-        if (content === '[Video]' || content === '[video]') {
+        if (content === '[video]' || content === 'video') {
           return (
             <div className="flex items-center gap-2 bg-black/10 dark:bg-white/10 rounded-lg p-3">
               <span className="text-2xl">🎬</span>
@@ -228,7 +228,7 @@ const MessageBubble = React.memo(({ message, isFirst, isLast, formatMessageTime,
             </div>
           );
         }
-        if (content === '[Audio]' || content === '[audio]') {
+        if (content === '[audio]' || content === 'audio') {
           return (
             <div className="flex items-center gap-2 bg-black/10 dark:bg-white/10 rounded-lg p-3">
               <span className="text-2xl">🎵</span>
@@ -236,7 +236,7 @@ const MessageBubble = React.memo(({ message, isFirst, isLast, formatMessageTime,
             </div>
           );
         }
-        if (content === '[Media message]' || content === 'Media message' || content === '[Sticker]') {
+        if (content === '[media message]' || content === 'media message' || content === '[sticker]' || content === '[media]' || content === '[document]' || content === '[file]') {
           return (
             <div className="flex items-center gap-2 bg-black/10 dark:bg-white/10 rounded-lg p-3">
               <span className="text-2xl">📎</span>

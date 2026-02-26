@@ -26,29 +26,35 @@ interface OrderItem {
   quantity: number;
   unitPrice: number;
   totalPrice: number;
-  externalLink?: string;
+  externalUrl?: string;
 }
 
-interface OrderTimeline {
-  status: string;
-  timestamp: string;
-  note?: string;
+interface DeliveryAddress {
+  street?: string;
+  city?: string;
+  state?: string;
+  postalCode?: string;
+  country?: string;
+  notes?: string;
 }
 
 interface Order {
   id: string;
   orderNumber: string;
-  customerName: string;
-  customerPhone: string;
+  clientName?: string;
+  clientPhoneNumber: string;
   items: OrderItem[];
   totalAmount: number;
   currency: string;
   status: 'pending' | 'confirmed' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
-  source: 'whatsapp' | 'dashboard' | 'api';
+  source: 'whatsapp_ai' | 'dashboard' | 'api';
   notes?: string;
-  deliveryAddress?: string;
+  deliveryAddress?: DeliveryAddress;
   cancellationReason?: string;
-  timeline?: OrderTimeline[];
+  confirmedAt?: string;
+  shippedAt?: string;
+  deliveredAt?: string;
+  cancelledAt?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -319,9 +325,9 @@ export default function OrderDetailPage() {
                           {formatCurrency(item.totalPrice, order.currency)}
                         </td>
                         <td className="px-6 py-4">
-                          {item.externalLink && (
+                          {item.externalUrl && (
                             <a
-                              href={item.externalLink}
+                              href={item.externalUrl}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="text-green-600 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300"
@@ -370,16 +376,18 @@ export default function OrderDetailPage() {
               <div className="space-y-3">
                 <div className="flex items-center space-x-3">
                   <User className="w-4 h-4 text-gray-400" />
-                  <span className="text-sm text-gray-900 dark:text-white">{order.customerName}</span>
+                  <span className="text-sm text-gray-900 dark:text-white">{order.clientName || '-'}</span>
                 </div>
                 <div className="flex items-center space-x-3">
                   <Phone className="w-4 h-4 text-gray-400" />
-                  <span className="text-sm text-gray-900 dark:text-white">{order.customerPhone}</span>
+                  <span className="text-sm text-gray-900 dark:text-white">{order.clientPhoneNumber}</span>
                 </div>
                 {order.deliveryAddress && (
                   <div className="flex items-start space-x-3">
                     <MapPin className="w-4 h-4 text-gray-400 mt-0.5" />
-                    <span className="text-sm text-gray-900 dark:text-white">{order.deliveryAddress}</span>
+                    <span className="text-sm text-gray-900 dark:text-white">
+                      {[order.deliveryAddress.street, order.deliveryAddress.city, order.deliveryAddress.state, order.deliveryAddress.country].filter(Boolean).join(', ') || '-'}
+                    </span>
                   </div>
                 )}
               </div>
@@ -391,40 +399,27 @@ export default function OrderDetailPage() {
                 {t('orders.orderTimeline')}
               </h2>
               <div className="space-y-4">
-                {order.timeline && order.timeline.length > 0 ? (
-                  order.timeline.map((entry, index) => (
-                    <div key={index} className="flex items-start space-x-3">
-                      <div className="flex-shrink-0 mt-0.5 text-gray-400">
-                        {getTimelineIcon(entry.status)}
-                      </div>
-                      <div className="flex-1">
-                        <p className="text-sm font-medium text-gray-900 dark:text-white">
-                          {getStatusLabel(entry.status)}
-                        </p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                          {new Date(entry.timestamp).toLocaleString()}
-                        </p>
-                        {entry.note && (
-                          <p className="text-xs text-gray-600 dark:text-gray-300 mt-1">{entry.note}</p>
-                        )}
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <div className="flex items-start space-x-3">
+                {[
+                  { status: 'pending', timestamp: order.createdAt },
+                  { status: 'confirmed', timestamp: order.confirmedAt },
+                  { status: 'shipped', timestamp: order.shippedAt },
+                  { status: 'delivered', timestamp: order.deliveredAt },
+                  { status: 'cancelled', timestamp: order.cancelledAt },
+                ].filter(e => e.timestamp).map((entry, index) => (
+                  <div key={index} className="flex items-start space-x-3">
                     <div className="flex-shrink-0 mt-0.5 text-gray-400">
-                      <Clock className="w-4 h-4" />
+                      {getTimelineIcon(entry.status)}
                     </div>
-                    <div>
+                    <div className="flex-1">
                       <p className="text-sm font-medium text-gray-900 dark:text-white">
-                        {getStatusLabel('pending')}
+                        {getStatusLabel(entry.status)}
                       </p>
                       <p className="text-xs text-gray-500 dark:text-gray-400">
-                        {new Date(order.createdAt).toLocaleString()}
+                        {new Date(entry.timestamp!).toLocaleString()}
                       </p>
                     </div>
                   </div>
-                )}
+                ))}
               </div>
             </div>
 
@@ -458,7 +453,7 @@ export default function OrderDetailPage() {
                 onClick={() => { setShowCancelDialog(false); setCancelReason(''); }}
                 className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
               >
-                {t('orders.confirmOrder')}
+                {t('common.cancel') || 'Cancel'}
               </button>
               <button
                 onClick={() => handleStatusUpdate('cancelled', cancelReason)}

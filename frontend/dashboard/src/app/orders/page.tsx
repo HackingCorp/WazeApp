@@ -23,21 +23,21 @@ interface OrderItem {
   quantity: number;
   unitPrice: number;
   totalPrice: number;
-  externalLink?: string;
+  externalUrl?: string;
 }
 
 interface Order {
   id: string;
   orderNumber: string;
-  customerName: string;
-  customerPhone: string;
+  clientName?: string;
+  clientPhoneNumber: string;
   items: OrderItem[];
   totalAmount: number;
   currency: string;
   status: 'pending' | 'confirmed' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
-  source: 'whatsapp' | 'dashboard' | 'api';
+  source: 'whatsapp_ai' | 'dashboard' | 'api';
   notes?: string;
-  deliveryAddress?: string;
+  deliveryAddress?: Record<string, string>;
   createdAt: string;
 }
 
@@ -125,6 +125,7 @@ export default function OrdersPage() {
 
   const getSourceLabel = (source: string) => {
     switch (source) {
+      case 'whatsapp_ai':
       case 'whatsapp': return t('orders.sourceWhatsapp');
       case 'dashboard': return t('orders.sourceDashboard');
       case 'api': return t('orders.sourceApi');
@@ -287,10 +288,10 @@ export default function OrdersPage() {
                         <td className="px-4 py-4">
                           <div>
                             <p className="text-sm font-medium text-gray-900 dark:text-white">
-                              {order.customerName}
+                              {order.clientName || '-'}
                             </p>
                             <p className="text-xs text-gray-500 dark:text-gray-400">
-                              {order.customerPhone}
+                              {order.clientPhoneNumber}
                             </p>
                           </div>
                         </td>

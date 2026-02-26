@@ -110,6 +110,7 @@ export class ProductSearchService {
       "plus", "moins", "très", "bien", "tout", "tous", "toute", "toutes",
       "ici", "là", "où", "comment", "pourquoi", "quand",
       "être", "avoir", "faire", "dire", "pouvoir", "vouloir",
+      "parle", "parler", "donne", "donner", "montre", "montrer",
       "cherche", "chercher", "voudrais", "veux", "veut",
       "s'il", "vous", "plaît", "plait", "svp", "merci",
       // English
@@ -157,6 +158,13 @@ export class ProductSearchService {
    * to get shorter root that matches both singular and plural via ILIKE
    * e.g., "drones" → "drone" so %drone% matches "Drone" and "Drones"
    */
+  /**
+   * Strip accents/diacritics from a string for accent-insensitive matching
+   */
+  private stripAccents(str: string): string {
+    return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  }
+
   private stemWord(word: string): string {
     // Don't stem very short words
     if (word.length <= 3) return word;
@@ -168,6 +176,10 @@ export class ProductSearchService {
     if (word.endsWith("ses") && word.length > 4) return word.slice(0, -2);  // chaussures → keep, but "courses" → "cour" - too aggressive
     if (word.endsWith("es") && word.length > 4) return word.slice(0, -1);   // drones → drone, chaussures → chaussure
     if (word.endsWith("s") && !word.endsWith("ss") && word.length > 3) return word.slice(0, -1); // sacs → sac, drones handled above
+    // French verb/noun suffixes
+    if (word.endsWith("eur") && word.length > 5) return word.slice(0, -3);  // supporteur → support
+    if (word.endsWith("er") && word.length > 5) return word.slice(0, -2);   // supporter → support, charger → charg
+    if (word.endsWith("ment") && word.length > 6) return word.slice(0, -4); // chargement → charge
     return word;
   }
 
@@ -201,17 +213,33 @@ export class ProductSearchService {
       const searchTerms = this.extractSearchTerms(query);
 
       if (searchTerms.length > 0) {
-        // Build OR conditions for each search term
-        const conditions = searchTerms.map((_, i) =>
-          `(product.name ILIKE :search${i} OR product.description ILIKE :search${i} OR product.shortDescription ILIKE :search${i} OR product.sku ILIKE :search${i} OR categories.name ILIKE :search${i})`
-        ).join(" OR ");
-
+        // For each search term, also generate an unaccented version for accent-insensitive matching
+        const allConditions: string[] = [];
         const params: Record<string, string> = {};
-        searchTerms.forEach((term, i) => {
-          params[`search${i}`] = `%${term}%`;
+        let paramIdx = 0;
+
+        searchTerms.forEach((term) => {
+          const unaccented = this.stripAccents(term);
+          const fields = ["product.name", "product.description", "product.shortDescription", "product.sku", "categories.name"];
+
+          // Search with original term
+          const key1 = `search${paramIdx}`;
+          params[key1] = `%${term}%`;
+          const cond1 = fields.map(f => `${f} ILIKE :${key1}`).join(" OR ");
+          allConditions.push(`(${cond1})`);
+          paramIdx++;
+
+          // If unaccented is different, also search without accents
+          if (unaccented !== term) {
+            const key2 = `search${paramIdx}`;
+            params[key2] = `%${unaccented}%`;
+            const cond2 = fields.map(f => `${f} ILIKE :${key2}`).join(" OR ");
+            allConditions.push(`(${cond2})`);
+            paramIdx++;
+          }
         });
 
-        qb.andWhere(`(${conditions})`, params);
+        qb.andWhere(`(${allConditions.join(" OR ")})`, params);
       }
       // If no meaningful search terms extracted, return all products (same as general query)
     }

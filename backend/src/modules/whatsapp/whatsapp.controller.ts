@@ -388,8 +388,10 @@ export class WhatsAppController {
     // FORCE deduplication at API level
     const normalizePhoneNumber = (phoneNumber: string): string => {
       return phoneNumber
-        .replace("@s.whatsapp.net", "")
-        .replace("@g.us", "")
+        .replace(/@s\.whatsapp\.net$/i, "")
+        .replace(/@g\.us$/i, "")
+        .replace(/@lid$/i, "")
+        .replace(/@c\.us$/i, "")
         .replace(/\s+/g, "")
         .replace(/^\+/, "")
         .trim();
@@ -406,10 +408,15 @@ export class WhatsAppController {
         !existing ||
         new Date(conv.lastMessageTime) > new Date(existing.lastMessageTime)
       ) {
+        // Preserve existing name if it's a real contact name (not just a phone number)
+        const existingName = conv.name || "";
+        const isPhoneName = /^[\+\d\s\-()]+$/.test(existingName) || existingName === "Contact WhatsApp";
         phoneGroups.set(key, {
           ...conv,
           phoneNumber: normalizedPhone,
-          name: `+${normalizedPhone}`,
+          name: isPhoneName
+            ? `+${normalizedPhone}`
+            : existingName,
         });
       }
     });

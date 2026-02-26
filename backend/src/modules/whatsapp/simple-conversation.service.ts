@@ -757,7 +757,7 @@ export class SimpleConversationService implements OnModuleDestroy {
           .where('conv.channel = :channel', { channel: ConversationChannel.WHATSAPP })
           .andWhere('conv.userId = :userId', { userId })
           .andWhere(
-            '(conv.sessionId = :sessionId OR conv.context->>\'sessionId\' = :sessionId)',
+            '(conv.sessionId = :sessionId OR (conv.sessionId IS NULL AND conv.context->>\'sessionId\' = :sessionId))',
             { sessionId },
           )
           .orderBy('conv.updatedAt', 'DESC')

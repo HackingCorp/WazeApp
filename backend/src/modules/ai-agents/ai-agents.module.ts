@@ -20,6 +20,7 @@ import { AuditModule } from "../audit/audit.module";
 import { LlmProvidersModule } from "../llm-providers/llm-providers.module";
 import { VectorSearchModule } from "../vector-search/vector-search.module";
 import { EcommerceModule } from "../ecommerce/ecommerce.module";
+import { OrdersModule } from "../orders/orders.module";
 
 @Module({
   imports: [
@@ -39,6 +40,7 @@ import { EcommerceModule } from "../ecommerce/ecommerce.module";
     forwardRef(() => LlmProvidersModule),
     forwardRef(() => VectorSearchModule),
     forwardRef(() => EcommerceModule),
+    OrdersModule,
   ],
   controllers: [AiAgentController, ConversationController],
   providers: [AiAgentService, ConversationService],

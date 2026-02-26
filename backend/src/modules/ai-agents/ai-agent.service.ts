@@ -39,6 +39,7 @@ import { AuditService } from "../audit/audit.service";
 import { LLMRouterService } from "../llm-providers/llm-router.service";
 import { VectorSearchService } from "../vector-search/vector-search.service";
 import { ProductSearchService } from "../ecommerce/services/product-search.service";
+import { OrderTagParserService } from "../orders/services/order-tag-parser.service";
 
 @Injectable()
 export class AiAgentService {
@@ -82,6 +83,8 @@ export class AiAgentService {
 
     @Inject(forwardRef(() => ProductSearchService))
     private readonly productSearchService: ProductSearchService,
+
+    private readonly orderTagParserService: OrderTagParserService,
   ) {}
 
   async create(
@@ -1092,6 +1095,30 @@ CRITICAL RULES:
         }
       }
     }
+
+    // Parse [ORDER] tag from LLM response — create order and strip tag from response
+    if (cleanResponse.includes('[ORDER]')) {
+      try {
+        const { cleanResponse: orderClean, order } = await this.orderTagParserService.parseAndProcess(
+          cleanResponse,
+          {
+            organizationId: organizationId || agent.organizationId,
+            agentId: agent.id,
+            clientPhoneNumber: 'test-agent',
+          },
+        );
+        cleanResponse = orderClean;
+        if (order) {
+          this.logger.log(`[TestAgent] Order created: ${order.orderNumber}`);
+        }
+      } catch (error) {
+        this.logger.error(`[TestAgent] Failed to process ORDER tag: ${error.message}`);
+        cleanResponse = cleanResponse.replace(/\[ORDER\][\s\S]*?\[\/ORDER\]/, '').trim();
+      }
+    }
+
+    // Parse [APPOINTMENT] tag — strip it from response (not processed in test mode)
+    cleanResponse = cleanResponse.replace(/\[APPOINTMENT\][\s\S]*?\[\/APPOINTMENT\]/, '').trim();
 
     response = cleanResponse;
 

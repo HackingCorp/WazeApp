@@ -310,7 +310,7 @@ export class SimpleConversationService implements OnModuleDestroy {
 
     try {
       // Get or create conversation
-      let conversation = await this.findConversationByPhone(fromNumber, userId);
+      let conversation = await this.findConversationByPhone(fromNumber, userId, sessionId);
 
       if (!conversation) {
         conversation = await this.createConversation(
@@ -509,15 +509,16 @@ export class SimpleConversationService implements OnModuleDestroy {
   private async findConversationByPhone(
     phoneNumber: string,
     userId: string,
+    sessionId?: string,
   ): Promise<ConversationData | undefined> {
     const normalizedPhone = this.normalizePhoneNumber(phoneNumber);
 
     // First check in-memory conversations with normalized comparison
     for (const [id, conversation] of this.conversations.entries()) {
-      // Since we now store normalized phone numbers, we can do a direct comparison
       if (
         conversation.phoneNumber === normalizedPhone &&
-        conversation.userId === userId
+        conversation.userId === userId &&
+        (!sessionId || conversation.sessionId === sessionId)
       ) {
         return conversation;
       }
@@ -525,22 +526,42 @@ export class SimpleConversationService implements OnModuleDestroy {
 
     // Then check database for persisted conversations with normalized comparison
     try {
+      const whereConditions: any = {
+        userId: userId,
+        channel: ConversationChannel.WHATSAPP,
+      };
+      if (sessionId) {
+        whereConditions.sessionId = sessionId;
+      }
       const dbConversations = await this.conversationRepository.find({
-        where: {
-          userId: userId,
-          channel: ConversationChannel.WHATSAPP,
-        },
+        where: whereConditions,
         order: { updatedAt: "DESC" },
         take: 100,
       });
 
       // Find matching conversation by normalizing the externalId
-      const dbConversation = dbConversations.find((conv) => {
+      let dbConversation = dbConversations.find((conv) => {
         const normalizedExternalId = this.normalizePhoneNumber(
           conv.externalId || "",
         );
         return normalizedExternalId === normalizedPhone;
       });
+
+      // Also check context.sessionId for older conversations
+      if (!dbConversation && sessionId) {
+        const contextMatches = await this.conversationRepository
+          .createQueryBuilder('conv')
+          .where('conv.userId = :userId', { userId })
+          .andWhere('conv.channel = :channel', { channel: ConversationChannel.WHATSAPP })
+          .andWhere("conv.context->>'sessionId' = :sessionId", { sessionId })
+          .orderBy('conv.updatedAt', 'DESC')
+          .take(100)
+          .getMany();
+        dbConversation = contextMatches.find((conv) => {
+          const normalizedExternalId = this.normalizePhoneNumber(conv.externalId || "");
+          return normalizedExternalId === normalizedPhone;
+        });
+      }
 
       if (dbConversation) {
         // Get last message and unread count with targeted queries instead of loading all messages

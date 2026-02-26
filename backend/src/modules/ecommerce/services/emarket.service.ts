@@ -10,6 +10,7 @@ interface EMarketProduct {
   short_description?: string;
   sku?: string;
   price: number;
+  sale_price?: number;
   compare_at_price?: number;
   tax_rate?: number;
   currency: string;
@@ -193,8 +194,8 @@ export class EMarketService {
         source: EcommercePlatform.EMARKET,
         externalId: String(ext.id),
         externalUrl: ext.product_url || null,
-        price: ext.price ?? null,
-        compareAtPrice: ext.compare_at_price ?? null,
+        price: ext.sale_price ?? ext.price ?? null,
+        compareAtPrice: ext.sale_price ? (ext.price ?? null) : (ext.compare_at_price ?? null),
         currency: ext.currency || "XAF",
         sku: ext.sku || null,
         stockQuantity: ext.stock_quantity ?? ext.total_stock ?? null,

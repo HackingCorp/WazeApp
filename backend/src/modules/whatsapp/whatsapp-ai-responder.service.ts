@@ -1,8 +1,9 @@
 import { Injectable, Logger, Inject } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository, In } from "typeorm";
+import { Repository, In, LessThan } from "typeorm";
 import { OnEvent, EventEmitter2 } from "@nestjs/event-emitter";
 import { ConfigService } from "@nestjs/config";
+import { Cron } from "@nestjs/schedule";
 import { CACHE_MANAGER } from "@nestjs/cache-manager";
 import { Cache } from "cache-manager";
 import {
@@ -266,6 +267,60 @@ export class WhatsAppAIResponderService {
     private availabilityService: AvailabilityService,
   ) {
     this.logger.log('WhatsAppAIResponderService initialized');
+  }
+
+  /**
+   * Auto-release conversations back to AI after 30 minutes of operator inactivity.
+   * Runs every 5 minutes. Checks human-controlled conversations where the last
+   * operator/system message is older than 30 minutes.
+   */
+  @Cron('*/5 * * * *')
+  async autoReleaseInactiveConversations() {
+    try {
+      // Find all human-controlled conversations
+      const humanControlled = await this.conversationRepository.find({
+        where: { isHumanControlled: true },
+        relations: ["agent"],
+      });
+
+      if (humanControlled.length === 0) return;
+
+      const AUTO_RELEASE_MINUTES = 30;
+      const cutoff = new Date(Date.now() - AUTO_RELEASE_MINUTES * 60 * 1000);
+      let releasedCount = 0;
+
+      for (const conversation of humanControlled) {
+        // Find the last operator message in this conversation
+        const lastOperatorMsg = await this.messageRepository.findOne({
+          where: { conversationId: conversation.id, role: In(['operator' as any, 'assistant' as any]) },
+          order: { createdAt: 'DESC' },
+        });
+
+        // If no operator message at all, or last operator message is older than cutoff → release
+        const lastActivity = lastOperatorMsg?.createdAt || conversation.updatedAt;
+        if (lastActivity < cutoff) {
+          conversation.isHumanControlled = false;
+          conversation.assignedOperatorId = null;
+          conversation.escalationReason = null;
+          await this.conversationRepository.save(conversation);
+          releasedCount++;
+
+          this.logger.log(`🤖 Auto-released conversation ${conversation.id} back to AI (inactive for >${AUTO_RELEASE_MINUTES}min)`);
+
+          // Notify dashboard
+          this.eventEmitter.emit('conversation.released', {
+            conversationId: conversation.id,
+            organizationId: conversation.agent?.organizationId,
+          });
+        }
+      }
+
+      if (releasedCount > 0) {
+        this.logger.log(`🤖 Auto-release: ${releasedCount}/${humanControlled.length} conversations returned to AI`);
+      }
+    } catch (error) {
+      this.logger.warn(`Auto-release cron error: ${error.message}`);
+    }
   }
 
   /**

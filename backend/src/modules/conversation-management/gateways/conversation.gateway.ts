@@ -561,6 +561,30 @@ export class ConversationGateway
       });
   }
 
+  @OnEvent('conversation.released')
+  async handleConversationReleased(payload: {
+    conversationId: string;
+    organizationId: string;
+  }) {
+    this.logger.log(`🤖 Conversation released back to AI: ${payload.conversationId}`);
+
+    if (payload.organizationId) {
+      this.server
+        .to(`org:${payload.organizationId}`)
+        .emit("conversation_released", {
+          conversationId: payload.conversationId,
+          timestamp: new Date(),
+        });
+    }
+
+    this.server
+      .to(`conversation:${payload.conversationId}`)
+      .emit("conversation_released", {
+        conversationId: payload.conversationId,
+        timestamp: new Date(),
+      });
+  }
+
   /**
    * Utility methods
    */

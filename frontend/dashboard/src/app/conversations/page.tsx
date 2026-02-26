@@ -544,11 +544,25 @@ export default function ConversationsPage() {
       });
     };
 
+    const handleConversationReleased = (data: { conversationId: string }) => {
+      setContacts(prev => prev.map(contact =>
+        contact.id === data.conversationId
+          ? { ...contact, isHumanControlled: false, assignedOperatorId: undefined, escalationReason: undefined }
+          : contact
+      ));
+
+      toast.success(t('conversations.conversationAutoReleased'), {
+        duration: 4000,
+        icon: '🤖',
+      });
+    };
+
     const unsubscribeNewMessage = subscribe('whatsapp:message', handleNewMessage);
     const unsubscribeTyping = subscribe('whatsapp:typing', handleTypingUpdate);
     const unsubscribeOnlineStatus = subscribe('whatsapp:online-status', handleOnlineStatus);
     const unsubscribeSyncStatus = subscribe('whatsapp:sync-status', handleSyncStatus);
     const unsubscribeEscalation = subscribe('conversation_escalated', handleConversationEscalated);
+    const unsubscribeReleased = subscribe('conversation_released', handleConversationReleased);
 
     return () => {
       unsubscribeNewMessage();
@@ -556,6 +570,7 @@ export default function ConversationsPage() {
       unsubscribeOnlineStatus();
       unsubscribeSyncStatus();
       unsubscribeEscalation();
+      unsubscribeReleased();
       if (syncStatusTimerRef.current) clearTimeout(syncStatusTimerRef.current);
     };
   }, [socket, subscribe, selectedContactId]);

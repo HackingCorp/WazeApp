@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { Send, Phone, Video, MoreVertical, Paperclip, Smile, Mic, Search, Archive, Settings, MessageCircle, Check, CheckCheck, Menu, ArrowLeft, AlertCircle } from 'lucide-react';
+import { Send, Phone, Video, MoreVertical, Paperclip, Smile, Mic, Search, Archive, Settings, MessageCircle, Check, CheckCheck, Menu, ArrowLeft, AlertCircle, UserCheck, Bot } from 'lucide-react';
 import { formatDistanceToNow, format, isToday, isYesterday } from 'date-fns';
 import clsx from 'clsx';
 
@@ -706,20 +706,40 @@ export function ConversationInterface({
                 </div>
 
                 <div className="flex items-center gap-1">
-                  <button
-                    className="p-2.5 hover:bg-[#e9edef] dark:hover:bg-[#374248] rounded-full transition-colors opacity-50 cursor-not-allowed"
-                    aria-label="Video call"
-                    disabled
-                  >
-                    <Video className="w-5 h-5 text-[#54656f] dark:text-[#aebac1]" />
-                  </button>
-                  <button
-                    className="p-2.5 hover:bg-[#e9edef] dark:hover:bg-[#374248] rounded-full transition-colors opacity-50 cursor-not-allowed"
-                    aria-label="Voice call"
-                    disabled
-                  >
-                    <Phone className="w-5 h-5 text-[#54656f] dark:text-[#aebac1]" />
-                  </button>
+                  {/* Takeover / Release button - always visible */}
+                  {!selectedContact.isHumanControlled && onTakeover && (
+                    <button
+                      onClick={() => onTakeover(selectedContact.id)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-500 hover:bg-orange-600 text-white text-xs font-medium rounded-lg transition-colors"
+                      aria-label={t('conversations.takeOver')}
+                      title={t('conversations.takeOver')}
+                    >
+                      <UserCheck className="w-4 h-4" />
+                      {t('conversations.takeOver')}
+                    </button>
+                  )}
+                  {selectedContact.isHumanControlled && selectedContact.assignedOperatorId && onRelease && (
+                    <button
+                      onClick={() => onRelease(selectedContact.id)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-[#00a884] hover:bg-[#008069] text-white text-xs font-medium rounded-lg transition-colors"
+                      aria-label={t('conversations.releaseToAI')}
+                      title={t('conversations.releaseToAI')}
+                    >
+                      <Bot className="w-4 h-4" />
+                      {t('conversations.releaseToAI')}
+                    </button>
+                  )}
+                  {selectedContact.isHumanControlled && !selectedContact.assignedOperatorId && onTakeover && (
+                    <button
+                      onClick={() => onTakeover(selectedContact.id)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-500 hover:bg-orange-600 text-white text-xs font-medium rounded-lg transition-colors animate-pulse"
+                      aria-label={t('conversations.takeOver')}
+                      title={t('conversations.takeOver')}
+                    >
+                      <UserCheck className="w-4 h-4" />
+                      {t('conversations.takeOver')}
+                    </button>
+                  )}
                   {onArchiveContact && (
                     <button
                       onClick={() => onArchiveContact(selectedContact.id)}

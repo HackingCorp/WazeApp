@@ -633,7 +633,7 @@ export default function ConversationsPage() {
       if (result.success) {
         setContacts(prev => prev.map(contact =>
           contact.id === contactId
-            ? { ...contact, assignedOperatorId: user?.id }
+            ? { ...contact, isHumanControlled: true, assignedOperatorId: user?.id }
             : contact
         ));
         toast.success(t('conversations.conversationTakenOver'));

@@ -1456,13 +1456,19 @@ export class SimpleConversationService implements OnModuleDestroy {
         where: { id: conversationData.id },
       });
 
-      // Also check if there's an existing conversation with the same normalized phone number for this user
+      // Also check if there's an existing conversation with the same normalized phone number for this user AND session
+      // CRITICAL: Must filter by sessionId to prevent cross-session contamination
       if (!dbConversation) {
+        const whereConditions: any = {
+          userId: conversationData.userId,
+          channel: ConversationChannel.WHATSAPP,
+        };
+        // Filter by sessionId to prevent cross-session conversation reuse
+        if (conversationData.sessionId) {
+          whereConditions.sessionId = conversationData.sessionId;
+        }
         const existingConversations = await this.conversationRepository.find({
-          where: {
-            userId: conversationData.userId,
-            channel: ConversationChannel.WHATSAPP,
-          },
+          where: whereConditions,
         });
 
         // Find existing conversation with same normalized phone number
@@ -1472,6 +1478,20 @@ export class SimpleConversationService implements OnModuleDestroy {
           );
           return existingNormalizedPhone === normalizedPhone;
         });
+
+        // Also check context.sessionId for older conversations that don't have the column set
+        if (!dbConversation && conversationData.sessionId) {
+          const contextMatches = await this.conversationRepository
+            .createQueryBuilder('conv')
+            .where('conv.userId = :userId', { userId: conversationData.userId })
+            .andWhere('conv.channel = :channel', { channel: ConversationChannel.WHATSAPP })
+            .andWhere("conv.context->>'sessionId' = :sessionId", { sessionId: conversationData.sessionId })
+            .getMany();
+          dbConversation = contextMatches.find((conv) => {
+            const existingNormalizedPhone = this.normalizePhoneNumber(conv.externalId || "");
+            return existingNormalizedPhone === normalizedPhone;
+          });
+        }
 
         if (dbConversation) {
           // Update the in-memory conversation ID to match the existing DB conversation

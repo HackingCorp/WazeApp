@@ -218,7 +218,19 @@ export class UnansweredMessageService {
     cutoffTime: Date,
     maxMessages: number,
   ): Promise<AgentMessage[]> {
+    // SAFETY: Only catch-up messages that are at least 5 minutes old
+    // This prevents catching up messages that were just handled by the real-time AI responder
+    // (which saves responses in its own conversation record)
+    const minAgeTime = new Date();
+    minAgeTime.setMinutes(minAgeTime.getMinutes() - 5);
+
+    // Use the earlier of cutoffTime and minAgeTime as the upper bound
+    const effectiveMaxTime = minAgeTime;
+
     // Use raw SQL query for reliability - TypeORM query builder has issues with complex LEFT JOINs
+    // CRITICAL FIX: Also check if the same phone number has been answered in ANY conversation
+    // (not just the same conversation), to prevent duplicate AI responses when messages are
+    // saved in multiple conversation records by different services
     const rawResults = await this.messageRepository.query(
       `
       SELECT
@@ -236,19 +248,28 @@ export class UnansweredMessageService {
         later_agent_msg."conversationId" = m."conversationId"
         AND later_agent_msg.role = 'agent'
         AND later_agent_msg."sequenceNumber" > m."sequenceNumber"
-      WHERE (c."sessionId" = $1 OR c.context->>'sessionId' = $1)
+      WHERE (c."sessionId" = $1 OR (c."sessionId" IS NULL AND c.context->>'sessionId' = $1))
         AND c.status = 'active'
         AND m.role = 'user'
         AND m."createdAt" >= $2
+        AND m."createdAt" <= $4
         AND (m.metadata->>'catchUpProcessed' IS NULL OR m.metadata->>'catchUpProcessed' = 'false')
         AND later_agent_msg.id IS NULL
+        AND NOT EXISTS (
+          SELECT 1 FROM agent_messages cross_msg
+          INNER JOIN agent_conversations cross_conv ON cross_conv.id = cross_msg."conversationId"
+          WHERE cross_conv."clientPhoneNumber" = c."clientPhoneNumber"
+            AND cross_conv."userId" = c."userId"
+            AND cross_msg.role = 'agent'
+            AND cross_msg."createdAt" >= m."createdAt"
+        )
       ORDER BY m."createdAt" ASC
       LIMIT $3
       `,
-      [sessionId, cutoffTime.toISOString(), maxMessages],
+      [sessionId, cutoffTime.toISOString(), maxMessages, effectiveMaxTime.toISOString()],
     );
 
-    this.logger.log(`Raw SQL found ${rawResults.length} unanswered messages for session ${sessionId}`);
+    this.logger.log(`Raw SQL found ${rawResults.length} unanswered messages for session ${sessionId} (min age: 5 min)`);
 
     // Map raw results to message objects with conversation info
     const messages: AgentMessage[] = rawResults.map((raw: any) => {

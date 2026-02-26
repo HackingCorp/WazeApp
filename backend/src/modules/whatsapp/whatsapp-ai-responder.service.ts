@@ -1049,14 +1049,56 @@ Always respond directly in the user's language without any formatting.`,
     agent: AiAgent,
   ): Promise<AgentConversation> {
     const conversationTitle = `WhatsApp - ${fromNumber}`;
+    // Normalize phone for matching against externalId (strip @s.whatsapp.net etc.)
+    const normalizedPhone = fromNumber
+      .replace(/@s\.whatsapp\.net$/i, "")
+      .replace(/@g\.us$/i, "")
+      .replace(/@lid$/i, "")
+      .replace(/@c\.us$/i, "")
+      .replace(/^\+/, "")
+      .trim();
 
+    // PRIORITY 1: Find existing conversation by sessionId + phone (matches simple-conversation's lookup)
+    // This prevents dual-conversation creation between AI responder and simple-conversation service
     let conversation = await this.conversationRepository.findOne({
-      where: {
-        agentId: agent.id,
-        userId: session.userId,
-        title: conversationTitle,
-      },
+      where: [
+        { sessionId: session.id, clientPhoneNumber: normalizedPhone, userId: session.userId },
+        { sessionId: session.id, externalId: normalizedPhone, userId: session.userId },
+      ],
+      order: { updatedAt: "DESC" },
     });
+
+    // PRIORITY 2: Also check by full JID in clientPhoneNumber (some conversations store full JID)
+    if (!conversation && fromNumber.includes("@")) {
+      conversation = await this.conversationRepository.findOne({
+        where: { sessionId: session.id, clientPhoneNumber: fromNumber, userId: session.userId },
+        order: { updatedAt: "DESC" },
+      });
+    }
+
+    // PRIORITY 3: Legacy lookup by agentId + userId + title
+    if (!conversation) {
+      conversation = await this.conversationRepository.findOne({
+        where: {
+          agentId: agent.id,
+          userId: session.userId,
+          title: conversationTitle,
+        },
+      });
+    }
+
+    // If we found a conversation but it has a different agentId, update it to the session's agent
+    if (conversation && conversation.agentId !== agent.id) {
+      this.logger.log(`🔄 Updating conversation ${conversation.id} agentId from ${conversation.agentId} to ${agent.id} (session agent)`);
+      conversation.agentId = agent.id;
+      await this.conversationRepository.save(conversation);
+    }
+
+    // If we found a conversation but it has no sessionId, set it
+    if (conversation && !conversation.sessionId) {
+      conversation.sessionId = session.id;
+      await this.conversationRepository.save(conversation);
+    }
 
     let isNewConversation = false;
     if (!conversation) {
@@ -1066,8 +1108,9 @@ Always respond directly in the user's language without any formatting.`,
         status: ConversationStatus.ACTIVE,
         agentId: agent.id,
         userId: session.userId,
-        sessionId: session.id, // Set sessionId column for quota counting
-        clientPhoneNumber: fromNumber, // Set clientPhoneNumber column
+        sessionId: session.id,
+        clientPhoneNumber: normalizedPhone,
+        externalId: normalizedPhone,
         context: {
           sessionId: session.id,
           userProfile: {
@@ -1121,6 +1164,35 @@ Always respond directly in the user's language without any formatting.`,
     originalMessage: any,
     mediaAnalysis?: any,
   ): Promise<AgentMessage> {
+    const whatsappMessageId = originalMessage.key?.id;
+
+    // CRITICAL: Check if this WhatsApp message was already saved (by simple-conversation.service.ts)
+    // to prevent duplicate message records. Check in the SAME conversation first.
+    if (whatsappMessageId) {
+      const existingByExternalId = await this.messageRepository.findOne({
+        where: { conversationId: conversation.id, externalMessageId: whatsappMessageId },
+      });
+      if (existingByExternalId) {
+        this.logger.log(`Message ${whatsappMessageId} already exists in conversation ${conversation.id}, skipping save`);
+        return existingByExternalId;
+      }
+
+      // Also check if the message exists in this conversation by matching content+timestamp
+      // (simple-conversation stores whatsappMessageId in metadata, not externalMessageId)
+      const recentMessages = await this.messageRepository.find({
+        where: { conversationId: conversation.id, role: MessageRole.USER },
+        order: { createdAt: "DESC" },
+        take: 5,
+      });
+      const existingByContent = recentMessages.find(
+        m => m.content === messageText && (m.metadata as any)?.whatsappMessageId === whatsappMessageId,
+      );
+      if (existingByContent) {
+        this.logger.log(`Message ${whatsappMessageId} already saved by simple-conversation, skipping save`);
+        return existingByContent;
+      }
+    }
+
     // Get next sequence number
     const lastMessage = await this.messageRepository.findOne({
       where: { conversationId: conversation.id },
@@ -1134,7 +1206,7 @@ Always respond directly in the user's language without any formatting.`,
       content: messageText,
       status: MessageStatus.DELIVERED,
       sequenceNumber: nextSequence,
-      externalMessageId: originalMessage.key?.id,
+      externalMessageId: whatsappMessageId,
       metadata: {
         fromWhatsApp: true,
         originalSender: "client",
@@ -1144,8 +1216,13 @@ Always respond directly in the user's language without any formatting.`,
           mediaDescription: mediaAnalysis.description,
           mediaUrl: mediaAnalysis.url,
         }),
-      },
+      } as any,
     });
+
+    // Store whatsappMessageId in metadata for cross-service dedup
+    if (whatsappMessageId) {
+      (message.metadata as any).whatsappMessageId = whatsappMessageId;
+    }
 
     const savedMessage = await this.messageRepository.save(message);
     return savedMessage;

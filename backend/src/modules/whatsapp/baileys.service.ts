@@ -62,6 +62,9 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
   // Track real connection state (connected, disconnected, reconnecting)
   private connectionStates = new Map<string, 'connected' | 'disconnected' | 'reconnecting'>();
 
+  // Track message IDs sent by the system (API/operator) to distinguish from phone-sent messages
+  private sentBySystemIds = new Set<string>();
+
   // Track active reconnection attempts to prevent duplicates
   private reconnectionAttempts = new Map<string, { count: number; timer: NodeJS.Timeout | null }>();
 
@@ -949,8 +952,15 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
       // Handle messages (for webhook events)
       sock.ev.on("messages.upsert", ({ messages, type }) => {
         messages.forEach((message) => {
-          // Only process incoming messages (not from me)
-          if (!message.key.fromMe && message.message) {
+          if (message.key.fromMe && message.message) {
+            // Message sent from the physical device by the account owner
+            // Emit event so AI can detect human takeover
+            this.eventEmitter.emit("whatsapp.message.fromMe", {
+              sessionId,
+              message,
+              type,
+            });
+          } else if (!message.key.fromMe && message.message) {
             this.logger.log(
               `Incoming message event: ${JSON.stringify({
                 from: message.key.remoteJid,
@@ -1202,7 +1212,13 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
       // Handle messages for the paired session
       sock.ev.on("messages.upsert", ({ messages, type }) => {
         messages.forEach((message) => {
-          if (!message.key.fromMe && message.message) {
+          if (message.key.fromMe && message.message) {
+            this.eventEmitter.emit("whatsapp.message.fromMe", {
+              sessionId,
+              message,
+              type,
+            });
+          } else if (!message.key.fromMe && message.message) {
             this.eventEmitter.emit("whatsapp.message.received", {
               sessionId,
               message,
@@ -1497,6 +1513,13 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
       this.logger.log(`✅ Message sent successfully!`);
       this.logger.log(`📩 Response: messageId=${sentMessage?.key?.id}, remoteJid=${sentMessage?.key?.remoteJid}, status=${sentMessage?.status}`);
 
+      // Track this message ID as system-sent (to distinguish from phone-sent messages)
+      if (sentMessage?.key?.id) {
+        this.sentBySystemIds.add(sentMessage.key.id);
+        // Auto-cleanup after 5 minutes to prevent memory leak
+        setTimeout(() => this.sentBySystemIds.delete(sentMessage.key.id), 300000);
+      }
+
       return {
         messageId: sentMessage.key.id,
         status: "sent",
@@ -1629,6 +1652,13 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
 
     // Socket exists but not authenticated yet
     return "connecting";
+  }
+
+  /**
+   * Check if a message was sent by the system (API/operator/AI) vs from the physical phone
+   */
+  isMessageSentBySystem(messageId: string): boolean {
+    return this.sentBySystemIds.has(messageId);
   }
 
   /**

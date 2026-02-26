@@ -268,6 +268,76 @@ export class WhatsAppAIResponderService {
     this.logger.log('WhatsAppAIResponderService initialized');
   }
 
+  /**
+   * Detect when the account owner replies from their physical phone.
+   * When this happens, automatically pause AI responses for that conversation.
+   */
+  @OnEvent("whatsapp.message.fromMe")
+  async handleFromMeMessage(event: { sessionId: string; message: any; type: string }) {
+    const message = event.message;
+    const messageId = message.key?.id;
+    const remoteJid = message.key?.remoteJid;
+
+    // Skip if no remoteJid, or if this message was sent by the system (API/operator/AI)
+    if (!remoteJid || !messageId) return;
+    if (remoteJid.endsWith("@g.us")) return; // Skip group messages
+    if (this.baileysService.isMessageSentBySystem(messageId)) return;
+
+    // This is a message sent from the physical phone by the account owner
+    this.logger.log(`📱 Phone-sent message detected from owner to ${remoteJid} (session: ${event.sessionId})`);
+
+    try {
+      // Find the session
+      const session = await this.sessionRepository.findOne({
+        where: { id: event.sessionId },
+        relations: ["agent"],
+      });
+      if (!session?.agent) return;
+
+      // Find the conversation for this contact
+      const fromNumber = remoteJid.replace("@s.whatsapp.net", "");
+      const conversation = await this.conversationRepository.findOne({
+        where: { phoneNumber: fromNumber, agentId: session.agent.id },
+      });
+
+      if (!conversation) return;
+
+      // If AI is still in control, switch to human control
+      if (!conversation.isHumanControlled) {
+        conversation.isHumanControlled = true;
+        conversation.escalationReason = "Prise en main depuis le téléphone";
+        await this.conversationRepository.save(conversation);
+
+        this.logger.log(`📱 Auto-takeover: conversation ${conversation.id} switched to human control (phone reply detected)`);
+
+        // Notify dashboard via socket
+        this.eventEmitter.emit('conversation.escalated', {
+          conversationId: conversation.id,
+          agentId: session.agent.id,
+          organizationId: session.agent.organizationId,
+          clientPhoneNumber: fromNumber,
+          reason: "Réponse depuis le téléphone",
+          timestamp: new Date(),
+        });
+      }
+
+      // Save the owner's message in the conversation history
+      const messageText = this.extractMessageText(message);
+      if (messageText?.trim()) {
+        await this.messageRepository.save(
+          this.messageRepository.create({
+            conversationId: conversation.id,
+            role: 'operator' as any,
+            content: messageText.trim(),
+            metadata: { fromPhone: true },
+          }),
+        );
+      }
+    } catch (error) {
+      this.logger.warn(`Error handling fromMe message: ${error.message}`);
+    }
+  }
+
   @OnEvent("whatsapp.message.received")
   async handleIncomingMessage(event: WhatsAppMessageEvent) {
     const message = event.message;

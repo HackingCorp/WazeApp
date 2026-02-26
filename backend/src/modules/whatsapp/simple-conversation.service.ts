@@ -565,7 +565,7 @@ export class SimpleConversationService implements OnModuleDestroy {
           unreadCount,
           isOnline: true, // Default to online for found conversations
           userId: dbConversation.userId || "",
-          sessionId: dbConversation.context?.sessionId || "",
+          sessionId: dbConversation.sessionId || dbConversation.context?.sessionId || "",
         };
 
         this.conversations.set(conversationData.id, conversationData);
@@ -726,18 +726,31 @@ export class SimpleConversationService implements OnModuleDestroy {
       );
 
       // Get conversations from database (filter by sessionId at DB level if provided)
-      const where: any = {
-        channel: ConversationChannel.WHATSAPP,
-        userId: userId,
-      };
+      let dbConversations: AgentConversation[];
       if (sessionId && sessionId.trim() !== "") {
-        where.sessionId = sessionId;
+        // Filter by sessionId in BOTH the entity column AND the context JSONB field
+        // (older conversations may only have sessionId in context)
+        dbConversations = await this.conversationRepository
+          .createQueryBuilder('conv')
+          .where('conv.channel = :channel', { channel: ConversationChannel.WHATSAPP })
+          .andWhere('conv.userId = :userId', { userId })
+          .andWhere(
+            '(conv.sessionId = :sessionId OR conv.context->>\'sessionId\' = :sessionId)',
+            { sessionId },
+          )
+          .orderBy('conv.updatedAt', 'DESC')
+          .take(100)
+          .getMany();
+      } else {
+        dbConversations = await this.conversationRepository.find({
+          where: {
+            channel: ConversationChannel.WHATSAPP,
+            userId: userId,
+          },
+          order: { updatedAt: "DESC" },
+          take: 100,
+        });
       }
-      const dbConversations = await this.conversationRepository.find({
-        where,
-        order: { updatedAt: "DESC" },
-        take: 100,
-      });
 
       this.logger.log(
         `💾 Found ${dbConversations.length} persisted conversations in database`,
@@ -1357,7 +1370,7 @@ export class SimpleConversationService implements OnModuleDestroy {
           unreadCount: unreadCountsMap.get(dbConversation.id) || 0,
           isOnline: true, // Default to online
           userId: dbConversation.userId || "",
-          sessionId: dbConversation.context?.sessionId || "",
+          sessionId: dbConversation.sessionId || dbConversation.context?.sessionId || "",
         };
 
         this.conversations.set(conversationData.id, conversationData);

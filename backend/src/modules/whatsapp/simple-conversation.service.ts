@@ -1178,9 +1178,43 @@ export class SimpleConversationService implements OnModuleDestroy {
     userId: string,
     mediaOptions?: { mediaUrl?: string; mediaType?: 'image' | 'video' | 'audio' | 'document'; caption?: string; filename?: string },
   ): Promise<MessageData> {
-    const conversation = this.conversations.get(conversationId);
+    let conversation = this.conversations.get(conversationId);
+
+    // If not in memory, load from DB and cache it
+    if (!conversation) {
+      const dbConv = await this.conversationRepository.findOne({
+        where: { id: conversationId, userId },
+      });
+      if (dbConv) {
+        conversation = {
+          id: dbConv.id,
+          phoneNumber: dbConv.externalId || dbConv.clientPhoneNumber || dbConv.context?.userProfile?.phone || "",
+          name: dbConv.title || dbConv.clientPhoneNumber || "",
+          lastMessage: "",
+          lastMessageTime: dbConv.updatedAt,
+          unreadCount: 0,
+          isOnline: true,
+          userId: dbConv.userId || "",
+          sessionId: dbConv.sessionId || dbConv.context?.sessionId || "",
+        };
+        this.conversations.set(conversationId, conversation);
+      }
+    }
+
     if (!conversation || conversation.userId !== userId) {
       throw new Error("Conversation not found");
+    }
+
+    // Ensure sessionId is set from DB if missing in memory
+    if (!conversation.sessionId) {
+      const dbConv = await this.conversationRepository.findOne({
+        where: { id: conversationId },
+        select: ["id", "sessionId", "context"],
+      });
+      if (dbConv) {
+        conversation.sessionId = dbConv.sessionId || dbConv.context?.sessionId || "";
+        this.conversations.set(conversationId, conversation);
+      }
     }
 
     const isMedia = mediaOptions?.mediaUrl;

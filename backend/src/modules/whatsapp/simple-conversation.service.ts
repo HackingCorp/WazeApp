@@ -880,7 +880,7 @@ export class SimpleConversationService implements OnModuleDestroy {
             unreadCount: unreadCountsMap.get(dbConv.id) || 0,
             isOnline: false, // Default to offline for historical conversations
             userId: dbConv.userId || "",
-            sessionId: dbConv.context?.sessionId || "",
+            sessionId: dbConv.sessionId || dbConv.context?.sessionId || "",
             profilePictureUrl: contact?.profilePictureUrl,
           };
         },
@@ -888,7 +888,14 @@ export class SimpleConversationService implements OnModuleDestroy {
 
       // Also include memory conversations that aren't persisted yet
       let memoryConversations = Array.from(this.conversations.values()).filter(
-        (conv) => conv.userId === userId,
+        (conv) => {
+          if (conv.userId !== userId) return false;
+          // Filter by sessionId if provided
+          if (sessionId && sessionId.trim() !== "") {
+            return conv.sessionId === sessionId;
+          }
+          return true;
+        },
       );
 
       // Merge and deduplicate by conversation ID first, then by phone number, prioritizing memory conversations (more recent)

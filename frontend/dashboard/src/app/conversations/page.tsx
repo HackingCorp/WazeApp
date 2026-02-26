@@ -63,6 +63,7 @@ export default function ConversationsPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [loadingConversations, setLoadingConversations] = useState(true);
   const [whatsappSessions, setWhatsappSessions] = useState<WhatsAppSession[]>([]);
+  const [loadingSessions, setLoadingSessions] = useState(true);
   const [selectedSessionId, setSelectedSessionId] = useState<string>('');
   const [syncStatus, setSyncStatus] = useState<{
     isActive: boolean;
@@ -105,6 +106,7 @@ export default function ConversationsPage() {
 
   const loadWhatsAppSessions = async () => {
     try {
+      setLoadingSessions(true);
       const response = await api.getWhatsAppSessions();
 
       // Handle nested data structure
@@ -123,6 +125,8 @@ export default function ConversationsPage() {
         console.error('Failed to load WhatsApp sessions:', error);
       }
       toast.error(t('conversations.failedLoadSessions'));
+    } finally {
+      setLoadingSessions(false);
     }
   };
 
@@ -680,7 +684,7 @@ export default function ConversationsPage() {
     }
   }, [t]);
 
-  if (loadingConversations) {
+  if (loadingSessions || loadingConversations) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">

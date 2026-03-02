@@ -154,7 +154,7 @@ export function MessageCreditsPurchaseModal({
 
   const handleInitiatePayment = async () => {
     if (!provider || !calculatedPrice) return;
-    if (provider !== 'enkap' && !phoneNumber) return;
+    if (provider !== 'enkap' && provider !== 'stripe' && !phoneNumber) return;
 
     setStatus('processing');
     setError(null);

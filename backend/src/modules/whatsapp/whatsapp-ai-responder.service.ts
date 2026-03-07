@@ -292,7 +292,7 @@ export class WhatsAppAIResponderService {
       for (const conversation of humanControlled) {
         // Find the last operator message in this conversation
         const lastOperatorMsg = await this.messageRepository.findOne({
-          where: { conversationId: conversation.id, role: In(['operator' as any, 'assistant' as any]) },
+          where: { conversationId: conversation.id, role: In([MessageRole.OPERATOR, MessageRole.AGENT]) },
           order: { createdAt: 'DESC' },
         });
 

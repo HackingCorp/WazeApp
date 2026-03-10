@@ -739,9 +739,37 @@ export class QuotaEnforcementService {
     );
 
     // Check status directly instead of using getter (getters don't survive cache serialization)
-    const activeSubscription = organization.subscriptions?.find(
+    const PLAN_TIER: Record<string, number> = { FREE: 0, STANDARD: 1, PRO: 2, ENTERPRISE: 3 };
+
+    let activeSubscription = organization.subscriptions?.find(
       (sub) => sub.status === SubscriptionStatus.ACTIVE || sub.status === SubscriptionStatus.TRIALING,
     );
+
+    // Duplicate detection: if the active/trialing subscription is a lower tier than
+    // an expired one, it was auto-created by a previous bug. Clean it up.
+    if (activeSubscription) {
+      const expiredHigherPlan = organization.subscriptions?.find(
+        (sub) =>
+          sub.id !== activeSubscription.id &&
+          (sub.status === SubscriptionStatus.INACTIVE || sub.status === SubscriptionStatus.CANCELLED || sub.status === SubscriptionStatus.PAST_DUE) &&
+          (PLAN_TIER[sub.plan] ?? 0) > (PLAN_TIER[activeSubscription.plan] ?? 0),
+      );
+
+      if (expiredHigherPlan) {
+        this.logger.warn(
+          `Duplicate subscription detected: deactivating ${activeSubscription.plan} trial (${activeSubscription.id}), ` +
+          `real subscription is ${expiredHigherPlan.plan} (${expiredHigherPlan.id})`,
+        );
+        activeSubscription.status = SubscriptionStatus.INACTIVE;
+        activeSubscription.metadata = {
+          ...activeSubscription.metadata,
+          deactivatedAt: new Date().toISOString(),
+          reason: 'duplicate_auto_cleanup',
+        };
+        await this.subscriptionRepository.save(activeSubscription);
+        activeSubscription = undefined; // Fall through to expired handling
+      }
+    }
 
     if (!activeSubscription) {
       // Check if there's an existing expired/cancelled subscription
@@ -871,6 +899,38 @@ export class QuotaEnforcementService {
         status: In([SubscriptionStatus.ACTIVE, SubscriptionStatus.TRIALING]),
       },
     });
+
+    // Duplicate detection: if active/trialing is lower tier than an expired one, clean it up
+    if (activeSubscription) {
+      const PLAN_TIER: Record<string, number> = { FREE: 0, STANDARD: 1, PRO: 2, ENTERPRISE: 3 };
+      const expiredHigherPlan = await this.subscriptionRepository.findOne({
+        where: {
+          userId,
+          organizationId: IsNull(),
+          status: In([SubscriptionStatus.INACTIVE, SubscriptionStatus.CANCELLED, SubscriptionStatus.PAST_DUE]),
+        },
+        order: { updatedAt: 'DESC' },
+      });
+
+      if (
+        expiredHigherPlan &&
+        expiredHigherPlan.id !== activeSubscription.id &&
+        (PLAN_TIER[expiredHigherPlan.plan] ?? 0) > (PLAN_TIER[activeSubscription.plan] ?? 0)
+      ) {
+        this.logger.warn(
+          `Duplicate user subscription detected: deactivating ${activeSubscription.plan} trial (${activeSubscription.id}), ` +
+          `real subscription is ${expiredHigherPlan.plan} (${expiredHigherPlan.id})`,
+        );
+        activeSubscription.status = SubscriptionStatus.INACTIVE;
+        activeSubscription.metadata = {
+          ...activeSubscription.metadata,
+          deactivatedAt: new Date().toISOString(),
+          reason: 'duplicate_auto_cleanup',
+        };
+        await this.subscriptionRepository.save(activeSubscription);
+        activeSubscription = null; // Fall through to expired handling
+      }
+    }
 
     if (!activeSubscription) {
       // Check for existing expired/cancelled subscription

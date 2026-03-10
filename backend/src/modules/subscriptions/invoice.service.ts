@@ -273,10 +273,17 @@ export class InvoiceService {
     totalDue: number;
     billingPeriod: { start: Date; end: Date } | null;
   }> {
-    const subscription = await this.subscriptionRepository.findOne({
-      where: { organizationId, status: SubscriptionStatus.ACTIVE },
+    // Find subscription: prefer ACTIVE/TRIALING, fall back to most recent (any status)
+    let subscription = await this.subscriptionRepository.findOne({
+      where: { organizationId, status: In([SubscriptionStatus.ACTIVE, SubscriptionStatus.TRIALING]) },
       order: { createdAt: 'DESC' },
     });
+    if (!subscription) {
+      subscription = await this.subscriptionRepository.findOne({
+        where: { organizationId },
+        order: { updatedAt: 'DESC' },
+      });
+    }
 
     const pendingInvoices = await this.invoiceRepository.count({
       where: {

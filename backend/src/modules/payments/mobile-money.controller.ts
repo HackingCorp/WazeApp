@@ -244,6 +244,22 @@ export class MobileMoneyController {
       else if (plan && ['STANDARD', 'PRO', 'ENTERPRISE'].includes(plan.toUpperCase())) {
         try {
           const validPlan = plan.toUpperCase() as 'STANDARD' | 'PRO' | 'ENTERPRISE';
+
+          // SECURITY: Validate that payment amount matches the expected plan price
+          // This prevents a client from paying for STANDARD but claiming ENTERPRISE
+          const expectedPrice = await this.currencyService.getPlanPrice(validPlan, 'XAF', billingPeriod);
+          const paidAmount = paymentStatus.amount || amount;
+          // Allow 5% tolerance for rounding differences in currency conversion
+          if (paidAmount > 0 && expectedPrice.amount > 0 && paidAmount < expectedPrice.amount * 0.95) {
+            this.logger.warn(
+              `Payment amount mismatch: paid ${paidAmount} XAF but plan ${validPlan} (${billingPeriod}) costs ${expectedPrice.amount} XAF`,
+            );
+            return {
+              ...paymentStatus,
+              subscriptionUpgradeError: `Payment amount (${paidAmount} XAF) is insufficient for ${validPlan} plan (${expectedPrice.amount} XAF)`,
+            };
+          }
+
           const paymentDetails: PaymentDetails = {
             transactionId: txId,
             ptn: verificationDto.ptn,
@@ -659,20 +675,34 @@ export class MobileMoneyController {
             }
           }
           // Handle subscription upgrades: WAZEAPP-{userId}-{plan}-{timestamp}
+          // Extended format with org: WAZEAPP-{userId}-{plan}-{orgId}-{timestamp}
           else if (['STANDARD', 'PRO', 'ENTERPRISE'].includes(planOrInvoice)) {
-            const upgradeResult = await this.subscriptionUpgradeService.upgradeUserSubscription(
-              userId,
-              {
-                transactionId: webhookTransactionId || merchantRef,
-                ptn: webhookData.txid || result.txid,
-                plan: planOrInvoice as 'STANDARD' | 'PRO' | 'ENTERPRISE',
-                amount: webhookData.amount || webhookData.totalAmount || 0,
-                currency: webhookData.currency || 'XAF',
-                billingPeriod: 'monthly',
-                paymentMethod: 'mobile_money',
-                paymentProvider: 'enkap',
-              },
-            );
+            const paymentDetails: PaymentDetails = {
+              transactionId: webhookTransactionId || merchantRef,
+              ptn: webhookData.txid || result.txid,
+              plan: planOrInvoice as 'STANDARD' | 'PRO' | 'ENTERPRISE',
+              amount: webhookData.amount || webhookData.totalAmount || 0,
+              currency: webhookData.currency || 'XAF',
+              billingPeriod: 'monthly',
+              paymentMethod: 'card',
+              paymentProvider: 'enkap',
+            };
+
+            // Check if org ID is embedded in merchantReference (extended format)
+            const orgId = parts.length >= 5 ? parts[3] : undefined;
+
+            let upgradeResult;
+            if (orgId) {
+              upgradeResult = await this.subscriptionUpgradeService.upgradeOrganizationSubscription(
+                orgId,
+                paymentDetails,
+              );
+            } else {
+              upgradeResult = await this.subscriptionUpgradeService.upgradeUserSubscription(
+                userId,
+                paymentDetails,
+              );
+            }
 
             this.logger.log(`Subscription upgrade result: ${JSON.stringify(upgradeResult)}`);
 

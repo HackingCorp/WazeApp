@@ -100,7 +100,7 @@ export class SubscriptionUpgradeService {
       const endsAt = this.calculateEndDate(now, paymentDetails.billingPeriod);
       const nextBillingDate = endsAt;
 
-      // Get price in cents (USD base)
+      // Get price in cents (USD base) - use annual price for annual billing
       const planInfo = this.currencyService.getPlan(paymentDetails.plan);
       if (!planInfo) {
         return {
@@ -109,7 +109,9 @@ export class SubscriptionUpgradeService {
           error: `Plan ${paymentDetails.plan} not found in pricing`,
         };
       }
-      const priceInCents = planInfo.priceUSD * 100;
+      const priceInCents = paymentDetails.billingPeriod === 'annually'
+        ? Math.round(planInfo.priceAnnualUSD * 100)
+        : Math.round(planInfo.priceUSD * 100);
 
       if (subscription) {
         // Update existing subscription (works for both active and expired/cancelled)
@@ -376,7 +378,7 @@ export class SubscriptionUpgradeService {
       const endsAt = this.calculateEndDate(now, paymentDetails.billingPeriod);
       const nextBillingDate = endsAt;
 
-      // Get price in cents (USD base)
+      // Get price in cents (USD base) - use annual price for annual billing
       const planInfo = this.currencyService.getPlan(paymentDetails.plan);
       if (!planInfo) {
         return {
@@ -385,7 +387,9 @@ export class SubscriptionUpgradeService {
           error: `Plan ${paymentDetails.plan} not found in pricing`,
         };
       }
-      const priceInCents = planInfo.priceUSD * 100;
+      const priceInCents = paymentDetails.billingPeriod === 'annually'
+        ? Math.round(planInfo.priceAnnualUSD * 100)
+        : Math.round(planInfo.priceUSD * 100);
 
       if (subscription) {
         // Update existing subscription

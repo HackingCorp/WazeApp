@@ -6,6 +6,7 @@ import {
   Query,
   UseGuards,
   BadRequestException,
+  ForbiddenException,
   Logger,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiBody, ApiQuery } from '@nestjs/swagger';
@@ -18,7 +19,7 @@ import { OrganizationMember } from '../../common/entities';
 import { MessageCreditsService, MESSAGE_CREDIT_CONFIG } from './message-credits.service';
 import { QuotaEnforcementService } from './quota-enforcement.service';
 import { Subscription } from '../../common/entities';
-import { SubscriptionStatus } from '../../common/enums';
+import { SubscriptionStatus, UserRole } from '../../common/enums';
 
 class CalculatePriceDto {
   @IsNumber()
@@ -160,27 +161,20 @@ export class MessageCreditsController {
     // Get base summary from service (for credit details)
     const baseSummary = await this.creditsService.getCreditsSummary(organizationId);
 
-    // Get actual message usage from quota service to derive real bonus consumption
+    // Use the quota service's bonusCredits data which is computed from actual DB records
+    // quotaCheck.bonusCredits has the authoritative used/available values
     try {
       const quotaCheck = await this.quotaService.checkWhatsAppMessageQuota(organizationId);
 
-      // Total bonus purchased = available (remaining) + used from DB
-      // Works whether consumeBonusCredit was wired up or not
-      const totalBonusPurchased = baseSummary.totalAvailable + baseSummary.totalUsed;
+      if (quotaCheck.bonusCredits) {
+        this.logger.debug(`getCreditsSummary: bonusUsed=${quotaCheck.bonusCredits.used}, bonusAvailable=${quotaCheck.bonusCredits.available}`);
 
-      // Bonus credits are consumed FIRST before plan quota.
-      // Actual bonus used = min(total bonus purchased, total messages sent this period)
-      const totalMessagesSent = quotaCheck.current || 0;
-      const actualBonusUsed = Math.min(totalBonusPurchased, totalMessagesSent);
-      const actualBonusAvailable = Math.max(0, totalBonusPurchased - actualBonusUsed);
-
-      this.logger.debug(`getCreditsSummary: totalMessages=${totalMessagesSent}, bonusPurchased=${totalBonusPurchased}, bonusUsed=${actualBonusUsed}, bonusAvailable=${actualBonusAvailable}`);
-
-      return {
-        ...baseSummary,
-        totalAvailable: actualBonusAvailable,
-        totalUsed: actualBonusUsed,
-      };
+        return {
+          ...baseSummary,
+          totalAvailable: quotaCheck.bonusCredits.available,
+          totalUsed: quotaCheck.bonusCredits.used,
+        };
+      }
     } catch (error) {
       this.logger.error(`getCreditsSummary: Error calculating actual usage: ${error.message}`);
     }
@@ -296,6 +290,11 @@ export class MessageCreditsController {
   @ApiOperation({ summary: 'Admin: Add credits manually to an organization' })
   @ApiBody({ type: AdminAddCreditsDto })
   async adminAddCredits(@CurrentUser() user: AuthenticatedRequest, @Body() dto: AdminAddCreditsDto) {
+    // Enforce admin role - only OWNER or ADMIN can grant free credits
+    if (!user.role || ![UserRole.OWNER, UserRole.ADMIN].includes(user.role as UserRole)) {
+      throw new ForbiddenException('Only organization owners or admins can add credits manually');
+    }
+
     const organizationId = await this.getOrganizationId(user);
 
     if (!organizationId) {

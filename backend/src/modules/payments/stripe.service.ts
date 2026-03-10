@@ -737,7 +737,7 @@ export class StripeService {
         if (!plan.stripePriceMonthlyId && plan.priceMonthlyUSD > 0) {
           const monthlyPrice = await stripe.prices.create({
             product: productId,
-            unit_amount: plan.priceMonthlyUSD, // Already in cents
+            unit_amount: Math.round(plan.priceMonthlyUSD * 100), // DB stores whole dollars, Stripe expects cents
             currency: 'usd',
             recurring: { interval: 'month' },
             metadata: { planCode: plan.code, period: 'monthly' },
@@ -747,10 +747,9 @@ export class StripeService {
 
         // Create annual price if needed
         if (!plan.stripePriceAnnualId && plan.priceAnnualUSD > 0) {
-          // Annual price is the total annual price, Stripe bills it yearly
           const annualPrice = await stripe.prices.create({
             product: productId,
-            unit_amount: plan.priceAnnualUSD, // Already in cents
+            unit_amount: Math.round(plan.priceAnnualUSD * 100), // DB stores whole dollars, Stripe expects cents
             currency: 'usd',
             recurring: { interval: 'year' },
             metadata: { planCode: plan.code, period: 'annual' },

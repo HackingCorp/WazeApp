@@ -169,10 +169,13 @@ export class StripeController {
       throw new BadRequestException(`Webhook signature verification failed: ${err.message}`);
     }
 
-    // Process event asynchronously (don't block the response)
-    this.stripeService.handleWebhookEvent(event).catch((err) => {
+    // Process event synchronously so Stripe retries on failure (5xx response)
+    try {
+      await this.stripeService.handleWebhookEvent(event);
+    } catch (err) {
       this.logger.error(`Error processing Stripe event ${event.id}: ${err.message}`, err.stack);
-    });
+      throw err; // Re-throw so Stripe gets a 500 and retries
+    }
 
     return { received: true };
   }

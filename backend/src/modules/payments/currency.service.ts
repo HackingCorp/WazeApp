@@ -129,8 +129,8 @@ export class CurrencyService implements OnModuleInit {
     return {
       id: plan.code.toUpperCase(),
       name: plan.name,
-      priceUSD: plan.priceMonthlyUSD / 100,
-      priceAnnualUSD: plan.priceAnnualUSD / 100,
+      priceUSD: plan.priceMonthlyUSD,
+      priceAnnualUSD: plan.priceAnnualUSD,
       messages: plan.maxWhatsAppMessages,
       agents: plan.maxAgents,
       storage: this.formatStorageSize(plan.maxStorageBytes),

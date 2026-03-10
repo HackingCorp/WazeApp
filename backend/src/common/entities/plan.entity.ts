@@ -21,19 +21,19 @@ export class Plan extends BaseEntity {
   @Column({ type: 'text', nullable: true })
   description: string;
 
-  @ApiProperty({ description: 'Monthly price in XAF (cents)' })
+  @ApiProperty({ description: 'Monthly price in XAF' })
   @Column({ default: 0 })
   priceMonthlyXAF: number;
 
-  @ApiProperty({ description: 'Annual price in XAF (cents) - usually with discount' })
+  @ApiProperty({ description: 'Annual price in XAF - usually with discount' })
   @Column({ default: 0 })
   priceAnnualXAF: number;
 
-  @ApiProperty({ description: 'Monthly price in USD (cents)' })
+  @ApiProperty({ description: 'Monthly price in USD' })
   @Column({ default: 0 })
   priceMonthlyUSD: number;
 
-  @ApiProperty({ description: 'Annual price in USD (cents)' })
+  @ApiProperty({ description: 'Annual price in USD' })
   @Column({ default: 0 })
   priceAnnualUSD: number;
 

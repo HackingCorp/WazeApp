@@ -184,18 +184,15 @@ export class StripeService {
       }
     }
 
-    // Only offer trial for brand-new users who never had a paid subscription
+    // Only offer trial for brand-new users who have NEVER had any subscription
     let trialDays = 0;
-    const existingSubscription = await this.subscriptionRepository.findOne({
+    const existingSubscriptionCount = await this.subscriptionRepository.count({
       where: organizationId
         ? { organizationId }
         : { userId: params.userId },
-      order: { createdAt: 'DESC' },
     });
-    const isFirstSubscription = !existingSubscription ||
-      (existingSubscription.status === SubscriptionStatus.TRIALING && !existingSubscription.stripeSubscriptionId);
 
-    if (isFirstSubscription) {
+    if (existingSubscriptionCount === 0) {
       trialDays = this.planService.getTrialDays(params.planCode.toLowerCase());
     }
 

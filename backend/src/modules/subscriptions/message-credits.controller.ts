@@ -233,6 +233,9 @@ export class MessageCreditsController {
       phoneNumber: dto.phoneNumber,
     });
 
+    // Clear quota cache so new credits are visible immediately
+    await this.quotaService.clearOrganizationCaches(organizationId);
+
     return {
       success: true,
       message: `Successfully purchased ${dto.amount} message credits`,
@@ -309,6 +312,9 @@ export class MessageCreditsController {
       paymentMethod: 'admin_grant',
       phoneNumber: undefined,
     });
+
+    // Clear quota cache so new credits are visible immediately
+    await this.quotaService.clearOrganizationCaches(organizationId);
 
     return {
       success: true,

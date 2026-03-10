@@ -31,6 +31,7 @@ interface SubscriptionManagerProps {
   billingCycle?: 'monthly' | 'annual';
   subscriptionStatus?: string;
   trialEndsAt?: string;
+  nextBillingDate?: string;
   onPlanChange?: (planId: string) => void;
   onBillingCycleChange?: (cycle: 'monthly' | 'annual') => void;
   isLoading?: boolean;
@@ -164,6 +165,7 @@ export function SubscriptionManager({
   billingCycle = 'monthly',
   subscriptionStatus,
   trialEndsAt,
+  nextBillingDate,
   onPlanChange,
   onBillingCycleChange,
   isLoading = false,
@@ -820,7 +822,9 @@ export function SubscriptionManager({
                 <div className="text-left md:text-right">
                   <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">{t('billing.nextBillingDate')}</p>
                   <p className="text-lg font-semibold text-gray-900 dark:text-white" suppressHydrationWarning>
-                    {format(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), 'MMMM dd, yyyy')}
+                    {nextBillingDate
+                      ? format(new Date(nextBillingDate), 'MMMM dd, yyyy')
+                      : format(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), 'MMMM dd, yyyy')}
                   </p>
                 </div>
               )}

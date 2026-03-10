@@ -8,6 +8,7 @@ import clsx from 'clsx';
 interface Plan {
   id: string;
   name: string;
+  isInvoice?: boolean; // True when paying an invoice (not a subscription plan)
 }
 
 interface PaymentModalProps {
@@ -142,13 +143,18 @@ export function PaymentModal({
       const amount = dynamicPrice;
       const cleanPhone = getCleanPhoneNumber();
 
+      // For invoice payments, pass the invoice ID with INVOICE- prefix so backend handles it correctly
+      const planId = plan.isInvoice
+        ? `INVOICE-${plan.id.replace(/^invoice-/i, '')}`
+        : plan.id.toUpperCase() as 'STANDARD' | 'PRO' | 'ENTERPRISE';
+
       const response = await api.initiateS3PPayment({
         amount,
         customerPhone: cleanPhone,
         paymentType: mobileProvider,
         customerName: customerName || 'Client WazeApp',
-        description: `Abonnement WazeApp - Plan ${plan.name}`,
-        plan: plan.id.toUpperCase() as 'STANDARD' | 'PRO' | 'ENTERPRISE',
+        description: plan.isInvoice ? `Paiement facture - ${plan.name}` : `Abonnement WazeApp - Plan ${plan.name}`,
+        plan: planId,
         userId,
         billingPeriod,
         currency: currency || 'XAF', // Send currency so backend can convert to XAF if needed
@@ -214,7 +220,9 @@ export function PaymentModal({
         const response = await api.verifyPayment({
           ptn: paymentPtn,
           transactionId: transId,
-          plan: plan?.id.toUpperCase() as "STANDARD" | "PRO" | "ENTERPRISE" | undefined, // Can be STANDARD, PRO, ENTERPRISE, or INVOICE-{id}
+          plan: plan?.isInvoice
+            ? `INVOICE-${plan.id.replace(/^invoice-/i, '')}`
+            : plan?.id.toUpperCase() as "STANDARD" | "PRO" | "ENTERPRISE" | undefined,
           userId,
           organizationId,
           amount: paymentAmount,
@@ -355,6 +363,13 @@ export function PaymentModal({
     setError(null);
 
     try {
+      // Stripe checkout is only for subscriptions, not invoices
+      if (plan.isInvoice) {
+        setStatus('failed');
+        setError('Le paiement de facture par Stripe n\'est pas encore supporté. Utilisez Mobile Money ou carte.');
+        return;
+      }
+
       const response = await api.createStripeCheckoutSession({
         plan: plan.id.toUpperCase() as 'STANDARD' | 'PRO' | 'ENTERPRISE',
         billingPeriod,

@@ -197,6 +197,15 @@ export default function BillingPage() {
     }
   };
 
+  // Fetch billing summary on mount (needed for nextBillingDate on plan tab)
+  useEffect(() => {
+    if (!summary) {
+      api.getBillingSummary().then(res => {
+        if (res.success) setSummary(res.data);
+      }).catch(() => {});
+    }
+  }, []);
+
   useEffect(() => {
     if (activeTab === 'invoices') {
       fetchInvoices();
@@ -228,7 +237,18 @@ export default function BillingPage() {
   };
 
   const handleInvoicePaymentSuccess = async () => {
-    // Payment was successful - refresh invoices and auth
+    // Payment was successful - mark invoice as paid in backend
+    if (selectedInvoice) {
+      try {
+        await api.payInvoice(selectedInvoice.id, {
+          paymentMethod: 'mobile_money',
+          paymentReference: `INVOICE-PAYMENT-${Date.now()}`,
+        });
+      } catch (err) {
+        // Don't block success flow - backend webhook may handle this too
+        console.error('Failed to mark invoice as paid:', err);
+      }
+    }
     toast.success(t('billing.invoicePaid'));
     setShowInvoicePaymentModal(false);
     setSelectedInvoice(null);
@@ -342,6 +362,7 @@ export default function BillingPage() {
           billingCycle={billingCycle}
           subscriptionStatus={subscriptionStatus}
           trialEndsAt={trialEndsAt}
+          nextBillingDate={summary?.nextBillingDate}
           onPlanChange={handlePlanChange}
           onBillingCycleChange={handleBillingCycleChange}
           isLoading={isLoading}
@@ -581,6 +602,7 @@ export default function BillingPage() {
           plan={{
             id: `invoice-${selectedInvoice.id}`,
             name: selectedInvoice.description || `Facture ${selectedInvoice.invoiceNumber}`,
+            isInvoice: true,
           }}
           onSuccess={handleInvoicePaymentSuccess}
           customerName={user?.firstName && user?.lastName ? `${user.firstName} ${user.lastName}` : user?.email || 'Client'}

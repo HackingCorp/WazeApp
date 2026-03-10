@@ -193,9 +193,12 @@ export class StripeController {
   @Post('sync-plans')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Sync plans to Stripe Products/Prices (admin)' })
+  @ApiOperation({ summary: 'Sync plans to Stripe Products/Prices (admin only)' })
   async syncPlans(@CurrentUser() user: any) {
-    // Simple admin check - in production you'd check user.role
+    // Admin role check - only OWNER or ADMIN can sync plans to Stripe
+    if (!user?.role || !['owner', 'admin'].includes(user.role.toLowerCase())) {
+      throw new BadRequestException('Only admin users can sync plans to Stripe');
+    }
     const result = await this.stripeService.syncPlansToStripe();
     return result;
   }

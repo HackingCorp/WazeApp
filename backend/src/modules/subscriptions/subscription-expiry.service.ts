@@ -135,7 +135,9 @@ export class SubscriptionExpiryService {
       if (hasPaidInvoice) {
         // Payment was made during grace period - reactivate
         subscription.status = SubscriptionStatus.ACTIVE;
-        delete subscription.metadata?.pastDueSince;
+        if (subscription.metadata) {
+          delete subscription.metadata.pastDueSince;
+        }
         await this.subscriptionRepository.save(subscription);
         this.logger.log(`Subscription ${subscription.id} reactivated - payment found during grace period`);
         continue;
@@ -165,7 +167,7 @@ export class SubscriptionExpiryService {
     }
 
     if (downgradedCount > 0) {
-      this.logger.log(`Downgraded ${downgradedCount} unpaid subscription(s) to FREE`);
+      this.logger.log(`Deactivated ${downgradedCount} unpaid subscription(s)`);
     }
   }
 

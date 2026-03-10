@@ -153,7 +153,7 @@ export class TrialService {
         }
       }
 
-      this.logger.log(`Trial expired for subscription ${subscription.id}, downgraded to FREE`);
+      this.logger.log(`Trial expired for subscription ${subscription.id}, set to INACTIVE (was ${previousPlan})`);
     }
 
     if (expiredTrials.length > 0) {

@@ -739,7 +739,7 @@ export class QuotaEnforcementService {
     );
 
     // Check status directly instead of using getter (getters don't survive cache serialization)
-    const PLAN_TIER: Record<string, number> = { FREE: 0, STANDARD: 1, PRO: 2, ENTERPRISE: 3 };
+    const PLAN_TIER: Record<string, number> = { free: 0, standard: 1, pro: 2, enterprise: 3 };
 
     let activeSubscription = organization.subscriptions?.find(
       (sub) => sub.status === SubscriptionStatus.ACTIVE || sub.status === SubscriptionStatus.TRIALING,
@@ -902,7 +902,7 @@ export class QuotaEnforcementService {
 
     // Duplicate detection: if active/trialing is lower tier than an expired one, clean it up
     if (activeSubscription) {
-      const PLAN_TIER: Record<string, number> = { FREE: 0, STANDARD: 1, PRO: 2, ENTERPRISE: 3 };
+      const PLAN_TIER: Record<string, number> = { free: 0, standard: 1, pro: 2, enterprise: 3 };
       const expiredHigherPlan = await this.subscriptionRepository.findOne({
         where: {
           userId,

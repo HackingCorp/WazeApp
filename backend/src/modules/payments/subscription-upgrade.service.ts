@@ -1,7 +1,7 @@
 import { Injectable, Logger, Inject, forwardRef } from '@nestjs/common';
 import { randomBytes } from 'crypto';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, IsNull } from 'typeorm';
+import { Repository, IsNull, In } from 'typeorm';
 import { Subscription, User, Organization, Invoice } from '../../common/entities';
 import { SubscriptionPlan, SubscriptionStatus } from '../../common/enums';
 import { InvoiceStatus } from '../../common/entities/invoice.entity';
@@ -77,13 +77,20 @@ export class SubscriptionUpgradeService {
         };
       }
 
-      // Find existing subscription
+      // Find existing subscription - prefer active, fall back to most recent
       let subscription = await this.subscriptionRepository.findOne({
         where: {
           userId,
           organizationId: IsNull(),
+          status: In([SubscriptionStatus.ACTIVE, SubscriptionStatus.TRIALING]),
         },
       });
+      if (!subscription) {
+        subscription = await this.subscriptionRepository.findOne({
+          where: { userId, organizationId: IsNull() },
+          order: { updatedAt: 'DESC' },
+        });
+      }
 
       const previousPlan = subscription?.plan || SubscriptionPlan.STANDARD;
       const newPlan = this.getPlanEnum(paymentDetails.plan);
@@ -353,8 +360,10 @@ export class SubscriptionUpgradeService {
         };
       }
 
-      // Find existing subscription (active first, then any status for renewal)
-      let subscription = organization.subscriptions?.find(s => s.isActive)
+      // Find existing subscription (active/trialing first, then most recent for renewal)
+      let subscription = organization.subscriptions?.find(
+          s => s.status === SubscriptionStatus.ACTIVE || s.status === SubscriptionStatus.TRIALING,
+        )
         || organization.subscriptions?.sort(
           (a, b) => new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime(),
         )[0];
@@ -516,7 +525,10 @@ export class SubscriptionUpgradeService {
         : { userId, organizationId: IsNull() };
 
       const subscription = await this.subscriptionRepository.findOne({
+        where: { ...whereClause, status: In([SubscriptionStatus.ACTIVE, SubscriptionStatus.TRIALING]) },
+      }) || await this.subscriptionRepository.findOne({
         where: whereClause,
+        order: { updatedAt: 'DESC' },
       });
 
       if (!subscription) {

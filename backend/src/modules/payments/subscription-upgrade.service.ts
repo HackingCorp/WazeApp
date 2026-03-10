@@ -85,7 +85,7 @@ export class SubscriptionUpgradeService {
         },
       });
 
-      const previousPlan = subscription?.plan || SubscriptionPlan.FREE;
+      const previousPlan = subscription?.plan || SubscriptionPlan.STANDARD;
       const newPlan = this.getPlanEnum(paymentDetails.plan);
 
       // Calculate subscription dates
@@ -105,7 +105,7 @@ export class SubscriptionUpgradeService {
       const priceInCents = planInfo.priceUSD * 100;
 
       if (subscription) {
-        // Update existing subscription
+        // Update existing subscription (works for both active and expired/cancelled)
         subscription.plan = newPlan;
         subscription.status = SubscriptionStatus.ACTIVE;
         subscription.priceInCents = priceInCents;
@@ -138,7 +138,7 @@ export class SubscriptionUpgradeService {
           ],
         };
       } else {
-        // Create new subscription
+        // Create new subscription (brand-new user with no history)
         subscription = this.subscriptionRepository.create({
           userId,
           organizationId: null,
@@ -164,7 +164,7 @@ export class SubscriptionUpgradeService {
             },
             upgradeHistory: [
               {
-                from: SubscriptionPlan.FREE,
+                from: SubscriptionPlan.STANDARD,
                 to: newPlan,
                 date: now.toISOString(),
                 transactionId: paymentDetails.transactionId,
@@ -353,10 +353,13 @@ export class SubscriptionUpgradeService {
         };
       }
 
-      // Find existing active subscription
-      let subscription = organization.subscriptions?.find(s => s.isActive);
+      // Find existing subscription (active first, then any status for renewal)
+      let subscription = organization.subscriptions?.find(s => s.isActive)
+        || organization.subscriptions?.sort(
+          (a, b) => new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime(),
+        )[0];
 
-      const previousPlan = subscription?.plan || SubscriptionPlan.FREE;
+      const previousPlan = subscription?.plan || SubscriptionPlan.STANDARD;
       const newPlan = this.getPlanEnum(paymentDetails.plan);
 
       // Calculate subscription dates
@@ -409,7 +412,7 @@ export class SubscriptionUpgradeService {
           ],
         };
       } else {
-        // Create new subscription
+        // Create new subscription (brand-new organization with no history)
         subscription = this.subscriptionRepository.create({
           organizationId,
           userId: null,
@@ -435,7 +438,7 @@ export class SubscriptionUpgradeService {
             },
             upgradeHistory: [
               {
-                from: SubscriptionPlan.FREE,
+                from: SubscriptionPlan.STANDARD,
                 to: newPlan,
                 date: now.toISOString(),
                 transactionId: paymentDetails.transactionId,
@@ -546,14 +549,14 @@ export class SubscriptionUpgradeService {
         await this.quotaEnforcementService.clearUserCaches(userId);
       }
 
-      this.logger.log(`Subscription cancelled: ${previousPlan} -> FREE`);
+      this.logger.log(`Subscription cancelled: ${previousPlan} (now inactive)`);
 
       return {
         success: true,
         subscription,
         previousPlan,
-        newPlan: SubscriptionPlan.FREE,
-        message: `Subscription cancelled, downgraded to FREE plan`,
+        newPlan: subscription.plan as SubscriptionPlan,
+        message: `Subscription cancelled (${previousPlan})`,
       };
     } catch (error) {
       this.logger.error(`Failed to cancel subscription: ${error.message}`);

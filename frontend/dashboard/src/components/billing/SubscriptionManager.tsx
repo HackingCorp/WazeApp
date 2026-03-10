@@ -434,8 +434,8 @@ export function SubscriptionManager({
             <p className="text-gray-500 dark:text-gray-400 text-sm">
               {plan.description}
             </p>
-            {/* Trial badge */}
-            {TRIAL_DAYS[plan.id] && !isCurrentPlan && (
+            {/* Trial badge - only show for users without any plan (free) */}
+            {TRIAL_DAYS[plan.id] && !isCurrentPlan && currentPlan === 'free' && (
               <div className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-full">
                 <Clock className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
                 <span className="text-xs font-semibold text-amber-700 dark:text-amber-300">

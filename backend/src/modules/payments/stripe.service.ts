@@ -184,8 +184,20 @@ export class StripeService {
       }
     }
 
-    // Get trial days for this plan (Stripe handles trials natively)
-    const trialDays = this.planService.getTrialDays(params.planCode.toLowerCase());
+    // Only offer trial for brand-new users who never had a paid subscription
+    let trialDays = 0;
+    const existingSubscription = await this.subscriptionRepository.findOne({
+      where: organizationId
+        ? { organizationId }
+        : { userId: params.userId },
+      order: { createdAt: 'DESC' },
+    });
+    const isFirstSubscription = !existingSubscription ||
+      (existingSubscription.status === SubscriptionStatus.TRIALING && !existingSubscription.stripeSubscriptionId);
+
+    if (isFirstSubscription) {
+      trialDays = this.planService.getTrialDays(params.planCode.toLowerCase());
+    }
 
     const sessionCreateParams: Stripe.Checkout.SessionCreateParams = {
       // If existing Stripe customer, reuse it; otherwise let user enter/edit email

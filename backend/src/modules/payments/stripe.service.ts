@@ -353,6 +353,9 @@ export class StripeService {
       case 'invoice.payment_failed':
         await this.handleInvoicePaymentFailed(event.data.object as Stripe.Invoice);
         break;
+      case 'customer.subscription.updated':
+        await this.handleSubscriptionUpdated(event.data.object as Stripe.Subscription);
+        break;
       case 'customer.subscription.deleted':
         await this.handleSubscriptionDeleted(event.data.object as Stripe.Subscription);
         break;
@@ -667,6 +670,103 @@ export class StripeService {
     }
 
     this.logger.warn(`Stripe payment failed for subscription ${subscription.id}, status set to PAST_DUE`);
+  }
+
+  /**
+   * Handle customer.subscription.updated (plan changes via Stripe Portal, auto-renewal updates, etc.)
+   */
+  private async handleSubscriptionUpdated(stripeSubscription: Stripe.Subscription): Promise<void> {
+    const subscription = await this.subscriptionRepository.findOne({
+      where: { stripeSubscriptionId: stripeSubscription.id },
+    });
+
+    if (!subscription) {
+      this.logger.debug(`No local subscription for updated Stripe subscription: ${stripeSubscription.id}`);
+      return;
+    }
+
+    // Map Stripe status to local status
+    const stripeStatus = stripeSubscription.status;
+    let newStatus: SubscriptionStatus | null = null;
+
+    if (stripeStatus === 'active') {
+      newStatus = SubscriptionStatus.ACTIVE;
+    } else if (stripeStatus === 'past_due') {
+      newStatus = SubscriptionStatus.PAST_DUE;
+    } else if (stripeStatus === 'canceled' || stripeStatus === 'unpaid') {
+      newStatus = SubscriptionStatus.CANCELLED;
+    } else if (stripeStatus === 'trialing') {
+      newStatus = SubscriptionStatus.TRIALING;
+    }
+
+    if (newStatus && subscription.status !== newStatus) {
+      this.logger.log(`Stripe subscription ${stripeSubscription.id} status changed: ${subscription.status} -> ${newStatus}`);
+      subscription.status = newStatus;
+    }
+
+    // Update period dates from Stripe
+    const currentPeriodEnd = stripeSubscription.current_period_end;
+    if (currentPeriodEnd) {
+      subscription.nextBillingDate = new Date(currentPeriodEnd * 1000);
+      subscription.endsAt = new Date(currentPeriodEnd * 1000);
+    }
+
+    const currentPeriodStart = stripeSubscription.current_period_start;
+    if (currentPeriodStart) {
+      subscription.startsAt = new Date(currentPeriodStart * 1000);
+    }
+
+    // Check if plan changed via Stripe (e.g., user changed plan in Customer Portal)
+    const stripeItems = stripeSubscription.items?.data;
+    if (stripeItems?.length) {
+      const priceId = stripeItems[0].price?.id;
+      if (priceId) {
+        // Look up which plan this price belongs to
+        const plan = await this.planRepository.findOne({
+          where: [
+            { stripePriceMonthlyId: priceId },
+            { stripePriceAnnualId: priceId },
+          ],
+        });
+        if (plan) {
+          const newPlan = plan.code.toLowerCase() as SubscriptionPlan;
+          if (subscription.plan !== newPlan) {
+            this.logger.log(`Plan changed via Stripe: ${subscription.plan} -> ${newPlan}`);
+            subscription.plan = newPlan;
+            // Sync limits/features from the new plan
+            subscription.limits = this.planService.getPlanLimits(plan.code);
+            subscription.features = this.planService.getPlanFeatures(plan.code);
+          }
+        }
+      }
+    }
+
+    // Handle cancel_at_period_end
+    if (stripeSubscription.cancel_at_period_end) {
+      subscription.metadata = {
+        ...subscription.metadata,
+        cancelAtPeriodEnd: true,
+        cancelAt: stripeSubscription.cancel_at
+          ? new Date(stripeSubscription.cancel_at * 1000).toISOString()
+          : undefined,
+      };
+    } else if (subscription.metadata?.cancelAtPeriodEnd) {
+      // Cancellation was reversed
+      const { cancelAtPeriodEnd, cancelAt, ...restMetadata } = subscription.metadata;
+      subscription.metadata = restMetadata;
+    }
+
+    await this.subscriptionRepository.save(subscription);
+
+    // Clear caches
+    if (subscription.organizationId) {
+      await this.quotaEnforcementService.clearOrganizationCaches(subscription.organizationId);
+    }
+    if (subscription.userId) {
+      await this.quotaEnforcementService.clearUserCaches(subscription.userId);
+    }
+
+    this.logger.log(`Stripe subscription updated: ${subscription.id} (status: ${subscription.status}, plan: ${subscription.plan})`);
   }
 
   /**

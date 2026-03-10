@@ -372,8 +372,10 @@ export class QuotaEnforcementService {
   async consumeBonusCredit(organizationId: string): Promise<boolean> {
     const now = new Date();
 
-    // Use a transaction with pessimistic lock to prevent concurrent deductions
+    // Use atomic UPDATE with WHERE remaining > 0 to prevent race conditions
+    // This is safer than read-then-write even with pessimistic lock
     return this.messageCreditRepository.manager.transaction(async (em) => {
+      // Find the oldest active credit pack (FIFO)
       const credit = await em.findOne(
         this.messageCreditRepository.target,
         {
@@ -391,16 +393,24 @@ export class QuotaEnforcementService {
         return false;
       }
 
-      credit.remaining -= 1;
-      credit.used += 1;
+      // Atomic update: decrement remaining and increment used in a single query
+      const result = await em
+        .createQueryBuilder()
+        .update(this.messageCreditRepository.target)
+        .set({
+          remaining: () => '"remaining" - 1',
+          used: () => '"used" + 1',
+          status: () => `CASE WHEN "remaining" - 1 <= 0 THEN 'exhausted' ELSE "status" END`,
+        })
+        .where('id = :id AND remaining > 0', { id: credit.id })
+        .execute();
 
-      if (credit.remaining <= 0) {
-        credit.status = MessageCreditStatus.EXHAUSTED;
+      if (result.affected === 0) {
+        // Another concurrent request consumed the last credit
+        return false;
       }
 
-      await em.save(credit);
-      this.logger.debug(`Consumed 1 bonus credit for org ${organizationId}, ${credit.remaining} remaining in pack ${credit.id}`);
-
+      this.logger.debug(`Consumed 1 bonus credit for org ${organizationId}, pack ${credit.id}`);
       return true;
     });
   }

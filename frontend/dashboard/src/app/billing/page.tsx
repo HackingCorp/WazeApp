@@ -131,6 +131,10 @@ export default function BillingPage() {
       setTimeout(() => {
         refreshAuth();
         fetchInvoices();
+        // Also refresh billing summary to update plan and next billing date
+        api.getBillingSummary().then(res => {
+          if (res.success) setSummary(res.data);
+        }).catch(() => {});
       }, 4000);
 
       // Clean URL parameters
@@ -155,6 +159,10 @@ export default function BillingPage() {
       setTimeout(() => {
         refreshAuth();
         fetchInvoices();
+        // Also refresh billing summary
+        api.getBillingSummary().then(res => {
+          if (res.success) setSummary(res.data);
+        }).catch(() => {});
       }, 3000);
 
       // Clean URL parameters

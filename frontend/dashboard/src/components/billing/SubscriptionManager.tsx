@@ -308,8 +308,10 @@ export function SubscriptionManager({
     onBillingCycleChange?.(selectedCycle);
     setShowPaymentModal(false);
     setPlanToPurchase(null);
-    // Reload the page to reflect changes
-    window.location.reload();
+    // Wait briefly for webhooks to process, then reload
+    setTimeout(() => {
+      window.location.reload();
+    }, 2000);
   };
 
   // Redirect to Stripe Customer Portal to manage subscription
@@ -320,10 +322,18 @@ export function SubscriptionManager({
       if (response.success && response.data?.url) {
         window.location.href = response.data.url;
       } else {
-        console.error('Failed to create Stripe portal session:', response);
+        const errorMsg = response.error || 'Impossible de créer la session de gestion';
+        // Show error to user instead of silently failing
+        if (typeof window !== 'undefined') {
+          const { default: toast } = await import('react-hot-toast');
+          toast.error(errorMsg);
+        }
       }
     } catch (error) {
-      console.error('Error creating Stripe portal session:', error);
+      if (typeof window !== 'undefined') {
+        const { default: toast } = await import('react-hot-toast');
+        toast.error('Erreur réseau. Veuillez réessayer.');
+      }
     } finally {
       setStripePortalLoading(false);
     }

@@ -160,30 +160,27 @@ export class MessageCreditsController {
     // Get base summary from service (for credit details)
     const baseSummary = await this.creditsService.getCreditsSummary(organizationId);
 
-    // Get actual message usage from quota service
+    // Get actual message usage from quota service to derive real bonus consumption
     try {
-      const subscription = await this.subscriptionRepository.findOne({
-        where: { organizationId, status: In([SubscriptionStatus.ACTIVE, SubscriptionStatus.TRIALING]) },
-      });
+      const quotaCheck = await this.quotaService.checkWhatsAppMessageQuota(organizationId);
 
-      if (subscription) {
-        // Get actual message count for this billing period
-        const quotaCheck = await this.quotaService.checkWhatsAppMessageQuota(organizationId);
+      // Total bonus purchased = available (remaining) + used from DB
+      // Works whether consumeBonusCredit was wired up or not
+      const totalBonusPurchased = baseSummary.totalAvailable + baseSummary.totalUsed;
 
-        // Calculate actual bonus credits used
-        // Total bonus available = sum of all credit amounts (not remaining)
-        const totalBonusPurchased = baseSummary.activeCredits.reduce((sum, c) => sum + c.remaining, 0) + baseSummary.totalUsed;
-        const actualTotalUsed = quotaCheck.bonusCredits?.used || 0;
-        const actualTotalAvailable = Math.max(0, totalBonusPurchased - actualTotalUsed);
+      // Bonus credits are consumed FIRST before plan quota.
+      // Actual bonus used = min(total bonus purchased, total messages sent this period)
+      const totalMessagesSent = quotaCheck.current || 0;
+      const actualBonusUsed = Math.min(totalBonusPurchased, totalMessagesSent);
+      const actualBonusAvailable = Math.max(0, totalBonusPurchased - actualBonusUsed);
 
-        this.logger.debug(`getCreditsSummary: Actual usage - totalMessages=${quotaCheck.current}, bonusUsed=${actualTotalUsed}, bonusAvailable=${actualTotalAvailable}`);
+      this.logger.debug(`getCreditsSummary: totalMessages=${totalMessagesSent}, bonusPurchased=${totalBonusPurchased}, bonusUsed=${actualBonusUsed}, bonusAvailable=${actualBonusAvailable}`);
 
-        return {
-          ...baseSummary,
-          totalAvailable: actualTotalAvailable,
-          totalUsed: actualTotalUsed,
-        };
-      }
+      return {
+        ...baseSummary,
+        totalAvailable: actualBonusAvailable,
+        totalUsed: actualBonusUsed,
+      };
     } catch (error) {
       this.logger.error(`getCreditsSummary: Error calculating actual usage: ${error.message}`);
     }

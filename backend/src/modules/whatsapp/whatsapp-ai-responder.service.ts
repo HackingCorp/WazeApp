@@ -2680,6 +2680,13 @@ EXEMPLE DE BONNE RÉPONSE AUTOMATIQUE:
         await this.usageMetricRepository.save(usageMetric);
       }
 
+      // Consume a bonus credit if available (FIFO order, oldest pack first)
+      try {
+        await this.quotaEnforcementService.consumeBonusCredit(organizationId);
+      } catch {
+        // Non-blocking: if bonus consumption fails, message still goes through
+      }
+
       this.logger.debug(`📊 Tracked sent message for org ${organizationId}`);
     } catch (error) {
       this.logger.warn(`Failed to track sent message: ${error.message}`);

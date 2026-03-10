@@ -744,10 +744,32 @@ export class QuotaEnforcementService {
     );
 
     if (!activeSubscription) {
+      // Before creating a new trial, check if there's an existing non-active subscription
+      // (e.g. INACTIVE after grace period, PAST_DUE, CANCELLED)
+      const existingSubscription = organization.subscriptions?.sort(
+        (a, b) => new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime(),
+      )[0];
+
+      if (existingSubscription) {
+        // Reactivate as FREE plan (the paid plan already expired/was cancelled)
+        this.logger.log(
+          `Reactivating existing subscription ${existingSubscription.id} as FREE ` +
+          `(was ${existingSubscription.plan}/${existingSubscription.status})`,
+        );
+        existingSubscription.plan = SubscriptionPlan.FREE;
+        existingSubscription.status = SubscriptionStatus.ACTIVE;
+        existingSubscription.limits = this.planService.getPlanLimits('free');
+        existingSubscription.features = this.planService.getPlanFeatures('free');
+
+        const saved = await this.subscriptionRepository.save(existingSubscription);
+        await this.cacheManager.set(cacheKey, saved, this.SUBSCRIPTION_CACHE_TTL);
+        return saved;
+      }
+
       this.logger.debug(
-        "No active subscription found, creating standard trial subscription",
+        "No subscription found at all, creating standard trial subscription",
       );
-      // Create default STANDARD trial subscription using database plans
+      // Create default STANDARD trial subscription only for brand-new organizations
       const trialDays = this.planService.getTrialDays('standard');
       const now = new Date();
       const trialEndsAt = new Date(now);
@@ -829,26 +851,50 @@ export class QuotaEnforcementService {
     });
 
     if (!activeSubscription) {
-      const plan: SubscriptionPlan = SubscriptionPlan.STANDARD;
-      const planCode = plan.toLowerCase();
-      const trialDays = this.planService.getTrialDays(planCode);
-      const now = new Date();
-      const trialEndsAt = new Date(now);
-      trialEndsAt.setDate(trialEndsAt.getDate() + (trialDays || 7));
-
-      activeSubscription = this.subscriptionRepository.create({
-        userId,
-        organizationId: null,
-        plan,
-        status: SubscriptionStatus.TRIALING,
-        limits: this.planService.getPlanLimits(planCode),
-        features: this.planService.getPlanFeatures(planCode),
-        startsAt: now,
-        trialEndsAt,
+      // Check for existing non-active subscription before creating a new trial
+      const existingSubscription = await this.subscriptionRepository.findOne({
+        where: {
+          userId,
+          organizationId: IsNull(),
+        },
+        order: { updatedAt: 'DESC' },
       });
 
-      activeSubscription = await this.subscriptionRepository.save(activeSubscription);
-      this.logger.log(`Created trial subscription for user ${userId} with plan ${plan}`);
+      if (existingSubscription) {
+        // Reactivate as FREE plan (the paid plan already expired/was cancelled)
+        this.logger.log(
+          `Reactivating existing user subscription ${existingSubscription.id} as FREE ` +
+          `(was ${existingSubscription.plan}/${existingSubscription.status})`,
+        );
+        existingSubscription.plan = SubscriptionPlan.FREE;
+        existingSubscription.status = SubscriptionStatus.ACTIVE;
+        existingSubscription.limits = this.planService.getPlanLimits('free');
+        existingSubscription.features = this.planService.getPlanFeatures('free');
+
+        activeSubscription = await this.subscriptionRepository.save(existingSubscription);
+      } else {
+        // Brand-new user with no subscription at all
+        const plan: SubscriptionPlan = SubscriptionPlan.STANDARD;
+        const planCode = plan.toLowerCase();
+        const trialDays = this.planService.getTrialDays(planCode);
+        const now = new Date();
+        const trialEndsAt = new Date(now);
+        trialEndsAt.setDate(trialEndsAt.getDate() + (trialDays || 7));
+
+        activeSubscription = this.subscriptionRepository.create({
+          userId,
+          organizationId: null,
+          plan,
+          status: SubscriptionStatus.TRIALING,
+          limits: this.planService.getPlanLimits(planCode),
+          features: this.planService.getPlanFeatures(planCode),
+          startsAt: now,
+          trialEndsAt,
+        });
+
+        activeSubscription = await this.subscriptionRepository.save(activeSubscription);
+        this.logger.log(`Created trial subscription for user ${userId} with plan ${plan}`);
+      }
     } else {
       // Always sync limits and features with the latest database values
       // This ensures upgrades and plan updates in database are always reflected

@@ -123,16 +123,15 @@ export class TrialService {
       // Skip Stripe-managed
       if (subscription.stripeSubscriptionId) continue;
 
-      // Downgrade to FREE limits
+      // Deactivate subscription (keep original plan name for display)
+      const previousPlan = subscription.plan;
       subscription.status = SubscriptionStatus.INACTIVE;
-      subscription.plan = SubscriptionPlan.FREE;
-      subscription.limits = this.planService.getPlanLimits('free');
-      subscription.features = this.planService.getPlanFeatures('free');
+      // Do NOT change plan - keep original so user sees what they had
       subscription.metadata = {
         ...subscription.metadata,
         trialExpired: {
           expiredAt: now.toISOString(),
-          previousPlan: subscription.plan,
+          previousPlan,
         },
       };
 

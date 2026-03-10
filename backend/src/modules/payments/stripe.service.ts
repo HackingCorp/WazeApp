@@ -673,17 +673,16 @@ export class StripeService {
       return;
     }
 
-    // Downgrade to FREE
-    subscription.plan = SubscriptionPlan.FREE;
+    // Deactivate subscription (keep original plan name for display)
     subscription.status = SubscriptionStatus.CANCELLED;
     subscription.stripeSubscriptionId = null;
-    subscription.limits = this.planService.getPlanLimits('free');
-    subscription.features = this.planService.getPlanFeatures('free');
+    // Do NOT change plan - keep original so user sees what they had
     subscription.metadata = {
       ...subscription.metadata,
       stripeCancellation: {
         cancelledAt: new Date().toISOString(),
         stripeSubscriptionId: stripeSubscription.id,
+        previousPlan: subscription.plan,
       },
     };
 

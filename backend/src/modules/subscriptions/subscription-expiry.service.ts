@@ -141,16 +141,13 @@ export class SubscriptionExpiryService {
         continue;
       }
 
-      // Downgrade to FREE
+      // Deactivate subscription (keep original plan name for display)
       const previousPlan = subscription.plan;
       subscription.status = SubscriptionStatus.INACTIVE;
-      subscription.plan = SubscriptionPlan.FREE;
-      subscription.limits = this.planService.getPlanLimits('free');
-      subscription.features = this.planService.getPlanFeatures('free');
+      // Do NOT change plan to FREE - keep original plan so user sees what they had
       subscription.metadata = {
         ...subscription.metadata,
-        downgradedAt: now.toISOString(),
-        downgradedFrom: previousPlan,
+        deactivatedAt: now.toISOString(),
         reason: 'unpaid_after_grace_period',
         gracePeriodDays: GRACE_PERIOD_DAYS,
       };
@@ -162,7 +159,7 @@ export class SubscriptionExpiryService {
       await this.sendDowngradeNotification(subscription, previousPlan);
 
       this.logger.warn(
-        `Subscription ${subscription.id} downgraded from ${previousPlan} to FREE ` +
+        `Subscription ${subscription.id} (${previousPlan}) deactivated ` +
         `(${daysPastDue} days past due, grace period: ${GRACE_PERIOD_DAYS} days)`,
       );
     }

@@ -525,10 +525,9 @@ export class SubscriptionUpgradeService {
 
       const previousPlan = subscription.plan;
 
-      subscription.plan = SubscriptionPlan.FREE;
+      // Deactivate subscription (keep original plan name for display)
       subscription.status = SubscriptionStatus.CANCELLED;
-      subscription.limits = this.planService.getPlanLimits('free');
-      subscription.features = this.planService.getPlanFeatures('free');
+      // Do NOT change plan - keep original so user sees what they had
       subscription.metadata = {
         ...subscription.metadata,
         cancellation: {

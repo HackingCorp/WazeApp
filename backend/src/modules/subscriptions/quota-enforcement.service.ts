@@ -744,32 +744,54 @@ export class QuotaEnforcementService {
     );
 
     if (!activeSubscription) {
-      // Before creating a new trial, check if there's an existing non-active subscription
-      // (e.g. INACTIVE after grace period, PAST_DUE, CANCELLED)
+      // Check if there's an existing expired/cancelled subscription
       const existingSubscription = organization.subscriptions?.sort(
         (a, b) => new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime(),
       )[0];
 
       if (existingSubscription) {
-        // Reactivate as FREE plan (the paid plan already expired/was cancelled)
+        // Return the expired subscription as-is (keeps original plan name for display)
+        // but override limits/features in-memory to block all usage (NOT persisted to DB)
         this.logger.log(
-          `Reactivating existing subscription ${existingSubscription.id} as FREE ` +
-          `(was ${existingSubscription.plan}/${existingSubscription.status})`,
+          `Returning expired subscription ${existingSubscription.id} ` +
+          `(${existingSubscription.plan}/${existingSubscription.status}) with blocked limits`,
         );
-        existingSubscription.plan = SubscriptionPlan.FREE;
-        existingSubscription.status = SubscriptionStatus.ACTIVE;
-        existingSubscription.limits = this.planService.getPlanLimits('free');
-        existingSubscription.features = this.planService.getPlanFeatures('free');
-
-        const saved = await this.subscriptionRepository.save(existingSubscription);
-        await this.cacheManager.set(cacheKey, saved, this.SUBSCRIPTION_CACHE_TTL);
-        return saved;
+        existingSubscription.limits = {
+          maxAgents: 0,
+          maxRequestsPerMonth: 0,
+          maxStorageBytes: 0,
+          maxKnowledgeChars: 0,
+          maxKnowledgeBases: 0,
+          maxLLMTokensPerMonth: 0,
+          maxVectorSearches: 0,
+          maxConversationsPerMonth: 0,
+          maxDocumentsPerKB: 0,
+          maxFileUploadSize: 0,
+        };
+        existingSubscription.features = {
+          customBranding: false,
+          prioritySupport: false,
+          analytics: false,
+          apiAccess: false,
+          whiteLabel: false,
+          advancedLLMs: false,
+          premiumVectorSearch: false,
+          functionCalling: false,
+          imageAnalysis: false,
+          customEmbeddings: false,
+          webhooks: false,
+          scheduling: false,
+          sso: false,
+        };
+        // Cache the blocked version (not persisted to DB)
+        await this.cacheManager.set(cacheKey, existingSubscription, this.SUBSCRIPTION_CACHE_TTL);
+        return existingSubscription;
       }
 
+      // Only create STANDARD trial for brand-new organizations with no subscription history
       this.logger.debug(
         "No subscription found at all, creating standard trial subscription",
       );
-      // Create default STANDARD trial subscription only for brand-new organizations
       const trialDays = this.planService.getTrialDays('standard');
       const now = new Date();
       const trialEndsAt = new Date(now);
@@ -851,7 +873,7 @@ export class QuotaEnforcementService {
     });
 
     if (!activeSubscription) {
-      // Check for existing non-active subscription before creating a new trial
+      // Check for existing expired/cancelled subscription
       const existingSubscription = await this.subscriptionRepository.findOne({
         where: {
           userId,
@@ -861,17 +883,43 @@ export class QuotaEnforcementService {
       });
 
       if (existingSubscription) {
-        // Reactivate as FREE plan (the paid plan already expired/was cancelled)
+        // Return expired subscription as-is (keeps original plan name for display)
+        // but override limits/features in-memory to block all usage (NOT persisted to DB)
         this.logger.log(
-          `Reactivating existing user subscription ${existingSubscription.id} as FREE ` +
-          `(was ${existingSubscription.plan}/${existingSubscription.status})`,
+          `Returning expired user subscription ${existingSubscription.id} ` +
+          `(${existingSubscription.plan}/${existingSubscription.status}) with blocked limits`,
         );
-        existingSubscription.plan = SubscriptionPlan.FREE;
-        existingSubscription.status = SubscriptionStatus.ACTIVE;
-        existingSubscription.limits = this.planService.getPlanLimits('free');
-        existingSubscription.features = this.planService.getPlanFeatures('free');
-
-        activeSubscription = await this.subscriptionRepository.save(existingSubscription);
+        existingSubscription.limits = {
+          maxAgents: 0,
+          maxRequestsPerMonth: 0,
+          maxStorageBytes: 0,
+          maxKnowledgeChars: 0,
+          maxKnowledgeBases: 0,
+          maxLLMTokensPerMonth: 0,
+          maxVectorSearches: 0,
+          maxConversationsPerMonth: 0,
+          maxDocumentsPerKB: 0,
+          maxFileUploadSize: 0,
+        };
+        existingSubscription.features = {
+          customBranding: false,
+          prioritySupport: false,
+          analytics: false,
+          apiAccess: false,
+          whiteLabel: false,
+          advancedLLMs: false,
+          premiumVectorSearch: false,
+          functionCalling: false,
+          imageAnalysis: false,
+          customEmbeddings: false,
+          webhooks: false,
+          scheduling: false,
+          sso: false,
+        };
+        activeSubscription = existingSubscription;
+        // Cache the blocked version (not persisted to DB)
+        await this.cacheManager.set(cacheKey, activeSubscription, this.SUBSCRIPTION_CACHE_TTL);
+        return activeSubscription;
       } else {
         // Brand-new user with no subscription at all
         const plan: SubscriptionPlan = SubscriptionPlan.STANDARD;

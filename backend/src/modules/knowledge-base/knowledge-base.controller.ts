@@ -119,9 +119,9 @@ export class KnowledgeBaseController {
   @UseGuards(RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.OWNER)
   @ApiOperation({ summary: "Debug endpoint to check KB data" })
-  async debugKB(@Param("id") id: string) {
+  async debugKB(@CurrentUser() user: User, @Param("id") id: string) {
     try {
-      const kb = await this.knowledgeBaseService.findOne(null, id);
+      const kb = await this.knowledgeBaseService.findOne(user.currentOrganizationId || null, id);
       return {
         id: kb.id,
         name: kb.name,
@@ -144,9 +144,10 @@ export class KnowledgeBaseController {
   @UseGuards(RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.OWNER)
   @ApiOperation({ summary: "Debug stats endpoint" })
-  async debugStats(@Param("orgId") orgId: string) {
+  async debugStats(@CurrentUser() user: User, @Param("orgId") orgId: string) {
     try {
-      const actualOrgId = orgId === "null" || orgId === "undefined" ? null : orgId;
+      // Scope to user's own organization for security
+      const actualOrgId = user.currentOrganizationId || null;
       const stats = await this.knowledgeBaseService.getStats(actualOrgId);
       return { stats, orgId: actualOrgId };
     } catch (error) {

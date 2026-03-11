@@ -144,12 +144,10 @@ export class DocumentService {
 
     // Check character limits before processing
     const estimatedChars = this.estimateCharacters(file, uploadDto.type);
-    if (organizationId) {
-      await this.knowledgeBaseService.checkCharacterLimit(
-        organizationId,
-        estimatedChars,
-      );
-    }
+    await this.knowledgeBaseService.checkCharacterLimit(
+      organizationId,
+      estimatedChars,
+    );
 
     // Generate unique filename and save file
     const fileExtension = path.extname(file.originalname);
@@ -230,6 +228,9 @@ export class DocumentService {
     } catch {
       throw new BadRequestException("Invalid URL provided");
     }
+
+    // Check character limits (estimate for URL documents - will be rechecked after scraping)
+    await this.knowledgeBaseService.checkCharacterLimit(organizationId, 5000);
 
     // Create document record
     const document = this.documentRepository.create({
@@ -380,9 +381,11 @@ export class DocumentService {
     userId: string,
     createDto: CreateRichTextDocumentDto,
   ): Promise<KnowledgeDocument> {
-    // Validate knowledge base exists
+    // Validate knowledge base exists and belongs to the user's organization
     const knowledgeBase = await this.knowledgeBaseRepository.findOne({
-      where: { id: createDto.knowledgeBaseId },
+      where: organizationId
+        ? { id: createDto.knowledgeBaseId, organizationId }
+        : { id: createDto.knowledgeBaseId },
     });
 
     if (!knowledgeBase) {
@@ -394,12 +397,10 @@ export class DocumentService {
     const characterCount = textContent.length;
 
     // Check character limits
-    if (organizationId) {
-      await this.knowledgeBaseService.checkCharacterLimit(
-        organizationId,
-        characterCount,
-      );
-    }
+    await this.knowledgeBaseService.checkCharacterLimit(
+      organizationId,
+      characterCount,
+    );
 
     // Create document record
     const document = this.documentRepository.create({

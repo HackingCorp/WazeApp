@@ -2680,9 +2680,13 @@ EXEMPLE DE BONNE RÉPONSE AUTOMATIQUE:
         await this.usageMetricRepository.save(usageMetric);
       }
 
-      // Consume a bonus credit if available (FIFO order, oldest pack first)
+      // Only consume a bonus credit if the message exceeds the subscription plan limit
+      // This prevents premature bonus credit deduction when subscription quota is not yet exhausted
       try {
-        await this.quotaEnforcementService.consumeBonusCredit(organizationId);
+        const quotaCheck = await this.quotaEnforcementService.checkWhatsAppMessageQuota(organizationId);
+        if (quotaCheck.used > quotaCheck.limit) {
+          await this.quotaEnforcementService.consumeBonusCredit(organizationId);
+        }
       } catch {
         // Non-blocking: if bonus consumption fails, message still goes through
       }

@@ -860,9 +860,10 @@ export class QuotaEnforcementService {
     const currentLimits = this.planService.getPlanLimits(planCode);
     const currentFeatures = this.planService.getPlanFeatures(planCode);
 
-    // Check if limits/features need updating
-    const limitsNeedUpdate = JSON.stringify(activeSubscription.limits) !== JSON.stringify(currentLimits);
-    const featuresNeedUpdate = JSON.stringify(activeSubscription.features) !== JSON.stringify(currentFeatures);
+    // Check if limits/features need updating (use sorted keys to avoid false positives from key ordering)
+    const sortedStringify = (obj: any) => JSON.stringify(obj, Object.keys(obj || {}).sort());
+    const limitsNeedUpdate = sortedStringify(activeSubscription.limits) !== sortedStringify(currentLimits);
+    const featuresNeedUpdate = sortedStringify(activeSubscription.features) !== sortedStringify(currentFeatures);
 
     if (limitsNeedUpdate || featuresNeedUpdate) {
       this.logger.log(`Syncing subscription limits/features for plan ${activeSubscription.plan} from database`);
@@ -1151,25 +1152,17 @@ export class QuotaEnforcementService {
     organizationId: string,
     type: UsageMetricType,
   ): Promise<number> {
-    const currentDate = new Date();
-    const startOfMonth = new Date(
-      currentDate.getFullYear(),
-      currentDate.getMonth(),
-      1,
-    );
-    const endOfMonth = new Date(
-      currentDate.getFullYear(),
-      currentDate.getMonth() + 1,
-      0,
-    );
+    // Use billing period instead of calendar month for consistency with WhatsApp quota
+    const subscription = await this.getActiveSubscription(organizationId);
+    const { start: periodStart, end: periodEnd } = this.getBillingPeriod(subscription);
 
     const result = await this.usageMetricRepository
       .createQueryBuilder("metric")
       .select("COALESCE(SUM(metric.value), 0)", "total")
       .where("metric.organizationId = :organizationId", { organizationId })
       .andWhere("metric.type = :type", { type })
-      .andWhere("metric.date >= :startOfMonth", { startOfMonth })
-      .andWhere("metric.date <= :endOfMonth", { endOfMonth })
+      .andWhere("metric.date >= :periodStart", { periodStart })
+      .andWhere("metric.date <= :periodEnd", { periodEnd })
       .getRawOne();
 
     return parseInt(result.total) || 0;

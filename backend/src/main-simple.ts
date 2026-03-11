@@ -7,6 +7,7 @@ import { AppSimpleModule } from "./app-simple.module";
 async function bootstrap() {
   const app = await NestFactory.create(AppSimpleModule, {
     logger: ["error", "warn", "log"],
+    rawBody: true,
   });
 
   const configService = app.get(ConfigService);

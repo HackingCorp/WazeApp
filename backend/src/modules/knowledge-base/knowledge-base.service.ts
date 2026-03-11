@@ -221,14 +221,8 @@ export class KnowledgeBaseService {
       relations: ["creator", "documents"],
     });
 
-    // If not found and organizationId was provided, try with organizationId = null
-    // This handles cases where knowledge bases were created without organization
-    if (!knowledgeBase && organizationId) {
-      knowledgeBase = await this.knowledgeBaseRepository.findOne({
-        where: { id, organizationId: IsNull() },
-        relations: ["creator", "documents"],
-      });
-    }
+    // Fallback removed: cross-org access to org-less KBs is a security risk.
+    // If a KB was created without organization, it should only be found via null organizationId.
 
     if (!knowledgeBase) {
       throw new NotFoundException("Knowledge base not found");
@@ -519,7 +513,7 @@ export class KnowledgeBaseService {
   }
 
   async checkCharacterLimit(
-    organizationId: string,
+    organizationId: string | null,
     additionalChars: number,
   ): Promise<void> {
     const stats = await this.getStats(organizationId);

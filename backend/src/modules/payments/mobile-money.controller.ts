@@ -10,6 +10,7 @@ import {
   Logger,
   Headers,
   UnauthorizedException,
+  BadRequestException,
   RawBodyRequest,
   Req,
 } from '@nestjs/common';
@@ -425,18 +426,25 @@ export class MobileMoneyController {
   async initiateS3PPayment(
     @Body() paymentDto: S3PPaymentDto,
   ): Promise<any> {
+    // If a plan is referenced in the description, validate the amount server-side
+    const planMatch = paymentDto.description?.match(/\b(standard|pro|enterprise)\b/i);
+    if (planMatch) {
+      const planPrice = await this.currencyService.getPlanPrice(planMatch[1].toLowerCase(), 'XAF');
+      if (planPrice && paymentDto.amount < planPrice * 0.9) {
+        throw new BadRequestException(`Amount too low for ${planMatch[1]} plan`);
+      }
+    }
+
     // S3P only accepts XAF - convert if necessary
     let amountXAF = paymentDto.amount;
     const clientCurrency = (paymentDto.currency || 'XAF').toUpperCase();
 
     if (clientCurrency !== 'XAF' && clientCurrency !== 'XOF') {
-      // Convert from client currency to XAF
+      // Convert from client currency to XAF via USD
+      // Use convertFromUSD which already applies the 10% margin
       const clientRate = await this.currencyService.getExchangeRate(clientCurrency);
-      const xafRate = await this.currencyService.getExchangeRate('XAF');
-
-      // Convert: clientAmount → USD → XAF
       const amountInUSD = paymentDto.amount / clientRate;
-      amountXAF = Math.round(amountInUSD * xafRate * 1.1); // 10% margin
+      amountXAF = Math.round(await this.currencyService.convertFromUSD(amountInUSD, 'XAF'));
 
       // Round to nearest 100 for XAF
       amountXAF = Math.ceil(amountXAF / 100) * 100;
@@ -573,6 +581,7 @@ export class MobileMoneyController {
     description: 'Webhook processed and subscription upgraded if payment successful',
   })
   async enkapWebhook(
+    @Req() req: RawBodyRequest<Request>,
     @Body() webhookData: any,
     @Headers('x-enkap-signature') signature?: string,
     @Headers('x-signature') altSignature?: string,
@@ -592,10 +601,11 @@ export class MobileMoneyController {
       throw new UnauthorizedException('Webhook secret not configured');
     }
 
-    // Verify HMAC signature
+    // Verify HMAC signature using raw body bytes for accurate verification
+    const rawBody = req.rawBody || Buffer.from(JSON.stringify(webhookData), 'utf8');
     const expectedSignature = crypto
       .createHmac('sha256', this.enkapWebhookSecret)
-      .update(JSON.stringify(webhookData), 'utf8')
+      .update(rawBody)
       .digest('hex');
 
     // Support both plain hex and sha256= prefix formats

@@ -10,6 +10,7 @@ async function bootstrap() {
   try {
     const app = await NestFactory.create(AppStandaloneModule, {
       logger: ["error", "warn", "log"],
+      rawBody: true,
     });
 
     const configService = app.get(ConfigService);

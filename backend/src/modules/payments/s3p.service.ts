@@ -387,9 +387,9 @@ export class S3PService {
       };
     } catch (error) {
       this.logger.error(`S3P Payment verification failed: ${error.message}`, error.response?.data);
-      // En cas d'erreur, retourner PENDING plutôt que de throw
+      // Return ERROR status so callers can distinguish from actual PENDING payments
       return {
-        status: 'PENDING',
+        status: 'ERROR',
         error: error.message,
         ptn: ptn,
       };

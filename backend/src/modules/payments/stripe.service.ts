@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import Stripe from 'stripe';
+import * as crypto from 'crypto';
 import { Subscription, User, Organization, Plan, Invoice } from '../../common/entities';
 import { MessageCredit, MessageCreditStatus } from '../../common/entities/message-credit.entity';
 import { InvoiceStatus } from '../../common/entities/invoice.entity';
@@ -225,7 +226,10 @@ export class StripeService {
 
     const session = await stripe.checkout.sessions.create(sessionCreateParams);
 
-    return { sessionId: session.id, url: session.url! };
+    if (!session.url) {
+      throw new BadRequestException('Stripe did not return a checkout URL');
+    }
+    return { sessionId: session.id, url: session.url };
   }
 
   /**
@@ -294,7 +298,10 @@ export class StripeService {
       },
     });
 
-    return { sessionId: session.id, url: session.url! };
+    if (!session.url) {
+      throw new BadRequestException('Stripe did not return a checkout URL');
+    }
+    return { sessionId: session.id, url: session.url };
   }
 
   /**
@@ -358,6 +365,12 @@ export class StripeService {
         break;
       case 'customer.subscription.deleted':
         await this.handleSubscriptionDeleted(event.data.object as Stripe.Subscription);
+        break;
+      case 'charge.refunded':
+        await this.handleChargeRefunded(event.data.object as Stripe.Charge);
+        break;
+      case 'charge.dispute.created':
+        await this.handleChargeDispute(event.data.object as Stripe.Dispute);
         break;
       default:
         this.logger.debug(`Unhandled Stripe event type: ${event.type}`);
@@ -564,7 +577,7 @@ export class StripeService {
     await this.subscriptionRepository.save(subscription);
 
     // Create local invoice
-    const invoiceNumber = `INV-${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, '0')}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+    const invoiceNumber = `INV-${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, '0')}-${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
     const amountInCents = stripeInvoice.amount_paid || 0;
 
     const localInvoice = this.invoiceRepository.create({
@@ -806,6 +819,72 @@ export class StripeService {
     }
 
     this.logger.log(`Stripe subscription deleted, downgraded to FREE: ${subscription.id}`);
+  }
+
+  /**
+   * Handle charge.refunded - suspend subscription when a charge is refunded
+   */
+  private async handleChargeRefunded(charge: Stripe.Charge): Promise<void> {
+    this.logger.warn(`Stripe charge refunded: ${charge.id}, amount: ${charge.amount_refunded}`);
+
+    // Find subscription by customer
+    const customerId = typeof charge.customer === 'string' ? charge.customer : charge.customer?.id;
+    if (!customerId) return;
+
+    const subscription = await this.subscriptionRepository.findOne({
+      where: { stripeCustomerId: customerId, status: SubscriptionStatus.ACTIVE },
+    });
+
+    if (subscription) {
+      subscription.status = SubscriptionStatus.PAST_DUE;
+      subscription.metadata = {
+        ...subscription.metadata,
+        refund: {
+          chargeId: charge.id,
+          amountRefunded: charge.amount_refunded,
+          refundedAt: new Date().toISOString(),
+        },
+      };
+      await this.subscriptionRepository.save(subscription);
+
+      if (subscription.organizationId) {
+        await this.quotaEnforcementService.clearOrganizationCaches(subscription.organizationId);
+      }
+      this.logger.warn(`Subscription ${subscription.id} set to PAST_DUE due to refund`);
+    }
+  }
+
+  /**
+   * Handle charge.dispute.created - immediately suspend subscription
+   */
+  private async handleChargeDispute(dispute: Stripe.Dispute): Promise<void> {
+    this.logger.warn(`Stripe charge dispute created: ${dispute.id}`);
+
+    const charge = dispute.charge as Stripe.Charge;
+    const customerId = typeof charge?.customer === 'string' ? charge.customer : charge?.customer?.id;
+    if (!customerId) return;
+
+    const subscription = await this.subscriptionRepository.findOne({
+      where: { stripeCustomerId: customerId, status: SubscriptionStatus.ACTIVE },
+    });
+
+    if (subscription) {
+      subscription.status = SubscriptionStatus.PAST_DUE;
+      subscription.metadata = {
+        ...subscription.metadata,
+        dispute: {
+          disputeId: dispute.id,
+          reason: dispute.reason,
+          createdAt: new Date().toISOString(),
+        },
+      };
+      await this.subscriptionRepository.save(subscription);
+
+      if (subscription.organizationId) {
+        await this.quotaEnforcementService.clearOrganizationCaches(subscription.organizationId);
+      }
+      this.logger.warn(`Subscription ${subscription.id} set to PAST_DUE due to dispute`);
+    }
   }
 
   /**

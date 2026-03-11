@@ -16,6 +16,10 @@ import { UsageMetric } from "./usage-metric.entity";
 @Index("IDX_SUBSCRIPTION_ORG", ["organizationId"])
 @Index("IDX_SUBSCRIPTION_STATUS", ["status"])
 @Index("IDX_SUBSCRIPTION_USER", ["userId"])
+@Index("IDX_SUBSCRIPTION_ORG_ACTIVE_UNIQUE", ["organizationId"], {
+  unique: true,
+  where: `"status" IN ('active', 'trialing')`,
+})
 export class Subscription extends BaseEntity {
   @ApiProperty({ description: "Subscription plan", enum: SubscriptionPlan })
   @Column({

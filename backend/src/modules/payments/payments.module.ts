@@ -3,6 +3,7 @@ import { HttpModule } from '@nestjs/axios';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { S3PService } from './s3p.service';
+import { S3PReconciliationService } from './s3p-reconciliation.service';
 import { EnkapService } from './enkap.service';
 import { CurrencyService } from './currency.service';
 import { SubscriptionUpgradeService } from './subscription-upgrade.service';
@@ -27,7 +28,7 @@ import { SubscriptionModule } from '../subscriptions/subscription.module';
     forwardRef(() => SubscriptionModule), // Import SubscriptionModule for PlanService
   ],
   controllers: [MobileMoneyController, PricingController, StripeController],
-  providers: [S3PService, EnkapService, CurrencyService, SubscriptionUpgradeService, StripeService],
-  exports: [S3PService, EnkapService, CurrencyService, SubscriptionUpgradeService, StripeService],
+  providers: [S3PService, S3PReconciliationService, EnkapService, CurrencyService, SubscriptionUpgradeService, StripeService],
+  exports: [S3PService, S3PReconciliationService, EnkapService, CurrencyService, SubscriptionUpgradeService, StripeService],
 })
 export class PaymentsModule {}

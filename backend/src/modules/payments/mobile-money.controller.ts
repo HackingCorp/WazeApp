@@ -31,6 +31,7 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Public } from '../../common/decorators/public.decorator';
 import { S3PService, S3PPaymentRequest, S3PPaymentResponse } from './s3p.service';
+import { S3PReconciliationService } from './s3p-reconciliation.service';
 import { EnkapService } from './enkap.service';
 import { CurrencyService } from './currency.service';
 import { SubscriptionUpgradeService, PaymentDetails } from './subscription-upgrade.service';
@@ -110,6 +111,7 @@ export class MobileMoneyController {
 
   constructor(
     private readonly s3pService: S3PService,
+    private readonly s3pReconciliation: S3PReconciliationService,
     private readonly enkapService: EnkapService,
     private readonly currencyService: CurrencyService,
     private readonly subscriptionUpgradeService: SubscriptionUpgradeService,
@@ -309,6 +311,25 @@ export class MobileMoneyController {
         }
       } else {
         this.logger.warn(`Cannot process payment: unrecognized plan type: ${plan}`);
+      }
+    }
+
+    // Track PENDING S3P transactions for cron-based reconciliation
+    // This handles cases where the client disconnects before payment completes
+    if (paymentStatus.status === 'PENDING' && verificationDto.plan && user?.id) {
+      const plan = verificationDto.plan.toUpperCase();
+      if (['STANDARD', 'PRO', 'ENTERPRISE'].includes(plan)) {
+        await this.s3pReconciliation.trackPendingTransaction({
+          trid: verificationDto.transactionId || paymentStatus.ptn,
+          ptn: verificationDto.ptn || paymentStatus.ptn,
+          userId: user.id,
+          organizationId: user.currentOrganizationId,
+          plan,
+          amount: verificationDto.amount || paymentStatus.amount || 0,
+          currency: 'XAF',
+          billingPeriod: verificationDto.billingPeriod || 'monthly',
+          createdAt: new Date().toISOString(),
+        });
       }
     }
 

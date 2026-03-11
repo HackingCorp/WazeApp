@@ -501,13 +501,49 @@ export class QuotaEnforcementService {
   }
 
   /**
-   * Enforce WhatsApp message quota
+   * Atomically reserve a WhatsApp message quota slot using Redis INCR.
+   * Prevents TOCTOU race conditions where two concurrent messages both pass the check.
+   * Falls back to non-atomic check if Redis is unavailable.
+   */
+  async reserveMessageSlot(organizationId: string): Promise<QuotaCheck> {
+    const check = await this.checkWhatsAppMessageQuota(organizationId);
+    if (!check.allowed) return check;
+
+    const reserveKey = `quota:reserve:org:${organizationId}`;
+    try {
+      const store = (this.cacheManager as any).store;
+      const redisClient = store?.client;
+
+      if (redisClient) {
+        // Atomically increment the reservation counter
+        const reserved = await redisClient.incr(reserveKey);
+        // Set TTL on first reservation (matches quota cache TTL)
+        if (reserved === 1) {
+          await redisClient.expire(reserveKey, Math.ceil(this.QUOTA_CACHE_TTL / 1000));
+        }
+        // Deny if reserved slots exceed remaining quota
+        if (reserved > check.remaining) {
+          await redisClient.decr(reserveKey);
+          check.allowed = false;
+          check.message = `Message limit exceeded. You have used ${check.current} of ${check.limit} monthly messages. Please upgrade your plan.`;
+          return check;
+        }
+      }
+    } catch (error) {
+      this.logger.warn(`Redis reservation failed, using non-atomic check: ${error.message}`);
+    }
+
+    return check;
+  }
+
+  /**
+   * Enforce WhatsApp message quota with atomic reservation
    */
   async enforceWhatsAppMessageQuota(organizationId: string): Promise<void> {
-    const check = await this.checkWhatsAppMessageQuota(organizationId);
+    const check = await this.reserveMessageSlot(organizationId);
     if (!check.allowed) {
       throw new ForbiddenException(
-        `Message limit exceeded. You have used ${check.current} of ${check.limit} monthly messages. Please upgrade your plan.`
+        check.message || `Message limit exceeded. You have used ${check.current} of ${check.limit} monthly messages. Please upgrade your plan.`
       );
     }
   }
@@ -839,19 +875,37 @@ export class QuotaEnforcementService {
       const trialEndsAt = new Date(now);
       trialEndsAt.setDate(trialEndsAt.getDate() + (trialDays || 7));
 
-      const trialSubscription = this.subscriptionRepository.create({
-        organizationId,
-        plan: SubscriptionPlan.STANDARD,
-        status: SubscriptionStatus.TRIALING,
-        limits: this.planService.getPlanLimits('standard'),
-        features: this.planService.getPlanFeatures('standard'),
-        startsAt: now,
-        trialEndsAt,
-      });
+      try {
+        const trialSubscription = this.subscriptionRepository.create({
+          organizationId,
+          plan: SubscriptionPlan.STANDARD,
+          status: SubscriptionStatus.TRIALING,
+          limits: this.planService.getPlanLimits('standard'),
+          features: this.planService.getPlanFeatures('standard'),
+          startsAt: now,
+          trialEndsAt,
+        });
 
-      const saved = await this.subscriptionRepository.save(trialSubscription);
-      await this.cacheManager.set(cacheKey, saved, this.SUBSCRIPTION_CACHE_TTL);
-      return saved;
+        const saved = await this.subscriptionRepository.save(trialSubscription);
+        await this.cacheManager.set(cacheKey, saved, this.SUBSCRIPTION_CACHE_TTL);
+        return saved;
+      } catch (error) {
+        // Handle unique constraint violation (concurrent trial creation race condition)
+        if (error.code === '23505' || error.message?.includes('duplicate key')) {
+          this.logger.warn(`Duplicate trial creation race for org ${organizationId}, re-fetching`);
+          const existing = await this.subscriptionRepository.findOne({
+            where: {
+              organizationId,
+              status: In([SubscriptionStatus.ACTIVE, SubscriptionStatus.TRIALING]),
+            },
+          });
+          if (existing) {
+            await this.cacheManager.set(cacheKey, existing, this.SUBSCRIPTION_CACHE_TTL);
+            return existing;
+          }
+        }
+        throw error;
+      }
     }
 
     // Always sync limits and features with the latest database values

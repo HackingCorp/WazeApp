@@ -47,7 +47,7 @@ import { AppointmentsModule } from "./modules/appointments/appointments.module";
 
 // Guards
 import { JwtAuthGuard } from "./common/guards/jwt-auth.guard";
-import { ThrottlerGuard } from "@nestjs/throttler";
+import { PlanThrottlerGuard } from "./common/guards/plan-throttler.guard";
 
 // Controllers
 import { AppController } from "./app.controller";
@@ -171,7 +171,7 @@ import { AppController } from "./app.controller";
     },
     {
       provide: APP_GUARD,
-      useClass: ThrottlerGuard,
+      useClass: PlanThrottlerGuard,
     },
   ],
 })

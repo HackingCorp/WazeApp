@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { X, Smartphone, Loader2, CheckCircle, XCircle, AlertCircle, Plus, Minus, MessageSquare, Clock, Gift, CreditCard } from 'lucide-react';
 import { api, apiHelpers } from '@/lib/api';
 import clsx from 'clsx';
@@ -32,6 +32,7 @@ export function MessageCreditsPurchaseModal({
   const [status, setStatus] = useState<PaymentStatus>('idle');
   const [error, setError] = useState<string | null>(null);
   const [ptn, setPtn] = useState<string | null>(null);
+  const pollingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [loadingPricing, setLoadingPricing] = useState(true);
   // Default pricing values - will be overwritten by API
   const [pricing, setPricing] = useState<PricingInfo>({
@@ -49,7 +50,17 @@ export function MessageCreditsPurchaseModal({
     }
   }, [isOpen]);
 
-  // Reset state when modal opens
+  // Cleanup polling on unmount
+  useEffect(() => {
+    return () => {
+      if (pollingTimeoutRef.current) {
+        clearTimeout(pollingTimeoutRef.current);
+        pollingTimeoutRef.current = null;
+      }
+    };
+  }, []);
+
+  // Reset state when modal opens/closes
   useEffect(() => {
     if (isOpen) {
       setAmount(1000);
@@ -58,6 +69,11 @@ export function MessageCreditsPurchaseModal({
       setStatus('idle');
       setError(null);
       setPtn(null);
+    } else {
+      if (pollingTimeoutRef.current) {
+        clearTimeout(pollingTimeoutRef.current);
+        pollingTimeoutRef.current = null;
+      }
     }
   }, [isOpen]);
 
@@ -346,19 +362,19 @@ export function MessageCreditsPurchaseModal({
         }
 
         if (attempts < maxAttempts) {
-          setTimeout(checkStatus, 10000);
+          pollingTimeoutRef.current = setTimeout(checkStatus, 10000);
         } else {
           setStatus('pending');
           setError('Le paiement est toujours en attente. Vérifiez votre téléphone.');
         }
       } catch (err) {
         if (attempts < maxAttempts) {
-          setTimeout(checkStatus, 10000);
+          pollingTimeoutRef.current = setTimeout(checkStatus, 10000);
         }
       }
     };
 
-    setTimeout(checkStatus, 10000);
+    pollingTimeoutRef.current = setTimeout(checkStatus, 10000);
   };
 
   if (!isOpen) return null;

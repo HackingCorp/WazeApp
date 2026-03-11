@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { X, Smartphone, CreditCard, Loader2, CheckCircle, XCircle, AlertCircle, ArrowLeft } from 'lucide-react';
 import { api } from '@/lib/api';
 import clsx from 'clsx';
@@ -52,8 +52,19 @@ export function PaymentModal({
   const [transactionRef, setTransactionRef] = useState<string | null>(null);
   const [ptn, setPtn] = useState<string | null>(null);
   const [paymentUrl, setPaymentUrl] = useState<string | null>(null);
+  const pollingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Reset state when modal opens
+  // Cleanup polling on unmount
+  useEffect(() => {
+    return () => {
+      if (pollingTimeoutRef.current) {
+        clearTimeout(pollingTimeoutRef.current);
+        pollingTimeoutRef.current = null;
+      }
+    };
+  }, []);
+
+  // Reset state when modal opens/closes
   useEffect(() => {
     if (isOpen) {
       setPaymentMethod(null);
@@ -64,6 +75,12 @@ export function PaymentModal({
       setTransactionRef(null);
       setPtn(null);
       setPaymentUrl(null);
+    } else {
+      // Cancel any active polling when modal closes
+      if (pollingTimeoutRef.current) {
+        clearTimeout(pollingTimeoutRef.current);
+        pollingTimeoutRef.current = null;
+      }
     }
   }, [isOpen]);
 
@@ -259,7 +276,7 @@ export function PaymentModal({
         }
 
         if (attempts < maxAttempts) {
-          setTimeout(checkStatus, 10000);
+          pollingTimeoutRef.current = setTimeout(checkStatus, 10000);
         } else {
           // After 5 minutes, show a message but don't fail
           setStatus('pending');
@@ -270,13 +287,13 @@ export function PaymentModal({
           console.error('Payment verification error:', err);
         }
         if (attempts < maxAttempts) {
-          setTimeout(checkStatus, 10000);
+          pollingTimeoutRef.current = setTimeout(checkStatus, 10000);
         }
       }
     };
 
     // Start first check after 15 seconds (give time for payment to process)
-    setTimeout(checkStatus, 15000);
+    pollingTimeoutRef.current = setTimeout(checkStatus, 15000);
   };
 
   // ============================================

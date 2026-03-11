@@ -99,8 +99,8 @@ export class EnkapService {
 
     this.baseUrl = this.configService.get('ENKAP_BASE_URL', 'https://api-v2.enkap.cm');
     this.apiVersion = '/purchase/v1.2';
-    this.consumerKey = this.configService.get('ENKAP_CONSUMER_KEY', 'wXRF_8iU7h9UNiBG4zNYFdCQPwga');
-    this.consumerSecret = this.configService.get('ENKAP_CONSUMER_SECRET', 'rD9fRGJkVVs8TZtfjJ0VTD7taOsa');
+    this.consumerKey = this.configService.get('ENKAP_CONSUMER_KEY', '');
+    this.consumerSecret = this.configService.get('ENKAP_CONSUMER_SECRET', '');
 
     // URLs - Production by default
     if (useStaging) {

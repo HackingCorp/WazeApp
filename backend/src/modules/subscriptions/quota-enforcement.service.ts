@@ -411,6 +411,10 @@ export class QuotaEnforcementService {
       }
 
       this.logger.debug(`Consumed 1 bonus credit for org ${organizationId}, pack ${credit.id}`);
+
+      // Invalidate quota cache so next check reflects the consumed credit
+      await this.cacheManager.del(`quota:whatsapp:org:${organizationId}`);
+
       return true;
     });
   }
@@ -752,7 +756,7 @@ export class QuotaEnforcementService {
     const PLAN_TIER: Record<string, number> = { free: 0, standard: 1, pro: 2, enterprise: 3 };
 
     let activeSubscription = organization.subscriptions?.find(
-      (sub) => sub.status === SubscriptionStatus.ACTIVE || sub.status === SubscriptionStatus.TRIALING,
+      (sub) => sub.status === SubscriptionStatus.ACTIVE || sub.status === SubscriptionStatus.TRIALING || sub.status === SubscriptionStatus.PAST_DUE,
     );
 
     // Duplicate detection: if the active/trialing subscription is a lower tier than

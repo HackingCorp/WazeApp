@@ -38,7 +38,7 @@ import {
 
 @ApiTags("Knowledge Base")
 @Controller("knowledge-bases")
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
 @ApiBearerAuth()
 @AllowIndividualUsers()
 export class KnowledgeBaseController {

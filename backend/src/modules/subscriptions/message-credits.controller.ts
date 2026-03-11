@@ -304,14 +304,14 @@ export class MessageCreditsController {
       throw new BadRequestException('Organization ID is required');
     }
 
-    // Create credits without payment (admin grant)
+    // Create credits without payment (admin grant) - skip purchase minimum validation
     const credit = await this.creditsService.purchaseCredits({
       organizationId,
       amount: dto.amount,
       transactionId: `ADMIN-${Date.now()}`,
       paymentMethod: 'admin_grant',
       phoneNumber: undefined,
-    });
+    }, true);
 
     // Clear quota cache so new credits are visible immediately
     await this.quotaService.clearOrganizationCaches(organizationId);

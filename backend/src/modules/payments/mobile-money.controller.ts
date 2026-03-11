@@ -618,7 +618,7 @@ export class MobileMoneyController {
     const webhookTransactionId = webhookData.transactionId || webhookData.txid || webhookData.merchantReference;
 
     // Process subscription upgrade if payment is successful
-    if (result.status === 'SUCCESS' || webhookData.status === 'COMPLETED') {
+    if (result.isPaid || result.status === 'COMPLETED' || webhookData.status === 'COMPLETED') {
       this.logger.log(`E-nkap payment successful, processing subscription upgrade`);
 
       // Extract metadata from webhook (merchantReference contains user info)
@@ -636,12 +636,7 @@ export class MobileMoneyController {
           const existingSubscription = await this.subscriptionUpgradeService.getSubscription(userId);
           if (existingSubscription?.metadata?.lastPayment?.transactionId === webhookTransactionId) {
             this.logger.warn(`E-nkap webhook duplicate detected for transaction ${webhookTransactionId}, skipping`);
-            return {
-              status: 'success',
-              message: 'Payment already processed',
-              webhookResult: result,
-              subscription: existingSubscription,
-            };
+            return { status: 'ok', received: true };
           }
 
           // Handle invoice payments: WAZEAPP-{userId}-INVOICE-{invoiceId}-{timestamp}
@@ -658,20 +653,10 @@ export class MobileMoneyController {
 
               this.logger.log(`Invoice ${invoiceId} marked as paid via E-nkap`);
 
-              return {
-                status: 'success',
-                message: 'Payment processed and invoice marked as paid',
-                webhookResult: result,
-                invoicePaid: paidInvoice,
-              };
+              return { status: 'ok', received: true };
             } catch (invoiceError) {
               this.logger.error(`Failed to mark invoice as paid: ${invoiceError.message}`);
-              return {
-                status: 'error',
-                message: 'Payment successful but failed to mark invoice as paid',
-                webhookResult: result,
-                error: invoiceError.message,
-              };
+              return { status: 'ok', received: true };
             }
           }
           // Handle subscription upgrades: WAZEAPP-{userId}-{plan}-{timestamp}
@@ -706,12 +691,7 @@ export class MobileMoneyController {
 
             this.logger.log(`Subscription upgrade result: ${JSON.stringify(upgradeResult)}`);
 
-            return {
-              status: 'success',
-              message: 'Payment processed and subscription upgraded',
-              webhookResult: result,
-              subscriptionUpgrade: upgradeResult,
-            };
+            return { status: 'ok', received: true };
           }
         }
       }
@@ -719,11 +699,7 @@ export class MobileMoneyController {
       this.logger.warn(`Could not extract user info from merchantReference: ${merchantRef}`);
     }
 
-    return {
-      status: 'success',
-      message: 'Webhook processed',
-      result,
-    };
+    return { status: 'ok', received: true };
   }
 
   @Get('enkap/test-token')

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { X, Smartphone, Loader2, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 import { api } from '@/lib/api';
 import clsx from 'clsx';
@@ -49,8 +49,19 @@ export function MobileMoneyModal({
   const [error, setError] = useState<string | null>(null);
   const [transactionRef, setTransactionRef] = useState<string | null>(null);
   const [ptn, setPtn] = useState<string | null>(null);
+  const pollingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Reset state when modal opens
+  // Cleanup polling on unmount
+  useEffect(() => {
+    return () => {
+      if (pollingTimeoutRef.current) {
+        clearTimeout(pollingTimeoutRef.current);
+        pollingTimeoutRef.current = null;
+      }
+    };
+  }, []);
+
+  // Reset state when modal opens/closes
   useEffect(() => {
     if (isOpen) {
       setPhoneNumber('');
@@ -59,6 +70,11 @@ export function MobileMoneyModal({
       setError(null);
       setTransactionRef(null);
       setPtn(null);
+    } else {
+      if (pollingTimeoutRef.current) {
+        clearTimeout(pollingTimeoutRef.current);
+        pollingTimeoutRef.current = null;
+      }
     }
   }, [isOpen]);
 
@@ -202,20 +218,20 @@ export function MobileMoneyModal({
 
         // Continue polling if still pending
         if (attempts < maxAttempts) {
-          setTimeout(checkStatus, 10000);
+          pollingTimeoutRef.current = setTimeout(checkStatus, 10000);
         } else {
           setStatus('pending');
           setError('Le paiement est toujours en attente. Vérifiez votre téléphone.');
         }
       } catch (err) {
         if (attempts < maxAttempts) {
-          setTimeout(checkStatus, 10000);
+          pollingTimeoutRef.current = setTimeout(checkStatus, 10000);
         }
       }
     };
 
     // Start polling after initial 10 second delay
-    setTimeout(checkStatus, 10000);
+    pollingTimeoutRef.current = setTimeout(checkStatus, 10000);
   };
 
   if (!isOpen || !plan) return null;

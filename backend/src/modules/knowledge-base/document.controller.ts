@@ -47,7 +47,9 @@ import {
 
 @ApiTags("Knowledge Base - Documents")
 @Controller("documents")
+@UseGuards(JwtAuthGuard, RolesGuard)
 @ApiBearerAuth()
+@AllowIndividualUsers()
 export class DocumentController {
   constructor(private readonly documentService: DocumentService) {}
 

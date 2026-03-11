@@ -324,11 +324,10 @@ export class AiAgentService {
         relations: ["creator", "knowledgeBases", "catalogs", "conversations"],
       });
     } else {
-      // User without organization - find any agent they created OR any agent accessible to them
+      // User without organization - find only agents they created
       agent = await this.agentRepository.findOne({
         where: [
           { id, createdBy: userId },
-          { id, organizationId: IsNull() }
         ],
         relations: ["creator", "knowledgeBases", "catalogs", "conversations"],
       });

@@ -451,7 +451,7 @@ export class MobileMoneyController {
     const planMatch = paymentDto.description?.match(/\b(standard|pro|enterprise)\b/i);
     if (planMatch) {
       const planPrice = await this.currencyService.getPlanPrice(planMatch[1].toLowerCase(), 'XAF');
-      if (planPrice && paymentDto.amount < planPrice * 0.9) {
+      if (planPrice && paymentDto.amount < planPrice.amount * 0.9) {
         throw new BadRequestException(`Amount too low for ${planMatch[1]} plan`);
       }
     }

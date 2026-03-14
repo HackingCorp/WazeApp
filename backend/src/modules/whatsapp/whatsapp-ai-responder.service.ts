@@ -2684,7 +2684,7 @@ EXEMPLE DE BONNE RÉPONSE AUTOMATIQUE:
       // This prevents premature bonus credit deduction when subscription quota is not yet exhausted
       try {
         const quotaCheck = await this.quotaEnforcementService.checkWhatsAppMessageQuota(organizationId);
-        if (quotaCheck.used > quotaCheck.limit) {
+        if (quotaCheck.current > quotaCheck.limit) {
           await this.quotaEnforcementService.consumeBonusCredit(organizationId);
         }
       } catch {

@@ -718,13 +718,13 @@ export class StripeService {
     }
 
     // Update period dates from Stripe
-    const currentPeriodEnd = stripeSubscription.current_period_end;
+    const currentPeriodEnd = (stripeSubscription as any).current_period_end;
     if (currentPeriodEnd) {
       subscription.nextBillingDate = new Date(currentPeriodEnd * 1000);
       subscription.endsAt = new Date(currentPeriodEnd * 1000);
     }
 
-    const currentPeriodStart = stripeSubscription.current_period_start;
+    const currentPeriodStart = (stripeSubscription as any).current_period_start;
     if (currentPeriodStart) {
       subscription.startsAt = new Date(currentPeriodStart * 1000);
     }

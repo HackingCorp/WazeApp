@@ -1,5 +1,5 @@
 import { Injectable, ExecutionContext, Inject } from '@nestjs/common';
-import { ThrottlerGuard } from '@nestjs/throttler';
+import { ThrottlerGuard, ThrottlerOptions, ThrottlerGetTrackerFunction, ThrottlerGenerateKeyFunction } from '@nestjs/throttler';
 import { CACHE_MANAGER, Cache } from '@nestjs/cache-manager';
 import { Subscription } from '../entities/subscription.entity';
 
@@ -21,15 +21,22 @@ export class PlanThrottlerGuard extends ThrottlerGuard {
   @Inject(CACHE_MANAGER)
   private readonly cache: Cache;
 
-  protected async handleRequest(requestProps: any): Promise<boolean> {
-    const request = requestProps.context?.switchToHttp?.()?.getRequest?.();
+  protected async handleRequest(
+    context: ExecutionContext,
+    limit: number,
+    ttl: number,
+    throttler: ThrottlerOptions,
+    getTracker: ThrottlerGetTrackerFunction,
+    generateKey: ThrottlerGenerateKeyFunction,
+  ): Promise<boolean> {
+    const request = context.switchToHttp().getRequest();
     if (request?.user) {
       const planLimit = await this.getPlanLimit(request.user);
       if (planLimit) {
-        requestProps.limit = planLimit;
+        limit = planLimit;
       }
     }
-    return super.handleRequest(requestProps);
+    return super.handleRequest(context, limit, ttl, throttler, getTracker, generateKey);
   }
 
   private async getPlanLimit(user: any): Promise<number | null> {

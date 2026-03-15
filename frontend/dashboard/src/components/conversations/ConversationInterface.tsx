@@ -467,7 +467,7 @@ export function ConversationInterface({
 
   const handleSendMessage = () => {
     if (messageInput.trim()) {
-      if (selectedContact?.isHumanControlled && selectedContact?.assignedOperatorId && onOperatorReply) {
+      if (selectedContact?.isHumanControlled && onOperatorReply) {
         onOperatorReply(selectedContact.id, messageInput.trim());
       } else {
         onSendMessage(messageInput.trim(), 'text');
@@ -718,7 +718,7 @@ export function ConversationInterface({
                       {t('conversations.takeOver')}
                     </button>
                   )}
-                  {selectedContact.isHumanControlled && selectedContact.assignedOperatorId && onRelease && (
+                  {selectedContact.isHumanControlled && onRelease && (
                     <button
                       onClick={() => onRelease(selectedContact.id)}
                       className="flex items-center gap-1.5 px-3 py-1.5 bg-[#00a884] hover:bg-[#008069] text-white text-xs font-medium rounded-lg transition-colors"
@@ -727,17 +727,6 @@ export function ConversationInterface({
                     >
                       <Bot className="w-4 h-4" />
                       {t('conversations.releaseToAI')}
-                    </button>
-                  )}
-                  {selectedContact.isHumanControlled && !selectedContact.assignedOperatorId && onTakeover && (
-                    <button
-                      onClick={() => onTakeover(selectedContact.id)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-500 hover:bg-orange-600 text-white text-xs font-medium rounded-lg transition-colors animate-pulse"
-                      aria-label={t('conversations.takeOver')}
-                      title={t('conversations.takeOver')}
-                    >
-                      <UserCheck className="w-4 h-4" />
-                      {t('conversations.takeOver')}
                     </button>
                   )}
                   {onArchiveContact && (
@@ -912,7 +901,7 @@ export function ConversationInterface({
                       target.style.height = 'auto';
                       target.style.height = `${Math.min(target.scrollHeight, 128)}px`;
                     }}
-                    placeholder={selectedContact?.isHumanControlled && selectedContact?.assignedOperatorId ? t('conversations.replyAsOperator') : t('conversations.typeMessage')}
+                    placeholder={selectedContact?.isHumanControlled ? t('conversations.replyAsOperator') : t('conversations.typeMessage')}
                     className="w-full resize-none px-3 py-2.5 bg-white dark:bg-[#2a3942] border-0 rounded-lg text-[#111b21] dark:text-[#e9edef] placeholder-[#667781] dark:placeholder-[#8696a0] focus:outline-none text-[15px] max-h-32"
                     rows={1}
                     style={{ minHeight: '42px' }}
@@ -924,7 +913,7 @@ export function ConversationInterface({
                     onClick={handleSendMessage}
                     className={clsx(
                       "p-2 rounded-full transition-colors",
-                      selectedContact?.isHumanControlled && selectedContact?.assignedOperatorId
+                      selectedContact?.isHumanControlled
                         ? "text-[#54656f] dark:text-[#8696a0] hover:text-blue-500"
                         : "text-[#54656f] dark:text-[#8696a0] hover:text-[#00a884]"
                     )}

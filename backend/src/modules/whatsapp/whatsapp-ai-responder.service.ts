@@ -290,13 +290,13 @@ export class WhatsAppAIResponderService {
       let releasedCount = 0;
 
       for (const conversation of humanControlled) {
-        // Find the last operator message in this conversation
+        // Find the last operator message (not AI agent messages — those predate the takeover)
         const lastOperatorMsg = await this.messageRepository.findOne({
-          where: { conversationId: conversation.id, role: In([MessageRole.OPERATOR, MessageRole.AGENT]) },
+          where: { conversationId: conversation.id, role: MessageRole.OPERATOR },
           order: { createdAt: 'DESC' },
         });
 
-        // If no operator message at all, or last operator message is older than cutoff → release
+        // Use last operator message time, or conversation.updatedAt (set when takeover happens)
         const lastActivity = lastOperatorMsg?.createdAt || conversation.updatedAt;
         if (lastActivity < cutoff) {
           conversation.isHumanControlled = false;
@@ -388,7 +388,20 @@ export class WhatsAppAIResponderService {
           timestamp: new Date(),
         });
         msg.conversationId = conversation.id;
-        await this.messageRepository.save(msg);
+        const savedMsg = await this.messageRepository.save(msg);
+
+        // Notify dashboard in real-time so operators see the phone message
+        this.eventEmitter.emit('message.sent', {
+          conversationId: conversation.id,
+          message: {
+            id: savedMsg.id,
+            content: messageText.trim(),
+            role: 'operator',
+            status: 'sent',
+            createdAt: new Date(),
+          },
+          organizationId: session.agent.organizationId,
+        });
       }
     } catch (error) {
       this.logger.warn(`Error handling fromMe message: ${error.message}`);
@@ -557,6 +570,22 @@ export class WhatsAppAIResponderService {
       if (conversation.isHumanControlled) {
         this.logger.log(`👤 Conversation ${conversation.id} is under human control - skipping catch-up AI response`);
         return;
+      }
+
+      // Check for escalation keywords (same logic as main message handler)
+      const escalationConfig = agent.escalationConfig || {};
+      const escalationEnabled = escalationConfig.enabled !== false;
+      if (escalationEnabled) {
+        const keywords = escalationConfig.keywords?.length
+          ? escalationConfig.keywords
+          : ['parler à un humain', 'agent humain', 'responsable', 'talk to human', 'real person', 'human agent', 'speak to someone'];
+        const lowerMessage = messageContent.toLowerCase();
+        const matchedKeyword = keywords.find(kw => lowerMessage.includes(kw.toLowerCase()));
+        if (matchedKeyword) {
+          this.logger.log(`🚨 Escalation keyword in catch-up: "${matchedKeyword}" in conversation ${conversation.id}`);
+          await this.escalateConversation(conversation, agent, fullSession, clientPhoneNumber, `Keyword detected: ${matchedKeyword}`);
+          return;
+        }
       }
 
       this.logger.log(`🤖 Generating catch-up AI response for message: ${messageId}`);
@@ -3063,8 +3092,12 @@ RÈGLES:
     try {
       this.logger.log(`Sending operator message to ${payload.clientPhoneNumber} via session ${payload.sessionId}`);
 
+      const toJid = payload.clientPhoneNumber.includes('@')
+        ? payload.clientPhoneNumber
+        : `${payload.clientPhoneNumber}@s.whatsapp.net`;
+
       await this.baileysService.sendMessage(payload.sessionId, {
-        to: `${payload.clientPhoneNumber}@s.whatsapp.net`,
+        to: toJid,
         type: 'text',
         message: payload.message,
       });

@@ -574,6 +574,16 @@ export class ConversationController {
     conversation.assignedOperatorId = user.userId;
     await this.conversationRepository.save(conversation);
 
+    // Notify dashboard in real-time
+    this.eventEmitter.emit('conversation.escalated', {
+      conversationId: conversation.id,
+      agentId: conversation.agentId,
+      organizationId: user.organizationId,
+      clientPhoneNumber: conversation.clientPhoneNumber,
+      reason: 'Prise en main par opérateur',
+      sessionId: conversation.sessionId,
+    });
+
     return { success: true, message: "Conversation taken over successfully" };
   }
 
@@ -606,6 +616,12 @@ export class ConversationController {
     conversation.assignedOperatorId = null;
     conversation.escalationReason = null;
     await this.conversationRepository.save(conversation);
+
+    // Notify dashboard in real-time
+    this.eventEmitter.emit('conversation.released', {
+      conversationId: conversation.id,
+      organizationId: user.organizationId,
+    });
 
     return { success: true, message: "Conversation released to AI" };
   }
@@ -640,6 +656,26 @@ export class ConversationController {
       throw new BadRequestException("Conversation has no WhatsApp session or client phone number");
     }
 
+    // Auto-takeover: if not already human-controlled, take over automatically
+    if (!conversation.isHumanControlled) {
+      conversation.isHumanControlled = true;
+      conversation.assignedOperatorId = user.userId;
+      await this.conversationRepository.save(conversation);
+
+      this.eventEmitter.emit('conversation.escalated', {
+        conversationId: id,
+        agentId: conversation.agentId,
+        organizationId: user.organizationId,
+        clientPhoneNumber: conversation.clientPhoneNumber,
+        reason: 'Réponse opérateur depuis le dashboard',
+        sessionId: conversation.sessionId,
+      });
+    } else if (!conversation.assignedOperatorId) {
+      // Claim unassigned escalated conversation (e.g. phone takeover)
+      conversation.assignedOperatorId = user.userId;
+      await this.conversationRepository.save(conversation);
+    }
+
     // Get next sequence number
     const nextSeq = await this.getNextSequenceNumber(id);
 
@@ -667,6 +703,20 @@ export class ConversationController {
       conversationId: id,
       messageId: savedMessage.id,
       operatorId: user.userId,
+    });
+
+    // Notify other dashboard users about the operator message
+    this.eventEmitter.emit('message.sent', {
+      conversationId: id,
+      message: {
+        id: savedMessage.id,
+        content: body.message,
+        role: 'operator',
+        status: 'sent',
+        metadata: savedMessage.metadata,
+        createdAt: savedMessage.createdAt,
+      },
+      organizationId: user.organizationId,
     });
 
     return savedMessage;

@@ -257,7 +257,7 @@ export class QuotaEnforcementService {
 
     const subscription = await this.getActiveSubscription(organizationId);
     const planLimit = subscription.limits.maxRequestsPerMonth; // Using requests limit for messages
-    const { start: periodStart } = this.getBillingPeriod(subscription);
+    const { start: periodStart, end: periodEnd } = this.getBillingPeriod(subscription);
 
     // Get bonus credits info from database (includes both active and exhausted credits)
     const bonusCreditsInfo = await this.getBonusCreditsInfo(organizationId, periodStart);
@@ -279,22 +279,13 @@ export class QuotaEnforcementService {
     // (Bonus credits are consumed FIRST, so subscription is only used for messages beyond bonus)
     const messagesFromSubscription = Math.max(0, totalMessagesUsed - totalBonusCapacity);
 
-    this.logger.debug(`Org ${organizationId}: ${messagesFromSubscription}/${planLimit} messages (${bonusCreditsAvailable} bonus available)`);
+    this.logger.debug(`Org ${organizationId}: ${messagesFromSubscription}/${planLimit} messages (${bonusCreditsAvailable} bonus available, period: ${periodStart.toISOString().slice(0, 10)} → ${periodEnd.toISOString().slice(0, 10)})`);
 
     // Build quota check based on subscription usage only
     const quotaCheck = this.buildQuotaCheck(messagesFromSubscription, planLimit, "monthly WhatsApp messages");
 
-    // Add reset date from subscription's nextBillingDate
-    // Handle both Date objects and strings (from cache serialization)
-    if (subscription.nextBillingDate) {
-      quotaCheck.resetDate = typeof subscription.nextBillingDate === 'string'
-        ? subscription.nextBillingDate
-        : subscription.nextBillingDate.toISOString();
-    } else if (subscription.endsAt) {
-      quotaCheck.resetDate = typeof subscription.endsAt === 'string'
-        ? subscription.endsAt
-        : subscription.endsAt.toISOString();
-    }
+    // Use the computed billing period end as reset date (always in the future)
+    quotaCheck.resetDate = periodEnd.toISOString();
 
     // Add bonus credits info
     quotaCheck.bonusCredits = {
@@ -425,17 +416,14 @@ export class QuotaEnforcementService {
   async checkUserWhatsAppMessageQuota(userId: string): Promise<QuotaCheck> {
     const subscription = await this.getActiveUserSubscription(userId);
     const limit = subscription.limits.maxRequestsPerMonth;
+    const { end: periodEnd } = this.getBillingPeriod(subscription);
 
     const current = await this.getUserActualWhatsAppMessageCount(userId);
 
     const quotaCheck = this.buildQuotaCheck(current, limit, "monthly WhatsApp messages");
 
-    // Add reset date from subscription
-    if (subscription.nextBillingDate) {
-      quotaCheck.resetDate = typeof subscription.nextBillingDate === 'string'
-        ? subscription.nextBillingDate
-        : subscription.nextBillingDate.toISOString();
-    }
+    // Use computed billing period end as reset date (always in the future)
+    quotaCheck.resetDate = periodEnd.toISOString();
 
     return quotaCheck;
   }
@@ -1124,45 +1112,60 @@ export class QuotaEnforcementService {
   }
 
   /**
-   * Get the current billing period based on startsAt and nextBillingDate
-   * Returns { start, end } dates for the current billing cycle
-   *
-   * startsAt is set to the period start when an invoice is paid
-   * nextBillingDate is the end of the current period (when next invoice is due)
+   * Get the current billing period based on nextBillingDate.
+   * If nextBillingDate is in the past, advances it forward month-by-month
+   * until it's in the future, then derives period start as (periodEnd - 1 month).
+   * Clamps period start to not be before startsAt for new subscriptions.
    */
   private getBillingPeriod(subscription: Subscription): { start: Date; end: Date } {
-    // Use startsAt as the authoritative period start (set when invoice is paid)
-    // Use nextBillingDate as the period end
-    if (subscription.startsAt && subscription.nextBillingDate) {
-      const periodStart = new Date(subscription.startsAt);
-      periodStart.setHours(0, 0, 0, 0);
+    const now = new Date();
 
-      const periodEnd = new Date(subscription.nextBillingDate);
-      periodEnd.setHours(23, 59, 59, 999);
-
-      return { start: periodStart, end: periodEnd };
-    }
-
-    // Fallback: calculate based on nextBillingDate - 1 month
     if (subscription.nextBillingDate) {
       const periodEnd = new Date(subscription.nextBillingDate);
+
+      // Advance stale nextBillingDate forward until it's in the future
+      while (periodEnd < now) {
+        periodEnd.setMonth(periodEnd.getMonth() + 1);
+      }
       periodEnd.setHours(23, 59, 59, 999);
 
+      // Period start = periodEnd - 1 month
       const periodStart = new Date(periodEnd);
       periodStart.setMonth(periodStart.getMonth() - 1);
       periodStart.setHours(0, 0, 0, 0);
 
+      // Clamp: period start should not be before subscription.startsAt
+      if (subscription.startsAt) {
+        const startsAt = new Date(subscription.startsAt);
+        startsAt.setHours(0, 0, 0, 0);
+        if (periodStart < startsAt) {
+          periodStart.setTime(startsAt.getTime());
+        }
+      }
+
       return { start: periodStart, end: periodEnd };
     }
 
-    // Last fallback: use startsAt with 1 month period
-    const periodStart = new Date(subscription.startsAt);
-    periodStart.setHours(0, 0, 0, 0);
+    // Fallback: use startsAt with 1 month periods, advance if stale
+    if (subscription.startsAt) {
+      const periodStart = new Date(subscription.startsAt);
+      periodStart.setHours(0, 0, 0, 0);
 
-    const periodEnd = new Date(periodStart);
-    periodEnd.setMonth(periodEnd.getMonth() + 1);
-    periodEnd.setHours(23, 59, 59, 999);
+      const periodEnd = new Date(periodStart);
+      periodEnd.setMonth(periodEnd.getMonth() + 1);
 
+      while (periodEnd < now) {
+        periodStart.setMonth(periodStart.getMonth() + 1);
+        periodEnd.setMonth(periodEnd.getMonth() + 1);
+      }
+
+      periodEnd.setHours(23, 59, 59, 999);
+      return { start: periodStart, end: periodEnd };
+    }
+
+    // Last resort: current calendar month
+    const periodStart = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+    const periodEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
     return { start: periodStart, end: periodEnd };
   }
 

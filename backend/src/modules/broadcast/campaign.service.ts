@@ -343,7 +343,7 @@ export class CampaignService {
 
     await this.campaignRepository.save(campaign);
 
-    // Add messages to queue
+    // Add messages to queue with deterministic job IDs to prevent duplicates
     for (const message of messages) {
       await this.broadcastQueue.add(
         'send-message',
@@ -353,6 +353,7 @@ export class CampaignService {
           organizationId,
         },
         {
+          jobId: `campaign-${campaign.id}-${message.id}`,
           delay: messages.indexOf(message) * campaign.delayBetweenMessages,
           attempts: 3,
           backoff: { type: 'exponential', delay: 5000 },
@@ -432,7 +433,7 @@ export class CampaignService {
       },
     });
 
-    // Re-queue messages
+    // Re-queue messages with deterministic job IDs
     for (const message of unsentMessages) {
       message.status = BroadcastMessageStatus.PENDING;
       await this.messageRepository.save(message);
@@ -445,8 +446,10 @@ export class CampaignService {
           organizationId,
         },
         {
+          jobId: `campaign-${campaign.id}-${message.id}-resume`,
           delay: unsentMessages.indexOf(message) * campaign.delayBetweenMessages,
           attempts: 3,
+          backoff: { type: 'exponential', delay: 5000 },
         },
       );
     }

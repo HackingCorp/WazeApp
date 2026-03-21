@@ -1,6 +1,9 @@
 import { Process, Processor, OnQueueCompleted, OnQueueFailed, InjectQueue } from '@nestjs/bull';
 import { Logger } from '@nestjs/common';
 import { Job, Queue } from 'bull';
+import { ConfigService } from '@nestjs/config';
+import * as crypto from 'crypto';
+import Redis from 'ioredis';
 import { BaileysService } from './baileys.service';
 import { PendingMessage } from './pending-message-queue.service';
 import { EventEmitter2 } from '@nestjs/event-emitter';
@@ -15,60 +18,40 @@ const MAX_DEFERRALS = 30;
 @Processor('pending-messages')
 export class PendingMessageProcessor {
   private readonly logger = new Logger(PendingMessageProcessor.name);
-
-  // Track recently sent messages to prevent duplicates (recipient:messageHash -> timestamp)
-  private readonly recentlySentMessages = new Map<string, number>();
-  private readonly DEDUP_WINDOW_MS = 30000; // 30 seconds deduplication window
+  private readonly redis: Redis;
+  private readonly DEDUP_TTL_SECONDS = 300; // 5 minutes deduplication window (survives process restart)
 
   constructor(
     private baileysService: BaileysService,
     private eventEmitter: EventEmitter2,
     @InjectQueue('pending-messages')
     private pendingMessageQueue: Queue<PendingMessage>,
+    private configService: ConfigService,
   ) {
-    // Clean up old entries every minute
-    setInterval(() => this.cleanupRecentlySent(), 60000);
+    this.redis = new Redis({
+      host: this.configService.get('REDIS_HOST', 'localhost'),
+      port: this.configService.get('REDIS_PORT', 6379),
+      password: this.configService.get('REDIS_PASSWORD'),
+    });
   }
 
   /**
-   * Generate a hash for deduplication based on recipient and message content
+   * Check if this message was recently sent (Redis-based, survives process restarts)
    */
-  private generateMessageHash(to: string, message: string, type: string): string {
-    // Simple hash: combine recipient + first 100 chars of message + type
+  private async isDuplicateMessage(to: string, message: string, type: string): Promise<boolean> {
     const content = `${to}:${(message || '').substring(0, 100)}:${type}`;
-    return content;
+    const hash = crypto.createHash('sha256').update(content).digest('hex');
+    const exists = await this.redis.exists(`dedup:pending:${hash}`);
+    return exists === 1;
   }
 
   /**
-   * Check if this message was recently sent (duplicate detection)
+   * Mark a message as sent for deduplication using Redis with TTL
    */
-  private isDuplicateMessage(to: string, message: string, type: string): boolean {
-    const hash = this.generateMessageHash(to, message, type);
-    const lastSent = this.recentlySentMessages.get(hash);
-    if (lastSent && Date.now() - lastSent < this.DEDUP_WINDOW_MS) {
-      return true;
-    }
-    return false;
-  }
-
-  /**
-   * Mark a message as sent for deduplication
-   */
-  private markMessageSent(to: string, message: string, type: string): void {
-    const hash = this.generateMessageHash(to, message, type);
-    this.recentlySentMessages.set(hash, Date.now());
-  }
-
-  /**
-   * Clean up old entries from the deduplication map
-   */
-  private cleanupRecentlySent(): void {
-    const now = Date.now();
-    for (const [hash, timestamp] of this.recentlySentMessages) {
-      if (now - timestamp > this.DEDUP_WINDOW_MS * 2) {
-        this.recentlySentMessages.delete(hash);
-      }
-    }
+  private async markMessageSent(to: string, message: string, type: string): Promise<void> {
+    const content = `${to}:${(message || '').substring(0, 100)}:${type}`;
+    const hash = crypto.createHash('sha256').update(content).digest('hex');
+    await this.redis.set(`dedup:pending:${hash}`, '1', 'EX', this.DEDUP_TTL_SECONDS);
   }
 
   /**
@@ -130,8 +113,8 @@ export class PendingMessageProcessor {
     );
 
     try {
-      // Check for duplicate message (same recipient + content within 30 seconds)
-      if (this.isDuplicateMessage(to, message, type)) {
+      // Check for duplicate message (Redis-based, survives process restarts)
+      if (await this.isDuplicateMessage(to, message, type)) {
         this.logger.warn(
           `⚠️ Duplicate message detected for ${to} - skipping to prevent spam (id: ${id})`,
         );
@@ -168,8 +151,8 @@ export class PendingMessageProcessor {
         `✅ Successfully sent pending message ${id} to ${to} (messageId: ${result.messageId})`,
       );
 
-      // Mark as sent for deduplication
-      this.markMessageSent(to, message, type);
+      // Mark as sent for deduplication (Redis)
+      await this.markMessageSent(to, message, type);
 
       // Emit success event
       this.eventEmitter.emit('pending-message.sent', {

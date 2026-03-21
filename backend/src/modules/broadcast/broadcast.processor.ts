@@ -6,6 +6,8 @@ import { Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { join } from 'path';
+import * as crypto from 'crypto';
+import Redis from 'ioredis';
 import {
   BroadcastMessage,
   BroadcastCampaign,
@@ -42,6 +44,8 @@ interface ExternalSendJob {
 export class BroadcastProcessor {
   private readonly logger = new Logger(BroadcastProcessor.name);
   private readonly apiUrl: string;
+  private readonly redis: Redis;
+  private readonly DEDUP_TTL_SECONDS = 300; // 5 minutes
 
   // Cache for daily quota checks to avoid querying on every message
   private quotaCache: Map<string, { sentToday: number; limit: number; checkedAt: number }> = new Map();
@@ -65,6 +69,22 @@ export class BroadcastProcessor {
     private eventEmitter: EventEmitter2,
   ) {
     this.apiUrl = this.configService.get('API_URL') || 'http://localhost:3100';
+    this.redis = new Redis({
+      host: this.configService.get('REDIS_HOST', 'localhost'),
+      port: this.configService.get('REDIS_PORT', 6379),
+      password: this.configService.get('REDIS_PASSWORD'),
+    });
+  }
+
+  private async isSendDuplicate(to: string, message: string): Promise<boolean> {
+    const hash = crypto.createHash('sha256').update(`${to}:${message || ''}`).digest('hex');
+    const exists = await this.redis.exists(`dedup:send:${hash}`);
+    return exists === 1;
+  }
+
+  private async markSendDone(to: string, message: string): Promise<void> {
+    const hash = crypto.createHash('sha256').update(`${to}:${message || ''}`).digest('hex');
+    await this.redis.set(`dedup:send:${hash}`, '1', 'EX', this.DEDUP_TTL_SECONDS);
   }
 
   @Process({ name: 'send-message', concurrency: 5 })
@@ -268,6 +288,12 @@ export class BroadcastProcessor {
     this.logger.log(`📤 Processing external message to ${messageContent.to} (job ${job.id})`);
 
     try {
+      // Last-mile dedup check: prevent duplicate sends on Bull retry
+      if (await this.isSendDuplicate(messageContent.to, messageContent.message)) {
+        this.logger.warn(`⚠️ Duplicate external message to ${messageContent.to} detected in processor — skipping`);
+        return;
+      }
+
       const result = await this.baileysService.sendMessage(sessionId, {
         to: messageContent.to,
         message: messageContent.message,
@@ -276,6 +302,9 @@ export class BroadcastProcessor {
         caption: messageContent.caption,
         filename: messageContent.filename,
       });
+
+      // Mark as sent to prevent duplicate on retry
+      await this.markSendDone(messageContent.to, messageContent.message);
 
       this.logger.log(`✅ External message sent to ${messageContent.to} (messageId: ${result.messageId})`);
 

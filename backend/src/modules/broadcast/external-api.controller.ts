@@ -50,7 +50,7 @@ import { Queue } from 'bull';
 @Controller('external')
 @Public()
 export class ExternalApiController {
-  private readonly DEDUP_TTL_SECONDS = 30; // 30 seconds deduplication window
+  private readonly DEDUP_TTL_SECONDS = 300; // 5 minutes deduplication window
   private readonly redis: Redis;
 
   constructor(
@@ -282,7 +282,20 @@ export class ExternalApiController {
           continue;
         }
 
-        // Add to queue with delay
+        // Check for duplicate message before queuing
+        if (await this.isDuplicateMessage(messageContent.to, messageContent.message)) {
+          results.push({
+            recipient,
+            success: true,
+            status: 'deduplicated',
+          });
+          continue;
+        }
+
+        // Generate deterministic job ID to prevent duplicate queue entries on client retry
+        const jobId = `ext-${this.generateMessageHash(messageContent.to, messageContent.message)}`;
+
+        // Add to queue with delay and deterministic job ID
         await this.broadcastQueue.add(
           'send-external',
           {
@@ -291,11 +304,15 @@ export class ExternalApiController {
             messageContent,
           },
           {
+            jobId,
             delay: i * delay,
             attempts: 3,
             backoff: { type: 'exponential', delay: 5000 },
           },
         );
+
+        // Mark as queued for deduplication
+        await this.markMessageSent(messageContent.to, messageContent.message);
 
         results.push({
           recipient,

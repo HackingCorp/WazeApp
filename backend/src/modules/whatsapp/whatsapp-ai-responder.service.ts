@@ -6,6 +6,7 @@ import { ConfigService } from "@nestjs/config";
 import { Cron } from "@nestjs/schedule";
 import { CACHE_MANAGER } from "@nestjs/cache-manager";
 import { Cache } from "cache-manager";
+import Redis from "ioredis";
 import {
   WhatsAppSession,
   AiAgent,
@@ -68,6 +69,9 @@ export class WhatsAppAIResponderService {
 
   // Per-conversation lock to prevent concurrent AI response generation
   private readonly activeResponses = new Set<string>();
+
+  // Redis client for dedup operations (survives process restarts, shared across instances)
+  private readonly redisClient: Redis;
 
   // Détection de langue améliorée avec mots-clés uniques et pondération
   private detectLanguage(text: string): string {
@@ -270,6 +274,11 @@ export class WhatsAppAIResponderService {
     private availabilityService: AvailabilityService,
   ) {
     this.logger.log('WhatsAppAIResponderService initialized');
+    this.redisClient = new Redis({
+      host: this.configService.get('REDIS_HOST', 'localhost'),
+      port: this.configService.get('REDIS_PORT', 6379),
+      password: this.configService.get('REDIS_PASSWORD'),
+    });
   }
 
   /**
@@ -3113,6 +3122,16 @@ RÈGLES:
     operatorId: string;
   }) {
     try {
+      // Idempotency guard: check if this messageId was already processed
+      const dedupKey = `dedup:operator:${payload.messageId}`;
+      const alreadySent = await this.redisClient.exists(dedupKey);
+      if (alreadySent) {
+        this.logger.warn(`⚠️ Operator message ${payload.messageId} already sent — skipping duplicate`);
+        return;
+      }
+      // Mark as processing BEFORE sending (claim the send)
+      await this.redisClient.set(dedupKey, '1', 'EX', 300);
+
       this.logger.log(`Sending operator message to ${payload.clientPhoneNumber} via session ${payload.sessionId}`);
 
       const toJid = payload.clientPhoneNumber.includes('@')
@@ -3133,6 +3152,9 @@ RÈGLES:
       this.logger.log(`Operator message sent successfully to ${payload.clientPhoneNumber}`);
     } catch (error) {
       this.logger.error(`Failed to send operator WhatsApp message: ${error.message}`, error.stack);
+
+      // Remove dedup key so the message can be retried
+      await this.redisClient.del(`dedup:operator:${payload.messageId}`).catch(() => {});
 
       // Update message status to failed
       await this.messageRepository.update(payload.messageId, {

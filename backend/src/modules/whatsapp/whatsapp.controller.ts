@@ -25,6 +25,8 @@ import {
 } from "@nestjs/swagger";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 import { v4 as uuidv4 } from "uuid";
+import * as crypto from "crypto";
+import Redis from "ioredis";
 import { WhatsAppService } from "./whatsapp.service";
 import {
   CreateWhatsAppSessionDto,
@@ -59,6 +61,8 @@ import { VisionService } from "./vision.service";
 @ApiBearerAuth()
 export class WhatsAppController {
   private readonly logger = new Logger(WhatsAppController.name);
+  private readonly redis: Redis;
+  private readonly DEDUP_TTL_SECONDS = 300; // 5 minutes
 
   constructor(
     private whatsappService: WhatsAppService,
@@ -68,7 +72,23 @@ export class WhatsAppController {
     private baileysService: BaileysService,
     private visionService: VisionService,
     private configService: ConfigService,
-  ) {}
+  ) {
+    this.redis = new Redis({
+      host: this.configService.get('REDIS_HOST', 'localhost'),
+      port: this.configService.get('REDIS_PORT', 6379),
+      password: this.configService.get('REDIS_PASSWORD'),
+    });
+  }
+
+  private async isSendDuplicate(to: string, message: string): Promise<boolean> {
+    const hash = crypto.createHash('sha256').update(`${to}:${message || ''}`).digest('hex');
+    return (await this.redis.exists(`dedup:ws:${hash}`)) === 1;
+  }
+
+  private async markSendDone(to: string, message: string): Promise<void> {
+    const hash = crypto.createHash('sha256').update(`${to}:${message || ''}`).digest('hex');
+    await this.redis.set(`dedup:ws:${hash}`, '1', 'EX', this.DEDUP_TTL_SECONDS);
+  }
 
   private ensureDebugMode() {
     if (this.configService.get("NODE_ENV") === "production") {
@@ -261,12 +281,29 @@ export class WhatsAppController {
     @Body() messageDto: SendMessageDto,
     @CurrentUser() user: AuthenticatedRequest,
   ): Promise<MessageResponseDto> {
+    // Dedup check to prevent double-sends on client retry
+    const msgText = (messageDto as any).message || (messageDto as any).text || '';
+    const msgTo = (messageDto as any).to || '';
+    if (msgTo && msgText && await this.isSendDuplicate(msgTo, msgText)) {
+      this.logger.warn(`⚠️ Duplicate send detected for ${msgTo} — returning cached response`);
+      return {
+        messageId: 'deduplicated',
+        status: 'sent' as MessageResponseDto['status'],
+        timestamp: new Date(),
+      };
+    }
+
     const result = await this.whatsappService.sendMessage(
       id,
       messageDto,
       user.userId,
       user.organizationId || null,
     );
+
+    // Mark as sent for dedup
+    if (msgTo && msgText) {
+      await this.markSendDone(msgTo, msgText);
+    }
 
     return {
       messageId: result.messageId,

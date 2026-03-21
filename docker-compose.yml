@@ -124,7 +124,7 @@ services:
       DEEPSEEK_API_KEY: "disabled"
       GROQ_API_KEY: ${GROQ_API_KEY:-}
       POSTHOG_API_KEY: ${POSTHOG_API_KEY:-}
-      POSTHOG_HOST: ${POSTHOG_HOST:-https://us.i.posthog.com}
+      POSTHOG_HOST: ${POSTHOG_HOST:-https://eu.i.posthog.com}
       STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
       STRIPE_PUBLISHABLE_KEY: ${STRIPE_PUBLISHABLE_KEY:-}
       STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
@@ -153,7 +153,7 @@ services:
         - NEXT_PUBLIC_API_URL=http://localhost:3100/api/v1
         - NEXT_PUBLIC_SOCKET_URL=http://localhost:3100
         - NEXT_PUBLIC_POSTHOG_KEY=${NEXT_PUBLIC_POSTHOG_KEY:-}
-        - NEXT_PUBLIC_POSTHOG_HOST=${NEXT_PUBLIC_POSTHOG_HOST:-https://us.i.posthog.com}
+        - NEXT_PUBLIC_POSTHOG_HOST=${NEXT_PUBLIC_POSTHOG_HOST:-https://eu.i.posthog.com}
         - NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=${NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY:-}
     container_name: wazeapp_dashboard
     restart: unless-stopped
@@ -165,7 +165,7 @@ services:
       NEXT_PUBLIC_API_URL: http://localhost:3100/api/v1
       NEXT_PUBLIC_SOCKET_URL: http://localhost:3100
       NEXT_PUBLIC_POSTHOG_KEY: ${NEXT_PUBLIC_POSTHOG_KEY:-}
-      NEXT_PUBLIC_POSTHOG_HOST: ${NEXT_PUBLIC_POSTHOG_HOST:-https://us.i.posthog.com}
+      NEXT_PUBLIC_POSTHOG_HOST: ${NEXT_PUBLIC_POSTHOG_HOST:-https://eu.i.posthog.com}
       NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY:-}
     ports:
       - "3101:3101"
@@ -184,7 +184,7 @@ services:
         - NEXT_PUBLIC_API_URL=http://localhost:3100/api/v1
         - NEXT_PUBLIC_DASHBOARD_URL=http://localhost:3101
         - NEXT_PUBLIC_POSTHOG_KEY=${NEXT_PUBLIC_POSTHOG_KEY:-}
-        - NEXT_PUBLIC_POSTHOG_HOST=${NEXT_PUBLIC_POSTHOG_HOST:-https://us.i.posthog.com}
+        - NEXT_PUBLIC_POSTHOG_HOST=${NEXT_PUBLIC_POSTHOG_HOST:-https://eu.i.posthog.com}
     container_name: wazeapp_marketing
     restart: unless-stopped
     environment:
@@ -192,7 +192,7 @@ services:
       NEXT_PUBLIC_API_URL: http://localhost:3100/api/v1
       NEXT_PUBLIC_DASHBOARD_URL: http://localhost:3101
       NEXT_PUBLIC_POSTHOG_KEY: ${NEXT_PUBLIC_POSTHOG_KEY:-}
-      NEXT_PUBLIC_POSTHOG_HOST: ${NEXT_PUBLIC_POSTHOG_HOST:-https://us.i.posthog.com}
+      NEXT_PUBLIC_POSTHOG_HOST: ${NEXT_PUBLIC_POSTHOG_HOST:-https://eu.i.posthog.com}
     ports:
       - "3102:3102"
     networks:

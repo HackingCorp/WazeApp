@@ -66,6 +66,9 @@ export class WhatsAppAIResponderService {
   private readonly batchTimeouts = new Map<string, NodeJS.Timeout>();
   private readonly BATCH_DELAY_MS = 4000; // Wait 4 seconds to collect messages
 
+  // Per-conversation lock to prevent concurrent AI response generation
+  private readonly activeResponses = new Set<string>();
+
   // Détection de langue améliorée avec mots-clés uniques et pondération
   private detectLanguage(text: string): string {
     const lowerText = text.toLowerCase().trim();
@@ -498,14 +501,15 @@ export class WhatsAppAIResponderService {
   }) {
     const { sessionId, conversationId, messageId, clientPhoneNumber, messageContent, session } = event;
 
-    // Create a unique key to prevent duplicate processing
-    const processingKey = `catchup-${messageId}`;
-    if (this.processingMessages.has(processingKey)) {
-      this.logger.debug(`Catch-up message ${messageId} already being processed`);
+    // Check both the raw messageId AND the catch-up key to prevent duplicates
+    // with the real-time handler (which uses raw messageId)
+    if (this.processingMessages.has(messageId) || this.processingMessages.has(`catchup-${messageId}`)) {
+      this.logger.debug(`Catch-up message ${messageId} already being processed (dedup)`);
       return;
     }
 
-    this.processingMessages.add(processingKey);
+    this.processingMessages.add(messageId);
+    this.processingMessages.add(`catchup-${messageId}`);
 
     try {
       this.logger.log(`🔄 Processing catch-up message ${messageId} for session ${sessionId}`);
@@ -606,7 +610,11 @@ export class WhatsAppAIResponderService {
     } catch (error) {
       this.logger.error(`❌ Error processing catch-up message ${messageId}: ${error.message}`, error.stack);
     } finally {
-      this.processingMessages.delete(processingKey);
+      // Delayed cleanup to prevent race with real-time handler
+      setTimeout(() => {
+        this.processingMessages.delete(messageId);
+        this.processingMessages.delete(`catchup-${messageId}`);
+      }, 60_000);
     }
   }
 
@@ -893,14 +901,18 @@ export class WhatsAppAIResponderService {
     } catch (error) {
       this.logger.error(`Error processing batched messages: ${error.message}`, error.stack);
     } finally {
-      // Clean up processed message IDs from the deduplication set
-      for (const msg of bufferedMessages) {
-        const msgId = msg.event.message?.key?.id;
-        if (msgId) {
-          this.processingMessages.delete(msgId);
+      // Keep message IDs in the dedup set for 60s to prevent catch-up re-processing,
+      // then clean up to avoid memory leaks
+      setTimeout(() => {
+        for (const msg of bufferedMessages) {
+          const msgId = msg.event.message?.key?.id;
+          if (msgId) {
+            this.processingMessages.delete(msgId);
+            this.processingMessages.delete(`catchup-${msgId}`);
+          }
         }
-      }
-      this.logger.debug(`🧹 Cleaned up ${bufferedMessages.length} message IDs from processingMessages set`);
+        this.logger.debug(`🧹 Cleaned up ${bufferedMessages.length} message IDs from processingMessages set (delayed)`);
+      }, 60_000);
     }
   }
 
@@ -1736,6 +1748,14 @@ Always respond directly in the user's language without any formatting.`,
     mediaAnalysis?: any,
     replyContext?: any,
   ): Promise<void> {
+    // Per-conversation lock: prevent duplicate AI responses from concurrent calls
+    const lockKey = `${conversation.id}:${fromNumber}`;
+    if (this.activeResponses.has(lockKey)) {
+      this.logger.warn(`⚠️ Skipping duplicate AI response for conversation ${conversation.id} (already generating)`);
+      return;
+    }
+    this.activeResponses.add(lockKey);
+
     const startTime = Date.now();
 
     try {
@@ -2271,6 +2291,9 @@ EXEMPLES DE CONTEXTE:
         `Error generating/sending AI response: ${error.message}`,
         error.stack,
       );
+    } finally {
+      // Release per-conversation lock
+      this.activeResponses.delete(lockKey);
     }
   }
 

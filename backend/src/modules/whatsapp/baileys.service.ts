@@ -949,12 +949,13 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
         });
       });
 
-      // Handle messages (for webhook events)
-      sock.ev.on("messages.upsert", ({ messages, type }) => {
-        messages.forEach((message) => {
+      // Handle messages (for webhook events) — registered for proper cleanup on reconnect
+      const messagesUpsertHandler = ({ messages, type }: any) => {
+        // Only process real-time messages (notify), skip historical/catch-up (append)
+        if (type !== "notify") return;
+
+        messages.forEach((message: any) => {
           if (message.key.fromMe && message.message) {
-            // Message sent from the physical device by the account owner
-            // Emit event so AI can detect human takeover
             this.eventEmitter.emit("whatsapp.message.fromMe", {
               sessionId,
               message,
@@ -976,17 +977,21 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
             });
           }
         });
-      });
+      };
+      sock.ev.on("messages.upsert", messagesUpsertHandler);
+      this.registerEventHandler(sessionId, "messages.upsert", messagesUpsertHandler);
 
       // Handle message updates (delivery receipts, etc.)
-      sock.ev.on("messages.update", (updates) => {
-        updates.forEach((update) => {
+      const messagesUpdateHandler = (updates: any) => {
+        updates.forEach((update: any) => {
           this.eventEmitter.emit("whatsapp.message.update", {
             sessionId,
             update,
           });
         });
-      });
+      };
+      sock.ev.on("messages.update", messagesUpdateHandler);
+      this.registerEventHandler(sessionId, "messages.update", messagesUpdateHandler);
 
       // Wait for initial connection state or QR
       return new Promise((resolve, reject) => {
@@ -1209,9 +1214,11 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
         }
       });
 
-      // Handle messages for the paired session
-      sock.ev.on("messages.upsert", ({ messages, type }) => {
-        messages.forEach((message) => {
+      // Handle messages for the paired session — registered for cleanup
+      const pairedMessagesHandler = ({ messages, type }: any) => {
+        if (type !== "notify") return;
+
+        messages.forEach((message: any) => {
           if (message.key.fromMe && message.message) {
             this.eventEmitter.emit("whatsapp.message.fromMe", {
               sessionId,
@@ -1226,7 +1233,9 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
             });
           }
         });
-      });
+      };
+      sock.ev.on("messages.upsert", pairedMessagesHandler);
+      this.registerEventHandler(sessionId, "messages.upsert", pairedMessagesHandler);
 
       // Handle history sync for paired session
       sock.ev.on("messaging-history.set", (data) => {

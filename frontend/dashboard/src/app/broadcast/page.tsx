@@ -823,6 +823,7 @@ export default function BroadcastPage() {
     campaignActionRef.current.add(id);
     try {
       await api.startBroadcastCampaign(id);
+      analytics.track('broadcast_campaign_started', { campaignId: id });
       await fetchCampaigns();
     } catch (error) {
       if (process.env.NODE_ENV === 'development') {
@@ -838,6 +839,7 @@ export default function BroadcastPage() {
     campaignActionRef.current.add(id);
     try {
       await api.pauseBroadcastCampaign(id);
+      analytics.track('broadcast_campaign_paused', { campaignId: id });
       await fetchCampaigns();
     } catch (error) {
       if (process.env.NODE_ENV === 'development') {
@@ -853,6 +855,7 @@ export default function BroadcastPage() {
     campaignActionRef.current.add(id);
     try {
       await api.resumeBroadcastCampaign(id);
+      analytics.track('broadcast_campaign_resumed', { campaignId: id });
       await fetchCampaigns();
     } catch (error) {
       if (process.env.NODE_ENV === 'development') {
@@ -869,6 +872,7 @@ export default function BroadcastPage() {
     campaignActionRef.current.add(id);
     try {
       await api.cancelBroadcastCampaign(id);
+      analytics.track('broadcast_campaign_cancelled', { campaignId: id });
       await fetchCampaigns();
     } catch (error) {
       if (process.env.NODE_ENV === 'development') {
@@ -883,6 +887,7 @@ export default function BroadcastPage() {
     if (!confirm('Supprimer cette campagne ?')) return;
     try {
       await api.deleteBroadcastCampaign(id);
+      analytics.track('broadcast_campaign_deleted', { campaignId: id });
       await fetchCampaigns();
     } catch (error) {
       if (process.env.NODE_ENV === 'development') {

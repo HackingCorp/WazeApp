@@ -6,6 +6,7 @@ import { useSocket } from '@/providers/SocketProvider';
 import { useAuth } from '@/providers/AuthProvider';
 import { useI18n } from '@/providers/I18nProvider';
 import { api } from '@/lib/api';
+import { analytics } from '@/lib/analytics';
 import toast from 'react-hot-toast';
 
 interface Contact {
@@ -646,6 +647,7 @@ export default function ConversationsPage() {
     try {
       const result = await api.takeoverConversation(contactId);
       if (result.success) {
+        analytics.track('conversation_takeover', { contactId });
         setContacts(prev => prev.map(contact =>
           contact.id === contactId
             ? { ...contact, isHumanControlled: true, assignedOperatorId: user?.id }
@@ -662,6 +664,7 @@ export default function ConversationsPage() {
     try {
       const result = await api.releaseConversation(contactId);
       if (result.success) {
+        analytics.track('conversation_released', { contactId });
         setContacts(prev => prev.map(contact =>
           contact.id === contactId
             ? { ...contact, isHumanControlled: false, assignedOperatorId: undefined, escalationReason: undefined }

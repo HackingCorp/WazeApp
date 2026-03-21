@@ -375,6 +375,7 @@ export default function WhatsAppPage() {
               setConnecting(null);
               setQrData(null);
               fetchSessions();
+              analytics.track('whatsapp_connected', { sessionId });
               toast.success('WhatsApp connected successfully! 🎉');
 
               // Déclencher le modal d'assignation d'agent seulement si aucun agent n'est assigné
@@ -541,6 +542,7 @@ export default function WhatsAppPage() {
       }
       
       await fetchSessions();
+      analytics.track('whatsapp_disconnected', { sessionId });
       toast.success(`${sessionName} déconnecté avec succès`, { id: 'whatsapp-disconnecting' });
     } catch (error: any) {
       if (process.env.NODE_ENV === 'development') {
@@ -591,6 +593,7 @@ export default function WhatsAppPage() {
         throw new Error(response.error || 'Failed to assign agent');
       }
       
+      analytics.track('agent_assigned_to_session', { sessionId: targetSession.id, agentId });
       toast.success(`Agent assigné avec succès à ${targetSession.name}!`);
       
       setShowAssignAgentModal(false);

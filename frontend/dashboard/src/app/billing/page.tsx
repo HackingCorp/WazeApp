@@ -91,6 +91,7 @@ export default function BillingPage() {
     setCreatingCheckout(true);
     try {
       const plan = currentPlan !== 'free' ? currentPlan.toUpperCase() : 'STANDARD';
+      analytics.track('stripe_checkout_started', { plan });
       const dashboardUrl = window.location.origin;
       const response = await api.createStripeCheckoutSession({
         plan: plan as 'STANDARD' | 'PRO' | 'ENTERPRISE',
@@ -239,7 +240,7 @@ export default function BillingPage() {
   };
 
   const handlePayInvoice = (invoice: Invoice) => {
-    // Open payment modal with invoice details
+    analytics.track('invoice_payment_opened', { invoiceId: invoice.id, amount: invoice.amount });
     setSelectedInvoice(invoice);
     setShowInvoicePaymentModal(true);
   };

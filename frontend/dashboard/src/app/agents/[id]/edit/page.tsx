@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
+import { analytics } from '@/lib/analytics';
 import {
   Bot,
   Brain,
@@ -303,6 +304,7 @@ export default function EditAgentPage() {
       };
       const response = await api.patch(`/agents/${agentId}`, payload);
       if (response.success) {
+        analytics.track('agent_updated', { agentId, name: formData.name });
         toast.success('Agent mis à jour avec succès !');
         router.push('/agents');
       } else {
@@ -332,6 +334,7 @@ export default function EditAgentPage() {
 
       const response = await api.post('/knowledge-bases', kbData);
       if (response.success) {
+        analytics.track('kb_created_from_agent', { agentId: agent.id });
         toast.success('Base de connaissances créée avec succès !');
         // Recharger l'agent pour voir la nouvelle KB
         window.location.reload();

@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/providers/AuthProvider';
 import { api } from '@/lib/api';
+import { analytics } from '@/lib/analytics';
 import toast from 'react-hot-toast';
 
 // Force this page to be dynamically rendered
@@ -76,6 +77,7 @@ export default function ProfilePage() {
       const response = await api.updateProfile(formData);
 
       if (response.success) {
+        analytics.track('profile_updated');
         toast.success('Profile updated successfully');
         setIsEditing(false);
         loadProfile(); // Reload profile

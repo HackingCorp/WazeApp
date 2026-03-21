@@ -6,6 +6,7 @@ import { Repository } from "typeorm";
 import { Boom } from "@hapi/boom";
 import * as path from "path";
 import * as fs from "fs/promises";
+import Redis from "ioredis";
 import { SendMessageDto } from "./dto/whatsapp.dto";
 import { WhatsAppSession } from "@/common/entities";
 import { WhatsAppSessionStatus } from "@/common/enums";
@@ -84,12 +85,23 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
   private readonly RECONNECT_BASE_DELAY = 5000; // 5 seconds base delay
   private readonly RECONNECT_MAX_DELAY = 300000; // 5 minutes max delay
 
+  // Per-session throughput limiting
+  private readonly SESSION_MAX_MESSAGES_PER_MIN = 30;
+  private readonly redis: Redis;
+
   constructor(
     private configService: ConfigService,
     private eventEmitter: EventEmitter2,
     @InjectRepository(WhatsAppSession)
     private sessionRepository: Repository<WhatsAppSession>,
   ) {
+    // Initialize Redis for throughput limiting
+    this.redis = new Redis({
+      host: this.configService.get('REDIS_HOST', 'localhost'),
+      port: this.configService.get('REDIS_PORT', 6379),
+      password: this.configService.get('REDIS_PASSWORD'),
+    });
+
     // Listen for manual sync triggers
     this.eventEmitter.on(
       "whatsapp.trigger.sync",
@@ -1429,6 +1441,22 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
     if (status !== "connected") {
       this.logger.error(`Session ${sessionId} is not connected (status: ${status}). Cannot send message.`);
       throw new Error(`Session is not connected (status: ${status}). Please reconnect WhatsApp.`);
+    }
+
+    // Per-session throughput limiting (max messages per minute)
+    const throughputKey = `throughput:session:${sessionId}`;
+    const sendCount = await this.redis.incr(throughputKey);
+    if (sendCount === 1) {
+      await this.redis.expire(throughputKey, 60);
+    }
+    if (sendCount > this.SESSION_MAX_MESSAGES_PER_MIN) {
+      const customError: WhatsAppError = new Error(
+        `Session throughput limit reached (${this.SESSION_MAX_MESSAGES_PER_MIN} messages/min). Please slow down.`
+      );
+      customError.code = 'RATE_LIMITED';
+      customError.recoverable = true;
+      customError.action = 'WAIT_AND_RETRY';
+      throw customError;
     }
 
     try {

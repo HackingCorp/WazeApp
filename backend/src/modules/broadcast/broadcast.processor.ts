@@ -281,7 +281,7 @@ export class BroadcastProcessor {
     }
   }
 
-  @Process('send-external')
+  @Process({ name: 'send-external', concurrency: 3 })
   async handleSendExternal(job: Job<ExternalSendJob>): Promise<void> {
     const { sessionId, organizationId, messageContent } = job.data;
 

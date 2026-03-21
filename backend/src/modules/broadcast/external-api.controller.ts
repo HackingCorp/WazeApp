@@ -51,6 +51,9 @@ import { Queue } from 'bull';
 @Public()
 export class ExternalApiController {
   private readonly DEDUP_TTL_SECONDS = 300; // 5 minutes deduplication window
+  private readonly RECIPIENT_RATE_LIMIT = 100; // Max 100 messages per recipient per hour
+  private readonly RECIPIENT_RATE_WINDOW = 3600; // 1 hour window
+  private readonly MIN_DELAY_MS = 1000; // Minimum 1 second between messages
   private readonly redis: Redis;
 
   constructor(
@@ -99,6 +102,26 @@ export class ExternalApiController {
     const hash = this.generateMessageHash(to, message);
     const redisKey = `dedup:msg:${hash}`;
     await this.redis.set(redisKey, '1', 'EX', this.DEDUP_TTL_SECONDS);
+  }
+
+  /**
+   * Check per-recipient rate limit. Returns true if limit exceeded.
+   */
+  private async isRecipientRateLimited(phoneNumber: string): Promise<boolean> {
+    const key = `ratelimit:recipient:${phoneNumber.replace(/[^0-9]/g, '')}`;
+    const count = await this.redis.incr(key);
+    if (count === 1) {
+      await this.redis.expire(key, this.RECIPIENT_RATE_WINDOW);
+    }
+    return count > this.RECIPIENT_RATE_LIMIT;
+  }
+
+  /**
+   * Apply jitter to a delay value (±20%)
+   */
+  private applyJitter(delayMs: number): number {
+    const jitter = delayMs * 0.2;
+    return Math.round(delayMs + (Math.random() * 2 - 1) * jitter);
   }
 
   /**
@@ -243,12 +266,23 @@ export class ExternalApiController {
     }
 
     const results = [];
-    const delay = dto.delayMs || 3000;
+    const rawDelay = dto.delayMs || 3000;
+    const delay = Math.max(rawDelay, this.MIN_DELAY_MS); // Enforce minimum delay
 
     for (let i = 0; i < dto.recipients.length; i++) {
       const recipient = dto.recipients[i];
 
       try {
+        // Check per-recipient rate limit
+        if (await this.isRecipientRateLimited(recipient)) {
+          results.push({
+            recipient,
+            success: false,
+            error: `Rate limit exceeded: max ${this.RECIPIENT_RATE_LIMIT} messages per recipient per hour`,
+          });
+          continue;
+        }
+
         // Prepare message content
         let messageContent: any;
 
@@ -295,7 +329,9 @@ export class ExternalApiController {
         // Generate deterministic job ID to prevent duplicate queue entries on client retry
         const jobId = `ext-${this.generateMessageHash(messageContent.to, messageContent.message)}`;
 
-        // Add to queue with delay and deterministic job ID
+        // Add to queue with jittered delay and deterministic job ID
+        const jitteredDelay = this.applyJitter(i * delay);
+
         await this.broadcastQueue.add(
           'send-external',
           {
@@ -305,7 +341,7 @@ export class ExternalApiController {
           },
           {
             jobId,
-            delay: i * delay,
+            delay: jitteredDelay,
             attempts: 3,
             backoff: { type: 'exponential', delay: 5000 },
           },
@@ -383,7 +419,19 @@ export class ExternalApiController {
       throw new ForbiddenException('This WhatsApp session does not belong to your organization');
     }
 
-    // Check for duplicate message (same recipient + content within 30 seconds)
+    // Per-recipient rate limit
+    if (await this.isRecipientRateLimited(dto.to)) {
+      throw new HttpException(
+        {
+          success: false,
+          error: 'RECIPIENT_RATE_LIMITED',
+          message: `Rate limit exceeded: max ${this.RECIPIENT_RATE_LIMIT} messages per recipient per hour`,
+        },
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+
+    // Check for duplicate message (same recipient + content within 5 minutes)
     if (await this.isDuplicateMessage(dto.to, dto.message)) {
       return {
         success: true,

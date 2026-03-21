@@ -343,8 +343,13 @@ export class CampaignService {
 
     await this.campaignRepository.save(campaign);
 
-    // Add messages to queue with deterministic job IDs to prevent duplicates
+    // Add messages to queue with deterministic job IDs and jittered delays
+    const baseDelay = Math.max(campaign.delayBetweenMessages, 1000); // Enforce minimum 1s
     for (const message of messages) {
+      const idx = messages.indexOf(message);
+      const jitter = baseDelay * 0.2;
+      const jitteredDelay = Math.round(idx * baseDelay + (Math.random() * 2 - 1) * jitter);
+
       await this.broadcastQueue.add(
         'send-message',
         {
@@ -354,7 +359,7 @@ export class CampaignService {
         },
         {
           jobId: `campaign-${campaign.id}-${message.id}`,
-          delay: messages.indexOf(message) * campaign.delayBetweenMessages,
+          delay: Math.max(0, jitteredDelay),
           attempts: 3,
           backoff: { type: 'exponential', delay: 5000 },
         },
@@ -433,10 +438,15 @@ export class CampaignService {
       },
     });
 
-    // Re-queue messages with deterministic job IDs
+    // Re-queue messages with deterministic job IDs and jittered delays
+    const resumeBaseDelay = Math.max(campaign.delayBetweenMessages, 1000);
     for (const message of unsentMessages) {
       message.status = BroadcastMessageStatus.PENDING;
       await this.messageRepository.save(message);
+
+      const idx = unsentMessages.indexOf(message);
+      const jitter = resumeBaseDelay * 0.2;
+      const jitteredDelay = Math.round(idx * resumeBaseDelay + (Math.random() * 2 - 1) * jitter);
 
       await this.broadcastQueue.add(
         'send-message',
@@ -447,7 +457,7 @@ export class CampaignService {
         },
         {
           jobId: `campaign-${campaign.id}-${message.id}-resume`,
-          delay: unsentMessages.indexOf(message) * campaign.delayBetweenMessages,
+          delay: Math.max(0, jitteredDelay),
           attempts: 3,
           backoff: { type: 'exponential', delay: 5000 },
         },

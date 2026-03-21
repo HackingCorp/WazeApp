@@ -634,6 +634,23 @@ export class InvoiceService {
       // Skip invoices for Stripe-managed subscriptions
       if (invoice.subscription?.stripeSubscriptionId) continue;
 
+      // Skip if subscription is already active with a billing date past this invoice's due date
+      // This means the user has paid (a newer PAID invoice exists) but this old one wasn't cancelled
+      if (
+        invoice.subscription &&
+        invoice.subscription.status === SubscriptionStatus.ACTIVE &&
+        invoice.subscription.nextBillingDate &&
+        invoice.subscription.nextBillingDate > invoice.dueDate
+      ) {
+        // Auto-cancel this stale invoice
+        invoice.status = InvoiceStatus.CANCELLED;
+        await this.invoiceRepository.save(invoice);
+        this.logger.log(
+          `Auto-cancelled stale invoice ${invoice.invoiceNumber}: subscription is active until ${invoice.subscription.nextBillingDate.toISOString()}`,
+        );
+        continue;
+      }
+
       const daysUntilDue = Math.ceil(
         (invoice.dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
       );

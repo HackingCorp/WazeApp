@@ -709,6 +709,23 @@ export class SubscriptionUpgradeService {
 
     const savedInvoice = await this.invoiceRepository.save(invoice);
     this.logger.log(`Invoice created: ${invoiceNumber} for ${paymentDetails.amount} ${paymentDetails.currency}`);
+
+    // Cancel any old PENDING/OVERDUE invoices for this organization to stop reminder emails
+    if (organizationId) {
+      const cancelledCount = await this.invoiceRepository
+        .createQueryBuilder()
+        .update(Invoice)
+        .set({ status: InvoiceStatus.CANCELLED })
+        .where('organizationId = :organizationId', { organizationId })
+        .andWhere('id != :paidId', { paidId: savedInvoice.id })
+        .andWhere('status IN (:...statuses)', { statuses: [InvoiceStatus.PENDING, InvoiceStatus.OVERDUE] })
+        .execute();
+
+      if (cancelledCount.affected > 0) {
+        this.logger.log(`Cancelled ${cancelledCount.affected} old PENDING/OVERDUE invoice(s) for org ${organizationId}`);
+      }
+    }
+
     return savedInvoice;
   }
 

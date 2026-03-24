@@ -1,7 +1,7 @@
 import { Injectable, Logger, Inject, forwardRef } from '@nestjs/common';
 import { randomBytes } from 'crypto';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, IsNull, In } from 'typeorm';
+import { Repository, IsNull, In, Not } from 'typeorm';
 import { Subscription, User, Organization, Invoice } from '../../common/entities';
 import { SubscriptionPlan, SubscriptionStatus } from '../../common/enums';
 import { InvoiceStatus } from '../../common/entities/invoice.entity';
@@ -184,6 +184,22 @@ export class SubscriptionUpgradeService {
       }
 
       await this.subscriptionRepository.save(subscription);
+
+      // Clean up stale subscriptions for this user (PAST_DUE, INACTIVE, etc.)
+      const cleanedUp = await this.subscriptionRepository
+        .createQueryBuilder()
+        .update(Subscription)
+        .set({ status: SubscriptionStatus.CANCELLED, metadata: () => `metadata || '{"cancelledReason":"stale_cleaned_on_payment"}'::jsonb` })
+        .where('userId = :userId', { userId })
+        .andWhere('organizationId IS NULL')
+        .andWhere('id != :activeId', { activeId: subscription.id })
+        .andWhere('status IN (:...statuses)', {
+          statuses: [SubscriptionStatus.PAST_DUE, SubscriptionStatus.INACTIVE],
+        })
+        .execute();
+      if (cleanedUp.affected > 0) {
+        this.logger.log(`Cleaned up ${cleanedUp.affected} stale subscription(s) for user ${userId}`);
+      }
 
       // Clear cached quota data so new limits take effect immediately
       await this.quotaEnforcementService.clearUserCaches(userId);
@@ -462,6 +478,21 @@ export class SubscriptionUpgradeService {
       }
 
       await this.subscriptionRepository.save(subscription);
+
+      // Clean up stale subscriptions for this org (PAST_DUE, INACTIVE, etc.)
+      const cleanedUp = await this.subscriptionRepository
+        .createQueryBuilder()
+        .update(Subscription)
+        .set({ status: SubscriptionStatus.CANCELLED, metadata: () => `metadata || '{"cancelledReason":"stale_cleaned_on_payment"}'::jsonb` })
+        .where('organizationId = :organizationId', { organizationId })
+        .andWhere('id != :activeId', { activeId: subscription.id })
+        .andWhere('status IN (:...statuses)', {
+          statuses: [SubscriptionStatus.PAST_DUE, SubscriptionStatus.INACTIVE],
+        })
+        .execute();
+      if (cleanedUp.affected > 0) {
+        this.logger.log(`Cleaned up ${cleanedUp.affected} stale subscription(s) for org ${organizationId}`);
+      }
 
       // Clear cached quota data so new limits take effect immediately
       await this.quotaEnforcementService.clearOrganizationCaches(organizationId);

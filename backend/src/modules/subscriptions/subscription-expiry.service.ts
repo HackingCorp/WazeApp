@@ -61,6 +61,16 @@ export class SubscriptionExpiryService {
       // Skip Stripe-managed subscriptions
       if (subscription.stripeSubscriptionId) continue;
 
+      // Skip if the same org/user already has another ACTIVE subscription (means this is a stale record)
+      const ownerId = subscription.organizationId || subscription.userId;
+      if (ownerId && await this.hasOtherActiveSubscription(subscription.id, ownerId, !!subscription.organizationId)) {
+        this.logger.log(`Skipping expired subscription ${subscription.id} — org/user has another ACTIVE subscription. Cleaning up.`);
+        subscription.status = SubscriptionStatus.CANCELLED;
+        subscription.metadata = { ...subscription.metadata, cancelledReason: 'stale_duplicate_cleaned' };
+        await this.subscriptionRepository.save(subscription);
+        continue;
+      }
+
       // Check if there's a paid invoice covering the current period
       const hasPaidInvoice = await this.hasPaidInvoiceForCurrentPeriod(subscription);
       if (hasPaidInvoice) continue;
@@ -119,6 +129,16 @@ export class SubscriptionExpiryService {
       // Skip Stripe-managed
       if (subscription.stripeSubscriptionId) continue;
 
+      // Skip if the same org/user already has another ACTIVE subscription (payment was made, this is stale)
+      const ownerId = subscription.organizationId || subscription.userId;
+      if (ownerId && await this.hasOtherActiveSubscription(subscription.id, ownerId, !!subscription.organizationId)) {
+        this.logger.log(`Skipping PAST_DUE subscription ${subscription.id} — org/user has an ACTIVE subscription. Cleaning up.`);
+        subscription.status = SubscriptionStatus.CANCELLED;
+        subscription.metadata = { ...subscription.metadata, cancelledReason: 'stale_duplicate_cleaned' };
+        await this.subscriptionRepository.save(subscription);
+        continue;
+      }
+
       // Check how long it's been PAST_DUE
       const pastDueSince = subscription.metadata?.pastDueSince
         ? new Date(subscription.metadata.pastDueSince)
@@ -169,6 +189,29 @@ export class SubscriptionExpiryService {
     if (downgradedCount > 0) {
       this.logger.log(`Deactivated ${downgradedCount} unpaid subscription(s)`);
     }
+  }
+
+  /**
+   * Check if the same org or user has another ACTIVE subscription (different from the given one).
+   * This detects stale duplicate records that should be cleaned up instead of processed.
+   */
+  private async hasOtherActiveSubscription(
+    subscriptionId: string,
+    ownerId: string,
+    isOrganization: boolean,
+  ): Promise<boolean> {
+    const where: any = {
+      status: SubscriptionStatus.ACTIVE,
+      plan: Not(SubscriptionPlan.FREE),
+    };
+    if (isOrganization) {
+      where.organizationId = ownerId;
+    } else {
+      where.userId = ownerId;
+    }
+
+    const activeSubscription = await this.subscriptionRepository.findOne({ where });
+    return !!activeSubscription && activeSubscription.id !== subscriptionId;
   }
 
   /**

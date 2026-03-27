@@ -1,10 +1,10 @@
 import { Injectable, Logger, NotFoundException, BadRequestException, Inject, forwardRef } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, LessThanOrEqual, In } from 'typeorm';
+import { Repository, LessThanOrEqual, In, Not } from 'typeorm';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { CACHE_MANAGER, Cache } from '@nestjs/cache-manager';
 import { Invoice, InvoiceStatus, Subscription, Organization, User, OrganizationMember } from '../../common/entities';
-import { SubscriptionStatus, UserRole } from '../../common/enums';
+import { SubscriptionStatus, SubscriptionPlan, UserRole } from '../../common/enums';
 import { PlanService } from './plan.service';
 import { EmailService } from '../email/email.service';
 
@@ -646,9 +646,35 @@ export class InvoiceService {
         invoice.status = InvoiceStatus.CANCELLED;
         await this.invoiceRepository.save(invoice);
         this.logger.log(
-          `Auto-cancelled stale invoice ${invoice.invoiceNumber}: subscription is active until ${invoice.subscription.nextBillingDate.toISOString()}`,
+          `Auto-cancelled stale invoice ${invoice.invoiceNumber}: linked subscription is active until ${invoice.subscription.nextBillingDate.toISOString()}`,
         );
         continue;
+      }
+
+      // Fallback: check if the ORGANIZATION has ANY active paid subscription
+      // The invoice may point to an old/stale subscription record, but the org may have a newer active one
+      if (invoice.organizationId) {
+        const activeOrgSubscription = await this.subscriptionRepository.findOne({
+          where: {
+            organizationId: invoice.organizationId,
+            status: SubscriptionStatus.ACTIVE,
+            plan: Not(SubscriptionPlan.FREE),
+          },
+        });
+
+        if (activeOrgSubscription) {
+          invoice.status = InvoiceStatus.CANCELLED;
+          invoice.metadata = {
+            ...invoice.metadata,
+            cancelledReason: 'org_has_active_subscription',
+            activeSubscriptionId: activeOrgSubscription.id,
+          };
+          await this.invoiceRepository.save(invoice);
+          this.logger.log(
+            `Auto-cancelled stale invoice ${invoice.invoiceNumber}: organization has active subscription ${activeOrgSubscription.id} (${activeOrgSubscription.plan})`,
+          );
+          continue;
+        }
       }
 
       const daysUntilDue = Math.ceil(

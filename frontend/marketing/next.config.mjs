@@ -9,7 +9,7 @@ const nextConfig = {
   // Produce a standalone build for Docker runtime
   output: 'standalone',
   images: {
-    domains: ['i.pravatar.cc'],
+    domains: [],
   },
   // Optimisations de performance
   experimental: {

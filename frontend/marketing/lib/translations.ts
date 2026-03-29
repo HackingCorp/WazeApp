@@ -63,7 +63,13 @@ export const translations = {
     testimonialDavid: "Order taking via WhatsApp increased our delivery orders by 50%. Customers love the convenience and instant responses.",
     testimonialLisa: "WazeApp's AI perfectly captures our brand voice. It's like having our best sales rep available 24/7 on WhatsApp.",
     testimonialTom: "Property inquiries are handled instantly. Our agents now focus on closing deals instead of answering repetitive questions.",
-    
+    testimonialRole1: "CEO",
+    testimonialRole2: "Head of Sales",
+    testimonialRole3: "Customer Success Manager",
+    testimonialRole4: "Operations Director",
+    testimonialRole5: "Marketing Manager",
+    testimonialRole6: "Founder",
+
     // Stats Section
     statsActiveUsers: "Active Users",
     statsActiveUsersDesc: "Businesses using WazeApp",
@@ -538,7 +544,13 @@ Ready to future-proof your business? Try WazeApp free and experience the future 
     testimonialDavid: "La prise de commandes via WhatsApp a augmenté nos commandes de livraison de 50%. Les clients adorent la commodité et les réponses instantanées.",
     testimonialLisa: "L'IA de WazeApp capture parfaitement la voix de notre marque. C'est comme avoir notre meilleur commercial disponible 24h/24 sur WhatsApp.",
     testimonialTom: "Les demandes immobilières sont traitées instantanément. Nos agents se concentrent maintenant sur la conclusion d'affaires au lieu de répondre aux questions répétitives.",
-    
+    testimonialRole1: "Directrice Générale",
+    testimonialRole2: "Directeur Commercial",
+    testimonialRole3: "Responsable Relation Client",
+    testimonialRole4: "Directeur des Opérations",
+    testimonialRole5: "Responsable Marketing",
+    testimonialRole6: "Fondateur",
+
     // Stats Section
     statsActiveUsers: "Utilisateurs Actifs",
     statsActiveUsersDesc: "Entreprises utilisant WazeApp",
@@ -993,7 +1005,13 @@ Prêt à pérenniser votre entreprise ? Essayez WazeApp gratuitement et expérim
     testimonialDavid: "Tomar pedidos vía WhatsApp aumentó nuestros pedidos de entrega un 50%. Los clientes aman la comodidad y las respuestas instantáneas.",
     testimonialLisa: "La IA de WazeApp captura perfectamente la voz de nuestra marca. Es como tener nuestro mejor vendedor disponible 24/7 en WhatsApp.",
     testimonialTom: "Las consultas inmobiliarias se manejan instantáneamente. Nuestros agentes ahora se enfocan en cerrar tratos en lugar de responder preguntas repetitivas.",
-    
+    testimonialRole1: "Directora General",
+    testimonialRole2: "Director de Ventas",
+    testimonialRole3: "Gerente de Éxito del Cliente",
+    testimonialRole4: "Director de Operaciones",
+    testimonialRole5: "Gerente de Marketing",
+    testimonialRole6: "Fundador",
+
     // Stats Section
     statsActiveUsers: "Usuarios Activos",
     statsActiveUsersDesc: "Empresas usando WazeApp",
@@ -1468,7 +1486,13 @@ El futuro de la comunicación empresarial es conversacional, inteligente y dispo
     testimonialDavid: "Bestellungen über WhatsApp haben unsere Lieferbestellungen um 50% erhöht. Kunden lieben die Bequemlichkeit und sofortigen Antworten.",
     testimonialLisa: "WazeApps KI erfasst perfekt unsere Marken-Stimme. Es ist, als hätte man unseren besten Verkäufer 24/7 auf WhatsApp verfügbar.",
     testimonialTom: "Immobilienanfragen werden sofort behandelt. Unsere Makler konzentrieren sich jetzt auf Abschlüsse statt auf sich wiederholende Fragen.",
-    
+    testimonialRole1: "Geschäftsführerin",
+    testimonialRole2: "Vertriebsleiter",
+    testimonialRole3: "Customer Success Managerin",
+    testimonialRole4: "Betriebsleiter",
+    testimonialRole5: "Marketing Managerin",
+    testimonialRole6: "Gründer",
+
     // Stats Section
     statsActiveUsers: "Aktive Nutzer",
     statsActiveUsersDesc: "Unternehmen nutzen WazeApp",
@@ -1756,7 +1780,13 @@ El futuro de la comunicación empresarial es conversacional, inteligente y dispo
     testimonialDavid: "Prendere ordini via WhatsApp ha aumentato i nostri ordini di consegna del 50%. I clienti amano la comodità e le risposte istantanee.",
     testimonialLisa: "L'IA di WazeApp cattura perfettamente la voce del nostro brand. È come avere il nostro miglior venditore disponibile 24/7 su WhatsApp.",
     testimonialTom: "Le richieste immobiliari vengono gestite istantaneamente. I nostri agenti ora si concentrano sulla chiusura degli affari invece di rispondere a domande ripetitive.",
-    
+    testimonialRole1: "CEO",
+    testimonialRole2: "Responsabile Vendite",
+    testimonialRole3: "Customer Success Manager",
+    testimonialRole4: "Direttore Operativo",
+    testimonialRole5: "Marketing Manager",
+    testimonialRole6: "Fondatore",
+
     // Stats Section
     statsActiveUsers: "Utenti Attivi",
     statsActiveUsersDesc: "Aziende che usano WazeApp",
@@ -2020,7 +2050,13 @@ El futuro de la comunicación empresarial es conversacional, inteligente y dispo
     testimonialDavid: "Receber pedidos via WhatsApp aumentou nossos pedidos de entrega em 50%. Clientes adoram a conveniência e respostas instantâneas.",
     testimonialLisa: "A IA do WazeApp captura perfeitamente a voz da nossa marca. É como ter nosso melhor vendedor disponível 24/7 no WhatsApp.",
     testimonialTom: "Consultas imobiliárias são tratadas instantaneamente. Nossos corretores agora focam em fechar negócios em vez de responder perguntas repetitivas.",
-    
+    testimonialRole1: "CEO",
+    testimonialRole2: "Diretor de Vendas",
+    testimonialRole3: "Gerente de Sucesso do Cliente",
+    testimonialRole4: "Diretor de Operações",
+    testimonialRole5: "Gerente de Marketing",
+    testimonialRole6: "Fundador",
+
     // Stats Section
     statsActiveUsers: "Usuários Ativos",
     statsActiveUsersDesc: "Empresas usando WazeApp",
@@ -2284,7 +2320,13 @@ El futuro de la comunicación empresarial es conversacional, inteligente y dispo
     testimonialDavid: "通过WhatsApp接单使我们的外卖订单增加了50%。客户喜爱这种便利和即时响应。",
     testimonialLisa: "WazeApp的AI完美捕捉我们的品牌声音。就像在2WhatsApp上24/7拥有我们最好的销售代表。",
     testimonialTom: "房地产查询即时处理。我们的经纪人现在专注于成交而不是回答重复问题。",
-    
+    testimonialRole1: "首席执行官",
+    testimonialRole2: "销售总监",
+    testimonialRole3: "客户成功经理",
+    testimonialRole4: "运营总监",
+    testimonialRole5: "市场经理",
+    testimonialRole6: "创始人",
+
     // Stats Section
     statsActiveUsers: "活跃用户",
     statsActiveUsersDesc: "使用WazeApp的企业",
@@ -2546,7 +2588,13 @@ El futuro de la comunicación empresarial es conversacional, inteligente y dispo
     testimonialDavid: "WhatsApp経由の注文で配送注文が50%増加しました。顧客は便利さと即座対応を気に入っています。",
     testimonialLisa: "WazeAppのAIは私たちのブランドボイスを完璧にキャプチャしています。WhatsAppで24/7最高の営業担当がいるようなものです。",
     testimonialTom: "不動産の問い合わせが即座処理されます。エージェントは繰り返しの質問に答える代わりに取引の成約に集中できるようになりました。",
-    
+    testimonialRole1: "CEO",
+    testimonialRole2: "営業部長",
+    testimonialRole3: "カスタマーサクセスマネージャー",
+    testimonialRole4: "オペレーションディレクター",
+    testimonialRole5: "マーケティングマネージャー",
+    testimonialRole6: "創業者",
+
     // Stats Section
     statsActiveUsers: "アクティブユーザー",
     statsActiveUsersDesc: "WazeAppを使用している企業",
@@ -2808,7 +2856,13 @@ El futuro de la comunicación empresarial es conversacional, inteligente y dispo
     testimonialDavid: "طلب الطعام عبر واتساب زاد طلبات التوصيل 50%. العملاء يحبون الراحة والردود الفورية.",
     testimonialLisa: "ذكاء WazeApp الاصطناعي يجسد صوت علامتنا بشكل مثالي. إنه مثل وجود أفضل مندوب مبيعات لدينا متاح 24/7 على واتساب.",
     testimonialTom: "استفسارات العقارات يتم تعامل معها فوراً. وكلاؤنا يركزون الآن على إغلاق الصفقات بدلاً من الإجابة على أسئلة متكررة.",
-    
+    testimonialRole1: "الرئيسة التنفيذية",
+    testimonialRole2: "مدير المبيعات",
+    testimonialRole3: "مدير نجاح العملاء",
+    testimonialRole4: "مدير العمليات",
+    testimonialRole5: "مديرة التسويق",
+    testimonialRole6: "المؤسس",
+
     // Stats Section
     statsActiveUsers: "مستخدمين نشطين",
     statsActiveUsersDesc: "شركات تستخدم WazeApp",

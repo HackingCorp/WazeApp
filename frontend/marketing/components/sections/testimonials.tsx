@@ -1,71 +1,77 @@
 'use client';
 
-import Image from "next/image"
 import { motion } from "framer-motion"
 import { Star } from "lucide-react"
 import { useTranslations } from "@/lib/hooks/use-translations"
 
+const avatarColors = [
+  "bg-blue-600",
+  "bg-emerald-600",
+  "bg-purple-600",
+  "bg-orange-600",
+  "bg-rose-600",
+  "bg-teal-600",
+]
+
+function getInitials(name: string): string {
+  return name.split(' ').map(n => n[0]).join('').toUpperCase()
+}
+
 export function TestimonialsSection() {
   const { t } = useTranslations()
-  
+
   const testimonials = [
     {
-      name: "Sarah Johnson",
-      role: "CEO at TechStart",
-      company: "TechStart Inc.",
-      image: "https://i.pravatar.cc/150?img=1",
+      name: "Aminata Diallo",
+      role: t("testimonialRole1"),
+      company: "DigiServ Afrique",
       content: t("testimonialSarah"),
       rating: 5,
     },
     {
-      name: "Michael Chen",
-      role: "Head of Sales",
+      name: "Jean-Pierre Mbarga",
+      role: t("testimonialRole2"),
       company: "E-Commerce Plus",
-      image: "https://i.pravatar.cc/150?img=2",
       content: t("testimonialMichael"),
       rating: 5,
     },
     {
-      name: "Emma Rodriguez",
-      role: "Customer Success Manager",
-      company: "Global Retail Co.",
-      image: "https://i.pravatar.cc/150?img=3",
+      name: "Fatou Ndiaye",
+      role: t("testimonialRole3"),
+      company: "GlobalTrade Co.",
       content: t("testimonialEmma"),
       rating: 5,
     },
     {
-      name: "David Kim",
-      role: "Operations Director",
-      company: "FastFood Chain",
-      image: "https://i.pravatar.cc/150?img=4",
+      name: "David Kouamé",
+      role: t("testimonialRole4"),
+      company: "FastFood Express",
       content: t("testimonialDavid"),
       rating: 5,
     },
     {
-      name: "Lisa Anderson",
-      role: "Marketing Manager",
-      company: "Beauty Brand",
-      image: "https://i.pravatar.cc/150?img=5",
+      name: "Claire Tchamba",
+      role: t("testimonialRole5"),
+      company: "Beauty & Style",
       content: t("testimonialLisa"),
       rating: 5,
     },
     {
-      name: "Tom Wilson",
-      role: "Founder",
-      company: "Real Estate Pro",
-      image: "https://i.pravatar.cc/150?img=6",
+      name: "Olivier Nguema",
+      role: t("testimonialRole6"),
+      company: "Immo Pro",
       content: t("testimonialTom"),
       rating: 5,
     },
   ]
 
   const companies = [
-    { name: "TechCorp", logo: "TC" },
-    { name: "StartupHub", logo: "SH" },
-    { name: "GlobalRetail", logo: "GR" },
-    { name: "FastDelivery", logo: "FD" },
-    { name: "CloudServices", logo: "CS" },
-    { name: "DigitalAgency", logo: "DA" },
+    { name: "DigiServ", logo: "DS" },
+    { name: "AfriTech", logo: "AT" },
+    { name: "GlobalTrade", logo: "GT" },
+    { name: "FastExpress", logo: "FE" },
+    { name: "CloudAfrica", logo: "CA" },
+    { name: "MediaPro", logo: "MP" },
   ]
 
   return (
@@ -106,13 +112,9 @@ export function TestimonialsSection() {
                 &ldquo;{testimonial.content}&rdquo;
               </p>
               <div className="flex items-center">
-                <Image
-                  src={testimonial.image}
-                  alt={testimonial.name}
-                  width={48}
-                  height={48}
-                  className="h-12 w-12 rounded-full mr-4"
-                />
+                <div className={`h-12 w-12 rounded-full mr-4 flex items-center justify-center text-white font-bold text-sm ${avatarColors[index % avatarColors.length]}`}>
+                  {getInitials(testimonial.name)}
+                </div>
                 <div>
                   <p className="font-semibold text-gray-900 dark:text-white">
                     {testimonial.name}

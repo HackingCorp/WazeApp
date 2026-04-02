@@ -272,12 +272,9 @@ export class QuotaEnforcementService {
     // Bonus credits available is what's remaining in active credit packs
     const bonusCreditsAvailable = bonusCreditsInfo.available;
 
-    // Total bonus capacity = available + already used
-    const totalBonusCapacity = bonusCreditsAvailable + bonusCreditsUsed;
-
-    // Messages from subscription = total messages - bonus credits used
-    // (Bonus credits are consumed FIRST, so subscription is only used for messages beyond bonus)
-    const messagesFromSubscription = Math.max(0, totalMessagesUsed - totalBonusCapacity);
+    // Messages from subscription = total messages - bonus credits actually used
+    // Only subtract credits that were actually consumed, NOT available/unused credits
+    const messagesFromSubscription = Math.max(0, totalMessagesUsed - bonusCreditsUsed);
 
     this.logger.debug(`Org ${organizationId}: ${messagesFromSubscription}/${planLimit} messages (${bonusCreditsAvailable} bonus available, period: ${periodStart.toISOString().slice(0, 10)} → ${periodEnd.toISOString().slice(0, 10)})`);
 

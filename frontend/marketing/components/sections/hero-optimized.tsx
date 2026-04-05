@@ -81,11 +81,11 @@ export function HeroSection() {
 
 function WhatsAppMockup() {
   const messages = [
-    { type: "user", text: "Hi, I need help with my order #12345" },
-    { type: "bot", text: "Hello! I'd be happy to help you with order #12345. Let me check that for you..." },
-    { type: "bot", text: "I found your order! It was shipped yesterday and should arrive by tomorrow. Tracking: UPS123456" },
-    { type: "user", text: "Great! Can you send me the invoice?" },
-    { type: "bot", text: "Of course! I've sent the invoice to your email. Is there anything else I can help you with?" },
+    { type: "user", text: "Bonjour, j'ai besoin d'aide avec ma commande #12345" },
+    { type: "bot", text: "Bonjour ! Je serais ravi de vous aider avec la commande #12345. Laissez-moi vérifier cela pour vous..." },
+    { type: "bot", text: "J'ai trouvé votre commande ! Elle a été expédiée hier et devrait arriver demain. Suivi : UPS123456" },
+    { type: "user", text: "Super ! Pouvez-vous m'envoyer la facture ?" },
+    { type: "bot", text: "Bien sûr ! J'ai envoyé la facture à votre email. Y a-t-il autre chose que je puisse faire pour vous ?" },
   ]
 
   return (
@@ -96,7 +96,7 @@ function WhatsAppMockup() {
         </div>
         <div>
           <p className="font-semibold">WazeApp Assistant</p>
-          <p className="text-xs opacity-90">Always online</p>
+          <p className="text-xs opacity-90">Toujours en ligne</p>
         </div>
       </div>
       
@@ -126,7 +126,7 @@ function WhatsAppMockup() {
         <div className="flex items-center space-x-2">
           <input
             type="text"
-            placeholder="Type a message..."
+            placeholder="Tapez un message..."
             className="flex-1 px-4 py-2 rounded-full border dark:border-gray-700 bg-gray-100 dark:bg-gray-800 text-sm"
             disabled
           />

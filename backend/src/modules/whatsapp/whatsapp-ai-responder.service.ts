@@ -2002,10 +2002,13 @@ EXEMPLES DE CONTEXTE:
 2. ${rules.useExactInfo}
 3. ${rules.fcfaConversion}
 4. ${rules.noRedundantQuestions}
-5. ${rules.redirectIfMissing}`;
+5. ${rules.redirectIfMissing}
+6. ${rules.neverInventContacts}
+7. ${rules.neverInventActions}
+8. ${rules.admitIgnorance}`;
       } else {
-        // FIX 1: Add fallback message instruction when no KB context
-        systemPrompt += `\n\n⚠️ ${i18n.noKbWarning}`;
+        // FIX 1: Strict anti-hallucination rules when no KB context
+        systemPrompt += `\n\n${i18n.noKbStrictRules}`;
         if (agent.fallbackMessage) {
           systemPrompt += `\n\n${i18n.fallbackInstruction} "${agent.fallbackMessage}"`;
         }
@@ -2098,7 +2101,8 @@ EXEMPLES DE CONTEXTE:
         content: `CRITICAL INSTRUCTIONS (MUST FOLLOW):
 1. RESPOND ONLY IN ${(languageNames[detectedLanguage] || 'English').toUpperCase()}. The user wrote in ${languageNames[detectedLanguage] || 'English'}, so you MUST reply in the same language.
 2. NO FORMATTING: Do NOT use asterisks (*), underscores (_), or any markdown. Write plain text only.
-3. Be direct and concise. No "thinking out loud" phrases.`
+3. Be direct and concise. No "thinking out loud" phrases.
+4. NEVER FABRICATE FACTS: Do NOT invent addresses, phone numbers, locations, prices, opening hours, or physical actions (like "an agent is on the way"). Only state facts explicitly present in your knowledge base or system prompt. If you don't have the information, say so clearly.`
       };
 
       const enhancedMessages = [languageInstruction, ...messages];
@@ -2871,8 +2875,18 @@ EXEMPLE DE BONNE RÉPONSE AUTOMATIQUE:
           useExactInfo: 'Utiliser uniquement les informations exactes de la base de connaissances ci-dessus.',
           fcfaConversion: 'Conversion FCFA: Si le client demande en FCFA et que vous avez le prix en USD, multipliez par 600 (exemple: 850 USD = 510 000 FCFA).',
           noRedundantQuestions: 'Ne redemandez pas les informations déjà fournies.',
-          redirectIfMissing: 'Si l\'information n\'est pas dans la base de connaissances, dire: "Pour le tarif exact, veuillez nous contacter directement."'
-        }
+          redirectIfMissing: 'Si l\'information n\'est pas dans la base de connaissances, dire: "Pour le tarif exact, veuillez nous contacter directement."',
+          neverInventContacts: 'Ne jamais inventer de numéros de téléphone, adresses, ou localisations. Utiliser uniquement ceux explicitement présents dans la base de connaissances.',
+          neverInventActions: 'Ne jamais prétendre qu\'une action physique est en cours (ex: "un agent est en chemin", "votre commande est expédiée") sauf si une information système le confirme.',
+          admitIgnorance: 'Si l\'information demandée n\'est pas dans la base de connaissances, dire clairement que vous ne disposez pas de cette information plutôt que de la deviner.'
+        },
+        noKbStrictRules: `⚠️ AUCUNE BASE DE CONNAISSANCES DISPONIBLE.
+Tu n'as AUCUNE information factuelle sur cette entreprise.
+RÈGLES STRICTES :
+- Ne JAMAIS inventer d'adresses, numéros de téléphone, prix, horaires, ou informations de contact
+- Ne JAMAIS prétendre qu'une action physique est en cours
+- Ne JAMAIS donner d'informations spécifiques que tu n'as pas reçues dans ton prompt système
+- Répondre uniquement avec des informations générales ou rediriger le client vers un contact humain`
       },
       [AgentLanguage.ENGLISH]: {
         styleHeader: '📝 RESPONSE STYLE:',
@@ -2886,8 +2900,18 @@ EXEMPLE DE BONNE RÉPONSE AUTOMATIQUE:
           useExactInfo: 'Use only exact information from the knowledge base above.',
           fcfaConversion: 'FCFA conversion: If the customer asks in FCFA and you have the price in USD, multiply by 600 (example: 850 USD = 510,000 FCFA).',
           noRedundantQuestions: 'Do not ask for information already provided.',
-          redirectIfMissing: 'If information is not in the knowledge base, say: "For the exact details, please contact us directly."'
-        }
+          redirectIfMissing: 'If information is not in the knowledge base, say: "For the exact details, please contact us directly."',
+          neverInventContacts: 'Never invent phone numbers, addresses, or locations. Only use those explicitly present in the knowledge base.',
+          neverInventActions: 'Never claim a physical action is underway (e.g., "an agent is on the way", "your order has been shipped") unless system information confirms it.',
+          admitIgnorance: 'If the requested information is not in the knowledge base, clearly state that you do not have this information rather than guessing.'
+        },
+        noKbStrictRules: `⚠️ NO KNOWLEDGE BASE AVAILABLE.
+You have NO factual information about this business.
+STRICT RULES:
+- NEVER invent addresses, phone numbers, prices, opening hours, or contact information
+- NEVER claim a physical action is underway
+- NEVER provide specific information you have not received in your system prompt
+- Only respond with general information or redirect the customer to a human contact`
       },
       [AgentLanguage.SPANISH]: {
         styleHeader: '📝 ESTILO DE RESPUESTA:',
@@ -2901,8 +2925,18 @@ EXEMPLE DE BONNE RÉPONSE AUTOMATIQUE:
           useExactInfo: 'Use solo información exacta de la base de conocimientos anterior.',
           fcfaConversion: 'Conversión FCFA: Si el cliente pregunta en FCFA y tiene el precio en USD, multiplique por 600 (ejemplo: 850 USD = 510,000 FCFA).',
           noRedundantQuestions: 'No vuelva a preguntar información ya proporcionada.',
-          redirectIfMissing: 'Si la información no está en la base de conocimientos, diga: "Para los detalles exactos, contáctenos directamente."'
-        }
+          redirectIfMissing: 'Si la información no está en la base de conocimientos, diga: "Para los detalles exactos, contáctenos directamente."',
+          neverInventContacts: 'Nunca invente números de teléfono, direcciones o ubicaciones. Use solo los que estén explícitamente presentes en la base de conocimientos.',
+          neverInventActions: 'Nunca afirme que una acción física está en curso (ej: "un agente está en camino", "su pedido ha sido enviado") a menos que la información del sistema lo confirme.',
+          admitIgnorance: 'Si la información solicitada no está en la base de conocimientos, indique claramente que no dispone de esa información en lugar de adivinar.'
+        },
+        noKbStrictRules: `⚠️ NO HAY BASE DE CONOCIMIENTOS DISPONIBLE.
+No tienes NINGUNA información factual sobre esta empresa.
+REGLAS ESTRICTAS:
+- NUNCA inventes direcciones, números de teléfono, precios, horarios o información de contacto
+- NUNCA afirmes que una acción física está en curso
+- NUNCA proporciones información específica que no hayas recibido en tu prompt de sistema
+- Responde solo con información general o redirige al cliente a un contacto humano`
       }
     };
 

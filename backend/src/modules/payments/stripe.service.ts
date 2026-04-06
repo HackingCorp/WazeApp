@@ -950,6 +950,46 @@ export class StripeService {
   }
 
   /**
+   * Renew subscription immediately by cancelling the current one and creating a new checkout
+   */
+  async renewSubscriptionNow(userId: string, organizationId: string): Promise<{ sessionId: string; url: string }> {
+    const stripe = this.ensureStripe();
+
+    // Find the active subscription for this org
+    const subscription = await this.subscriptionRepository.findOne({
+      where: { organizationId },
+    });
+
+    if (!subscription || !subscription.stripeSubscriptionId) {
+      throw new BadRequestException('No active Stripe subscription found for this organization');
+    }
+
+    if (subscription.status !== SubscriptionStatus.ACTIVE && subscription.status !== SubscriptionStatus.PAST_DUE) {
+      throw new BadRequestException('Subscription is not in a renewable state');
+    }
+
+    const planCode = subscription.plan;
+    const billingPeriod = subscription.billingPeriod || 'monthly';
+
+    // Cancel the current Stripe subscription immediately
+    await stripe.subscriptions.cancel(subscription.stripeSubscriptionId);
+    this.logger.log(`Cancelled Stripe subscription ${subscription.stripeSubscriptionId} for immediate renewal`);
+
+    // Create a new checkout session for the same plan
+    const dashboardUrl = this.configService.get('DASHBOARD_URL') || 'https://app.wazeapp.xyz';
+    const result = await this.createCheckoutSession({
+      userId,
+      organizationId,
+      planCode: planCode.toUpperCase(),
+      billingPeriod: billingPeriod as 'monthly' | 'annually',
+      successUrl: `${dashboardUrl}/dashboard?renewal=success&session_id={CHECKOUT_SESSION_ID}`,
+      cancelUrl: `${dashboardUrl}/dashboard?renewal=cancelled`,
+    });
+
+    return result;
+  }
+
+  /**
    * Get Stripe publishable key for frontend
    */
   getPublishableKey(): string {

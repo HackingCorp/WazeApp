@@ -1733,6 +1733,12 @@ class ApiClient {
   async getStripeConfig() {
     return this.request('/payments/stripe/config');
   }
+
+  async renewSubscriptionNow() {
+    return this.request('/payments/stripe/renew-now', {
+      method: 'POST',
+    });
+  }
 }
 
 export const api = new ApiClient(API_BASE_URL);
@@ -1796,6 +1802,7 @@ export const apiHelpers = {
     createPortalSession: (returnUrl?: string) => api.createStripePortalSession(returnUrl),
     createCreditCheckout: (data: Parameters<typeof api.createStripeCreditCheckout>[0]) => api.createStripeCreditCheckout(data),
     getConfig: () => api.getStripeConfig(),
+    renewSubscriptionNow: () => api.renewSubscriptionNow(),
   },
 };
 

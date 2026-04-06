@@ -16,6 +16,7 @@ import {
   ArrowDownRight,
   Gift,
   ShoppingCart,
+  RefreshCw,
 } from 'lucide-react';
 import { WhatsAppWidget } from '@/components/dashboard/WhatsAppWidget';
 import { BonusCreditsWidget } from '@/components/billing/BonusCreditsWidget';
@@ -77,6 +78,7 @@ export default function DashboardPage() {
   const [agentStatuses, setAgentStatuses] = useState<AgentStatus[]>([]);
   const [quota, setQuota] = useState<QuotaData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [renewLoading, setRenewLoading] = useState(false);
 
   const { t } = useI18n();
   const { user, refreshAuth } = useAuth();
@@ -450,6 +452,43 @@ export default function DashboardPage() {
                 </span>
               </div>
             </div>
+
+            {/* Renew Now Button - shown when quota >= 90% */}
+            {quota.messages.percentUsed >= 90 && (
+              <div className="mt-4">
+                <button
+                  onClick={async () => {
+                    setRenewLoading(true);
+                    try {
+                      const res = await apiHelpers.stripe.renewSubscriptionNow();
+                      if (res.success && res.data?.url) {
+                        window.location.href = res.data.url;
+                      } else {
+                        alert(res.error || 'Impossible de renouveler. Veuillez réessayer.');
+                      }
+                    } catch {
+                      alert('Une erreur est survenue. Veuillez réessayer.');
+                    } finally {
+                      setRenewLoading(false);
+                    }
+                  }}
+                  disabled={renewLoading}
+                  className="w-full inline-flex items-center justify-center px-4 py-2.5 rounded-lg text-sm font-semibold text-white bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 shadow-md hover:shadow-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {renewLoading ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2" />
+                      Renouvellement en cours...
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                      Renouveler l&apos;abonnement maintenant
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
 
             {/* Bonus Credits Info in Quota Card */}
             {quota.messages.bonusCredits && quota.messages.bonusCredits.available > 0 && (

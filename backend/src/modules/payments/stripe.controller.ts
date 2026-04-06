@@ -144,6 +144,22 @@ export class StripeController {
     return { sessionId: result.sessionId, url: result.url };
   }
 
+  @Post('renew-now')
+  @UseGuards(JwtAuthGuard, ThrottlerGuard)
+  @Throttle({ default: { limit: 3, ttl: 60000 } })
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Cancel current subscription and create new checkout for immediate renewal' })
+  async renewSubscriptionNow(@CurrentUser() user: any) {
+    // Resolve organizationId
+    const org = await this.organizationRepository.findOne({ where: { ownerId: user.userId } });
+    if (!org) {
+      throw new BadRequestException('No organization found for this user');
+    }
+
+    const result = await this.stripeService.renewSubscriptionNow(user.userId, org.id);
+    return { sessionId: result.sessionId, url: result.url };
+  }
+
   @Public()
   @Post('webhook')
   @HttpCode(HttpStatus.OK)

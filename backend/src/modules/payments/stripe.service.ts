@@ -969,7 +969,18 @@ export class StripeService {
     }
 
     const planCode = subscription.plan;
-    const billingPeriod = subscription.billingPeriod || 'monthly';
+
+    // Retrieve billing interval from Stripe before cancelling
+    let billingPeriod: 'monthly' | 'annually' = 'monthly';
+    try {
+      const stripeSub = await stripe.subscriptions.retrieve(subscription.stripeSubscriptionId);
+      const interval = stripeSub.items?.data?.[0]?.price?.recurring?.interval;
+      if (interval === 'year') {
+        billingPeriod = 'annually';
+      }
+    } catch (e) {
+      this.logger.warn(`Could not retrieve Stripe subscription interval, defaulting to monthly: ${e.message}`);
+    }
 
     // Cancel the current Stripe subscription immediately
     await stripe.subscriptions.cancel(subscription.stripeSubscriptionId);

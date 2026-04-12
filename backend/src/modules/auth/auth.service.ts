@@ -262,7 +262,9 @@ export class AuthService {
     });
 
     // PostHog: track login
-    this.posthogService.capture(user.id, 'user_logged_in');
+    this.posthogService.capture(user.id, 'user_logged_in', {
+      organizationId: membership?.organization?.id,
+    });
 
     // Generate tokens
     const tokens = await this.generateTokens(
@@ -368,6 +370,9 @@ export class AuthService {
     // Send reset email
     await this.emailService.sendPasswordResetEmail(user.email, resetToken);
 
+    // PostHog: track password reset request
+    this.posthogService.capture(user.id, 'password_reset_requested');
+
     // Log audit event
     await this.auditService.log({
       action: AuditAction.FORGOT_PASSWORD,
@@ -402,6 +407,9 @@ export class AuthService {
       passwordResetExpires: null,
       refreshTokenHash: null,
     });
+
+    // PostHog: track password reset completed
+    this.posthogService.capture(user.id, 'password_reset_completed');
 
     // Log audit event
     await this.auditService.log({
@@ -534,6 +542,9 @@ export class AuthService {
       refreshTokenHash: null,
     });
 
+    // PostHog: track logout
+    this.posthogService.capture(userId, 'user_logged_out');
+
     // Log audit event
     await this.auditService.log({
       action: AuditAction.LOGOUT,
@@ -566,6 +577,17 @@ export class AuthService {
       });
       await this.userRepository.save(user);
 
+      // PostHog: identify and track OAuth registration
+      this.posthogService.identify(user.id, {
+        email: user.email,
+        name: `${user.firstName} ${user.lastName}`,
+        authProvider: provider,
+      });
+      this.posthogService.capture(user.id, 'user_registered', {
+        authProvider: provider,
+        hasOrganization: false,
+      });
+
       // Log audit event
       await this.auditService.log({
         action: AuditAction.OAUTH_REGISTER,
@@ -586,6 +608,12 @@ export class AuthService {
       // Update last login
       await this.userRepository.update(user.id, {
         lastLoginAt: new Date(),
+      });
+
+      // PostHog: track OAuth login
+      this.posthogService.capture(user.id, 'user_logged_in', {
+        authProvider: provider,
+        organizationId: undefined, // will be set after membership lookup
       });
 
       // Log audit event

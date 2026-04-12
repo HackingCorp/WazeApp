@@ -95,21 +95,21 @@ export default function RootLayout({
         <meta name="theme-color" content="#059669" />
       </head>
       <body className={inter.className} suppressHydrationWarning>
-        <ErrorBoundary>
-          <I18nProvider>
-            <ThemeProvider>
-              <AuthProvider>
-                <PostHogProvider>
+        <I18nProvider>
+          <ThemeProvider>
+            <AuthProvider>
+              <PostHogProvider>
+                <ErrorBoundary>
                   <SocketProvider>
                     <ToastProvider>
                       {children}
                     </ToastProvider>
                   </SocketProvider>
-                </PostHogProvider>
-              </AuthProvider>
-            </ThemeProvider>
-          </I18nProvider>
-        </ErrorBoundary>
+                </ErrorBoundary>
+              </PostHogProvider>
+            </AuthProvider>
+          </ThemeProvider>
+        </I18nProvider>
       </body>
     </html>
   );

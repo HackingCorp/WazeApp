@@ -66,12 +66,72 @@ export function TestimonialsSection() {
   ]
 
   const companies = [
-    { name: "DigiServ", logo: "DS", color: "from-blue-500 to-blue-600" },
-    { name: "AfriTech", logo: "AT", color: "from-emerald-500 to-teal-600" },
-    { name: "GlobalTrade", logo: "GT", color: "from-purple-500 to-indigo-600" },
-    { name: "FastExpress", logo: "FE", color: "from-orange-500 to-red-500" },
-    { name: "CloudAfrica", logo: "CA", color: "from-cyan-500 to-blue-500" },
-    { name: "MediaPro", logo: "MP", color: "from-rose-500 to-pink-600" },
+    {
+      name: "DigiServ",
+      logo: (
+        <svg viewBox="0 0 40 40" className="h-10 w-10">
+          <rect width="40" height="40" rx="8" fill="#2563EB" />
+          <path d="M10 12h8a8 8 0 010 16h-8V12z" fill="white" opacity="0.9" />
+          <rect x="22" y="12" width="4" height="16" rx="2" fill="white" opacity="0.6" />
+          <rect x="28" y="16" width="4" height="8" rx="2" fill="white" opacity="0.4" />
+        </svg>
+      ),
+    },
+    {
+      name: "AfriTech",
+      logo: (
+        <svg viewBox="0 0 40 40" className="h-10 w-10">
+          <rect width="40" height="40" rx="8" fill="#059669" />
+          <polygon points="20,8 32,28 8,28" fill="white" opacity="0.9" />
+          <polygon points="20,14 26,24 14,24" fill="#059669" />
+          <circle cx="20" cy="22" r="2" fill="white" />
+        </svg>
+      ),
+    },
+    {
+      name: "GlobalTrade",
+      logo: (
+        <svg viewBox="0 0 40 40" className="h-10 w-10">
+          <rect width="40" height="40" rx="8" fill="#7C3AED" />
+          <circle cx="20" cy="20" r="10" fill="none" stroke="white" strokeWidth="2" opacity="0.9" />
+          <ellipse cx="20" cy="20" rx="5" ry="10" fill="none" stroke="white" strokeWidth="1.5" opacity="0.6" />
+          <line x1="10" y1="20" x2="30" y2="20" stroke="white" strokeWidth="1.5" opacity="0.5" />
+          <line x1="13" y1="14" x2="27" y2="14" stroke="white" strokeWidth="1" opacity="0.4" />
+          <line x1="13" y1="26" x2="27" y2="26" stroke="white" strokeWidth="1" opacity="0.4" />
+        </svg>
+      ),
+    },
+    {
+      name: "FastExpress",
+      logo: (
+        <svg viewBox="0 0 40 40" className="h-10 w-10">
+          <rect width="40" height="40" rx="8" fill="#EA580C" />
+          <path d="M8 20h16l-4-6h8l-12 12 4-6H8z" fill="white" opacity="0.9" />
+        </svg>
+      ),
+    },
+    {
+      name: "CloudAfrica",
+      logo: (
+        <svg viewBox="0 0 40 40" className="h-10 w-10">
+          <rect width="40" height="40" rx="8" fill="#0891B2" />
+          <path d="M28 24H14a5 5 0 01-.5-9.97A7 7 0 0127 16a5 5 0 011 8z" fill="white" opacity="0.9" />
+          <circle cx="22" cy="28" r="1.5" fill="white" opacity="0.5" />
+          <circle cx="18" cy="30" r="1" fill="white" opacity="0.4" />
+        </svg>
+      ),
+    },
+    {
+      name: "MediaPro",
+      logo: (
+        <svg viewBox="0 0 40 40" className="h-10 w-10">
+          <rect width="40" height="40" rx="8" fill="#E11D48" />
+          <rect x="8" y="12" width="16" height="16" rx="2" fill="white" opacity="0.9" />
+          <polygon points="28,12 34,20 28,28" fill="white" opacity="0.7" />
+          <circle cx="16" cy="20" r="4" fill="#E11D48" opacity="0.6" />
+        </svg>
+      ),
+    },
   ]
 
   return (
@@ -144,9 +204,7 @@ export function TestimonialsSection() {
                 key={company.name}
                 className="flex items-center space-x-2 text-gray-400"
               >
-                <div className={`h-10 w-10 rounded-lg bg-gradient-to-br ${company.color} flex items-center justify-center shadow-md`}>
-                  <span className="text-sm font-bold text-white">{company.logo}</span>
-                </div>
+                {company.logo}
                 <span className="text-lg font-semibold text-gray-600 dark:text-gray-400">{company.name}</span>
               </div>
             ))}

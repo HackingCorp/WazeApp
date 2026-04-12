@@ -346,75 +346,67 @@ export default function AgentsPage() {
             </div>
 
             {/* Actions */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                {/* Toggle Status */}
-                <button
-                  onClick={() => toggleAgentStatus(agent.id, agent.status)}
-                  className={clsx(
-                    'p-2 rounded-lg transition-colors',
-                    agent.status === 'active'
-                      ? 'text-orange-600 hover:bg-orange-100 dark:hover:bg-orange-900/20'
-                      : 'text-green-600 hover:bg-green-100 dark:hover:bg-green-900/20'
-                  )}
-                  title={agent.status === 'active' ? t('agents.deactivate') : t('agents.activate')}
-                  aria-label={agent.status === 'active' ? 'Deactivate agent' : 'Activate agent'}
-                >
-                  {agent.status === 'active' ? (
-                    <Pause className="w-4 h-4" />
-                  ) : (
-                    <Play className="w-4 h-4" />
-                  )}
-                </button>
+            <div className="flex items-center flex-wrap gap-1.5 pt-2 border-t border-gray-200 dark:border-gray-700">
+              {/* Toggle Status */}
+              <button
+                onClick={() => toggleAgentStatus(agent.id, agent.status)}
+                className={clsx(
+                  'inline-flex items-center gap-1 px-2 py-1.5 text-xs font-medium rounded-md transition-colors',
+                  agent.status === 'active'
+                    ? 'text-orange-700 bg-orange-50 hover:bg-orange-100 dark:text-orange-400 dark:bg-orange-900/20 dark:hover:bg-orange-900/40'
+                    : 'text-green-700 bg-green-50 hover:bg-green-100 dark:text-green-400 dark:bg-green-900/20 dark:hover:bg-green-900/40'
+                )}
+              >
+                {agent.status === 'active' ? (
+                  <><Pause className="w-3.5 h-3.5" />{t('agents.deactivate')}</>
+                ) : (
+                  <><Play className="w-3.5 h-3.5" />{t('agents.activate')}</>
+                )}
+              </button>
 
-                {/* Test */}
-                <button
-                  onClick={() => setTestingAgent(agent)}
-                  className="p-2 text-emerald-600 hover:bg-emerald-100 dark:hover:bg-emerald-900/20 dark:text-emerald-400 rounded-lg transition-colors"
-                  title="Tester l'agent"
-                  aria-label="Test agent"
-                >
-                  <TestTube className="w-4 h-4" />
-                </button>
+              {/* Test */}
+              <button
+                onClick={() => setTestingAgent(agent)}
+                className="inline-flex items-center gap-1 px-2 py-1.5 text-xs font-medium rounded-md text-emerald-700 bg-emerald-50 hover:bg-emerald-100 dark:text-emerald-400 dark:bg-emerald-900/20 dark:hover:bg-emerald-900/40 transition-colors"
+              >
+                <TestTube className="w-3.5 h-3.5" />
+                {t('agents.test')}
+              </button>
 
-                {/* Edit */}
-                <button
-                  onClick={() => router.push(`/agents/${agent.id}/edit`)}
-                  className="p-2 text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-gray-400 rounded-lg transition-colors"
-                  title={t('agents.edit')}
-                  aria-label="Edit agent"
-                >
-                  <Edit className="w-4 h-4" />
-                </button>
+              {/* Edit */}
+              <button
+                onClick={() => router.push(`/agents/${agent.id}/edit`)}
+                className="inline-flex items-center gap-1 px-2 py-1.5 text-xs font-medium rounded-md text-gray-700 bg-gray-50 hover:bg-gray-100 dark:text-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 transition-colors"
+              >
+                <Edit className="w-3.5 h-3.5" />
+                {t('agents.edit')}
+              </button>
 
-                {/* Duplicate */}
-                <button
-                  onClick={() => duplicateAgent(agent.id)}
-                  className="p-2 text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-gray-400 rounded-lg transition-colors"
-                  title={t('agents.duplicate')}
-                  aria-label="Duplicate agent"
-                >
-                  <Copy className="w-4 h-4" />
-                </button>
+              {/* Duplicate */}
+              <button
+                onClick={() => duplicateAgent(agent.id)}
+                className="inline-flex items-center gap-1 px-2 py-1.5 text-xs font-medium rounded-md text-gray-700 bg-gray-50 hover:bg-gray-100 dark:text-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 transition-colors"
+              >
+                <Copy className="w-3.5 h-3.5" />
+                {t('agents.duplicate')}
+              </button>
 
-                {/* Delete */}
-                <button
-                  onClick={() => deleteAgent(agent.id)}
-                  className="p-2 text-red-600 hover:bg-red-100 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                  title={t('agents.delete')}
-                  aria-label="Delete agent"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
+              {/* Delete */}
+              <button
+                onClick={() => deleteAgent(agent.id)}
+                className="inline-flex items-center gap-1 px-2 py-1.5 text-xs font-medium rounded-md text-red-700 bg-red-50 hover:bg-red-100 dark:text-red-400 dark:bg-red-900/20 dark:hover:bg-red-900/40 transition-colors"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                {t('agents.delete')}
+              </button>
 
-              {/* Stats button */}
+              {/* Stats */}
               <button
                 onClick={() => router.push(`/agents/${agent.id}/analytics`)}
-                className="flex items-center space-x-1 text-sm text-primary-600 hover:text-primary-700 dark:text-primary-400 font-medium"
+                className="inline-flex items-center gap-1 px-2 py-1.5 text-xs font-medium rounded-md text-primary-700 bg-primary-50 hover:bg-primary-100 dark:text-primary-400 dark:bg-primary-900/20 dark:hover:bg-primary-900/40 transition-colors ml-auto"
               >
-                <BarChart3 className="w-4 h-4" />
-                <span>{t('agents.stats')}</span>
+                <BarChart3 className="w-3.5 h-3.5" />
+                {t('agents.stats')}
               </button>
             </div>
           </div>

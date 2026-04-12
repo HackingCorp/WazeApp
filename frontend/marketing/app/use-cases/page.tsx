@@ -4,6 +4,7 @@ import Link from "next/link"
 import { motion } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { ShoppingCart, Home, Utensils, ArrowRight } from "lucide-react"
+import useCasesIllustrations from "@/components/features/use-cases-illustrations"
 
 const useCases = [
   {
@@ -134,9 +135,14 @@ export default function UseCasesPage() {
                 </div>
                 
                 <div className={index % 2 === 1 ? "lg:col-start-1" : ""}>
-                  <div className="bg-gradient-to-br from-primary/5 to-primary/20 rounded-2xl p-8 h-80 flex items-center justify-center">
-                    <useCase.icon className="h-32 w-32 text-primary/40" />
-                  </div>
+                  {useCasesIllustrations[index] ? (() => {
+                    const IllustrationComponent = useCasesIllustrations[index]
+                    return <IllustrationComponent />
+                  })() : (
+                    <div className="bg-gradient-to-br from-primary/5 to-primary/20 rounded-2xl p-8 h-80 flex items-center justify-center">
+                      <useCase.icon className="h-32 w-32 text-primary/40" />
+                    </div>
+                  )}
                 </div>
               </motion.div>
             ))}

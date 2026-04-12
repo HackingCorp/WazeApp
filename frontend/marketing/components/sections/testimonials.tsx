@@ -66,12 +66,12 @@ export function TestimonialsSection() {
   ]
 
   const companies = [
-    { name: "DigiServ", logo: "DS" },
-    { name: "AfriTech", logo: "AT" },
-    { name: "GlobalTrade", logo: "GT" },
-    { name: "FastExpress", logo: "FE" },
-    { name: "CloudAfrica", logo: "CA" },
-    { name: "MediaPro", logo: "MP" },
+    { name: "DigiServ", logo: "DS", color: "from-blue-500 to-blue-600" },
+    { name: "AfriTech", logo: "AT", color: "from-emerald-500 to-teal-600" },
+    { name: "GlobalTrade", logo: "GT", color: "from-purple-500 to-indigo-600" },
+    { name: "FastExpress", logo: "FE", color: "from-orange-500 to-red-500" },
+    { name: "CloudAfrica", logo: "CA", color: "from-cyan-500 to-blue-500" },
+    { name: "MediaPro", logo: "MP", color: "from-rose-500 to-pink-600" },
   ]
 
   return (
@@ -112,7 +112,7 @@ export function TestimonialsSection() {
                 &ldquo;{testimonial.content}&rdquo;
               </p>
               <div className="flex items-center">
-                <div className={`h-12 w-12 rounded-full mr-4 flex items-center justify-center text-white font-bold text-sm ${avatarColors[index % avatarColors.length]}`}>
+                <div className={`h-12 w-12 rounded-full mr-4 flex items-center justify-center text-white font-bold text-sm ${avatarColors[index % avatarColors.length]} ring-2 ring-offset-2 ring-offset-white dark:ring-offset-gray-800 ring-${avatarColors[index % avatarColors.length].replace('bg-', '')}/30 shadow-lg`}>
                   {getInitials(testimonial.name)}
                 </div>
                 <div>
@@ -144,10 +144,10 @@ export function TestimonialsSection() {
                 key={company.name}
                 className="flex items-center space-x-2 text-gray-400"
               >
-                <div className="h-10 w-10 rounded-lg bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
-                  <span className="text-sm font-bold">{company.logo}</span>
+                <div className={`h-10 w-10 rounded-lg bg-gradient-to-br ${company.color} flex items-center justify-center shadow-md`}>
+                  <span className="text-sm font-bold text-white">{company.logo}</span>
                 </div>
-                <span className="text-lg font-semibold">{company.name}</span>
+                <span className="text-lg font-semibold text-gray-600 dark:text-gray-400">{company.name}</span>
               </div>
             ))}
           </div>

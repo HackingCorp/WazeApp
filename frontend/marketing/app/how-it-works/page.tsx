@@ -5,6 +5,7 @@ import { motion } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { MessageSquare, Settings, Zap, ArrowRight, CheckCircle } from "lucide-react"
 import { useTranslations } from "@/lib/hooks/use-translations"
+import howItWorksIllustrations from "@/components/features/how-it-works-illustrations"
 
 export default function HowItWorksPage() {
   const { t } = useTranslations()
@@ -129,9 +130,14 @@ export default function HowItWorksPage() {
                   </div>
                 </div>
                 <div className={index % 2 === 1 ? "lg:col-start-1" : ""}>
-                  <div className="bg-gradient-to-br from-primary/5 to-primary/20 rounded-2xl p-8 h-80 flex items-center justify-center">
-                    <step.icon className="h-32 w-32 text-primary" />
-                  </div>
+                  {howItWorksIllustrations[index] ? (() => {
+                    const IllustrationComponent = howItWorksIllustrations[index]
+                    return <IllustrationComponent />
+                  })() : (
+                    <div className="bg-gradient-to-br from-primary/5 to-primary/20 rounded-2xl p-8 h-80 flex items-center justify-center">
+                      <step.icon className="h-32 w-32 text-primary" />
+                    </div>
+                  )}
                 </div>
               </motion.div>
             ))}

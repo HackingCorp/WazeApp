@@ -5,56 +5,59 @@ import { motion } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { ShoppingCart, Home, Utensils, ArrowRight } from "lucide-react"
 import useCasesIllustrations from "@/components/features/use-cases-illustrations"
-
-const useCases = [
-  {
-    title: "E-commerce",
-    description: "Automate order tracking, product inquiries, and customer support for your online store.",
-    icon: ShoppingCart,
-    benefits: [
-      "Automated order status updates",
-      "Product recommendations",
-      "Cart abandonment recovery",
-      "24/7 customer support",
-    ],
-    stats: {
-      improvement: "35% increase in conversion rate",
-      time: "Save 20+ hours per week",
-    },
-  },
-  {
-    title: "Real Estate",
-    description: "Handle property inquiries, schedule viewings, and provide instant information to potential buyers.",
-    icon: Home,
-    benefits: [
-      "Property inquiry responses",
-      "Automated viewing scheduling",
-      "Market information sharing",
-      "Lead qualification",
-    ],
-    stats: {
-      improvement: "50% more qualified leads",
-      time: "Reduce response time to 30 seconds",
-    },
-  },
-  {
-    title: "Restaurants",
-    description: "Take orders, handle reservations, and provide menu information through WhatsApp.",
-    icon: Utensils,
-    benefits: [
-      "WhatsApp order taking",
-      "Table reservations",
-      "Menu sharing and updates",
-      "Delivery status updates",
-    ],
-    stats: {
-      improvement: "40% increase in delivery orders",
-      time: "Process orders 5x faster",
-    },
-  },
-]
+import { useTranslations } from "@/lib/hooks/use-translations"
 
 export default function UseCasesPage() {
+  const { t } = useTranslations()
+
+  const useCases = [
+    {
+      title: t("useCaseEcommerceTitle"),
+      description: t("useCaseEcommerceDesc"),
+      icon: ShoppingCart,
+      benefits: [
+        t("useCaseEcommerceBenefit1"),
+        t("useCaseEcommerceBenefit2"),
+        t("useCaseEcommerceBenefit3"),
+        t("useCaseEcommerceBenefit4"),
+      ],
+      stats: {
+        improvement: t("useCaseEcommerceStat1"),
+        time: t("useCaseEcommerceStat2"),
+      },
+    },
+    {
+      title: t("useCaseRealEstateTitle"),
+      description: t("useCaseRealEstateDesc"),
+      icon: Home,
+      benefits: [
+        t("useCaseRealEstateBenefit1"),
+        t("useCaseRealEstateBenefit2"),
+        t("useCaseRealEstateBenefit3"),
+        t("useCaseRealEstateBenefit4"),
+      ],
+      stats: {
+        improvement: t("useCaseRealEstateStat1"),
+        time: t("useCaseRealEstateStat2"),
+      },
+    },
+    {
+      title: t("useCaseRestaurantsTitle"),
+      description: t("useCaseRestaurantsDesc"),
+      icon: Utensils,
+      benefits: [
+        t("useCaseRestaurantsBenefit1"),
+        t("useCaseRestaurantsBenefit2"),
+        t("useCaseRestaurantsBenefit3"),
+        t("useCaseRestaurantsBenefit4"),
+      ],
+      stats: {
+        improvement: t("useCaseRestaurantsStat1"),
+        time: t("useCaseRestaurantsStat2"),
+      },
+    },
+  ]
+
   return (
     <div className="min-h-screen bg-background">
       <div className="bg-gradient-to-b from-green-50 to-white dark:from-green-950/20 dark:to-background py-20 sm:py-32">
@@ -66,11 +69,11 @@ export default function UseCasesPage() {
               transition={{ duration: 0.5 }}
             >
               <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-gray-900 dark:text-white mb-6">
-                Perfect for Every
-                <span className="text-primary"> Business Type</span>
+                {t("useCasesHeroTitle1")}
+                <span className="text-primary"> {t("useCasesHeroTitle2")}</span>
               </h1>
               <p className="text-lg sm:text-xl text-muted-foreground max-w-3xl mx-auto mb-8">
-                See how businesses across industries are using WazeApp to transform their WhatsApp communication.
+                {t("useCasesHeroSubtitle")}
               </p>
             </motion.div>
           </div>
@@ -82,7 +85,7 @@ export default function UseCasesPage() {
           <div className="space-y-32">
             {useCases.map((useCase, index) => (
               <motion.div
-                key={useCase.title}
+                key={index}
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
@@ -103,10 +106,10 @@ export default function UseCasesPage() {
                   <p className="text-lg text-muted-foreground mb-8">
                     {useCase.description}
                   </p>
-                  
+
                   <div className="space-y-3 mb-8">
-                    {useCase.benefits.map((benefit) => (
-                      <div key={benefit} className="flex items-center">
+                    {useCase.benefits.map((benefit, i) => (
+                      <div key={i} className="flex items-center">
                         <div className="h-2 w-2 rounded-full bg-primary mr-3"></div>
                         <span className="text-gray-700 dark:text-gray-300">{benefit}</span>
                       </div>
@@ -116,11 +119,11 @@ export default function UseCasesPage() {
                   <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-6 mb-8">
                     <div className="grid grid-cols-1 gap-4">
                       <div>
-                        <p className="text-sm text-muted-foreground">Results</p>
+                        <p className="text-sm text-muted-foreground">{t("useCasesResultsLabel")}</p>
                         <p className="text-lg font-semibold text-green-600">{useCase.stats.improvement}</p>
                       </div>
                       <div>
-                        <p className="text-sm text-muted-foreground">Efficiency</p>
+                        <p className="text-sm text-muted-foreground">{t("useCasesEfficiencyLabel")}</p>
                         <p className="text-lg font-semibold text-primary">{useCase.stats.time}</p>
                       </div>
                     </div>
@@ -128,12 +131,12 @@ export default function UseCasesPage() {
 
                   <Link href="/register">
                     <Button size="lg">
-                      Get Started
+                      {t("useCasesGetStarted")}
                       <ArrowRight className="ml-2 h-4 w-4" />
                     </Button>
                   </Link>
                 </div>
-                
+
                 <div className={index % 2 === 1 ? "lg:col-start-1" : ""}>
                   {useCasesIllustrations[index] ? (() => {
                     const IllustrationComponent = useCasesIllustrations[index]
@@ -159,14 +162,14 @@ export default function UseCasesPage() {
             transition={{ duration: 0.5 }}
           >
             <h2 className="text-3xl sm:text-4xl font-bold mb-6">
-              Ready to Transform Your Business?
+              {t("useCasesCtaTitle")}
             </h2>
             <p className="text-xl mb-8 max-w-2xl mx-auto">
-              Join thousands of businesses already using WazeApp to automate their WhatsApp communication.
+              {t("useCasesCtaSubtitle")}
             </p>
             <Link href="/register">
               <Button size="lg" variant="secondary">
-                Start Free Trial
+                {t("useCasesCtaButton")}
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             </Link>

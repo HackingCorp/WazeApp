@@ -480,7 +480,46 @@ To stay competitive, businesses should:
 
 The future of business communication is conversational, intelligent, and available 24/7. Companies that embrace this transformation will thrive; those that don't risk being left behind.
 
-Ready to future-proof your business? Try WazeApp free and experience the future today.`
+Ready to future-proof your business? Try WazeApp free and experience the future today.`,
+
+    // Use Cases Page
+    useCasesHeroTitle1: "Perfect for Every",
+    useCasesHeroTitle2: "Business Type",
+    useCasesHeroSubtitle: "See how businesses across industries are using WazeApp to transform their WhatsApp communication.",
+
+    useCaseEcommerceTitle: "E-commerce",
+    useCaseEcommerceDesc: "Automate order tracking, product inquiries, and customer support for your online store.",
+    useCaseEcommerceBenefit1: "Automated order status updates",
+    useCaseEcommerceBenefit2: "Product recommendations",
+    useCaseEcommerceBenefit3: "Cart abandonment recovery",
+    useCaseEcommerceBenefit4: "24/7 customer support",
+    useCaseEcommerceStat1: "35% increase in conversion rate",
+    useCaseEcommerceStat2: "Save 20+ hours per week",
+
+    useCaseRealEstateTitle: "Real Estate",
+    useCaseRealEstateDesc: "Handle property inquiries, schedule viewings, and provide instant information to potential buyers.",
+    useCaseRealEstateBenefit1: "Property inquiry responses",
+    useCaseRealEstateBenefit2: "Automated viewing scheduling",
+    useCaseRealEstateBenefit3: "Market information sharing",
+    useCaseRealEstateBenefit4: "Lead qualification",
+    useCaseRealEstateStat1: "50% more qualified leads",
+    useCaseRealEstateStat2: "Reduce response time to 30 seconds",
+
+    useCaseRestaurantsTitle: "Restaurants",
+    useCaseRestaurantsDesc: "Take orders, handle reservations, and provide menu information through WhatsApp.",
+    useCaseRestaurantsBenefit1: "WhatsApp order taking",
+    useCaseRestaurantsBenefit2: "Table reservations",
+    useCaseRestaurantsBenefit3: "Menu sharing and updates",
+    useCaseRestaurantsBenefit4: "Delivery status updates",
+    useCaseRestaurantsStat1: "40% increase in delivery orders",
+    useCaseRestaurantsStat2: "Process orders 5x faster",
+
+    useCasesResultsLabel: "Results",
+    useCasesEfficiencyLabel: "Efficiency",
+    useCasesGetStarted: "Get Started",
+    useCasesCtaTitle: "Ready to Transform Your Business?",
+    useCasesCtaSubtitle: "Join thousands of businesses already using WazeApp to automate their WhatsApp communication.",
+    useCasesCtaButton: "Start Free Trial",
   },
   fr: {
     // Navigation
@@ -961,7 +1000,46 @@ Pour rester compétitives, les entreprises devraient :
 
 L'avenir de la communication d'entreprise est conversationnel, intelligent et disponible 24h/24. Les entreprises qui embrassent cette transformation prospéreront ; celles qui ne le font pas risquent d'être laissées pour compte.
 
-Prêt à pérenniser votre entreprise ? Essayez WazeApp gratuitement et expérimentez l'avenir dès aujourd'hui.`
+Prêt à pérenniser votre entreprise ? Essayez WazeApp gratuitement et expérimentez l'avenir dès aujourd'hui.`,
+
+    // Use Cases Page
+    useCasesHeroTitle1: "Parfait pour Chaque",
+    useCasesHeroTitle2: "Type d'Entreprise",
+    useCasesHeroSubtitle: "Découvrez comment des entreprises de tous secteurs utilisent WazeApp pour transformer leur communication WhatsApp.",
+
+    useCaseEcommerceTitle: "E-commerce",
+    useCaseEcommerceDesc: "Automatisez le suivi des commandes, les demandes de produits et le support client pour votre boutique en ligne.",
+    useCaseEcommerceBenefit1: "Mises à jour automatiques du statut des commandes",
+    useCaseEcommerceBenefit2: "Recommandations de produits",
+    useCaseEcommerceBenefit3: "Récupération des paniers abandonnés",
+    useCaseEcommerceBenefit4: "Support client 24h/7",
+    useCaseEcommerceStat1: "35% d'augmentation du taux de conversion",
+    useCaseEcommerceStat2: "Économisez plus de 20 heures par semaine",
+
+    useCaseRealEstateTitle: "Immobilier",
+    useCaseRealEstateDesc: "Gérez les demandes de biens, planifiez les visites et fournissez des informations instantanées aux acheteurs potentiels.",
+    useCaseRealEstateBenefit1: "Réponses aux demandes de biens",
+    useCaseRealEstateBenefit2: "Planification automatique des visites",
+    useCaseRealEstateBenefit3: "Partage d'informations sur le marché",
+    useCaseRealEstateBenefit4: "Qualification des prospects",
+    useCaseRealEstateStat1: "50% de prospects qualifiés en plus",
+    useCaseRealEstateStat2: "Temps de réponse réduit à 30 secondes",
+
+    useCaseRestaurantsTitle: "Restaurants",
+    useCaseRestaurantsDesc: "Prenez les commandes, gérez les réservations et partagez les informations du menu via WhatsApp.",
+    useCaseRestaurantsBenefit1: "Prise de commandes via WhatsApp",
+    useCaseRestaurantsBenefit2: "Réservations de tables",
+    useCaseRestaurantsBenefit3: "Partage et mise à jour du menu",
+    useCaseRestaurantsBenefit4: "Suivi de l'état des livraisons",
+    useCaseRestaurantsStat1: "40% d'augmentation des commandes de livraison",
+    useCaseRestaurantsStat2: "Traitement des commandes 5x plus rapide",
+
+    useCasesResultsLabel: "Résultats",
+    useCasesEfficiencyLabel: "Efficacité",
+    useCasesGetStarted: "Commencer",
+    useCasesCtaTitle: "Prêt à Transformer Votre Entreprise ?",
+    useCasesCtaSubtitle: "Rejoignez des milliers d'entreprises qui utilisent déjà WazeApp pour automatiser leur communication WhatsApp.",
+    useCasesCtaButton: "Essai Gratuit",
   },
   es: {
     // Navigation

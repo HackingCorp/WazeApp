@@ -17,6 +17,7 @@ import {
   CheckCircle,
 } from "lucide-react"
 import { useTranslations } from "@/lib/hooks/use-translations"
+import featureIllustrations from "@/components/features/feature-illustrations"
 
 
 export default function FeaturesPage() {
@@ -188,9 +189,14 @@ export default function FeaturesPage() {
                   </div>
                 </div>
                 <div className={index % 2 === 1 ? "lg:col-start-1" : ""}>
-                  <div className="bg-gray-100 dark:bg-gray-800 rounded-2xl p-8 h-80 flex items-center justify-center">
-                    <feature.icon className="h-32 w-32 text-primary/20" />
-                  </div>
+                  {featureIllustrations[index] ? (() => {
+                    const IllustrationComponent = featureIllustrations[index]
+                    return <IllustrationComponent />
+                  })() : (
+                    <div className="bg-gray-100 dark:bg-gray-800 rounded-2xl p-8 h-80 flex items-center justify-center">
+                      <feature.icon className="h-32 w-32 text-primary/20" />
+                    </div>
+                  )}
                 </div>
               </motion.div>
             ))}

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { NoAgentsIllustration } from '@/components/illustrations/EmptyStateIllustrations';
 import {
   Plus,
   Bot,
@@ -423,7 +424,7 @@ export default function AgentsPage() {
       {/* Empty state */}
       {filteredAgents.length === 0 && (
         <div className="text-center py-12">
-          <Bot className="mx-auto h-12 w-12 text-gray-400" />
+          <NoAgentsIllustration className="mb-2" />
           <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">
             {t('agents.noAgentsFound')}
           </h3>

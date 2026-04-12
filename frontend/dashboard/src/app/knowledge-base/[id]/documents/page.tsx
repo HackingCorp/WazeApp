@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { NoDocumentsIllustration } from '@/components/illustrations/EmptyStateIllustrations';
 import { 
   ArrowLeft, 
   Plus, 
@@ -492,7 +493,7 @@ export default function KnowledgeBaseDocumentsPage() {
             </div>
           ) : filteredDocuments.length === 0 ? (
             <div className="p-12 text-center">
-              <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+              <NoDocumentsIllustration className="mb-4" />
               <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
                 Aucun document trouvé
               </h3>

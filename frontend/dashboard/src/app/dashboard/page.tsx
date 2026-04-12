@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { NoAgentsIllustration } from '@/components/illustrations/EmptyStateIllustrations';
 import {
   TrendingUp,
   Users,
@@ -641,7 +642,7 @@ export default function DashboardPage() {
               ))
             ) : (
               <div className="text-center py-8">
-                <Bot className="mx-auto h-12 w-12 text-gray-400" />
+                <NoAgentsIllustration className="mb-2" />
                 <h4 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">
                   {t('dashboard.noAgents')}
                 </h4>

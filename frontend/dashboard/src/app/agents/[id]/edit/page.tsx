@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { analytics } from '@/lib/analytics';
+import { NoKnowledgeBaseIllustration } from '@/components/illustrations/EmptyStateIllustrations';
 import {
   Bot,
   Brain,
@@ -794,7 +795,7 @@ export default function EditAgentPage() {
               ) : (
                 /* Pas de base de connaissances */
                 <div className="text-center py-8 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                  <Database className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                  <NoKnowledgeBaseIllustration className="mb-4" />
                   <h4 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
                     Aucune base de connaissances
                   </h4>

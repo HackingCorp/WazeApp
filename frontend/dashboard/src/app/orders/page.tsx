@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { NoOrdersIllustration } from '@/components/illustrations/EmptyStateIllustrations';
 import {
   Search,
   ClipboardList,
@@ -236,7 +237,7 @@ export default function OrdersPage() {
             </div>
           ) : orders.length === 0 ? (
             <div className="p-12 text-center">
-              <ClipboardList className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+              <NoOrdersIllustration className="mb-4" />
               <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
                 {t('orders.noOrders')}
               </h3>

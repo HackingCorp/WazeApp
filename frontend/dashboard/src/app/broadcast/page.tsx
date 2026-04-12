@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { NoTemplatesIllustration } from '@/components/illustrations/EmptyStateIllustrations';
 import {
   Radio,
   Users,
@@ -1530,7 +1531,7 @@ export default function BroadcastPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {templates.length === 0 ? (
                 <div className="col-span-full text-center py-12 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
-                  <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                  <NoTemplatesIllustration className="mb-4" />
                   <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
                     Aucun template
                   </h3>

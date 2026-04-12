@@ -19,6 +19,7 @@ import {
 import { useAuth } from '@/providers/AuthProvider';
 import { useTheme } from '@/providers/ThemeProvider';
 import { useI18n } from '@/providers/I18nProvider';
+import { useNotificationStore } from '@/stores/useNotificationStore';
 import clsx from 'clsx';
 
 interface HeaderProps {
@@ -38,32 +39,10 @@ export function Header({ onMobileMenuToggle, sidebarCollapsed }: HeaderProps) {
   const { theme, setTheme } = useTheme();
   const { t, locale, setLocale, availableLocales } = useI18n();
 
-  // Mock notifications - in real app, these would come from API
-  const notifications = [
-    {
-      id: '1',
-      title: 'New conversation started',
-      message: 'Customer John Doe initiated a chat',
-      time: '2 min ago',
-      unread: true,
-    },
-    {
-      id: '2',
-      title: 'Agent response time improved',
-      message: 'AI Agent #1 average response: 1.2s',
-      time: '1 hour ago',
-      unread: true,
-    },
-    {
-      id: '3',
-      title: 'Weekly analytics ready',
-      message: 'View your performance report',
-      time: '1 day ago',
-      unread: false,
-    },
-  ];
-
-  const unreadCount = notifications.filter(n => n.unread).length;
+  const notifications = useNotificationStore((s) => s.notifications);
+  const markAsRead = useNotificationStore((s) => s.markAsRead);
+  const markAllAsRead = useNotificationStore((s) => s.markAllAsRead);
+  const unreadCount = useNotificationStore((s) => s.unreadCount());
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -222,39 +201,53 @@ export function Header({ onMobileMenuToggle, sidebarCollapsed }: HeaderProps) {
 
               {notificationsOpen && (
                 <div className="origin-top-right absolute right-0 mt-2 w-80 rounded-md shadow-lg py-1 bg-white dark:bg-gray-800 ring-1 ring-black ring-opacity-5 focus:outline-none z-50">
-                  <div className="px-4 py-2 border-b border-gray-200 dark:border-gray-700">
+                  <div className="px-4 py-2 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
                     <h3 className="text-sm font-medium text-gray-900 dark:text-white">
                       {t('header.notifications')} {unreadCount > 0 && `(${unreadCount})`}
                     </h3>
+                    {notifications.length > 0 && (
+                      <button
+                        className="text-xs text-green-600 hover:text-green-700 dark:text-green-400"
+                        onClick={() => markAllAsRead()}
+                      >
+                        {t('header.markAllRead')}
+                      </button>
+                    )}
                   </div>
                   <div className="max-h-64 overflow-y-auto">
-                    {notifications.map((notification) => (
-                      <div
-                        key={notification.id}
-                        className={clsx(
-                          'px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer',
-                          notification.unread && 'bg-green-50 dark:bg-green-900/20'
-                        )}
-                      >
-                        <p className="text-sm font-medium text-gray-900 dark:text-white">
-                          {notification.title}
-                        </p>
-                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                          {notification.message}
-                        </p>
-                        <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                          {notification.time}
-                        </p>
+                    {notifications.length === 0 ? (
+                      <div className="px-4 py-8 text-center text-sm text-gray-400 dark:text-gray-500">
+                        {t('header.noNotifications')}
                       </div>
-                    ))}
-                  </div>
-                  <div className="px-4 py-2 border-t border-gray-200 dark:border-gray-700">
-                    <button
-                      className="text-sm text-green-600 hover:text-green-700 dark:text-green-400"
-                      onClick={() => router.push('/notifications')}
-                    >
-                      {t('header.viewAllNotifications')}
-                    </button>
+                    ) : (
+                      notifications.map((notification) => (
+                        <div
+                          key={notification.id}
+                          onClick={() => {
+                            markAsRead(notification.id);
+                            if (notification.conversationId) {
+                              router.push('/conversations');
+                            }
+                            setNotificationsOpen(false);
+                          }}
+                          className={clsx(
+                            'px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer',
+                            !notification.read && 'bg-green-50 dark:bg-green-900/20'
+                          )}
+                        >
+                          <p className="text-sm font-medium text-gray-900 dark:text-white">
+                            {notification.type === 'escalation' && <span className="mr-1">{'\u26A1'}</span>}
+                            {notification.title}
+                          </p>
+                          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                            {notification.message}
+                          </p>
+                          <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                            {new Date(notification.createdAt).toLocaleString()}
+                          </p>
+                        </div>
+                      ))
+                    )}
                   </div>
                 </div>
               )}

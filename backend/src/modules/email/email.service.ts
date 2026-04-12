@@ -2056,4 +2056,159 @@ export class EmailService {
 </html>
     `;
   }
+
+  /**
+   * Send escalation alert email to operator
+   */
+  async sendEscalationAlert(
+    email: string,
+    details: {
+      agentName: string;
+      clientPhoneNumber: string;
+      reason: string;
+      conversationId: string;
+      escalatedAt: Date;
+    },
+  ): Promise<void> {
+    this.logger.log(`📧 Attempting to send escalation alert to ${email} for conversation ${details.conversationId}`);
+
+    if (!this.transporter) {
+      this.logger.error(`❌ Cannot send escalation alert: SMTP transporter not configured.`);
+      return;
+    }
+
+    const dashboardUrl = this.getDashboardUrl();
+    const conversationsUrl = `${dashboardUrl}/conversations`;
+
+    const html = this.getEscalationAlertEmailTemplate(details, conversationsUrl);
+
+    try {
+      await this.transporter.sendMail({
+        from: `"${this.getFromName()}" <${this.getFromAddress()}>`,
+        to: email,
+        subject: `🚨 Escalade conversation - Agent ${details.agentName}`,
+        html,
+        text: `Alerte d'escalade\n\nUne conversation a été escaladée vers un opérateur humain.\n\nAgent: ${details.agentName}\nClient: ${details.clientPhoneNumber}\nRaison: ${details.reason}\nDate: ${details.escalatedAt.toLocaleDateString('fr-FR')} à ${details.escalatedAt.toLocaleTimeString('fr-FR')}\n\nAccéder aux conversations: ${conversationsUrl}\n\nL'équipe WazeApp`,
+      });
+
+      this.logger.log(`✅ Escalation alert sent to ${email}`);
+    } catch (error) {
+      this.logger.error(`❌ Failed to send escalation alert to ${email}:`, error);
+    }
+  }
+
+  private getEscalationAlertEmailTemplate(
+    details: {
+      agentName: string;
+      clientPhoneNumber: string;
+      reason: string;
+      conversationId: string;
+      escalatedAt: Date;
+    },
+    conversationsUrl: string,
+  ): string {
+    const formattedDate = details.escalatedAt.toLocaleDateString('fr-FR', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    });
+    const formattedTime = details.escalatedAt.toLocaleTimeString('fr-FR', {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+
+    return `
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Escalade de conversation</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f4f4f4; padding: 20px;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+          <!-- Header -->
+          <tr>
+            <td style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); padding: 40px 20px; text-align: center;">
+              <h1 style="color: #ffffff; margin: 0; font-size: 28px;">🚨 Escalade de Conversation</h1>
+              <p style="color: #ffffff; margin: 10px 0 0 0; font-size: 16px;">Intervention humaine requise</p>
+            </td>
+          </tr>
+          <!-- Content -->
+          <tr>
+            <td style="padding: 40px 30px;">
+              <p style="color: #666666; line-height: 1.6; margin: 0 0 20px 0; font-size: 16px;">
+                Une conversation a été transférée à un opérateur humain et nécessite votre attention.
+              </p>
+
+              <!-- Alert Box -->
+              <div style="background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 20px; margin: 20px 0; border-radius: 4px;">
+                <p style="color: #92400e; margin: 0; font-size: 16px; font-weight: bold;">
+                  Un client attend une réponse humaine !
+                </p>
+              </div>
+
+              <!-- Details Box -->
+              <div style="background-color: #f8f9fa; border-radius: 8px; padding: 25px; margin: 25px 0;">
+                <h3 style="color: #333; margin: 0 0 15px 0; font-size: 16px;">📋 Détails de l'escalade</h3>
+                <table width="100%" cellpadding="5" cellspacing="0">
+                  <tr>
+                    <td style="color: #666; padding: 8px 0; border-bottom: 1px solid #e9ecef;">Agent IA</td>
+                    <td style="color: #333; font-weight: bold; text-align: right; padding: 8px 0; border-bottom: 1px solid #e9ecef;">
+                      ${details.agentName}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="color: #666; padding: 8px 0; border-bottom: 1px solid #e9ecef;">Numéro du client</td>
+                    <td style="color: #333; text-align: right; padding: 8px 0; border-bottom: 1px solid #e9ecef;">
+                      ${details.clientPhoneNumber}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="color: #666; padding: 8px 0; border-bottom: 1px solid #e9ecef;">Raison</td>
+                    <td style="color: #333; text-align: right; padding: 8px 0; border-bottom: 1px solid #e9ecef;">
+                      ${details.reason}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="color: #666; padding: 8px 0;">Date</td>
+                    <td style="color: #f59e0b; font-weight: bold; text-align: right; padding: 8px 0;">
+                      ${formattedDate} à ${formattedTime}
+                    </td>
+                  </tr>
+                </table>
+              </div>
+
+              <div style="text-align: center; margin: 30px 0;">
+                <a href="${conversationsUrl}" style="display: inline-block; background-color: #059669; color: #ffffff; text-decoration: none; padding: 15px 40px; border-radius: 5px; font-weight: bold; font-size: 16px;">
+                  Voir la conversation
+                </a>
+              </div>
+
+              <p style="color: #999999; line-height: 1.6; margin: 20px 0 0 0; font-size: 12px; text-align: center;">
+                Vous recevez cet email car vous êtes configuré comme destinataire des alertes d'escalade.<br>
+                Questions? Contactez-nous à <a href="mailto:support@wazeapp.xyz" style="color: #25D366;">support@wazeapp.xyz</a>
+              </p>
+            </td>
+          </tr>
+          <!-- Footer -->
+          <tr>
+            <td style="background-color: #f8f8f8; padding: 20px 30px; text-align: center; border-top: 1px solid #eeeeee;">
+              <p style="color: #999999; margin: 0; font-size: 12px;">
+                © 2025 WazeApp. Tous droits réservés.<br>
+                <a href="https://wazeapp.xyz" style="color: #25D366; text-decoration: none;">wazeapp.xyz</a>
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+    `;
+  }
 }

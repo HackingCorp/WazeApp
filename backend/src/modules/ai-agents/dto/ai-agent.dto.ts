@@ -32,6 +32,17 @@ export class EscalationConfigDto {
   @IsOptional()
   @IsString()
   escalationMessage?: string;
+
+  @ApiPropertyOptional({ description: "Operator WhatsApp number for escalation notifications" })
+  @IsOptional()
+  @IsString()
+  operatorWhatsAppNumber?: string;
+
+  @ApiPropertyOptional({ description: "Email addresses for escalation notifications", type: [String] })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  notificationEmails?: string[];
 }
 
 export class AgentConfigDto {

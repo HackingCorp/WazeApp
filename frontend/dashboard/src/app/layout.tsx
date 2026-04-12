@@ -7,6 +7,7 @@ import { ToastProvider } from '@/providers/ToastProvider';
 import { I18nProvider } from '@/providers/I18nProvider';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { PostHogProvider } from '@/providers/PostHogProvider';
+import { EscalationListener } from '@/components/EscalationListener';
 import './globals.css';
 
 const inter = Inter({ subsets: ['latin'] });
@@ -101,6 +102,7 @@ export default function RootLayout({
               <PostHogProvider>
                 <ErrorBoundary>
                   <SocketProvider>
+                    <EscalationListener />
                     <ToastProvider>
                       {children}
                     </ToastProvider>

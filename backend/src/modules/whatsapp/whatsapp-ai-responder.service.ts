@@ -43,6 +43,7 @@ import { ProductSearchService } from "../ecommerce/services/product-search.servi
 import { OrderTagParserService } from "../orders/services/order-tag-parser.service";
 import { AppointmentTagParserService } from "../appointments/services/appointment-tag-parser.service";
 import { AvailabilityService } from "../appointments/services/availability.service";
+import { EmailService } from "../email/email.service";
 
 interface WhatsAppMessageEvent {
   sessionId: string;
@@ -267,6 +268,7 @@ export class WhatsAppAIResponderService {
     private configService: ConfigService,
     private eventEmitter: EventEmitter2,
     private quotaEnforcementService: QuotaEnforcementService,
+    private emailService: EmailService,
     private vectorSearchService: VectorSearchService,
     private productSearchService: ProductSearchService,
     private orderTagParserService: OrderTagParserService,
@@ -3134,11 +3136,55 @@ RÈGLES:
       this.eventEmitter.emit('conversation.escalated', {
         conversationId: conversation.id,
         agentId: agent.id,
+        agentName: agent.name,
         organizationId: agent.organizationId,
         clientPhoneNumber: fromNumber,
         reason,
         sessionId: session.id,
       });
+
+      // Send WhatsApp notification to operator (non-blocking)
+      if (agent.escalationConfig?.operatorWhatsAppNumber) {
+        try {
+          const operatorJid = agent.escalationConfig.operatorWhatsAppNumber.includes('@')
+            ? agent.escalationConfig.operatorWhatsAppNumber
+            : `${agent.escalationConfig.operatorWhatsAppNumber}@s.whatsapp.net`;
+
+          const notificationMsg = `🚨 *Escalade de conversation*\n\n` +
+            `Agent: ${agent.name}\n` +
+            `Client: ${fromNumber}\n` +
+            `Raison: ${reason}\n` +
+            `Date: ${new Date().toLocaleString('fr-FR')}\n\n` +
+            `Connectez-vous au dashboard pour répondre.`;
+
+          await this.baileysService.sendMessage(session.id, {
+            to: operatorJid,
+            message: notificationMsg,
+            type: 'text',
+          });
+          this.logger.log(`✅ WhatsApp escalation notification sent to operator ${agent.escalationConfig.operatorWhatsAppNumber}`);
+        } catch (whatsappError) {
+          this.logger.error(`❌ Failed to send WhatsApp escalation notification: ${whatsappError.message}`);
+        }
+      }
+
+      // Send email notifications (non-blocking)
+      if (agent.escalationConfig?.notificationEmails?.length) {
+        const emailDetails = {
+          agentName: agent.name,
+          clientPhoneNumber: fromNumber,
+          reason,
+          conversationId: conversation.id,
+          escalatedAt: new Date(),
+        };
+        for (const email of agent.escalationConfig.notificationEmails) {
+          try {
+            await this.emailService.sendEscalationAlert(email, emailDetails);
+          } catch (emailError) {
+            this.logger.error(`❌ Failed to send escalation email to ${email}: ${emailError.message}`);
+          }
+        }
+      }
 
       this.logger.log(`✅ Conversation ${conversation.id} escalated successfully. Reason: ${reason}`);
     } catch (error) {

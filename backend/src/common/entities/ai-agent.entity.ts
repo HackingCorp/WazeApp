@@ -123,6 +123,8 @@ export class AiAgent extends BaseEntity {
     enabled?: boolean;
     keywords?: string[];
     escalationMessage?: string;
+    operatorWhatsAppNumber?: string;
+    notificationEmails?: string[];
   };
 
   @ApiProperty({ description: "Agent performance metrics" })

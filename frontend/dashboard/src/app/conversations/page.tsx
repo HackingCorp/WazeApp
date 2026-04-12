@@ -532,17 +532,12 @@ export default function ConversationsPage() {
     };
 
     const handleConversationEscalated = (data: { conversationId: string; reason?: string }) => {
-      // Update the contact's escalation status
+      // Update the contact's escalation status (toast handled globally by EscalationListener)
       setContacts(prev => prev.map(contact =>
         contact.id === data.conversationId
           ? { ...contact, isHumanControlled: true, escalationReason: data.reason }
           : contact
       ));
-
-      toast.error(`${t('conversations.escalatedNotification')}: ${data.reason || t('conversations.humanAgentRequested')}`, {
-        duration: 5000,
-        icon: '⚡',
-      });
     };
 
     const handleConversationReleased = (data: { conversationId: string }) => {

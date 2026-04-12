@@ -68,6 +68,8 @@ interface Agent {
     enabled?: boolean;
     keywords?: string[];
     escalationMessage?: string;
+    operatorWhatsAppNumber?: string;
+    notificationEmails?: string[];
   };
 }
 
@@ -109,6 +111,8 @@ interface AgentFormData {
     enabled?: boolean;
     keywords?: string[];
     escalationMessage?: string;
+    operatorWhatsAppNumber?: string;
+    notificationEmails?: string[];
   };
 }
 
@@ -197,6 +201,8 @@ export default function EditAgentPage() {
       enabled: false,
       keywords: [],
       escalationMessage: '',
+      operatorWhatsAppNumber: '',
+      notificationEmails: [],
     },
   });
 
@@ -241,6 +247,8 @@ export default function EditAgentPage() {
               enabled: agentData.escalationConfig?.enabled ?? false,
               keywords: agentData.escalationConfig?.keywords ?? [],
               escalationMessage: agentData.escalationConfig?.escalationMessage ?? '',
+              operatorWhatsAppNumber: agentData.escalationConfig?.operatorWhatsAppNumber ?? '',
+              notificationEmails: agentData.escalationConfig?.notificationEmails ?? [],
             },
           });
         } else {
@@ -1257,6 +1265,60 @@ export default function EditAgentPage() {
                   />
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                     Message envoyé à l'utilisateur quand sa conversation est transférée à un agent humain
+                  </p>
+                </div>
+
+                {/* Operator WhatsApp Number */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    {t('agents.escalationOperatorWhatsApp')}
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.escalationConfig?.operatorWhatsAppNumber || ''}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        escalationConfig: {
+                          ...prev.escalationConfig,
+                          operatorWhatsAppNumber: e.target.value,
+                        },
+                      }))
+                    }
+                    placeholder="237xxxxxxxxx"
+                    disabled={!formData.escalationConfig?.enabled}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  />
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    {t('agents.escalationOperatorWhatsAppHint')}
+                  </p>
+                </div>
+
+                {/* Notification Emails */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    {t('agents.escalationNotificationEmails')}
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.escalationConfig?.notificationEmails?.join(', ') || ''}
+                    onChange={(e) => {
+                      const emailsString = e.target.value;
+                      const emailsArray = emailsString.split(',').map(em => em.trim()).filter(em => em);
+                      setFormData((prev) => ({
+                        ...prev,
+                        escalationConfig: {
+                          ...prev.escalationConfig,
+                          notificationEmails: emailsArray,
+                        },
+                      }));
+                    }}
+                    placeholder="operator@company.com, admin@company.com"
+                    disabled={!formData.escalationConfig?.enabled}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  />
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    {t('agents.escalationNotificationEmailsHint')}
                   </p>
                 </div>
               </div>

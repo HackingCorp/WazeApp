@@ -20,6 +20,7 @@ import {
   AgentConversation,
   ConversationContext,
   WebhookEvent,
+  AiAgent,
 } from "../../../common/entities";
 import {
   ConversationState,
@@ -84,6 +85,8 @@ export class ConversationGateway
     private conversationRepository: Repository<AgentConversation>,
     @InjectRepository(ConversationContext)
     private contextRepository: Repository<ConversationContext>,
+    @InjectRepository(AiAgent)
+    private agentRepository: Repository<AiAgent>,
     private jwtService: JwtService,
     private eventEmitter: EventEmitter2,
   ) {}
@@ -531,12 +534,24 @@ export class ConversationGateway
   async handleConversationEscalated(payload: {
     conversationId: string;
     agentId: string;
+    agentName?: string;
     organizationId: string;
     clientPhoneNumber: string;
     reason: string;
     sessionId: string;
   }) {
     this.logger.log(`🚨 Conversation escalated: ${payload.conversationId} - Reason: ${payload.reason}`);
+
+    // Resolve agent name if not provided
+    let agentName = payload.agentName;
+    if (!agentName && payload.agentId) {
+      try {
+        const agent = await this.agentRepository.findOne({ where: { id: payload.agentId } });
+        agentName = agent?.name || 'Agent IA';
+      } catch {
+        agentName = 'Agent IA';
+      }
+    }
 
     // Broadcast to organization room for real-time notification
     if (payload.organizationId) {
@@ -545,6 +560,7 @@ export class ConversationGateway
         .emit("conversation_escalated", {
           conversationId: payload.conversationId,
           agentId: payload.agentId,
+          agentName,
           clientPhoneNumber: payload.clientPhoneNumber,
           reason: payload.reason,
           timestamp: new Date(),
@@ -556,6 +572,7 @@ export class ConversationGateway
       .to(`conversation:${payload.conversationId}`)
       .emit("conversation_escalated", {
         conversationId: payload.conversationId,
+        agentName,
         reason: payload.reason,
         timestamp: new Date(),
       });

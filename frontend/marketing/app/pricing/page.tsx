@@ -128,9 +128,9 @@ export default function PricingPage() {
 
   // Base prices in USD (fallback if API fails)
   const basePrices = {
-    STANDARD: { monthly: 29.99, annually: 299.90 },
-    PRO: { monthly: 49.99, annually: 499.90 },
-    ENTERPRISE: { monthly: 199.99, annually: 1999.90 },
+    STANDARD: { monthly: 29, annually: 276 },
+    PRO: { monthly: 49, annually: 468 },
+    ENTERPRISE: { monthly: 199, annually: 1908 },
   }
 
   const calculatePrice = (price: number, planId?: string) => {
@@ -175,7 +175,7 @@ export default function PricingPage() {
       id: "STANDARD",
       name: t("planStandard"),
       description: t("planStandardDesc"),
-      price: { monthly: 29.99, annually: 299.90 },
+      price: { monthly: 29, annually: 276 },
       features: [
         { name: t("feature1Agent"), included: true },
         { name: t("feature2kMessages"), included: true },
@@ -194,7 +194,7 @@ export default function PricingPage() {
       id: "PRO",
       name: t("planPro"),
       description: t("planProDesc"),
-      price: { monthly: 49.99, annually: 499.90 },
+      price: { monthly: 49, annually: 468 },
       features: [
         { name: t("feature3Agents"), included: true },
         { name: t("feature8kMessages"), included: true },
@@ -213,7 +213,7 @@ export default function PricingPage() {
       id: "ENTERPRISE",
       name: t("planEnterprise"),
       description: t("planEnterpriseDesc"),
-      price: { monthly: 199.99, annually: 1999.90 },
+      price: { monthly: 199, annually: 1908 },
       features: [
         { name: t("feature10Agents"), included: true },
         { name: t("featureUnlimitedMessages"), included: true },

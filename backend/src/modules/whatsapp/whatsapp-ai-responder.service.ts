@@ -1875,7 +1875,7 @@ Do NOT escalate for simple questions you can answer from the knowledge base.`;
       // FIX 5: Move KB context to the BEGINNING (right after user's system prompt)
       // to avoid "lost in the middle" problem
       if (knowledgeContext) {
-        systemPrompt += `\n\n${knowledgeContext}`;
+        systemPrompt += `\n\n${this.sanitizeForPrompt(knowledgeContext, 5000)}`;
       }
 
       // Add product catalog context if available
@@ -1944,10 +1944,12 @@ IMPORTANT RULES:
       
       // Add comprehensive media context to system prompt
       if (mediaAnalysis) {
+        const sanitizedDescription = this.sanitizeForPrompt(mediaAnalysis.description || '', 1000);
+        const sanitizedExtractedText = mediaAnalysis.extractedText ? this.sanitizeForPrompt(mediaAnalysis.extractedText, 2000) : '';
         systemPrompt += `\n\nCONTEXTE MÉDIA REÇU:
 - Type: ${mediaAnalysis.type}
-- Description: ${mediaAnalysis.description}
-${mediaAnalysis.extractedText ? `- Texte extrait: ${mediaAnalysis.extractedText}` : ''}
+- Description: ${sanitizedDescription}
+${sanitizedExtractedText ? `- Texte extrait: ${sanitizedExtractedText}` : ''}
 ${mediaAnalysis.url ? `- URL: ${mediaAnalysis.url}` : ''}
 ${mediaAnalysis.metadata?.price ? `- Prix détecté: ${mediaAnalysis.metadata.price}` : ''}
 ${mediaAnalysis.metadata?.title ? `- Titre: ${mediaAnalysis.metadata.title}` : ''}
@@ -1970,11 +1972,12 @@ ${this.generateContextualInstructions(mediaAnalysis)}`;
       
       // Add reply context to system prompt if this is a response to another message
       if (replyContext?.isReply) {
+        const sanitizedQuotedMessage = this.sanitizeForPrompt(replyContext.quotedMessage || '', 500);
         systemPrompt += `\n\n🔗 MESSAGE DE RÉPONSE DÉTECTÉ:
 Le client répond au message suivant:
 
 📝 Message original cité:
-"${replyContext.quotedMessage}"
+"${sanitizedQuotedMessage}"
 
 📋 Type de message cité: ${replyContext.quotedType}
 ${replyContext.quotedMessageId ? `🆔 ID: ${replyContext.quotedMessageId}` : ''}
@@ -3241,5 +3244,36 @@ RÈGLES:
         status: 'failed' as any,
       });
     }
+  }
+
+  /**
+   * Sanitizes user-controlled content before injection into AI system prompts
+   * to prevent prompt injection attacks.
+   */
+  private sanitizeForPrompt(content: string, maxLength: number = 500): string {
+    if (!content) return '';
+
+    // Truncate to max length
+    let sanitized = content.substring(0, maxLength);
+
+    // Remove common prompt injection patterns (case insensitive)
+    const injectionPatterns = [
+      /ignore (?:all )?(?:previous |above )?instructions/gi,
+      /you are now/gi,
+      /new instructions?:/gi,
+      /system:\s/gi,
+      /\[SYSTEM\]/gi,
+      /\[INST\]/gi,
+      /<<SYS>>/gi,
+      /<\|im_start\|>/gi,
+      /IMPORTANT:\s*(?:ignore|forget|disregard)/gi,
+      /(?:forget|disregard) (?:everything|all|previous)/gi,
+    ];
+
+    for (const pattern of injectionPatterns) {
+      sanitized = sanitized.replace(pattern, '[filtered]');
+    }
+
+    return sanitized;
   }
 }

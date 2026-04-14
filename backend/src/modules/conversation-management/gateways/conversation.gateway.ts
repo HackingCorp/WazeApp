@@ -105,8 +105,16 @@ export class ConversationGateway
         return;
       }
 
+      const jwtSecret = process.env.JWT_ACCESS_SECRET;
+      if (!jwtSecret) {
+        this.logger.error('JWT_ACCESS_SECRET is not configured');
+        client.emit('auth_error', { message: 'Server configuration error' });
+        client.disconnect();
+        return;
+      }
+
       const payload = this.jwtService.verify(token, {
-        secret: process.env.JWT_ACCESS_SECRET,
+        secret: jwtSecret,
       });
 
       if (!payload.sub) {

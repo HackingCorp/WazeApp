@@ -26,6 +26,10 @@ async function bootstrap() {
   // Trust the first proxy (Dokploy reverse proxy) so that @Ip() returns the real client IP
   app.set('trust proxy', 1);
 
+  // Body size limits to prevent large payload attacks
+  app.useBodyParser('json', { limit: '1mb' });
+  app.useBodyParser('urlencoded', { limit: '1mb', extended: true });
+
   const configService = app.get(ConfigService);
   const logger = new Logger("Bootstrap");
 

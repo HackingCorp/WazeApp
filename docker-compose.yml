@@ -6,9 +6,9 @@ services:
     container_name: wazeapp_postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: wazeapp
-      POSTGRES_USER: wazeapp
-      POSTGRES_PASSWORD: wazeapp123
+      POSTGRES_DB: ${POSTGRES_DB:-wazeapp}
+      POSTGRES_USER: ${POSTGRES_USER:-wazeapp}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-wazeapp_dev_password}
       PGDATA: /var/lib/postgresql/data/pgdata
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -18,7 +18,7 @@ services:
       - wazeapp_network
       - web
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U wazeapp -d wazeapp"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-wazeapp} -d $${POSTGRES_DB:-wazeapp}"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -96,17 +96,17 @@ services:
       - "traefik.http.services.backend.loadbalancer.server.port=3100"
     environment:
       NODE_ENV: production
-      DATABASE_URL: postgresql://wazeapp:wazeapp123@postgres:5432/wazeapp
+      DATABASE_URL: postgresql://${POSTGRES_USER:-wazeapp}:${POSTGRES_PASSWORD:-wazeapp_dev_password}@postgres:5432/${POSTGRES_DB:-wazeapp}
       DATABASE_HOST: postgres
       DATABASE_PORT: 5432
-      DATABASE_NAME: wazeapp
-      DATABASE_USERNAME: wazeapp
-      DATABASE_PASSWORD: wazeapp123
+      DATABASE_NAME: ${POSTGRES_DB:-wazeapp}
+      DATABASE_USERNAME: ${POSTGRES_USER:-wazeapp}
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD:-wazeapp_dev_password}
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      JWT_SECRET: 5f4d2a8b9c7e1f3a6d8b2c7e9f4a6d8b3c7e9f4a
-      JWT_ACCESS_SECRET: your-access-secret-key-here
-      JWT_REFRESH_SECRET: your-refresh-secret-key-here
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
       JWT_ACCESS_EXPIRATION_TIME: 15m
       JWT_REFRESH_EXPIRATION_TIME: 7d
       FRONTEND_URL: https://wazeapp.xyz

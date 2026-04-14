@@ -13,9 +13,29 @@ import { Request } from "express";
 export class LoggingInterceptor implements NestInterceptor {
   private readonly logger = new Logger(LoggingInterceptor.name);
 
+  private static readonly SENSITIVE_PARAMS = /^(token|key|secret|password|authorization|api_key|apikey|access_token|refresh_token)$/i;
+
+  private sanitizeUrl(rawUrl: string): string {
+    try {
+      const [path, queryString] = rawUrl.split("?");
+      if (!queryString) return rawUrl;
+
+      const params = new URLSearchParams(queryString);
+      for (const name of [...params.keys()]) {
+        if (LoggingInterceptor.SENSITIVE_PARAMS.test(name)) {
+          params.set(name, "[REDACTED]");
+        }
+      }
+      return `${path}?${params.toString()}`;
+    } catch {
+      return rawUrl;
+    }
+  }
+
   intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
     const request = context.switchToHttp().getRequest<Request>();
-    const { method, url, ip } = request;
+    const { method, ip } = request;
+    const sanitizedUrl = this.sanitizeUrl(request.url);
     const userAgent = request.get("User-Agent") || "";
     const userId = (request as Request & { user?: { userId?: string } }).user?.userId;
 
@@ -26,7 +46,7 @@ export class LoggingInterceptor implements NestInterceptor {
         next: () => {
           const duration = Date.now() - now;
           this.logger.log(
-            `${method} ${url} - ${ip} - ${userAgent} - ${duration}ms${
+            `${method} ${sanitizedUrl} - ${ip} - ${userAgent} - ${duration}ms${
               userId ? ` - User: ${userId}` : ""
             }`,
           );
@@ -34,7 +54,7 @@ export class LoggingInterceptor implements NestInterceptor {
         error: (error) => {
           const duration = Date.now() - now;
           this.logger.error(
-            `${method} ${url} - ${ip} - ${userAgent} - ${duration}ms - ERROR: ${error.message}${
+            `${method} ${sanitizedUrl} - ${ip} - ${userAgent} - ${duration}ms - ERROR: ${error.message}${
               userId ? ` - User: ${userId}` : ""
             }`,
           );

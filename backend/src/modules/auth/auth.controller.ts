@@ -51,7 +51,7 @@ export class AuthController {
   @Public()
   @UseGuards(LocalAuthGuard)
   @Post("login")
-  @Throttle({ default: { limit: 10, ttl: 60000 } }) // 10 requests per minute - prevent brute force
+  @Throttle({ default: { limit: 5, ttl: 60000 } }) // 5 requests per minute - prevent brute force
   @ApiOperation({ summary: "Login user" })
   @ApiResponse({
     status: 200,

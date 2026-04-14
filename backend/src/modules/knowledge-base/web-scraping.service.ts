@@ -102,8 +102,29 @@ export class WebScrapingService {
     }
 
     // Block cloud metadata endpoints
-    if (hostname === '169.254.169.254' || hostname === 'metadata.google.internal') {
+    const blockedHostnames = [
+      '169.254.169.254',        // AWS/Azure IMDS
+      'metadata.google.internal', // GCP metadata
+      'metadata.google.com',     // GCP metadata alternate
+      'metadata',                // Short metadata hostname
+      'kubelet',                 // Kubernetes kubelet
+      'kubernetes',              // Kubernetes API
+      'kubernetes.default',      // Kubernetes default service
+      'kubernetes.default.svc',  // Kubernetes service
+    ];
+    if (blockedHostnames.includes(hostname.toLowerCase())) {
       throw new BadRequestException('URLs pointing to cloud metadata services are not allowed');
+    }
+
+    // Block decimal, hex, and octal IP notations that bypass simple validation
+    // e.g., 0x7f000001 = 127.0.0.1, 2130706433 = 127.0.0.1, 017700000001 = 127.0.0.1
+    if (/^0x[0-9a-f]+$/i.test(hostname) || /^[0-9]+$/.test(hostname) || /^0[0-7]+$/.test(hostname)) {
+      throw new BadRequestException('Numeric IP notations are not allowed');
+    }
+
+    // Block IPs with octal octets (e.g., 0177.0.0.1)
+    if (/^[\d.]+$/.test(hostname) && hostname.split('.').some(octet => octet.length > 1 && octet.startsWith('0'))) {
+      throw new BadRequestException('Octal IP notations are not allowed');
     }
 
     // Block literal private IPs

@@ -1859,15 +1859,20 @@ Always respond directly in the user's language without any formatting.`,
       const escalationEnabled = (agent.escalationConfig?.enabled !== false);
       if (escalationEnabled) {
         systemPrompt += `\n\nESCALATION TO HUMAN OPERATOR:
-If you cannot adequately help the user, or if the request requires human intervention (complex complaint, sensitive issue, request beyond your capabilities), respond ONLY with:
+If you cannot adequately help the user, or if the request requires human intervention, respond ONLY with:
 [ESCALATE] Brief reason for escalation
 
-Examples of when to escalate:
-- User is frustrated and explicitly asks for a human
-- Complex billing/payment disputes
-- Technical issues you cannot resolve
+You MUST escalate in these situations:
+- The client reports an error in pricing, billing, or invoicing
+- The client requests a modification to their account, order, or pricing
+- Complex billing/payment disputes or refund requests
+- Technical issues you cannot resolve (system errors, wrong data displayed)
+- The client is frustrated or explicitly asks for a human
 - Sensitive personal matters
-- Requests that require human judgment or authorization
+- Any request that requires modifying data in a system
+- Any situation where you would need to "contact a team", "register a request", or "guarantee" something
+
+CRITICAL: If you cannot ACTUALLY solve the problem with information from your knowledge base, you MUST escalate. NEVER fabricate a solution or pretend to take action.
 
 Do NOT escalate for simple questions you can answer from the knowledge base.`;
       }
@@ -1936,6 +1941,17 @@ IMPORTANT RULES:
 
       // Add response style instructions based on agent configuration
       systemPrompt += this.buildResponseStyleInstructions(agent);
+
+      // CRITICAL: Anti-hallucination and truthfulness rules
+      systemPrompt += `\n\nRÈGLES ABSOLUES DE VÉRACITÉ (NE JAMAIS ENFREINDRE):
+- Tu es un assistant IA. Tu ne peux PAS effectuer d'actions dans le monde réel.
+- NE JAMAIS prétendre avoir effectué une action que tu n'as pas faite (contacter une équipe, modifier un système, enregistrer une demande, envoyer un email, passer un appel, etc.).
+- NE JAMAIS inventer ou fabriquer des informations, des faits, des prix, des disponibilités ou des délais que tu ne connais pas avec certitude.
+- NE JAMAIS faire de promesses ou de garanties au nom de l'entreprise (prix, remboursements, délais de livraison, résolution de problèmes techniques, etc.).
+- NE JAMAIS affirmer qu'une demande a été "enregistrée", "validée", "transmise" ou "prise en compte" si tu n'as pas la capacité technique de le faire.
+- Si tu ne connais pas la réponse ou si la demande dépasse tes capacités, dis-le honnêtement et propose d'escalader vers un humain.
+- Réponds UNIQUEMENT avec des informations provenant de ta base de connaissances ou de ta configuration.
+- Si un client a un problème que tu ne peux pas résoudre (erreur de prix, problème technique, réclamation), NE FABRIQUE PAS de solution. Propose plutôt de le mettre en contact avec un responsable humain.`;
 
       // Add image sending instructions if media is available
       if (availableMedia.length > 0) {

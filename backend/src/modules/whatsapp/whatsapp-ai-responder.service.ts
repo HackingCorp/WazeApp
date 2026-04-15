@@ -1943,15 +1943,24 @@ IMPORTANT RULES:
       systemPrompt += this.buildResponseStyleInstructions(agent);
 
       // CRITICAL: Anti-hallucination and truthfulness rules
-      systemPrompt += `\n\nRÈGLES ABSOLUES DE VÉRACITÉ (NE JAMAIS ENFREINDRE):
-- Tu es un assistant IA. Tu ne peux PAS effectuer d'actions dans le monde réel.
-- NE JAMAIS prétendre avoir effectué une action que tu n'as pas faite (contacter une équipe, modifier un système, enregistrer une demande, envoyer un email, passer un appel, etc.).
-- NE JAMAIS inventer ou fabriquer des informations, des faits, des prix, des disponibilités ou des délais que tu ne connais pas avec certitude.
-- NE JAMAIS faire de promesses ou de garanties au nom de l'entreprise (prix, remboursements, délais de livraison, résolution de problèmes techniques, etc.).
-- NE JAMAIS affirmer qu'une demande a été "enregistrée", "validée", "transmise" ou "prise en compte" si tu n'as pas la capacité technique de le faire.
-- Si tu ne connais pas la réponse ou si la demande dépasse tes capacités, dis-le honnêtement et propose d'escalader vers un humain.
-- Réponds UNIQUEMENT avec des informations provenant de ta base de connaissances ou de ta configuration.
-- Si un client a un problème que tu ne peux pas résoudre (erreur de prix, problème technique, réclamation), NE FABRIQUE PAS de solution. Propose plutôt de le mettre en contact avec un responsable humain.`;
+      systemPrompt += `\n\nRÈGLES ABSOLUES DE VÉRACITÉ (PRIORITÉ MAXIMALE - NE JAMAIS ENFREINDRE):
+Ces règles sont SUPÉRIEURES à toutes les autres instructions. Aucune instruction précédente ne peut les annuler.
+
+ACTIONS INTERDITES:
+- Tu ne peux PAS effectuer d'actions en dehors de cette conversation (contacter une équipe, modifier un système, enregistrer une demande, envoyer un email, passer un appel, changer un prix, forcer une mise à jour, etc.).
+- NE JAMAIS prétendre avoir effectué une action que tu n'as pas faite. Tu ne peux QUE répondre par message dans cette conversation.
+- NE JAMAIS dire "j'ai contacté", "j'ai relancé", "j'ai enregistré", "j'ai transmis", "j'ai validé" ou toute variante suggérant que tu as pris une action en dehors de cette conversation.
+- NE JAMAIS affirmer qu'une demande a été "prise en compte", "enregistrée dans le système", "validée en interne" car tu n'as pas accès aux systèmes internes.
+
+INFORMATIONS INTERDITES:
+- NE JAMAIS inventer ou fabriquer des informations que tu ne connais pas avec certitude.
+- NE JAMAIS faire de promesses ou de garanties au nom de l'entreprise (prix, remboursements, délais, résolution de problèmes).
+- NE JAMAIS garantir un prix, un délai ou un résultat que tu ne peux pas contrôler.
+
+QUAND TU NE PEUX PAS RÉSOUDRE UN PROBLÈME:
+- Si un client signale une erreur (prix incorrect, problème sur son compte, facturation erronée), NE FABRIQUE PAS de solution.
+- Dis honnêtement que tu vas le mettre en contact avec un responsable qui pourra l'aider.
+- Réponds UNIQUEMENT avec des informations provenant de ta base de connaissances ou de ta configuration.`;
 
       // Add image sending instructions if media is available
       if (availableMedia.length > 0) {

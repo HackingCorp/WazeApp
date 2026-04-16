@@ -1003,6 +1003,41 @@ CRITICAL RULES:
 - The [ORDER] tag is invisible to the customer, include it alongside your confirmation message`;
     }
 
+    // Check escalation keywords before calling LLM
+    const escalationConfig = agent.escalationConfig || {};
+    const escalationEnabled = escalationConfig.enabled !== false;
+    if (escalationEnabled) {
+      const keywords = escalationConfig.keywords?.length
+        ? escalationConfig.keywords
+        : ['parler à un humain', 'agent humain', 'responsable', 'talk to human', 'real person', 'human agent', 'speak to someone'];
+      const lowerMessage = testDto.message.toLowerCase();
+      const matchedKeyword = keywords.find(kw => lowerMessage.includes(kw.toLowerCase()));
+      if (matchedKeyword) {
+        const escalationMessage = escalationConfig.escalationMessage
+          || "Your conversation has been transferred to a human agent. Someone will assist you shortly. Thank you for your patience.";
+        return {
+          response: escalationMessage,
+          escalated: true,
+          escalationReason: `Keyword detected: ${matchedKeyword}`,
+          metrics: { responseTime: Date.now() - startTime, tokensUsed: 0, confidence: 1 },
+        };
+      }
+
+      // Add escalation instructions to system prompt
+      systemPrompt += `\n\nESCALATION TO HUMAN OPERATOR:
+If you cannot adequately help the user, or if the request requires human intervention, respond ONLY with:
+[ESCALATE] Brief reason for escalation
+
+You MUST escalate in these situations:
+- The client reports an error in pricing, billing, or invoicing
+- The client requests modification to account, order, or pricing
+- Complex billing/payment disputes or refund requests
+- Technical issues you cannot resolve
+- Client is frustrated or explicitly asks for a human
+- Any request requiring data system modification
+CRITICAL: If you cannot ACTUALLY solve the problem with information from your knowledge base, you MUST escalate. NEVER fabricate a solution or pretend to take action.`;
+    }
+
     // Build messages array: system prompt + conversation history + new user message
     const messages: Array<{ role: 'user' | 'system' | 'assistant'; content: string }> = [
       { role: "system", content: systemPrompt },
@@ -1119,12 +1154,28 @@ CRITICAL RULES:
     // Parse [APPOINTMENT] tag — strip it from response (not processed in test mode)
     cleanResponse = cleanResponse.replace(/\[APPOINTMENT\][\s\S]*?\[\/APPOINTMENT\]/, '').trim();
 
+    // Detect [ESCALATE] or [ESCALADE] tag in AI response
+    if (/\[ESCALAT[EE]\]/i.test(cleanResponse)) {
+      const escalateMatch = cleanResponse.match(/\[ESCALAT[EE]\]\s*(.*)/i);
+      const reason = escalateMatch?.[1]?.trim() || 'AI determined escalation needed';
+      const escalationMessage = agent.escalationConfig?.escalationMessage
+        || "Your conversation has been transferred to a human agent. Someone will assist you shortly. Thank you for your patience.";
+      return {
+        response: escalationMessage,
+        escalated: true,
+        escalationReason: reason,
+        metrics: { responseTime: Date.now() - startTime, tokensUsed, confidence: 1 },
+      };
+    }
+
     response = cleanResponse;
 
     const responseTime = Date.now() - startTime;
 
     const result: {
       response: string;
+      escalated?: boolean;
+      escalationReason?: string;
       sources?: Array<{ document: string; chunk: string; confidence: number }>;
       metrics: { responseTime: number; tokensUsed: number; confidence: number };
       media?: Array<{ type: 'image' | 'video' | 'audio'; url: string; caption?: string }>;

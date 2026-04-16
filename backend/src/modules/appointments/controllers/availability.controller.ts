@@ -3,7 +3,7 @@ import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { AvailabilityService } from '../services/availability.service';
 import { SetBusinessHoursDto, AddDayOffDto } from '../dto/availability.dto';
 
-@ApiTags('appointments')
+@ApiTags('Appointments')
 @ApiBearerAuth()
 @Controller('appointments/availability')
 export class AvailabilityController {

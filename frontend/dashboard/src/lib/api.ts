@@ -214,8 +214,8 @@ class ApiClient {
   }
 
   async changePassword(data: { currentPassword: string; newPassword: string }) {
-    return this.request('/auth/change-password', {
-      method: 'POST',
+    return this.request('/users/profile/change-password', {
+      method: 'PUT',
       body: JSON.stringify(data),
     });
   }
@@ -1053,7 +1053,7 @@ class ApiClient {
     formData.append('file', file);
     formData.append('path', path);
 
-    return this.request('/files/upload', {
+    return this.request('/media/upload', {
       method: 'POST',
       body: formData,
       headers: {

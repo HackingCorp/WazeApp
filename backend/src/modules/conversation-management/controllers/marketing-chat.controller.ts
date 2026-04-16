@@ -1,4 +1,5 @@
 import { Controller, Post, Body, HttpException, HttpStatus } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { Public } from '@/common/decorators/public.decorator';
 import { LLMRouterService } from '@/modules/llm-providers/llm-router.service';
@@ -19,6 +20,7 @@ interface MarketingChatResponse {
   };
 }
 
+@ApiTags('Marketing')
 @Controller('marketing')
 export class MarketingChatController {
   private readonly logger = new Logger(MarketingChatController.name);

@@ -46,7 +46,7 @@ class ImportMediaDto {
   @IsOptional() @IsBoolean() isTemplate?: boolean = false;
 }
 
-@ApiTags("media")
+@ApiTags("Media")
 @Controller("media")
 @UseGuards(JwtAuthGuard, RolesGuard)
 @AllowIndividualUsers()

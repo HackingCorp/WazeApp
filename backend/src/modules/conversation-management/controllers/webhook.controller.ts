@@ -32,7 +32,7 @@ import {
   WhatsAppWebhookPayload,
 } from "../services/webhook-processor.service";
 
-@ApiTags("webhooks")
+@ApiTags("Webhooks")
 @Controller("webhooks")
 @AllowIndividualUsers()
 export class WebhookController {

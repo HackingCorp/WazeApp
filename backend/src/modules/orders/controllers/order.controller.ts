@@ -4,7 +4,7 @@ import { OrderService } from '../services/order.service';
 import { CreateOrderDto, UpdateOrderStatusDto, OrderQueryDto } from '../dto/order.dto';
 import { OrderSource } from '@/common/enums';
 
-@ApiTags('orders')
+@ApiTags('Orders')
 @ApiBearerAuth()
 @Controller('orders')
 export class OrderController {

@@ -2167,9 +2167,9 @@ EXEMPLES DE CONTEXTE:
         priority: "high", // Higher priority for better response quality
       });
 
-      // Check for [ESCALATE] tag in AI response
-      if (response.content && response.content.includes('[ESCALATE]')) {
-        const escalateMatch = response.content.match(/\[ESCALATE\]\s*(.*)/);
+      // Check for [ESCALATE] or [ESCALADE] tag in AI response (supports both EN and FR)
+      if (response.content && /\[ESCALAT[EE]\]/i.test(response.content)) {
+        const escalateMatch = response.content.match(/\[ESCALAT[EE]\]\s*(.*)/i);
         const reason = escalateMatch?.[1]?.trim() || 'AI determined escalation needed';
         this.logger.log(`🚨 AI triggered escalation for conversation ${conversation.id}: ${reason}`);
         await this.escalateConversation(conversation, agent, session, fromNumber, reason);
@@ -2250,8 +2250,11 @@ EXEMPLES DE CONTEXTE:
 
         this.logger.log(`📷 Image tags: KB=${imageSlugs.length}, Products=${productImageIndices.length}`);
 
+        // Strip any leftover escalation tags that shouldn't be visible to client
+        const sanitizedText = cleanText.replace(/\[ESCALAT[EE]\]\s*/gi, '').trim();
+
         // Convert markdown to WhatsApp format (use clean text without image tags)
-        const whatsappMessage = this.convertToWhatsAppFormat(cleanText);
+        const whatsappMessage = this.convertToWhatsAppFormat(sanitizedText);
 
         await this.baileysService.sendMessage(session.id, {
           to: fromNumber,
@@ -3183,9 +3186,8 @@ RÈGLES:
       // Send WhatsApp notification to operator (non-blocking)
       if (agent.escalationConfig?.operatorWhatsAppNumber) {
         try {
-          const operatorJid = agent.escalationConfig.operatorWhatsAppNumber.includes('@')
-            ? agent.escalationConfig.operatorWhatsAppNumber
-            : `${agent.escalationConfig.operatorWhatsAppNumber}@s.whatsapp.net`;
+          // Pass raw phone number to let sendMessage validate via onWhatsApp
+          const operatorPhone = agent.escalationConfig.operatorWhatsAppNumber.replace(/@.*$/, '');
 
           const notificationMsg = `🚨 *Escalade de conversation*\n\n` +
             `Agent: ${agent.name}\n` +
@@ -3195,11 +3197,11 @@ RÈGLES:
             `Connectez-vous au dashboard pour répondre.`;
 
           await this.baileysService.sendMessage(session.id, {
-            to: operatorJid,
+            to: operatorPhone,
             message: notificationMsg,
             type: 'text',
           });
-          this.logger.log(`✅ WhatsApp escalation notification sent to operator ${agent.escalationConfig.operatorWhatsAppNumber}`);
+          this.logger.log(`✅ WhatsApp escalation notification sent to operator ${operatorPhone}`);
         } catch (whatsappError) {
           this.logger.error(`❌ Failed to send WhatsApp escalation notification: ${whatsappError.message}`);
         }

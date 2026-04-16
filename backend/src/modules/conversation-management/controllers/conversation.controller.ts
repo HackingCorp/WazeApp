@@ -84,7 +84,7 @@ class OperatorReplyDto {
   @IsString() @IsNotEmpty() message: string;
 }
 
-@ApiTags("conversations")
+@ApiTags("Conversations")
 @Controller("conversations")
 @UseGuards(JwtAuthGuard, RolesGuard)
 @AllowIndividualUsers()

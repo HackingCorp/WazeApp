@@ -45,7 +45,7 @@ class BulkEmbeddingDto {
   @IsOptional() @IsNumber() batchSize?: number = 10;
 }
 
-@ApiTags("vector-database")
+@ApiTags("Vector Database")
 @Controller("vector-database")
 @UseGuards(JwtAuthGuard, RolesGuard)
 @AllowIndividualUsers()

@@ -62,7 +62,7 @@ class UpdateProviderDto {
   @IsOptional() @IsObject() metadata?: Record<string, any>;
 }
 
-@ApiTags("llm-providers")
+@ApiTags("LLM Providers")
 @Controller("llm-providers")
 @UseGuards(JwtAuthGuard, RolesGuard)
 @AllowIndividualUsers()

@@ -3,7 +3,7 @@ import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { AppointmentService } from '../services/appointment.service';
 import { UpdateAppointmentStatusDto, AppointmentQueryDto } from '../dto/appointment.dto';
 
-@ApiTags('appointments')
+@ApiTags('Appointments')
 @ApiBearerAuth()
 @Controller('appointments')
 export class AppointmentController {

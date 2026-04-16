@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { 
   Menu, 
   Search, 
@@ -261,10 +262,13 @@ export function Header({ onMobileMenuToggle, sidebarCollapsed }: HeaderProps) {
                 onClick={() => setUserMenuOpen(!userMenuOpen)}
               >
                 <span className="sr-only">{t('header.profile')}</span>
-                <img
+                <Image
                   className="h-8 w-8 rounded-full"
                   src={user?.avatar || `https://ui-avatars.com/api/?name=${user?.firstName}+${user?.lastName}&background=059669&color=fff`}
-                  alt={user?.firstName}
+                  alt={user?.firstName || ''}
+                  width={32}
+                  height={32}
+                  unoptimized
                 />
                 <ChevronDown className="ml-2 h-4 w-4 text-gray-400" />
               </button>

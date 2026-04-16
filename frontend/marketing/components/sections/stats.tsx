@@ -1,6 +1,5 @@
 "use client"
 
-import { motion } from "framer-motion"
 import { Users, MessageSquare, Zap, Star } from "lucide-react"
 import { formatNumber } from "@/lib/utils"
 import { useTranslations } from "@/lib/hooks/use-translations"
@@ -48,13 +47,10 @@ export function StatsSection() {
       <div className="container mx-auto px-4">
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-8">
           {stats.map((stat, index) => (
-            <motion.div
+            <div
               key={stat.label}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: index * 0.1 }}
-              className="text-center"
+              className="animate-fade-in-up text-center"
+              style={{ animationDelay: `${index * 0.1}s` }}
             >
               <div className="flex justify-center mb-3">
                 <div className={`w-14 h-14 rounded-2xl ${stat.iconBg} flex items-center justify-center`}>
@@ -67,7 +63,7 @@ export function StatsSection() {
               </div>
               <div className="text-lg font-medium mb-1">{stat.label}</div>
               <div className="text-sm opacity-90">{stat.description}</div>
-            </motion.div>
+            </div>
           ))}
         </div>
       </div>

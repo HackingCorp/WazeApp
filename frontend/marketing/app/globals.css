@@ -16,11 +16,62 @@
 
 .animate-fade-in-up {
   animation: fadeInUp 0.6s ease-out forwards;
+  opacity: 0;
 }
 
 .animation-delay-200 {
   animation-delay: 0.2s;
 }
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+@keyframes floatSlow {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+@keyframes pulse-soft {
+  0%, 100% { transform: scale(1); opacity: 0.7; }
+  50% { transform: scale(1.05); opacity: 1; }
+}
+
+@keyframes float-xy {
+  0%, 100% { transform: translateY(0) translateX(0); }
+  50% { transform: translateY(-10px) translateX(3px); }
+}
+
+@keyframes float-xy-reverse {
+  0%, 100% { transform: translateY(0) translateX(0); }
+  50% { transform: translateY(-8px) translateX(-3px); }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(34,197,94,0.4); }
+  50% { transform: scale(1.1); box-shadow: 0 0 0 20px rgba(34,197,94,0); }
+}
+
+@keyframes blink-opacity {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 0.8; }
+}
+
+@keyframes slide-arrow {
+  0%, 100% { transform: translateX(0); opacity: 0.5; }
+  50% { transform: translateX(5px); opacity: 1; }
+}
+
+.animate-float { animation: float 3s ease-in-out infinite; }
+.animate-float-slow { animation: floatSlow 4s ease-in-out infinite; }
+.animate-pulse-soft { animation: pulse-soft 2s ease-in-out infinite; }
+.animate-float-xy { animation: float-xy 2.5s ease-in-out infinite; }
+.animate-float-xy-reverse { animation: float-xy-reverse 3s ease-in-out infinite; }
+.animate-pulse-glow { animation: pulse-glow 2s ease-in-out infinite; }
+.animate-blink-opacity { animation: blink-opacity 1.5s ease-in-out infinite; }
+.animate-slide-arrow { animation: slide-arrow 1.5s ease-in-out infinite; }
+.animate-fade-in { animation: fadeInUp 0.6s ease-out forwards; opacity: 0; }
 
 @layer base {
   :root {

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import Image from 'next/image';
 import { X, Smartphone, CreditCard, Loader2, CheckCircle, XCircle, AlertCircle, ArrowLeft } from 'lucide-react';
 import { api } from '@/lib/api';
 import clsx from 'clsx';
@@ -163,7 +164,7 @@ export function PaymentModal({
       // For invoice payments, pass the invoice ID with INVOICE- prefix so backend handles it correctly
       const planId = plan.isInvoice
         ? `INVOICE-${plan.id.replace(/^invoice-/i, '')}`
-        : plan.id.toUpperCase() as 'STANDARD' | 'PRO' | 'ENTERPRISE';
+        : plan.id.toUpperCase();
 
       const response = await api.initiateS3PPayment({
         amount,
@@ -171,7 +172,7 @@ export function PaymentModal({
         paymentType: mobileProvider,
         customerName: customerName || 'Client WazeApp',
         description: plan.isInvoice ? `Paiement facture - ${plan.name}` : `Abonnement WazeApp - Plan ${plan.name}`,
-        plan: planId,
+        plan: planId as 'STANDARD' | 'PRO' | 'ENTERPRISE',
         userId,
         billingPeriod,
         currency: currency || 'XAF', // Send currency so backend can convert to XAF if needed
@@ -237,9 +238,9 @@ export function PaymentModal({
         const response = await api.verifyPayment({
           ptn: paymentPtn,
           transactionId: transId,
-          plan: plan?.isInvoice
+          plan: (plan?.isInvoice
             ? `INVOICE-${plan.id.replace(/^invoice-/i, '')}`
-            : plan?.id.toUpperCase() as "STANDARD" | "PRO" | "ENTERPRISE" | undefined,
+            : plan?.id.toUpperCase()) as "STANDARD" | "PRO" | "ENTERPRISE" | undefined,
           userId,
           organizationId,
           amount: paymentAmount,
@@ -572,8 +573,8 @@ export function PaymentModal({
                         </p>
                       </div>
                       <div className="flex gap-2">
-                        <img src="/images/payments/mtn.svg" alt="MTN" className="w-8 h-8 rounded-full" />
-                        <img src="/images/payments/orange-money.svg" alt="Orange Money" className="w-8 h-8 rounded-full" />
+                        <Image src="/images/payments/mtn.svg" alt="MTN" width={32} height={32} className="w-8 h-8 rounded-full" />
+                        <Image src="/images/payments/orange-money.svg" alt="Orange Money" width={32} height={32} className="w-8 h-8 rounded-full" />
                       </div>
                     </button>
 
@@ -594,8 +595,8 @@ export function PaymentModal({
                         </p>
                       </div>
                       <div className="flex gap-1">
-                        <img src="/images/payments/visa.svg" alt="Visa" className="h-6 w-auto rounded" />
-                        <img src="/images/payments/mastercard.svg" alt="Mastercard" className="h-6 w-auto rounded" />
+                        <Image src="/images/payments/visa.svg" alt="Visa" width={40} height={24} className="h-6 w-auto rounded" />
+                        <Image src="/images/payments/mastercard.svg" alt="Mastercard" width={40} height={24} className="h-6 w-auto rounded" />
                       </div>
                     </button>
                   </>
@@ -618,9 +619,9 @@ export function PaymentModal({
                     </p>
                   </div>
                   <div className="flex gap-1">
-                    <img src="/images/payments/visa.svg" alt="Visa" className="h-6 w-auto rounded" />
-                    <img src="/images/payments/mastercard.svg" alt="Mastercard" className="h-6 w-auto rounded" />
-                    <img src="/images/payments/amex.svg" alt="AMEX" className="h-6 w-auto rounded" />
+                    <Image src="/images/payments/visa.svg" alt="Visa" width={40} height={24} className="h-6 w-auto rounded" />
+                    <Image src="/images/payments/mastercard.svg" alt="Mastercard" width={40} height={24} className="h-6 w-auto rounded" />
+                    <Image src="/images/payments/amex.svg" alt="AMEX" width={40} height={24} className="h-6 w-auto rounded" />
                   </div>
                 </button>
 
@@ -668,7 +669,7 @@ export function PaymentModal({
                         : 'border-gray-200 dark:border-gray-600 hover:border-yellow-300'
                     )}
                   >
-                    <img src="/images/payments/mtn.svg" alt="MTN" className="w-12 h-12 rounded-full" />
+                    <Image src="/images/payments/mtn.svg" alt="MTN" width={48} height={48} className="w-12 h-12 rounded-full" />
                     <span className="text-sm font-medium text-gray-900 dark:text-white">MTN MoMo</span>
                   </button>
                   <button
@@ -680,7 +681,7 @@ export function PaymentModal({
                         : 'border-gray-200 dark:border-gray-600 hover:border-orange-300'
                     )}
                   >
-                    <img src="/images/payments/orange-money.svg" alt="Orange Money" className="w-12 h-12 rounded-full" />
+                    <Image src="/images/payments/orange-money.svg" alt="Orange Money" width={48} height={48} className="w-12 h-12 rounded-full" />
                     <span className="text-sm font-medium text-gray-900 dark:text-white">Orange Money</span>
                   </button>
                 </div>
@@ -775,15 +776,15 @@ export function PaymentModal({
                 </label>
                 <div className="flex items-center justify-center gap-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
                   <div className="flex flex-col items-center gap-1">
-                    <img src="/images/payments/visa.svg" alt="Visa" className="h-9 w-auto rounded" />
+                    <Image src="/images/payments/visa.svg" alt="Visa" width={48} height={36} className="h-9 w-auto rounded" />
                     <span className="text-xs text-gray-500">Visa</span>
                   </div>
                   <div className="flex flex-col items-center gap-1">
-                    <img src="/images/payments/mastercard.svg" alt="Mastercard" className="h-9 w-auto rounded" />
+                    <Image src="/images/payments/mastercard.svg" alt="Mastercard" width={48} height={36} className="h-9 w-auto rounded" />
                     <span className="text-xs text-gray-500">Mastercard</span>
                   </div>
                   <div className="flex flex-col items-center gap-1">
-                    <img src="/images/payments/amex.svg" alt="AMEX" className="h-9 w-auto rounded" />
+                    <Image src="/images/payments/amex.svg" alt="AMEX" width={48} height={36} className="h-9 w-auto rounded" />
                     <span className="text-xs text-gray-500">AMEX</span>
                   </div>
                 </div>
@@ -833,15 +834,15 @@ export function PaymentModal({
                 </label>
                 <div className="flex items-center justify-center gap-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
                   <div className="flex flex-col items-center gap-1">
-                    <img src="/images/payments/visa.svg" alt="Visa" className="h-9 w-auto rounded" />
+                    <Image src="/images/payments/visa.svg" alt="Visa" width={48} height={36} className="h-9 w-auto rounded" />
                     <span className="text-xs text-gray-500">Visa</span>
                   </div>
                   <div className="flex flex-col items-center gap-1">
-                    <img src="/images/payments/mastercard.svg" alt="Mastercard" className="h-9 w-auto rounded" />
+                    <Image src="/images/payments/mastercard.svg" alt="Mastercard" width={48} height={36} className="h-9 w-auto rounded" />
                     <span className="text-xs text-gray-500">Mastercard</span>
                   </div>
                   <div className="flex flex-col items-center gap-1">
-                    <img src="/images/payments/paypal.svg" alt="PayPal" className="h-9 w-auto rounded" />
+                    <Image src="/images/payments/paypal.svg" alt="PayPal" width={48} height={36} className="h-9 w-auto rounded" />
                     <span className="text-xs text-gray-500">PayPal</span>
                   </div>
                 </div>

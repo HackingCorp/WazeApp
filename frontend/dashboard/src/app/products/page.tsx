@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { NoProductsIllustration } from '@/components/illustrations/EmptyStateIllustrations';
 import {
   Plus,
@@ -75,11 +76,11 @@ export default function ProductsPage() {
         search: searchQuery || undefined,
         status: statusFilter || undefined,
         source: sourceFilter || undefined,
-        type: typeFilter || undefined,
         storeId: storeFilter || undefined,
         page,
         limit,
-      });
+        ...(typeFilter ? { type: typeFilter } : {}),
+      } as Parameters<typeof api.getProducts>[0]);
       if (response.success && response.data) {
         const data = response.data;
         const items = Array.isArray(data) ? data : (data.data || data.items || []);
@@ -523,10 +524,13 @@ export default function ProductsPage() {
                           <div className="flex items-center space-x-3">
                             <div className="flex-shrink-0 w-10 h-10 bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden">
                               {getPrimaryImage(product) ? (
-                                <img
-                                  src={getPrimaryImage(product)}
+                                <Image
+                                  src={getPrimaryImage(product)!}
                                   alt={product.name}
                                   className="w-10 h-10 object-cover"
+                                  width={40}
+                                  height={40}
+                                  unoptimized
                                 />
                               ) : (
                                 <div className="w-10 h-10 flex items-center justify-center">

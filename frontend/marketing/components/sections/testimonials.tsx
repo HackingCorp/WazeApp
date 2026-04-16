@@ -1,6 +1,5 @@
 'use client';
 
-import { motion } from "framer-motion"
 import { Star } from "lucide-react"
 import { useTranslations } from "@/lib/hooks/use-translations"
 
@@ -43,7 +42,7 @@ export function TestimonialsSection() {
       rating: 5,
     },
     {
-      name: "David Kouamé",
+      name: "David Kouam\u00e9",
       role: t("testimonialRole4"),
       company: "FastFood Express",
       content: t("testimonialDavid"),
@@ -138,30 +137,22 @@ export function TestimonialsSection() {
     <section className="py-20 sm:py-32 bg-white dark:bg-background">
       <div className="container mx-auto px-4">
         <div className="text-center mb-16">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5 }}
-          >
+          <div className="animate-fade-in-up">
             <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 dark:text-white mb-4">
               {t("testimonialsTitle")}
             </h2>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
               {t("testimonialsSubtitle")}
             </p>
-          </motion.div>
+          </div>
         </div>
 
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 mb-16">
           {testimonials.map((testimonial, index) => (
-            <motion.div
+            <div
               key={testimonial.name}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: index * 0.1 }}
-              className="bg-gray-50 dark:bg-gray-800 rounded-xl p-6"
+              className="animate-fade-in-up bg-gray-50 dark:bg-gray-800 rounded-xl p-6"
+              style={{ animationDelay: `${index * 0.1}s` }}
             >
               <div className="flex mb-4">
                 {[...Array(testimonial.rating)].map((_, i) => (
@@ -184,17 +175,11 @@ export function TestimonialsSection() {
                   </p>
                 </div>
               </div>
-            </motion.div>
+            </div>
           ))}
         </div>
 
-        <motion.div
-          initial={{ opacity: 0 }}
-          whileInView={{ opacity: 1 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.5 }}
-          className="border-t pt-12"
-        >
+        <div className="animate-fade-in border-t pt-12">
           <p className="text-center text-sm text-muted-foreground mb-8">
             {t("trustedByCompanies")}
           </p>
@@ -209,7 +194,7 @@ export function TestimonialsSection() {
               </div>
             ))}
           </div>
-        </motion.div>
+        </div>
       </div>
     </section>
   )

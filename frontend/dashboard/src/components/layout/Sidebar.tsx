@@ -2,6 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
+import NextImage from 'next/image';
 import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard,
@@ -213,10 +214,13 @@ export function Sidebar({ collapsed, onToggleCollapse }: SidebarProps) {
         <div className="p-4 border-t border-gray-200 dark:border-gray-700">
           <div className="flex items-center">
             <div className="flex-shrink-0">
-              <img
+              <NextImage
                 className="w-8 h-8 rounded-full"
                 src={user?.avatar || `https://ui-avatars.com/api/?name=${user?.firstName}+${user?.lastName}&background=059669&color=fff`}
-                alt={user?.firstName}
+                alt={user?.firstName || ''}
+                width={32}
+                height={32}
+                unoptimized
               />
             </div>
             <div className="ml-3 min-w-0 flex-1">

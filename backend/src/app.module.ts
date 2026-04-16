@@ -106,7 +106,7 @@ import { AppController } from "./app.controller";
       delimiter: ".",
       newListener: false,
       removeListener: false,
-      maxListeners: 10,
+      maxListeners: 25,
       verboseMemoryLeak: false,
       ignoreErrors: false,
     }),

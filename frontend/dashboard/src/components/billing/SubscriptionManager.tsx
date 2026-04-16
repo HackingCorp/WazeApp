@@ -4,7 +4,9 @@ import React, { useState, useEffect } from 'react';
 import { Check, Zap, Shield, Crown, Star, CreditCard, ArrowRight, AlertTriangle, Sparkles, Smartphone, Globe, ChevronDown, ExternalLink, Loader2, Clock } from 'lucide-react';
 import { format } from 'date-fns';
 import clsx from 'clsx';
-import { PaymentModal } from './PaymentModal';
+import dynamic from 'next/dynamic';
+
+const PaymentModal = dynamic(() => import('./PaymentModal').then(mod => mod.PaymentModal), { ssr: false });
 import { useAuth } from '@/providers/AuthProvider';
 import { useI18n } from '@/providers/I18nProvider';
 import { api } from '@/lib/api';

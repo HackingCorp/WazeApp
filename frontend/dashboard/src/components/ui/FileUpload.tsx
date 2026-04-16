@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useCallback, useRef } from 'react';
+import Image from 'next/image';
 import { 
   Upload, 
   File, 
@@ -246,10 +247,13 @@ export function FileUpload({
           {/* File icon or thumbnail */}
           <div className="flex-shrink-0">
             {file.thumbnail ? (
-              <img
+              <Image
                 src={file.thumbnail}
                 alt={file.name}
                 className="w-10 h-10 rounded-md object-cover"
+                width={40}
+                height={40}
+                unoptimized
               />
             ) : (
               <div className="w-10 h-10 bg-gray-100 dark:bg-gray-700 rounded-md flex items-center justify-center">

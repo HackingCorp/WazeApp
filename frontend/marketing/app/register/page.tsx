@@ -3,7 +3,7 @@
 import { useState, useEffect, Suspense } from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
-import { motion, AnimatePresence } from "framer-motion"
+
 import { Button } from "@/components/ui/button"
 import {
   Mail,
@@ -303,12 +303,7 @@ function RegisterPageContent() {
     switch (currentStep) {
       case 1:
         return (
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            className="space-y-4"
-          >
+          <div className="animate-fade-in-up space-y-4">
             <p className="text-sm text-center text-muted-foreground mb-4">
               Sélectionnez le forfait qui correspond à vos besoins
             </p>
@@ -415,17 +410,12 @@ function RegisterPageContent() {
             <p className="text-xs text-center text-muted-foreground">
               Vous pourrez modifier votre forfait à tout moment
             </p>
-          </motion.div>
+          </div>
         )
 
       case 2:
         return (
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            className="space-y-6"
-          >
+          <div className="animate-fade-in-up space-y-6">
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label htmlFor="firstName" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -475,17 +465,12 @@ function RegisterPageContent() {
                 placeholder="6 12 34 56 78"
               />
             </div>
-          </motion.div>
+          </div>
         )
 
       case 3:
         return (
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            className="space-y-6"
-          >
+          <div className="animate-fade-in-up space-y-6">
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Adresse email *
@@ -547,17 +532,12 @@ function RegisterPageContent() {
                 />
               </div>
             </div>
-          </motion.div>
+          </div>
         )
 
       case 4:
         return (
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            className="space-y-6"
-          >
+          <div className="animate-fade-in-up space-y-6">
             <div>
               <label htmlFor="organizationName" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Nom de l'organisation (optionnel)
@@ -635,7 +615,7 @@ function RegisterPageContent() {
                 </div>
               </div>
             </div>
-          </motion.div>
+          </div>
         )
 
       default:
@@ -645,12 +625,7 @@ function RegisterPageContent() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className={`w-full ${currentStep === 1 ? 'max-w-3xl' : 'max-w-md'}`}
-      >
+      <div className={`animate-fade-in-up w-full ${currentStep === 1 ? 'max-w-3xl' : 'max-w-md'}`}>
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8">
           <Link
             href="/"
@@ -708,9 +683,9 @@ function RegisterPageContent() {
           )}
 
           <form onSubmit={handleSubmit}>
-            <AnimatePresence mode="wait">
+            <>
               {renderStepContent()}
-            </AnimatePresence>
+            </>
 
             <div className="flex justify-between mt-8">
               {currentStep > 1 ? (
@@ -810,7 +785,7 @@ function RegisterPageContent() {
             </p>
           </div>
         </div>
-      </motion.div>
+      </div>
     </div>
   )
 }

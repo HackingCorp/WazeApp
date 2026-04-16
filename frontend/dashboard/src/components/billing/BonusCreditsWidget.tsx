@@ -3,7 +3,9 @@
 import React, { useState, useEffect } from 'react';
 import { Gift, Clock, ShoppingCart, Sparkles, AlertTriangle } from 'lucide-react';
 import { apiHelpers } from '@/lib/api';
-import { MessageCreditsPurchaseModal } from './MessageCreditsPurchaseModal';
+import dynamic from 'next/dynamic';
+
+const MessageCreditsPurchaseModal = dynamic(() => import('./MessageCreditsPurchaseModal').then(mod => mod.MessageCreditsPurchaseModal), { ssr: false });
 
 interface CreditsSummary {
   totalAvailable: number;

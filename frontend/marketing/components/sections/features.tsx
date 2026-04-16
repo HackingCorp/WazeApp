@@ -1,6 +1,5 @@
 "use client"
 
-import { motion } from "framer-motion"
 import {
   MessageSquare,
   Globe2,
@@ -16,7 +15,7 @@ import { useTranslations } from "@/lib/hooks/use-translations"
 
 export function FeaturesSection() {
   const { t } = useTranslations()
-  
+
   const features = [
     {
       name: t("feature24_7Name"),
@@ -64,30 +63,22 @@ export function FeaturesSection() {
     <section className="py-20 sm:py-32 bg-gray-50 dark:bg-gray-900/50">
       <div className="container mx-auto px-4">
         <div className="text-center mb-16">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5 }}
-          >
+          <div className="animate-fade-in-up">
             <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 dark:text-white mb-4">
               {t("featuresTitle")}
             </h2>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
               {t("featuresSubtitle")}
             </p>
-          </motion.div>
+          </div>
         </div>
 
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
           {features.map((feature, index) => (
-            <motion.div
+            <div
               key={feature.name}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: index * 0.1 }}
-              className="group p-6 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-md transition-all duration-300"
+              className="animate-fade-in-up group p-6 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-md transition-all duration-300"
+              style={{ animationDelay: `${index * 0.1}s` }}
             >
               <div className="flex items-start space-x-4">
                 <div className="flex-shrink-0">
@@ -104,7 +95,7 @@ export function FeaturesSection() {
                   </p>
                 </div>
               </div>
-            </motion.div>
+            </div>
           ))}
         </div>
       </div>

@@ -1,29 +1,5 @@
 "use client"
 
-import { motion } from "framer-motion"
-
-const float = {
-  animate: {
-    y: [0, -8, 0],
-    transition: { duration: 3, repeat: Infinity, ease: "easeInOut" },
-  },
-}
-
-const floatSlow = {
-  animate: {
-    y: [0, -6, 0],
-    transition: { duration: 4, repeat: Infinity, ease: "easeInOut", delay: 0.5 },
-  },
-}
-
-const pulse = {
-  animate: {
-    scale: [1, 1.05, 1],
-    opacity: [0.7, 1, 0.7],
-    transition: { duration: 2, repeat: Infinity, ease: "easeInOut" },
-  },
-}
-
 // 1. Disponibilité 24/7
 function Illustration24_7() {
   return (
@@ -32,7 +8,7 @@ function Illustration24_7() {
       <div className="absolute inset-0 bg-gradient-to-br from-green-50 to-emerald-100 dark:from-green-950/30 dark:to-emerald-900/20 rounded-2xl" />
 
       {/* Clock face */}
-      <motion.div {...float} className="relative">
+      <div className="animate-float relative">
         <div className="w-40 h-40 rounded-full bg-white dark:bg-gray-800 shadow-xl border-4 border-green-200 dark:border-green-700 flex items-center justify-center relative">
           {/* Clock marks */}
           {[0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330].map((deg) => (
@@ -53,31 +29,28 @@ function Illustration24_7() {
         </div>
 
         {/* 24/7 badge */}
-        <motion.div {...pulse} className="absolute -top-3 -right-3 bg-green-500 text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-lg">
+        <div className="animate-pulse-soft absolute -top-3 -right-3 bg-green-500 text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-lg">
           24/7
-        </motion.div>
-      </motion.div>
+        </div>
+      </div>
 
       {/* Floating notification bubbles */}
-      <motion.div
-        animate={{ y: [0, -10, 0], x: [0, 3, 0] }}
-        transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
-        className="absolute top-8 right-12 bg-white dark:bg-gray-800 rounded-xl shadow-lg px-3 py-2 flex items-center gap-2"
+      <div
+        className="animate-float-xy absolute top-8 right-12 bg-white dark:bg-gray-800 rounded-xl shadow-lg px-3 py-2 flex items-center gap-2"
       >
         <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
         <span className="text-xs text-gray-600 dark:text-gray-300 font-medium">02:30 AM</span>
         <span className="text-xs">&#10003;</span>
-      </motion.div>
+      </div>
 
-      <motion.div
-        animate={{ y: [0, -8, 0], x: [0, -3, 0] }}
-        transition={{ duration: 3, repeat: Infinity, ease: "easeInOut", delay: 1 }}
-        className="absolute bottom-12 left-8 bg-white dark:bg-gray-800 rounded-xl shadow-lg px-3 py-2 flex items-center gap-2"
+      <div
+        className="animate-float-xy-reverse absolute bottom-12 left-8 bg-white dark:bg-gray-800 rounded-xl shadow-lg px-3 py-2 flex items-center gap-2"
+        style={{ animationDelay: "1s" }}
       >
         <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
         <span className="text-xs text-gray-600 dark:text-gray-300 font-medium">11:45 PM</span>
         <span className="text-xs">&#10003;</span>
-      </motion.div>
+      </div>
 
       {/* Moon & Sun icons */}
       <div className="absolute top-6 left-8 text-2xl opacity-40">&#127769;</div>
@@ -100,7 +73,7 @@ function IllustrationMultilingual() {
       <div className="absolute inset-0 bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-blue-950/30 dark:to-indigo-900/20 rounded-2xl" />
 
       {/* Globe */}
-      <motion.div {...float} className="relative">
+      <div className="animate-float relative">
         <div className="w-36 h-36 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 shadow-xl flex items-center justify-center relative overflow-hidden">
           {/* Globe lines */}
           <div className="absolute w-full h-full rounded-full border-2 border-white/30" />
@@ -112,21 +85,20 @@ function IllustrationMultilingual() {
           {/* Shine */}
           <div className="absolute top-3 left-5 w-6 h-6 rounded-full bg-white/20 blur-sm" />
         </div>
-      </motion.div>
+      </div>
 
       {/* Language bubbles */}
       {languages.map((lang, i) => (
-        <motion.div
+        <div
           key={i}
-          animate={{ y: [0, -6, 0] }}
-          transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut", delay: i * 0.4 }}
-          className={`absolute ${lang.x} ${lang.y} bg-white dark:bg-gray-800 rounded-xl shadow-lg px-3 py-2`}
+          className={`animate-float absolute ${lang.x} ${lang.y} bg-white dark:bg-gray-800 rounded-xl shadow-lg px-3 py-2`}
+          style={{ animationDelay: `${i * 0.4}s` }}
         >
           <div className="flex items-center gap-2">
             <span className="text-sm" dangerouslySetInnerHTML={{ __html: lang.flag }} />
             <span className="text-xs font-medium text-gray-700 dark:text-gray-300">{lang.text}</span>
           </div>
-        </motion.div>
+        </div>
       ))}
     </div>
   )
@@ -138,7 +110,7 @@ function IllustrationFastResponse() {
     <div className="relative w-full h-80 flex items-center justify-center overflow-hidden">
       <div className="absolute inset-0 bg-gradient-to-br from-yellow-50 to-orange-100 dark:from-yellow-950/30 dark:to-orange-900/20 rounded-2xl" />
 
-      <motion.div {...floatSlow} className="w-64">
+      <div className="animate-float-slow w-64">
         {/* Chat mockup */}
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl overflow-hidden">
           {/* Header */}
@@ -158,26 +130,21 @@ function IllustrationFastResponse() {
                 <p className="text-xs text-gray-800 dark:text-gray-200">Quels sont vos horaires ?</p>
               </div>
             </div>
-            <motion.div
-              initial={{ opacity: 0, y: 5 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: 0.5 }}
-              className="flex justify-start"
-            >
+            <div className="flex justify-start">
               <div className="bg-gray-100 dark:bg-gray-700 rounded-xl px-3 py-1.5 max-w-[80%]">
                 <p className="text-xs text-gray-800 dark:text-gray-200">Nous sommes ouverts du lundi au vendredi, 9h-18h !</p>
               </div>
-            </motion.div>
+            </div>
             {/* Typing speed indicator */}
-            <motion.div {...pulse} className="flex items-center gap-1.5 ml-1">
+            <div className="animate-pulse-soft flex items-center gap-1.5 ml-1">
               <svg className="w-3 h-3 text-yellow-500" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M13 10V3L4 14h7v7l9-11h-7z" />
               </svg>
               <span className="text-[10px] text-yellow-600 dark:text-yellow-400 font-semibold">&lt; 2s</span>
-            </motion.div>
+            </div>
           </div>
         </div>
-      </motion.div>
+      </div>
     </div>
   )
 }
@@ -188,7 +155,7 @@ function IllustrationKnowledgeBase() {
     <div className="relative w-full h-80 flex items-center justify-center overflow-hidden">
       <div className="absolute inset-0 bg-gradient-to-br from-purple-50 to-violet-100 dark:from-purple-950/30 dark:to-violet-900/20 rounded-2xl" />
 
-      <motion.div {...float} className="relative">
+      <div className="animate-float relative">
         {/* Documents stack */}
         <div className="relative">
           {/* Back doc */}
@@ -207,37 +174,34 @@ function IllustrationKnowledgeBase() {
               <div className="w-5/6 h-1.5 bg-gray-200 dark:bg-gray-700 rounded" />
             </div>
             {/* Search icon overlay */}
-            <motion.div {...pulse} className="absolute -bottom-3 -right-3 w-10 h-10 bg-purple-500 rounded-full shadow-lg flex items-center justify-center">
+            <div className="animate-pulse-soft absolute -bottom-3 -right-3 w-10 h-10 bg-purple-500 rounded-full shadow-lg flex items-center justify-center">
               <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
-            </motion.div>
+            </div>
           </div>
         </div>
-      </motion.div>
+      </div>
 
       {/* File type badges */}
-      <motion.div
-        animate={{ y: [0, -5, 0] }}
-        transition={{ duration: 2, repeat: Infinity, delay: 0.3 }}
-        className="absolute top-8 right-10 bg-white dark:bg-gray-800 rounded-lg shadow-md px-2 py-1.5 text-[10px] font-bold text-red-500"
+      <div
+        className="animate-float absolute top-8 right-10 bg-white dark:bg-gray-800 rounded-lg shadow-md px-2 py-1.5 text-[10px] font-bold text-red-500"
+        style={{ animationDelay: "0.3s" }}
       >
         PDF
-      </motion.div>
-      <motion.div
-        animate={{ y: [0, -5, 0] }}
-        transition={{ duration: 2.5, repeat: Infinity, delay: 0.8 }}
-        className="absolute bottom-10 left-8 bg-white dark:bg-gray-800 rounded-lg shadow-md px-2 py-1.5 text-[10px] font-bold text-blue-500"
+      </div>
+      <div
+        className="animate-float absolute bottom-10 left-8 bg-white dark:bg-gray-800 rounded-lg shadow-md px-2 py-1.5 text-[10px] font-bold text-blue-500"
+        style={{ animationDelay: "0.8s" }}
       >
         DOCX
-      </motion.div>
-      <motion.div
-        animate={{ y: [0, -5, 0] }}
-        transition={{ duration: 2.2, repeat: Infinity, delay: 1.2 }}
-        className="absolute top-16 left-10 bg-white dark:bg-gray-800 rounded-lg shadow-md px-2 py-1.5 text-[10px] font-bold text-green-500"
+      </div>
+      <div
+        className="animate-float absolute top-16 left-10 bg-white dark:bg-gray-800 rounded-lg shadow-md px-2 py-1.5 text-[10px] font-bold text-green-500"
+        style={{ animationDelay: "1.2s" }}
       >
         CSV
-      </motion.div>
+      </div>
     </div>
   )
 }
@@ -254,11 +218,10 @@ function IllustrationMultiAgents() {
           { name: "Support", color: "bg-blue-500", size: "w-16 h-24", delay: 0.3 },
           { name: "RH", color: "bg-purple-500", size: "w-16 h-18", delay: 0.6 },
         ].map((agent, i) => (
-          <motion.div
+          <div
             key={i}
-            animate={{ y: [0, -6, 0] }}
-            transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut", delay: agent.delay }}
-            className="flex flex-col items-center gap-2"
+            className="animate-float flex flex-col items-center gap-2"
+            style={{ animationDelay: `${agent.delay}s` }}
           >
             <div className={`${agent.size} rounded-2xl ${agent.color} shadow-lg flex flex-col items-center justify-center p-2 relative`}>
               {/* Robot face */}
@@ -273,15 +236,15 @@ function IllustrationMultiAgents() {
               <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-green-400 border-2 border-white dark:border-gray-800" />
             </div>
             <span className="text-[10px] font-semibold text-gray-600 dark:text-gray-400">{agent.name}</span>
-          </motion.div>
+          </div>
         ))}
       </div>
 
       {/* Connection lines */}
-      <motion.div {...pulse} className="absolute top-8 left-1/2 -translate-x-1/2 bg-white dark:bg-gray-800 rounded-full shadow-md px-3 py-1.5 flex items-center gap-1.5">
+      <div className="animate-pulse-soft absolute top-8 left-1/2 -translate-x-1/2 bg-white dark:bg-gray-800 rounded-full shadow-md px-3 py-1.5 flex items-center gap-1.5">
         <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
         <span className="text-[10px] font-medium text-gray-600 dark:text-gray-300">3 agents actifs</span>
-      </motion.div>
+      </div>
     </div>
   )
 }
@@ -294,7 +257,7 @@ function IllustrationAnalytics() {
     <div className="relative w-full h-80 flex items-center justify-center overflow-hidden">
       <div className="absolute inset-0 bg-gradient-to-br from-emerald-50 to-green-100 dark:from-emerald-950/30 dark:to-green-900/20 rounded-2xl" />
 
-      <motion.div {...floatSlow} className="w-64">
+      <div className="animate-float-slow w-64">
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-4">
           {/* Mini dashboard header */}
           <div className="flex items-center justify-between mb-4">
@@ -308,12 +271,10 @@ function IllustrationAnalytics() {
           {/* Bar chart */}
           <div className="flex items-end gap-1.5 h-24 mb-3">
             {bars.map((h, i) => (
-              <motion.div
+              <div
                 key={i}
-                initial={{ height: 0 }}
-                animate={{ height: `${h}%` }}
-                transition={{ duration: 0.5, delay: i * 0.1 }}
                 className="flex-1 bg-gradient-to-t from-green-500 to-emerald-400 rounded-t"
+                style={{ height: `${h}%` }}
               />
             ))}
           </div>
@@ -330,17 +291,16 @@ function IllustrationAnalytics() {
             </div>
           </div>
         </div>
-      </motion.div>
+      </div>
 
       {/* Floating metric */}
-      <motion.div
-        animate={{ y: [0, -8, 0] }}
-        transition={{ duration: 2.5, repeat: Infinity, delay: 0.5 }}
-        className="absolute top-6 right-8 bg-white dark:bg-gray-800 rounded-lg shadow-md px-3 py-2"
+      <div
+        className="animate-float absolute top-6 right-8 bg-white dark:bg-gray-800 rounded-lg shadow-md px-3 py-2"
+        style={{ animationDelay: "0.5s" }}
       >
         <span className="text-green-500 text-xs font-bold">+24%</span>
         <span className="text-[10px] text-gray-500 ml-1">&#8593;</span>
-      </motion.div>
+      </div>
     </div>
   )
 }
@@ -351,7 +311,7 @@ function IllustrationSecurity() {
     <div className="relative w-full h-80 flex items-center justify-center overflow-hidden">
       <div className="absolute inset-0 bg-gradient-to-br from-slate-50 to-gray-100 dark:from-slate-950/30 dark:to-gray-900/30 rounded-2xl" />
 
-      <motion.div {...float} className="relative">
+      <div className="animate-float relative">
         {/* Shield */}
         <div className="relative">
           <svg width="120" height="140" viewBox="0 0 120 140" className="drop-shadow-xl">
@@ -379,7 +339,7 @@ function IllustrationSecurity() {
             </svg>
           </div>
         </div>
-      </motion.div>
+      </div>
 
       {/* Encryption dots */}
       {[
@@ -388,14 +348,13 @@ function IllustrationSecurity() {
         { x: "left-12", y: "bottom-14" },
         { x: "right-6", y: "bottom-10" },
       ].map((pos, i) => (
-        <motion.div
+        <div
           key={i}
-          animate={{ opacity: [0.3, 0.8, 0.3] }}
-          transition={{ duration: 1.5, repeat: Infinity, delay: i * 0.3 }}
-          className={`absolute ${pos.x} ${pos.y} text-[10px] font-mono text-gray-400 dark:text-gray-500`}
+          className={`animate-blink-opacity absolute ${pos.x} ${pos.y} text-[10px] font-mono text-gray-400 dark:text-gray-500`}
+          style={{ animationDelay: `${i * 0.3}s` }}
         >
           {["AES-256", "E2E", "SHA-512", "TLS 1.3"][i]}
-        </motion.div>
+        </div>
       ))}
     </div>
   )
@@ -407,7 +366,7 @@ function IllustrationCustomAI() {
     <div className="relative w-full h-80 flex items-center justify-center overflow-hidden">
       <div className="absolute inset-0 bg-gradient-to-br from-amber-50 to-yellow-100 dark:from-amber-950/30 dark:to-yellow-900/20 rounded-2xl" />
 
-      <motion.div {...floatSlow} className="w-60">
+      <div className="animate-float-slow w-60">
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-4 space-y-3">
           {/* Header */}
           <div className="flex items-center gap-2">
@@ -431,11 +390,9 @@ function IllustrationCustomAI() {
                 <span className="text-[10px] font-medium text-gray-700 dark:text-gray-300">{slider.value}%</span>
               </div>
               <div className="w-full h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                <motion.div
-                  initial={{ width: 0 }}
-                  animate={{ width: `${slider.value}%` }}
-                  transition={{ duration: 0.8, delay: i * 0.2 }}
+                <div
                   className={`h-full ${slider.color} rounded-full`}
+                  style={{ width: `${slider.value}%` }}
                 />
               </div>
             </div>
@@ -457,7 +414,7 @@ function IllustrationCustomAI() {
             ))}
           </div>
         </div>
-      </motion.div>
+      </div>
     </div>
   )
 }
@@ -468,7 +425,7 @@ function IllustrationWhatsApp() {
     <div className="relative w-full h-80 flex items-center justify-center overflow-hidden">
       <div className="absolute inset-0 bg-gradient-to-br from-green-50 to-emerald-100 dark:from-green-950/30 dark:to-emerald-900/20 rounded-2xl" />
 
-      <motion.div {...float} className="w-56">
+      <div className="animate-float w-56">
         {/* WhatsApp phone mockup */}
         <div className="bg-gray-900 rounded-[24px] p-1.5 shadow-2xl">
           <div className="bg-white dark:bg-gray-800 rounded-[20px] overflow-hidden">
@@ -506,17 +463,15 @@ function IllustrationWhatsApp() {
             </div>
           </div>
         </div>
-      </motion.div>
+      </div>
 
       {/* API connection badge */}
-      <motion.div
-        animate={{ y: [0, -5, 0] }}
-        transition={{ duration: 2, repeat: Infinity }}
-        className="absolute top-6 right-6 bg-white dark:bg-gray-800 rounded-lg shadow-md px-2.5 py-1.5 flex items-center gap-1.5"
+      <div
+        className="animate-float absolute top-6 right-6 bg-white dark:bg-gray-800 rounded-lg shadow-md px-2.5 py-1.5 flex items-center gap-1.5"
       >
         <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
         <span className="text-[10px] font-medium text-gray-600 dark:text-gray-300">API connectée</span>
-      </motion.div>
+      </div>
     </div>
   )
 }

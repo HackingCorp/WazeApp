@@ -1,11 +1,19 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
+import dynamic from "next/dynamic";
 import "./globals.css";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { LanguageProvider } from "@/components/providers/language-provider";
 import { Navbar } from "@/components/navigation/navbar";
-import { DemoChatWidget } from "@/components/sections/demo-chat";
 import { PostHogProvider } from "@/components/providers/posthog-provider";
+
+const DemoChatWidget = dynamic(
+  () => import("@/components/sections/demo-chat").then((m) => ({ default: m.DemoChatWidget })),
+  {
+    ssr: false,
+    loading: () => null,
+  }
+);
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -65,6 +73,12 @@ export const metadata: Metadata = {
     google: "your-google-verification-code",
   },
   category: "technology",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
 };
 
 const jsonLd = {

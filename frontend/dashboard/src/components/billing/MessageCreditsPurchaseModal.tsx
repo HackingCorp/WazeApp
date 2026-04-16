@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import Image from 'next/image';
 import { X, Smartphone, Loader2, CheckCircle, XCircle, AlertCircle, Plus, Minus, MessageSquare, Clock, Gift, CreditCard } from 'lucide-react';
 import { api, apiHelpers } from '@/lib/api';
 import clsx from 'clsx';
@@ -569,7 +570,7 @@ export function MessageCreditsPurchaseModal({
                         : 'border-gray-200 dark:border-gray-600 hover:border-yellow-300'
                     )}
                   >
-                    <img src="/images/payments/mtn.svg" alt="MTN" className="w-10 h-10 rounded-full" />
+                    <Image src="/images/payments/mtn.svg" alt="MTN" width={40} height={40} className="w-10 h-10 rounded-full" />
                     <span className="text-xs font-medium text-gray-900 dark:text-white">MTN MoMo</span>
                   </button>
                   <button
@@ -581,7 +582,7 @@ export function MessageCreditsPurchaseModal({
                         : 'border-gray-200 dark:border-gray-600 hover:border-orange-300'
                     )}
                   >
-                    <img src="/images/payments/orange-money.svg" alt="Orange Money" className="w-10 h-10 rounded-full" />
+                    <Image src="/images/payments/orange-money.svg" alt="Orange Money" width={40} height={40} className="w-10 h-10 rounded-full" />
                     <span className="text-xs font-medium text-gray-900 dark:text-white">Orange Money</span>
                   </button>
                   <button

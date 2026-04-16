@@ -8,6 +8,8 @@ config();
 
 const configService = new ConfigService();
 
+const isProduction = configService.get("NODE_ENV") === "production";
+
 const AppDataSource = new DataSource({
   type: "postgres",
   host: configService.get("DATABASE_HOST", "localhost"),
@@ -16,7 +18,8 @@ const AppDataSource = new DataSource({
   password: configService.get("DATABASE_PASSWORD", "wazeapp123"),
   database: configService.get("DATABASE_NAME", "wazeapp"),
   synchronize: configService.get("DATABASE_SYNCHRONIZE", "false") === "true",
-  logging: configService.get("NODE_ENV") === "development",
+  logging: isProduction ? ["error", "warn", "migration", "schema"] : true,
+  maxQueryExecutionTime: 1000,
   ssl:
     configService.get("DATABASE_SSL_ENABLED") === "true"
       ? {
@@ -24,6 +27,12 @@ const AppDataSource = new DataSource({
             configService.get("DATABASE_REJECT_UNAUTHORIZED") !== "false",
         }
       : false,
+  extra: {
+    max: 20,
+    min: 2,
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 5000,
+  },
   entities: [path.join(__dirname, "../**/*.entity{.ts,.js}")],
   migrations: [path.join(__dirname, "./migrations/*{.ts,.js}")],
   subscribers: [path.join(__dirname, "./subscribers/*{.ts,.js}")],

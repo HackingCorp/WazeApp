@@ -213,7 +213,7 @@ export default function ConversationsPage() {
     if (contact) {
       // Return contact name if available, otherwise check if phone is valid
       if (contact.name || contact.pushName || contact.shortName) {
-        return contact.name || contact.pushName || contact.shortName;
+        return (contact.name || contact.pushName || contact.shortName)!;
       }
     }
 
@@ -346,7 +346,7 @@ export default function ConversationsPage() {
             avatar: avatar, // Profile picture URL
             cleanedPhone: cleanedPhone, // Used for deduplication
             lastMessage: cleanText(conv.lastMessage || ''),
-            lastMessageTime: new Date(conv.lastMessageTime),
+            lastMessageTime: new Date(conv.lastMessageTime || Date.now()),
             unreadCount: conv.unreadCount || 0,
             isOnline: conv.isOnline || false,
             isTyping: false,
@@ -518,7 +518,7 @@ export default function ConversationsPage() {
 
       // Show notification for completion
       if (data.status === 'completed') {
-        toast.success(t('conversations.syncCompleted', { count: data.syncedChats }));
+        toast.success(t('conversations.syncCompleted', { count: data.syncedChats || 0 }));
         // Reload conversations to show newly synced ones
         loadConversations();
         // Hide sync status after 5 seconds when completed
@@ -677,7 +677,7 @@ export default function ConversationsPage() {
       const result = await api.sendOperatorReply(contactId, message);
       // Add message to UI immediately
       const newMessage = {
-        id: result.id || `operator-${Date.now()}`,
+        id: (result as any).id || `operator-${Date.now()}`,
         content: message,
         timestamp: new Date(),
         sender: 'operator' as const,
@@ -784,7 +784,8 @@ export default function ConversationsPage() {
         <ConversationInterface
           contacts={contacts}
           selectedContactId={selectedContactId}
-          messages={messages}
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          messages={messages as any}
           onSendMessage={handleSendMessage}
           onSelectContact={handleSelectContact}
           onArchiveContact={handleArchiveContact}

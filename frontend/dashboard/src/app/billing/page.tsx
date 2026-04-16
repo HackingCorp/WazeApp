@@ -23,8 +23,10 @@ import {
   Gift,
 } from 'lucide-react';
 import { BonusCreditsWidget } from '@/components/billing/BonusCreditsWidget';
-import { MessageCreditsPurchaseModal } from '@/components/billing/MessageCreditsPurchaseModal';
-import { PaymentModal } from '@/components/billing/PaymentModal';
+import dynamic from 'next/dynamic';
+
+const MessageCreditsPurchaseModal = dynamic(() => import('@/components/billing/MessageCreditsPurchaseModal').then(mod => mod.MessageCreditsPurchaseModal), { ssr: false });
+const PaymentModal = dynamic(() => import('@/components/billing/PaymentModal').then(mod => mod.PaymentModal), { ssr: false });
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
@@ -222,10 +224,10 @@ export default function BillingPage() {
     }
   }, [activeTab]);
 
-  const currentPlan = user?.organization?.plan?.toLowerCase() || user?.subscription?.plan?.toLowerCase() || 'free';
+  const currentPlan = user?.organization?.plan?.toLowerCase() || (user as any)?.subscription?.plan?.toLowerCase() || 'free';
   const billingCycle = 'monthly';
-  const subscriptionStatus = user?.organization?.subscription?.status?.toLowerCase() || user?.subscription?.status?.toLowerCase() || '';
-  const trialEndsAt = user?.organization?.subscription?.trialEndsAt || user?.subscription?.trialEndsAt || undefined;
+  const subscriptionStatus = (user?.organization as any)?.subscription?.status?.toLowerCase() || (user as any)?.subscription?.status?.toLowerCase() || '';
+  const trialEndsAt = (user?.organization as any)?.subscription?.trialEndsAt || (user as any)?.subscription?.trialEndsAt || undefined;
 
   // Plan change is handled by PaymentModal for upgrades
   // For downgrades to free, just reload the page (backend handles it via payment success callback)
@@ -241,7 +243,7 @@ export default function BillingPage() {
   };
 
   const handlePayInvoice = (invoice: Invoice) => {
-    analytics.track('invoice_payment_opened', { invoiceId: invoice.id, amount: invoice.amount });
+    analytics.track('invoice_payment_opened', { invoiceId: invoice.id, amount: invoice.amountInCents });
     setSelectedInvoice(invoice);
     setShowInvoicePaymentModal(true);
   };
@@ -372,7 +374,7 @@ export default function BillingPage() {
           billingCycle={billingCycle}
           subscriptionStatus={subscriptionStatus}
           trialEndsAt={trialEndsAt}
-          nextBillingDate={summary?.nextBillingDate}
+          nextBillingDate={summary?.nextBillingDate ?? undefined}
           onPlanChange={handlePlanChange}
           onBillingCycleChange={handleBillingCycleChange}
           isLoading={isLoading}

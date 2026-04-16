@@ -19,8 +19,10 @@ import {
   ShoppingCart,
   RefreshCw,
 } from 'lucide-react';
-import { WhatsAppWidget } from '@/components/dashboard/WhatsAppWidget';
-import { BonusCreditsWidget } from '@/components/billing/BonusCreditsWidget';
+import dynamic from 'next/dynamic';
+
+const WhatsAppWidget = dynamic(() => import('@/components/dashboard/WhatsAppWidget').then(mod => mod.WhatsAppWidget), { ssr: false });
+const BonusCreditsWidget = dynamic(() => import('@/components/billing/BonusCreditsWidget').then(mod => mod.BonusCreditsWidget), { ssr: false });
 import { useI18n } from '@/providers/I18nProvider';
 import { useAuth } from '@/providers/AuthProvider';
 import { useSocket } from '@/providers/SocketProvider';

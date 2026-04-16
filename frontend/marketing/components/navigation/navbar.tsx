@@ -5,7 +5,6 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Menu, X, Moon, Sun } from "lucide-react"
 import { useTheme } from "next-themes"
-import { motion, AnimatePresence } from "framer-motion"
 import { LanguageSelector } from "@/components/ui/language-selector"
 import { useTranslations } from "@/lib/hooks/use-translations"
 
@@ -88,42 +87,35 @@ export function Navbar() {
         </div>
       </div>
 
-      <AnimatePresence>
-        {mobileMenuOpen && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            className="md:hidden"
-          >
-            <div className="space-y-1 px-4 pb-3 pt-2">
-              {navigation.map((item) => (
-                <Link
-                  key={item.name}
-                  href={item.href}
-                  className="block rounded-md px-3 py-2 text-base font-medium text-gray-700 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  {item.name}
-                </Link>
-              ))}
-              <div className="mt-4 space-y-2">
-                <div className="px-3 py-2">
-                  <LanguageSelector />
-                </div>
-                <Link href="/login" onClick={() => setMobileMenuOpen(false)}>
-                  <Button variant="outline" className="w-full">
-                    {t("signIn")}
-                  </Button>
-                </Link>
-                <Link href="/register" onClick={() => setMobileMenuOpen(false)}>
-                  <Button className="w-full">{t("getStarted")}</Button>
-                </Link>
-              </div>
+      <div
+        className={`md:hidden overflow-hidden transition-all duration-300 ${mobileMenuOpen ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}`}
+      >
+        <div className="space-y-1 px-4 pb-3 pt-2">
+          {navigation.map((item) => (
+            <Link
+              key={item.name}
+              href={item.href}
+              className="block rounded-md px-3 py-2 text-base font-medium text-gray-700 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              {item.name}
+            </Link>
+          ))}
+          <div className="mt-4 space-y-2">
+            <div className="px-3 py-2">
+              <LanguageSelector />
             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            <Link href="/login" onClick={() => setMobileMenuOpen(false)}>
+              <Button variant="outline" className="w-full">
+                {t("signIn")}
+              </Button>
+            </Link>
+            <Link href="/register" onClick={() => setMobileMenuOpen(false)}>
+              <Button className="w-full">{t("getStarted")}</Button>
+            </Link>
+          </div>
+        </div>
+      </div>
     </nav>
   )
 }

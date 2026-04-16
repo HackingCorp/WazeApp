@@ -165,14 +165,13 @@ export class ConversationGateway
       // If no more connections, update presence
       if (userSockets.size === 0) {
         this.connectedUsers.delete(client.userId);
-        this.userPresence.set(client.userId, "offline");
-
-        // Emit presence update
+        // Emit presence update before deleting to free memory
         this.emitPresenceUpdate(
           client.userId,
           "offline",
           client.organizationId,
         );
+        this.userPresence.delete(client.userId);
       }
     }
 

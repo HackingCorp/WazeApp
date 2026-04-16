@@ -303,15 +303,24 @@ export class WhatsAppAIResponderService {
       const cutoff = new Date(Date.now() - AUTO_RELEASE_MINUTES * 60 * 1000);
       let releasedCount = 0;
 
-      for (const conversation of humanControlled) {
-        // Find the last operator message (not AI agent messages — those predate the takeover)
-        const lastOperatorMsg = await this.messageRepository.findOne({
-          where: { conversationId: conversation.id, role: MessageRole.OPERATOR },
-          order: { createdAt: 'DESC' },
-        });
+      // Single query: get last operator message time per conversation (eliminates N+1)
+      const conversationIds = humanControlled.map(c => c.id);
+      const lastOperatorMessages = await this.messageRepository
+        .createQueryBuilder('msg')
+        .select('msg.conversationId', 'conversationId')
+        .addSelect('MAX(msg.createdAt)', 'lastOperatorAt')
+        .where('msg.conversationId IN (:...conversationIds)', { conversationIds })
+        .andWhere('msg.role = :role', { role: MessageRole.OPERATOR })
+        .groupBy('msg.conversationId')
+        .getRawMany<{ conversationId: string; lastOperatorAt: string }>();
 
+      const lastOperatorMap = new Map(
+        lastOperatorMessages.map(r => [r.conversationId, new Date(r.lastOperatorAt)])
+      );
+
+      for (const conversation of humanControlled) {
         // Use last operator message time, or conversation.updatedAt (set when takeover happens)
-        const lastActivity = lastOperatorMsg?.createdAt || conversation.updatedAt;
+        const lastActivity = lastOperatorMap.get(conversation.id) || conversation.updatedAt;
         if (lastActivity < cutoff) {
           conversation.isHumanControlled = false;
           conversation.assignedOperatorId = null;

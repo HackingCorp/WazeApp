@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { motion } from "framer-motion"
+
 import { Button } from "@/components/ui/button"
 import { MessageSquare, Settings, Zap, ArrowRight, CheckCircle } from "lucide-react"
 import { useTranslations } from "@/lib/hooks/use-translations"
@@ -69,11 +69,7 @@ export default function HowItWorksPage() {
       <div className="bg-gradient-to-b from-green-50 to-white dark:from-green-950/20 dark:to-background py-20 sm:py-32">
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5 }}
-            >
+            <div className="animate-fade-in-up">
               <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-gray-900 dark:text-white mb-6">
                 {t("howItWorksTitle")}
                 <span className="text-primary"> {t("howItWorksTitleHighlight")}</span>
@@ -87,7 +83,7 @@ export default function HowItWorksPage() {
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
               </Link>
-            </motion.div>
+            </div>
           </div>
         </div>
       </div>
@@ -96,15 +92,12 @@ export default function HowItWorksPage() {
         <div className="container mx-auto px-4">
           <div className="space-y-24">
             {steps.map((step, index) => (
-              <motion.div
+              <div
                 key={step.number}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.5, delay: index * 0.2 }}
-                className={`grid lg:grid-cols-2 gap-12 items-center ${
+                className={`animate-fade-in-up grid lg:grid-cols-2 gap-12 items-center ${
                   index % 2 === 1 ? "lg:grid-flow-col-dense" : ""
                 }`}
+                style={{ animationDelay: `${index * 0.2}s` }}
               >
                 <div className={index % 2 === 1 ? "lg:col-start-2" : ""}>
                   <div className="flex items-center mb-6">
@@ -139,7 +132,7 @@ export default function HowItWorksPage() {
                     </div>
                   )}
                 </div>
-              </motion.div>
+              </div>
             ))}
           </div>
         </div>
@@ -147,13 +140,7 @@ export default function HowItWorksPage() {
 
       <div className="bg-gray-50 dark:bg-gray-900/50 py-20">
         <div className="container mx-auto px-4">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5 }}
-            className="text-center"
-          >
+          <div className="animate-fade-in-up text-center">
             <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 dark:text-white mb-6">
               {t("whyChooseTitle")}
             </h2>
@@ -167,18 +154,13 @@ export default function HowItWorksPage() {
                 </div>
               ))}
             </div>
-          </motion.div>
+          </div>
         </div>
       </div>
 
       <div className="bg-primary text-white py-20">
         <div className="container mx-auto px-4 text-center">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5 }}
-          >
+          <div className="animate-fade-in-up">
             <h2 className="text-3xl sm:text-4xl font-bold mb-6">
               {t("ctaReadyGetStarted")}
             </h2>
@@ -197,7 +179,7 @@ export default function HowItWorksPage() {
                 </Button>
               </Link>
             </div>
-          </motion.div>
+          </div>
         </div>
       </div>
     </div>

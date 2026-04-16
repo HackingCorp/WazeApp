@@ -1,21 +1,12 @@
 "use client"
 
-import { motion } from "framer-motion"
-
-const float = {
-  animate: {
-    y: [0, -8, 0],
-    transition: { duration: 3, repeat: Infinity, ease: "easeInOut" },
-  },
-}
-
 // Step 1: Connect WhatsApp (MessageSquare icon)
 function IllustrationConnect() {
   return (
     <div className="relative w-full h-80 flex items-center justify-center overflow-hidden">
       <div className="absolute inset-0 bg-gradient-to-br from-green-50 to-emerald-100 dark:from-green-950/30 dark:to-emerald-900/20 rounded-2xl" />
 
-      <motion.div {...float} className="relative">
+      <div className="animate-float relative">
         {/* Phone frame */}
         <div className="bg-gray-900 rounded-[28px] p-2 shadow-2xl">
           <div className="w-48 bg-white dark:bg-gray-800 rounded-[22px] overflow-hidden">
@@ -45,27 +36,23 @@ function IllustrationConnect() {
             </div>
           </div>
         </div>
-      </motion.div>
+      </div>
 
       {/* Connection arrow */}
-      <motion.div
-        animate={{ x: [0, 5, 0], opacity: [0.5, 1, 0.5] }}
-        transition={{ duration: 1.5, repeat: Infinity }}
-        className="absolute top-1/2 right-8 -translate-y-1/2 flex items-center gap-1"
+      <div
+        className="animate-slide-arrow absolute top-1/2 right-8 -translate-y-1/2 flex items-center gap-1"
       >
         <div className="w-8 h-0.5 bg-green-400" />
         <div className="w-0 h-0 border-t-4 border-b-4 border-l-6 border-t-transparent border-b-transparent border-l-green-400" />
-      </motion.div>
+      </div>
 
       {/* Connected badge */}
-      <motion.div
-        animate={{ scale: [1, 1.05, 1] }}
-        transition={{ duration: 2, repeat: Infinity }}
-        className="absolute top-6 left-6 bg-white dark:bg-gray-800 rounded-xl shadow-lg px-3 py-2 flex items-center gap-2"
+      <div
+        className="animate-pulse-soft absolute top-6 left-6 bg-white dark:bg-gray-800 rounded-xl shadow-lg px-3 py-2 flex items-center gap-2"
       >
         <div className="w-3 h-3 rounded-full bg-green-500 animate-pulse" />
-        <span className="text-xs font-semibold text-green-600 dark:text-green-400">Connecté</span>
-      </motion.div>
+        <span className="text-xs font-semibold text-green-600 dark:text-green-400">Connect&eacute;</span>
+      </div>
     </div>
   )
 }
@@ -76,7 +63,7 @@ function IllustrationConfigure() {
     <div className="relative w-full h-80 flex items-center justify-center overflow-hidden">
       <div className="absolute inset-0 bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-blue-950/30 dark:to-indigo-900/20 rounded-2xl" />
 
-      <motion.div {...float} className="w-60">
+      <div className="animate-float w-60">
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl overflow-hidden">
           {/* Config header */}
           <div className="bg-gradient-to-r from-blue-500 to-indigo-500 px-4 py-2.5">
@@ -127,7 +114,7 @@ function IllustrationConfigure() {
             </div>
           </div>
         </div>
-      </motion.div>
+      </div>
     </div>
   )
 }
@@ -139,17 +126,15 @@ function IllustrationGoLive() {
       <div className="absolute inset-0 bg-gradient-to-br from-amber-50 to-orange-100 dark:from-amber-950/30 dark:to-orange-900/20 rounded-2xl" />
 
       {/* Central launch button */}
-      <motion.div {...float} className="relative">
-        <motion.div
-          animate={{ scale: [1, 1.1, 1], boxShadow: ["0 0 0 0 rgba(34,197,94,0.4)", "0 0 0 20px rgba(34,197,94,0)", "0 0 0 0 rgba(34,197,94,0)"] }}
-          transition={{ duration: 2, repeat: Infinity }}
-          className="w-28 h-28 rounded-full bg-gradient-to-br from-green-400 to-green-600 shadow-xl flex items-center justify-center"
+      <div className="animate-float relative">
+        <div
+          className="animate-pulse-glow w-28 h-28 rounded-full bg-gradient-to-br from-green-400 to-green-600 shadow-xl flex items-center justify-center"
         >
           <svg className="w-12 h-12 text-white" fill="currentColor" viewBox="0 0 24 24">
             <path d="M13 10V3L4 14h7v7l9-11h-7z" />
           </svg>
-        </motion.div>
-      </motion.div>
+        </div>
+      </div>
 
       {/* Flying messages */}
       {[
@@ -158,11 +143,10 @@ function IllustrationGoLive() {
         { x: "right-10", y: "bottom-16", delay: 1 },
         { x: "left-6", y: "bottom-10", delay: 1.5 },
       ].map((msg, i) => (
-        <motion.div
+        <div
           key={i}
-          animate={{ y: [0, -8, 0], opacity: [0.6, 1, 0.6] }}
-          transition={{ duration: 2, repeat: Infinity, delay: msg.delay }}
-          className={`absolute ${msg.x} ${msg.y} bg-white dark:bg-gray-800 rounded-xl shadow-lg px-3 py-2`}
+          className={`animate-float absolute ${msg.x} ${msg.y} bg-white dark:bg-gray-800 rounded-xl shadow-lg px-3 py-2`}
+          style={{ animationDelay: `${msg.delay}s` }}
         >
           <div className="flex items-center gap-1.5">
             <div className="w-5 h-5 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
@@ -170,20 +154,18 @@ function IllustrationGoLive() {
                 <path d="M11.071.653a.457.457 0 0 0-.304-.102.493.493 0 0 0-.381.178l-6.19 7.636-2.011-2.095a.463.463 0 0 0-.686.007.52.52 0 0 0-.012.7l2.45 2.683a.467.467 0 0 0 .692-.007l6.54-8.103a.512.512 0 0 0-.098-.897z" />
               </svg>
             </div>
-            <span className="text-[10px] text-gray-600 dark:text-gray-300">Envoyé</span>
+            <span className="text-[10px] text-gray-600 dark:text-gray-300">Envoy&eacute;</span>
           </div>
-        </motion.div>
+        </div>
       ))}
 
       {/* Counter */}
-      <motion.div
-        animate={{ scale: [1, 1.05, 1] }}
-        transition={{ duration: 2, repeat: Infinity }}
-        className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-white dark:bg-gray-800 rounded-full shadow-lg px-4 py-2 flex items-center gap-2"
+      <div
+        className="animate-pulse-soft absolute bottom-6 left-1/2 -translate-x-1/2 bg-white dark:bg-gray-800 rounded-full shadow-lg px-4 py-2 flex items-center gap-2"
       >
         <span className="text-xs font-bold text-green-600">1,247</span>
         <span className="text-[10px] text-gray-500">messages/jour</span>
-      </motion.div>
+      </div>
     </div>
   )
 }

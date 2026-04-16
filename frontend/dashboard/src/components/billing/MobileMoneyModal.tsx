@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import Image from 'next/image';
 import { X, Smartphone, Loader2, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 import { api } from '@/lib/api';
 import clsx from 'clsx';
@@ -355,7 +356,7 @@ export function MobileMoneyModal({
                         : 'border-gray-200 dark:border-gray-600 hover:border-yellow-300'
                     )}
                   >
-                    <img src="/images/payments/mtn.svg" alt="MTN" className="w-12 h-12 rounded-full" />
+                    <Image src="/images/payments/mtn.svg" alt="MTN" width={48} height={48} className="w-12 h-12 rounded-full" />
                     <span className="text-sm font-medium text-gray-900 dark:text-white">MTN MoMo</span>
                   </button>
                   <button
@@ -367,7 +368,7 @@ export function MobileMoneyModal({
                         : 'border-gray-200 dark:border-gray-600 hover:border-orange-300'
                     )}
                   >
-                    <img src="/images/payments/orange-money.svg" alt="Orange Money" className="w-12 h-12 rounded-full" />
+                    <Image src="/images/payments/orange-money.svg" alt="Orange Money" width={48} height={48} className="w-12 h-12 rounded-full" />
                     <span className="text-sm font-medium text-gray-900 dark:text-white">Orange Money</span>
                   </button>
                 </div>

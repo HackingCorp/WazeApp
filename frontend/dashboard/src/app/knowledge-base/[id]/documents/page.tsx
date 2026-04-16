@@ -26,7 +26,9 @@ import {
   Link
 } from 'lucide-react';
 import clsx from 'clsx';
-import { UploadDocumentsModal } from '@/components/knowledge-base/UploadDocumentsModal';
+import dynamic from 'next/dynamic';
+
+const UploadDocumentsModal = dynamic(() => import('@/components/knowledge-base/UploadDocumentsModal').then(mod => mod.UploadDocumentsModal), { ssr: false });
 import { RichTextEditorModal } from '@/components/knowledge-base/RichTextEditorModal';
 import UrlScrapingModal from '@/components/knowledge-base/UrlScrapingModal';
 import { api } from '@/lib/api';

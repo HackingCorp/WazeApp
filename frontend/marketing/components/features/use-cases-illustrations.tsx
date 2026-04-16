@@ -1,21 +1,12 @@
 "use client"
 
-import { motion } from "framer-motion"
-
-const float = {
-  animate: {
-    y: [0, -8, 0],
-    transition: { duration: 3, repeat: Infinity, ease: "easeInOut" },
-  },
-}
-
 // E-commerce
 function IllustrationEcommerce() {
   return (
     <div className="relative w-full h-80 flex items-center justify-center overflow-hidden">
       <div className="absolute inset-0 bg-gradient-to-br from-orange-50 to-amber-100 dark:from-orange-950/30 dark:to-amber-900/20 rounded-2xl" />
 
-      <motion.div {...float} className="w-56">
+      <div className="animate-float w-56">
         {/* WhatsApp chat with order */}
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl overflow-hidden">
           <div className="bg-[#075E54] px-3 py-2 flex items-center gap-2">
@@ -59,25 +50,22 @@ function IllustrationEcommerce() {
             </div>
           </div>
         </div>
-      </motion.div>
+      </div>
 
       {/* Floating badges */}
-      <motion.div
-        animate={{ y: [0, -6, 0] }}
-        transition={{ duration: 2.5, repeat: Infinity }}
-        className="absolute top-6 left-6 bg-white dark:bg-gray-800 rounded-lg shadow-md px-2.5 py-1.5 flex items-center gap-1.5"
+      <div
+        className="animate-float absolute top-6 left-6 bg-white dark:bg-gray-800 rounded-lg shadow-md px-2.5 py-1.5 flex items-center gap-1.5"
       >
         <span className="text-sm">&#128230;</span>
         <span className="text-[10px] font-medium text-gray-600 dark:text-gray-300">142 commandes</span>
-      </motion.div>
+      </div>
 
-      <motion.div
-        animate={{ y: [0, -5, 0] }}
-        transition={{ duration: 2, repeat: Infinity, delay: 0.8 }}
-        className="absolute bottom-8 right-6 bg-green-500 rounded-lg shadow-md px-2.5 py-1.5"
+      <div
+        className="animate-float absolute bottom-8 right-6 bg-green-500 rounded-lg shadow-md px-2.5 py-1.5"
+        style={{ animationDelay: "0.8s" }}
       >
         <span className="text-[10px] font-bold text-white">+32% ventes</span>
-      </motion.div>
+      </div>
     </div>
   )
 }
@@ -88,7 +76,7 @@ function IllustrationRealEstate() {
     <div className="relative w-full h-80 flex items-center justify-center overflow-hidden">
       <div className="absolute inset-0 bg-gradient-to-br from-blue-50 to-sky-100 dark:from-blue-950/30 dark:to-sky-900/20 rounded-2xl" />
 
-      <motion.div {...float} className="w-56">
+      <div className="animate-float w-56">
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl overflow-hidden">
           <div className="bg-[#075E54] px-3 py-2 flex items-center gap-2">
             <div className="w-6 h-6 rounded-full bg-blue-400 flex items-center justify-center">
@@ -116,20 +104,19 @@ function IllustrationRealEstate() {
                 </div>
                 <div className="px-2 py-1.5">
                   <p className="text-[9px] font-semibold text-gray-800 dark:text-gray-200">Villa Bonamoussadi</p>
-                  <p className="text-[8px] text-gray-600 dark:text-gray-300">3 pièces &bull; 85m² &bull; Parking</p>
+                  <p className="text-[8px] text-gray-600 dark:text-gray-300">3 pi&egrave;ces &bull; 85m&sup2; &bull; Parking</p>
                   <p className="text-[9px] font-bold text-green-700 dark:text-green-400 mt-0.5">180 000 FCFA/mois</p>
                 </div>
               </div>
             </div>
           </div>
         </div>
-      </motion.div>
+      </div>
 
       {/* Calendar badge */}
-      <motion.div
-        animate={{ y: [0, -6, 0] }}
-        transition={{ duration: 2.5, repeat: Infinity, delay: 0.3 }}
-        className="absolute top-8 right-8 bg-white dark:bg-gray-800 rounded-lg shadow-md px-2.5 py-1.5"
+      <div
+        className="animate-float absolute top-8 right-8 bg-white dark:bg-gray-800 rounded-lg shadow-md px-2.5 py-1.5"
+        style={{ animationDelay: "0.3s" }}
       >
         <div className="flex items-center gap-1.5">
           <svg className="w-3 h-3 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -140,7 +127,7 @@ function IllustrationRealEstate() {
           </svg>
           <span className="text-[10px] font-medium text-gray-600 dark:text-gray-300">Visite 14h</span>
         </div>
-      </motion.div>
+      </div>
     </div>
   )
 }
@@ -151,7 +138,7 @@ function IllustrationRestaurant() {
     <div className="relative w-full h-80 flex items-center justify-center overflow-hidden">
       <div className="absolute inset-0 bg-gradient-to-br from-red-50 to-rose-100 dark:from-red-950/30 dark:to-rose-900/20 rounded-2xl" />
 
-      <motion.div {...float} className="w-56">
+      <div className="animate-float w-56">
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl overflow-hidden">
           <div className="bg-[#075E54] px-3 py-2 flex items-center gap-2">
             <div className="w-6 h-6 rounded-full bg-red-400 flex items-center justify-center">
@@ -189,28 +176,25 @@ function IllustrationRestaurant() {
             </div>
           </div>
         </div>
-      </motion.div>
+      </div>
 
       {/* Order counter */}
-      <motion.div
-        animate={{ y: [0, -5, 0] }}
-        transition={{ duration: 2, repeat: Infinity }}
-        className="absolute top-6 left-6 bg-white dark:bg-gray-800 rounded-lg shadow-md px-2.5 py-1.5 flex items-center gap-1.5"
+      <div
+        className="animate-float absolute top-6 left-6 bg-white dark:bg-gray-800 rounded-lg shadow-md px-2.5 py-1.5 flex items-center gap-1.5"
       >
         <span className="text-sm">&#128203;</span>
         <span className="text-[10px] font-medium text-gray-600 dark:text-gray-300">38 commandes</span>
-      </motion.div>
+      </div>
 
       {/* Rating */}
-      <motion.div
-        animate={{ y: [0, -6, 0] }}
-        transition={{ duration: 2.5, repeat: Infinity, delay: 0.5 }}
-        className="absolute bottom-8 right-6 bg-white dark:bg-gray-800 rounded-lg shadow-md px-2.5 py-1.5 flex items-center gap-1"
+      <div
+        className="animate-float absolute bottom-8 right-6 bg-white dark:bg-gray-800 rounded-lg shadow-md px-2.5 py-1.5 flex items-center gap-1"
+        style={{ animationDelay: "0.5s" }}
       >
         <span className="text-[10px]">&#11088;</span>
         <span className="text-xs font-bold text-gray-700 dark:text-gray-300">4.8</span>
         <span className="text-[9px] text-gray-400">/5</span>
-      </motion.div>
+      </div>
     </div>
   )
 }

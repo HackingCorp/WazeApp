@@ -69,7 +69,7 @@ export default function OrderDetailPage() {
   const [cancelReason, setCancelReason] = useState('');
   const [isUpdating, setIsUpdating] = useState(false);
 
-  const orderId = params.id as string;
+  const orderId = params?.id as string;
 
   const fetchOrder = useCallback(async () => {
     setIsLoading(true);

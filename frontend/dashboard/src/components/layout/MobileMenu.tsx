@@ -2,6 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
+import NextImage from 'next/image';
 import { usePathname } from 'next/navigation';
 import { 
   X,
@@ -174,10 +175,13 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
           <div className="flex-shrink-0 px-6 py-4 border-t border-gray-200 dark:border-gray-700">
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <img
+                <NextImage
                   className="h-10 w-10 rounded-full"
                   src={user?.avatar || `https://ui-avatars.com/api/?name=${user?.firstName}+${user?.lastName}&background=059669&color=fff`}
-                  alt={user?.firstName}
+                  alt={user?.firstName || ''}
+                  width={40}
+                  height={40}
+                  unoptimized
                 />
               </div>
               <div className="ml-3 min-w-0 flex-1">

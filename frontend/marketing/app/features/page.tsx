@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { motion } from "framer-motion"
+
 import { Button } from "@/components/ui/button"
 import {
   MessageSquare,
@@ -130,11 +130,7 @@ export default function FeaturesPage() {
       <div className="bg-gradient-to-b from-green-50 to-white dark:from-green-950/20 dark:to-background py-20 sm:py-32">
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5 }}
-            >
+            <div className="animate-fade-in-up">
               <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-gray-900 dark:text-white mb-6">
                 {t("featuresPageTitle")}
                 <span className="text-whatsapp"> {t("featuresPageTitleHighlight")}</span>
@@ -148,7 +144,7 @@ export default function FeaturesPage() {
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
               </Link>
-            </motion.div>
+            </div>
           </div>
         </div>
       </div>
@@ -157,15 +153,12 @@ export default function FeaturesPage() {
         <div className="container mx-auto px-4">
           <div className="space-y-24">
             {features.map((feature, index) => (
-              <motion.div
+              <div
                 key={feature.name}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.5, delay: index * 0.1 }}
-                className={`grid lg:grid-cols-2 gap-12 items-center ${
+                className={`animate-fade-in-up grid lg:grid-cols-2 gap-12 items-center ${
                   index % 2 === 1 ? "lg:grid-flow-col-dense" : ""
                 }`}
+                style={{ animationDelay: `${index * 0.1}s` }}
               >
                 <div className={index % 2 === 1 ? "lg:col-start-2" : ""}>
                   <div className="flex items-center mb-6">
@@ -198,7 +191,7 @@ export default function FeaturesPage() {
                     </div>
                   )}
                 </div>
-              </motion.div>
+              </div>
             ))}
           </div>
         </div>
@@ -206,12 +199,7 @@ export default function FeaturesPage() {
 
       <div className="bg-primary text-white py-20">
         <div className="container mx-auto px-4 text-center">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5 }}
-          >
+          <div className="animate-fade-in-up">
             <h2 className="text-3xl sm:text-4xl font-bold mb-6">
               {t("ctaReadyTransform")}
             </h2>
@@ -230,7 +218,7 @@ export default function FeaturesPage() {
                 </Button>
               </Link>
             </div>
-          </motion.div>
+          </div>
         </div>
       </div>
     </div>

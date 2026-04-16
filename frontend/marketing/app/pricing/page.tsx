@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
-import { motion } from "framer-motion"
+
 import { Button } from "@/components/ui/button"
 import { Check, X, Sparkles, Loader2 } from "lucide-react"
 import posthog from "posthog-js"
@@ -261,26 +261,17 @@ export default function PricingPage() {
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white dark:from-gray-900 dark:to-background">
       <div className="container mx-auto px-4 py-20">
         <div className="text-center mb-12">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-          >
+          <div className="animate-fade-in-up">
             <h1 className="text-4xl sm:text-5xl font-bold text-gray-900 dark:text-white mb-4">
               {t("pricingTitle")}
             </h1>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
               {t("pricingSubtitle")}
             </p>
-          </motion.div>
+          </div>
         </div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.1 }}
-          className="flex flex-col sm:flex-row items-center justify-center gap-6 mb-12"
-        >
+        <div className="animate-fade-in-up flex flex-col sm:flex-row items-center justify-center gap-6 mb-12" style={{ animationDelay: '0.1s' }}>
           <div className="flex items-center space-x-3 bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
             <button
               onClick={() => setBillingPeriod("monthly")}
@@ -319,18 +310,16 @@ export default function PricingPage() {
               </option>
             ))}
           </select>
-        </motion.div>
+        </div>
 
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 mb-20 max-w-5xl mx-auto">
           {plans.map((plan, index) => (
-            <motion.div
+            <div
               key={plan.name}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: index * 0.1 }}
-              className={`relative bg-white dark:bg-gray-800 rounded-2xl shadow-lg ${
+              className={`animate-fade-in-up relative bg-white dark:bg-gray-800 rounded-2xl shadow-lg ${
                 plan.popular ? "ring-2 ring-primary" : ""
               }`}
+              style={{ animationDelay: `${index * 0.1}s` }}
             >
               {plan.popular && (
                 <div className="absolute -top-4 left-1/2 -translate-x-1/2">
@@ -400,7 +389,7 @@ export default function PricingPage() {
                   ))}
                 </div>
               </div>
-            </motion.div>
+            </div>
           ))}
         </div>
 
@@ -410,18 +399,16 @@ export default function PricingPage() {
           </h2>
           <div className="space-y-6">
             {faqs.map((faq, index) => (
-              <motion.div
+              <div
                 key={faq.question}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: index * 0.1 }}
-                className="bg-white dark:bg-gray-800 rounded-lg p-6"
+                className="animate-fade-in-up bg-white dark:bg-gray-800 rounded-lg p-6"
+                style={{ animationDelay: `${index * 0.1}s` }}
               >
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
                   {faq.question}
                 </h3>
                 <p className="text-muted-foreground">{faq.answer}</p>
-              </motion.div>
+              </div>
             ))}
           </div>
         </div>

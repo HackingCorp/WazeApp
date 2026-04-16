@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import Image from 'next/image';
 import { X, Send, RotateCcw, Bot, ChevronDown, ChevronUp, AlertCircle, Clock, Zap } from 'lucide-react';
 import { format } from 'date-fns';
 import clsx from 'clsx';
@@ -279,10 +280,13 @@ export function AgentTestModal({
           <div className="flex items-center gap-3">
             <div className="relative">
               {agent.avatarUrl ? (
-                <img
+                <Image
                   src={agent.avatarUrl}
                   alt={agent.name}
                   className="w-10 h-10 rounded-full object-cover"
+                  width={40}
+                  height={40}
+                  unoptimized
                 />
               ) : (
                 <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
@@ -370,11 +374,14 @@ export function AgentTestModal({
                           <div key={idx}>
                             {item.type === 'image' && (
                               <div>
-                                <img
+                                <Image
                                   src={item.url}
                                   alt={item.caption || 'Image'}
                                   className="max-w-[250px] rounded-lg cursor-pointer hover:opacity-90"
+                                  width={250}
+                                  height={200}
                                   onClick={() => window.open(item.url, '_blank')}
+                                  unoptimized
                                 />
                                 {item.caption && (
                                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{item.caption}</p>

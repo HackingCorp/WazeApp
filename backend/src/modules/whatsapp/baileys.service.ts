@@ -1,6 +1,7 @@
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { EventEmitter2 } from "@nestjs/event-emitter";
+import { Cron } from "@nestjs/schedule";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { Boom } from "@hapi/boom";
@@ -2657,6 +2658,18 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
       }
     } catch (error) {
       this.logger.error(`Failed to restore existing sessions:`, error);
+    }
+  }
+
+  /**
+   * Clear sentBySystemIds every hour to prevent unbounded memory growth.
+   */
+  @Cron('0 */1 * * *')
+  handleSentBySystemIdsClear() {
+    const size = this.sentBySystemIds.size;
+    if (size > 0) {
+      this.sentBySystemIds.clear();
+      this.logger.log(`Cleared ${size} entries from sentBySystemIds`);
     }
   }
 

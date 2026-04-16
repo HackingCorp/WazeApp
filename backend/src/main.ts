@@ -6,6 +6,7 @@ import { ConfigService } from "@nestjs/config";
 import { useContainer } from "class-validator";
 import { join } from "path";
 import helmet from "helmet";
+import compression from "compression";
 import { AppModule } from "./app.module";
 import { AllExceptionsFilter } from "./common/filters";
 import {
@@ -71,6 +72,9 @@ async function bootstrap() {
     exposedHeaders: ["X-Total-Count", "X-Page", "X-Limit"],
     maxAge: 3600, // Cache preflight for 1 hour
   });
+
+  // Response compression
+  app.use(compression());
 
   // Security headers with Helmet.js
   app.use(helmet({

@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { motion } from "framer-motion"
+
 import { Button } from "@/components/ui/button"
 import { Mail, ArrowLeft, AlertCircle, CheckCircle } from "lucide-react"
 import { api } from "@/lib/api"
@@ -36,12 +36,7 @@ export default function ForgotPasswordPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="w-full max-w-md"
-      >
+      <div className="animate-fade-in-up w-full max-w-md">
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8">
           <Link
             href="/login"
@@ -128,7 +123,7 @@ export default function ForgotPasswordPage() {
             </div>
           )}
         </div>
-      </motion.div>
+      </div>
     </div>
   )
 }

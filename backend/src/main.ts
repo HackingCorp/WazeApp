@@ -6,7 +6,7 @@ import { ConfigService } from "@nestjs/config";
 import { useContainer } from "class-validator";
 import { join } from "path";
 import helmet from "helmet";
-import compression from "compression";
+import * as compression from "compression";
 import { AppModule } from "./app.module";
 import { AllExceptionsFilter } from "./common/filters";
 import {

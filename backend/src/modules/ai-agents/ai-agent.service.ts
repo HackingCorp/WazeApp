@@ -886,6 +886,8 @@ Guidelines:
     testDto: TestAgentDto,
   ): Promise<{
     response: string;
+    escalated?: boolean;
+    escalationReason?: string;
     sources?: Array<{ document: string; chunk: string; confidence: number }>;
     metrics: { responseTime: number; tokensUsed: number; confidence: number };
     media?: Array<{ type: 'image' | 'video' | 'audio'; url: string; caption?: string }>;

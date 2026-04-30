@@ -69,8 +69,8 @@ function RegisterPageContent() {
     paymentMethod: "" as 'stripe' | 'mobile_money' | '',
   })
 
-  // Show Mobile Money only for eligible countries, or if detection failed (fallback safe)
-  const showMobileMoney = !detectedCountry || MOBILE_MONEY_COUNTRIES.includes(detectedCountry)
+  // Show Mobile Money only for confirmed eligible countries
+  const showMobileMoney = detectedCountry ? MOBILE_MONEY_COUNTRIES.includes(detectedCountry) : false
 
   // Detect country via IP on mount
   useEffect(() => {

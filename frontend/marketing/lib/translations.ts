@@ -128,6 +128,7 @@ export const translations = {
     featureAPIAccess: "API access",
     featureCustomIntegrations: "Custom integrations",
     featurePrioritySupport: "Priority support",
+    featureSso: "Single Sign-On (SSO)",
     featureWhiteLabel: "White-label option",
     
     // CTAs
@@ -648,6 +649,7 @@ Ready to future-proof your business? Try WazeApp free and experience the future 
     featureAPIAccess: "Accès API",
     featureCustomIntegrations: "Intégrations personnalisées",
     featurePrioritySupport: "Support prioritaire",
+    featureSso: "Authentification unique (SSO)",
     featureWhiteLabel: "Option marque blanche",
     
     // CTAs
@@ -1148,6 +1150,7 @@ Prêt à pérenniser votre entreprise ? Essayez WazeApp gratuitement et expérim
     featureAPIAccess: "Acceso API",
     featureCustomIntegrations: "Integraciones personalizadas",
     featurePrioritySupport: "Soporte prioritario",
+    featureSso: "Inicio de sesión único (SSO)",
     featureWhiteLabel: "Opción marca blanca",
     
     // CTAs
@@ -1629,6 +1632,7 @@ El futuro de la comunicación empresarial es conversacional, inteligente y dispo
     featureAPIAccess: "API-Zugang",
     featureCustomIntegrations: "Individuelle Integrationen",
     featurePrioritySupport: "Prioritäts-Support",
+    featureSso: "Single Sign-On (SSO)",
     featureWhiteLabel: "White-Label-Option",
     
     // CTAs
@@ -1923,6 +1927,7 @@ El futuro de la comunicación empresarial es conversacional, inteligente y dispo
     featureAPIAccess: "Accesso API",
     featureCustomIntegrations: "Integrazioni personalizzate",
     featurePrioritySupport: "Supporto prioritario",
+    featureSso: "Single Sign-On (SSO)",
     featureWhiteLabel: "Opzione white-label",
     
     // CTAs
@@ -2193,6 +2198,7 @@ El futuro de la comunicación empresarial es conversacional, inteligente y dispo
     featureAPIAccess: "Acesso à API",
     featureCustomIntegrations: "Integrações personalizadas",
     featurePrioritySupport: "Suporte prioritário",
+    featureSso: "Single Sign-On (SSO)",
     featureWhiteLabel: "Opção white-label",
     
     // CTAs
@@ -2461,6 +2467,7 @@ El futuro de la comunicación empresarial es conversacional, inteligente y dispo
     featureAPIAccess: "API访问",
     featureCustomIntegrations: "自定义集成",
     featurePrioritySupport: "优先支持",
+    featureSso: "单点登录 (SSO)",
     featureWhiteLabel: "白标签选项",
     
     // CTAs
@@ -2729,6 +2736,7 @@ El futuro de la comunicación empresarial es conversacional, inteligente y dispo
     featureAPIAccess: "APIアクセス",
     featureCustomIntegrations: "カスタム統合",
     featurePrioritySupport: "優先サポート",
+    featureSso: "シングルサインオン (SSO)",
     featureWhiteLabel: "ホワイトラベルオプション",
     
     // CTAs
@@ -2997,6 +3005,7 @@ El futuro de la comunicación empresarial es conversacional, inteligente y dispo
     featureAPIAccess: "وصول API",
     featureCustomIntegrations: "تكاملات مخصصة",
     featurePrioritySupport: "دعم أولوي",
+    featureSso: "تسجيل دخول موحد (SSO)",
     featureWhiteLabel: "خيار علامة بيضاء",
     
     // CTAs

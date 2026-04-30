@@ -173,11 +173,14 @@ export default function HowItWorksPage() {
                   {t("featuresStartTrial")}
                 </Button>
               </Link>
-              <Link href="#demo">
-                <Button size="lg" variant="outline" className="w-full sm:w-auto border-white text-white bg-transparent hover:bg-white hover:text-primary">
-                  {t("tryDemo")}
-                </Button>
-              </Link>
+              <Button
+                size="lg"
+                variant="outline"
+                className="w-full sm:w-auto border-white text-white bg-transparent hover:bg-white hover:text-primary"
+                onClick={() => (window as any).__openDemoChat?.()}
+              >
+                {t("tryDemo")}
+              </Button>
             </div>
           </div>
         </div>

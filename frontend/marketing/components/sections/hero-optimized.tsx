@@ -34,12 +34,15 @@ export function HeroSection() {
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
               </Link>
-              <Link href="#demo">
-                <Button size="lg" variant="outline" className="w-full sm:w-auto">
-                  <MessageCircle className="mr-2 h-4 w-4" />
-                  {t("heroTryDemo")}
-                </Button>
-              </Link>
+              <Button
+                size="lg"
+                variant="outline"
+                className="w-full sm:w-auto"
+                onClick={() => (window as any).__openDemoChat?.()}
+              >
+                <MessageCircle className="mr-2 h-4 w-4" />
+                {t("heroTryDemo")}
+              </Button>
             </div>
 
             <div className="grid grid-cols-3 gap-6">

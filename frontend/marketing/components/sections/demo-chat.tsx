@@ -84,6 +84,12 @@ export function DemoChatWidget() {
   const { currentLanguage } = useLanguage()
   const [isOpen, setIsOpen] = useState(false)
 
+  // Expose open function globally so other components (e.g. hero button) can trigger it
+  useEffect(() => {
+    (window as any).__openDemoChat = () => setIsOpen(true)
+    return () => { delete (window as any).__openDemoChat }
+  }, [])
+
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "1",

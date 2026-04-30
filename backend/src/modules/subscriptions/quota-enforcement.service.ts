@@ -329,19 +329,19 @@ export class QuotaEnforcementService {
     const available = activeCredits.reduce((sum, c) => sum + c.remaining, 0);
     const used = activeCredits.reduce((sum, c) => sum + c.used, 0);
 
-    // Also count used credits from exhausted packs that expired during or after current billing period
-    // Packs that expired before the current period should not be counted
-    const exhaustedWhere: any = {
-      organizationId,
-      status: MessageCreditStatus.EXHAUSTED,
-    };
+    // Also count used credits from exhausted packs that were created during the current billing period
+    // Packs created before the current period should not be counted (they belong to a previous cycle)
+    let exhaustedUsed = 0;
     if (periodStart) {
-      exhaustedWhere.expiresAt = MoreThan(periodStart);
+      const exhaustedCredits = await this.messageCreditRepository.find({
+        where: {
+          organizationId,
+          status: MessageCreditStatus.EXHAUSTED,
+          createdAt: MoreThan(periodStart),
+        },
+      });
+      exhaustedUsed = exhaustedCredits.reduce((sum, c) => sum + c.used, 0);
     }
-    const exhaustedCredits = await this.messageCreditRepository.find({
-      where: exhaustedWhere,
-    });
-    const exhaustedUsed = exhaustedCredits.reduce((sum, c) => sum + c.used, 0);
 
     const nextExpiring = activeCredits.find(c => c.remaining > 0);
 

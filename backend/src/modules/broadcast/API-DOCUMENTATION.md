@@ -7,7 +7,7 @@ L'API externe WazeApp vous permet d'envoyer des messages WhatsApp, gérer vos co
 ## URL de base
 
 ```
-https://api.wazeapp.xyz/api/v1/external
+https://api.wazeapp.ai/api/v1/external
 ```
 
 ## Authentification
@@ -15,7 +15,7 @@ https://api.wazeapp.xyz/api/v1/external
 Toutes les requêtes API nécessitent une clé API dans le header `X-API-Key`:
 
 ```bash
-curl -X GET https://api.wazeapp.xyz/api/v1/external/health \
+curl -X GET https://api.wazeapp.ai/api/v1/external/health \
   -H "X-API-Key: wz_live_votre_cle_api"
 ```
 
@@ -508,5 +508,5 @@ Les webhooks sont envoyés en POST avec un body JSON:
 
 ## Support
 
-- Email: support@wazeapp.xyz
-- Dashboard: https://app.wazeapp.xyz
+- Email: support@wazeapp.ai
+- Dashboard: https://app.wazeapp.ai

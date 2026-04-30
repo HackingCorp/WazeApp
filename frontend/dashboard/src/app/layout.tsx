@@ -13,7 +13,7 @@ import './globals.css';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://app.wazeapp.xyz'),
+  metadataBase: new URL('https://app.wazeapp.ai'),
   title: 'WazeApp Dashboard - AI WhatsApp Agents',
   description: 'Comprehensive dashboard for managing AI-powered WhatsApp agents, analytics, and business automation',
   keywords: 'WhatsApp, AI, Automation, Dashboard, Analytics, Chatbot, Business',

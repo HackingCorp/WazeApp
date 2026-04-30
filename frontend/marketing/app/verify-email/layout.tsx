@@ -10,7 +10,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Verify Your Email - WazeApp",
     description: "Complete your registration by verifying your email.",
-    url: "https://wazeapp.xyz/verify-email",
+    url: "https://wazeapp.ai/verify-email",
   },
 }
 

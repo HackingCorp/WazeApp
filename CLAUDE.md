@@ -221,9 +221,9 @@ Key environment variables are defined in the Docker Compose file and include:
 - `JWT_REFRESH_EXPIRATION_TIME` (default: 7d)
 
 **Application URLs:**
-- `FRONTEND_URL` (e.g., https://wazeapp.xyz)
-- `DASHBOARD_URL` (e.g., https://app.wazeapp.xyz)
-- `API_URL` (e.g., https://api.wazeapp.xyz)
+- `FRONTEND_URL` (e.g., https://wazeapp.ai)
+- `DASHBOARD_URL` (e.g., https://app.wazeapp.ai)
+- `API_URL` (e.g., https://api.wazeapp.ai)
 
 **OAuth Providers (optional):**
 - `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`
@@ -368,8 +368,8 @@ Le projet utilise **Coolify** pour le déploiement automatique. Quand du code es
 - Déploiement manuel de quelque nature que ce soit
 
 **Production URLs:**
-- API: https://api.wazeapp.xyz
-- Dashboard: https://app.wazeapp.xyz
-- Marketing: https://wazeapp.xyz
+- API: https://api.wazeapp.ai
+- Dashboard: https://app.wazeapp.ai
+- Marketing: https://wazeapp.ai
 
 **Serveur:** 94.250.201.167 (géré par Coolify)

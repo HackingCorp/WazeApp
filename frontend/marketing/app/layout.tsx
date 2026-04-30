@@ -18,14 +18,14 @@ const DemoChatWidget = dynamic(
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://wazeapp.xyz"),
+  metadataBase: new URL("https://wazeapp.ai"),
   title: {
     default: "WazeApp - Transform WhatsApp into Your AI Assistant",
     template: "%s | WazeApp",
   },
   description: "Transform your WhatsApp into an intelligent customer engagement platform. Handle customer support, sales, and engagement 24/7. No coding required.",
   keywords: ["WhatsApp AI", "customer support", "automation", "chatbot", "business communication", "AI assistant", "WhatsApp bot"],
-  authors: [{ name: "WazeApp", url: "https://wazeapp.xyz" }],
+  authors: [{ name: "WazeApp", url: "https://wazeapp.ai" }],
   creator: "WazeApp",
   publisher: "WazeApp",
   alternates: {
@@ -38,7 +38,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "WazeApp - WhatsApp AI Assistant",
     description: "Turn your WhatsApp into an AI-powered customer engagement platform in 30 seconds.",
-    url: "https://wazeapp.xyz",
+    url: "https://wazeapp.ai",
     siteName: "WazeApp",
     images: [
       {
@@ -86,12 +86,12 @@ const jsonLd = {
   "@graph": [
     {
       "@type": "Organization",
-      "@id": "https://wazeapp.xyz/#organization",
+      "@id": "https://wazeapp.ai/#organization",
       name: "WazeApp",
-      url: "https://wazeapp.xyz",
+      url: "https://wazeapp.ai",
       logo: {
         "@type": "ImageObject",
-        url: "https://wazeapp.xyz/logo.png",
+        url: "https://wazeapp.ai/logo.png",
       },
       sameAs: [
         "https://twitter.com/wazeapp",
@@ -100,11 +100,11 @@ const jsonLd = {
     },
     {
       "@type": "WebSite",
-      "@id": "https://wazeapp.xyz/#website",
-      url: "https://wazeapp.xyz",
+      "@id": "https://wazeapp.ai/#website",
+      url: "https://wazeapp.ai",
       name: "WazeApp",
       publisher: {
-        "@id": "https://wazeapp.xyz/#organization",
+        "@id": "https://wazeapp.ai/#organization",
       },
     },
     {

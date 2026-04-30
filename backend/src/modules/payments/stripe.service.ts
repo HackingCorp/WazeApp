@@ -987,7 +987,7 @@ export class StripeService {
     this.logger.log(`Cancelled Stripe subscription ${subscription.stripeSubscriptionId} for immediate renewal`);
 
     // Create a new checkout session for the same plan
-    const dashboardUrl = this.configService.get('DASHBOARD_URL') || 'https://app.wazeapp.xyz';
+    const dashboardUrl = this.configService.get('DASHBOARD_URL') || 'https://app.wazeapp.ai';
     const result = await this.createCheckoutSession({
       userId,
       organizationId,

@@ -49,7 +49,7 @@ export class StripeController {
     @CurrentUser() user: any,
     @Body() dto: CreateCheckoutSessionDto,
   ) {
-    const dashboardUrl = this.configService.get('DASHBOARD_URL') || 'https://app.wazeapp.xyz';
+    const dashboardUrl = this.configService.get('DASHBOARD_URL') || 'https://app.wazeapp.ai';
 
     // Resolve organizationId
     let organizationId: string | undefined;
@@ -78,7 +78,7 @@ export class StripeController {
     @CurrentUser() user: any,
     @Body() dto: CreatePortalSessionDto,
   ) {
-    const dashboardUrl = this.configService.get('DASHBOARD_URL') || 'https://app.wazeapp.xyz';
+    const dashboardUrl = this.configService.get('DASHBOARD_URL') || 'https://app.wazeapp.ai';
 
     // Find subscription with Stripe customer ID
     let customerId: string | null = null;
@@ -125,7 +125,7 @@ export class StripeController {
     @CurrentUser() user: any,
     @Body() dto: CreateCreditCheckoutDto,
   ) {
-    const dashboardUrl = this.configService.get('DASHBOARD_URL') || 'https://app.wazeapp.xyz';
+    const dashboardUrl = this.configService.get('DASHBOARD_URL') || 'https://app.wazeapp.ai';
 
     let organizationId: string | undefined;
     const org = await this.organizationRepository.findOne({ where: { ownerId: user.userId } });

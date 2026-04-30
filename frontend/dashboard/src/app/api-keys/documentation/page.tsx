@@ -58,7 +58,7 @@ export default function ApiDocumentationPage() {
         <section className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">URL de base</h2>
           <CodeBlock
-            code="https://api.wazeapp.xyz/api/v1/external"
+            code="https://api.wazeapp.ai/api/v1/external"
             id="base-url"
           />
         </section>
@@ -70,7 +70,7 @@ export default function ApiDocumentationPage() {
             Toutes les requêtes API nécessitent une clé API dans le header <code className="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">X-API-Key</code>:
           </p>
           <CodeBlock
-            code={`curl -X GET https://api.wazeapp.xyz/api/v1/external/health \\
+            code={`curl -X GET https://api.wazeapp.ai/api/v1/external/health \\
   -H "X-API-Key: wz_live_votre_cle_api"`}
             id="auth-example"
           />

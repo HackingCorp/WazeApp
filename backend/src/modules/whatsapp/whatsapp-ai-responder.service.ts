@@ -2691,7 +2691,7 @@ EXEMPLE DE BONNE RÉPONSE AUTOMATIQUE:
 
       // If it's a local path (starts with / or contains uploads/), convert to public URL
       if (mediaUrl && !mediaUrl.startsWith('http')) {
-        const apiUrl = this.configService.get('API_URL', 'https://api.wazeapp.xyz');
+        const apiUrl = this.configService.get('API_URL', 'https://api.wazeapp.ai');
 
         // Extract the relative path from the absolute path
         // e.g., /app/uploads/documents/file.jpg -> uploads/documents/file.jpg

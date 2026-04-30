@@ -115,7 +115,7 @@ export class StoreController {
   ) {
     const dashboardUrl = this.configService.get<string>(
       "DASHBOARD_URL",
-      "https://app.wazeapp.xyz",
+      "https://app.wazeapp.ai",
     );
 
     try {

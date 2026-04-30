@@ -30,7 +30,7 @@ SMTP_PORT=587                 # Internal container port
 ### 3. Backend Service Restarted ✅
 - Service `wazeapp-wazeappbackend-hsjfnp` updated with new environment variables
 - Service redeployed and verified healthy
-- API endpoint: https://api.wazeapp.xyz (status: ✅ healthy)
+- API endpoint: https://api.wazeapp.ai (status: ✅ healthy)
 
 ## Files Modified
 
@@ -52,13 +52,13 @@ SMTP_PORT=587                 # Internal container port
 
 **Ready to test!** The SMTP connection issue is resolved. Now test the registration:
 
-1. Go to: https://app.wazeapp.xyz/register
+1. Go to: https://app.wazeapp.ai/register
 2. Fill in registration form with a valid email address
 3. Submit the form
 4. Expected behavior:
    - Registration should complete successfully (no more "Creating account..." freeze)
    - Verification email should be sent to the provided email address
-   - Check inbox for verification email from noreply@wazeapp.xyz
+   - Check inbox for verification email from noreply@wazeapp.ai
 
 ## Monitoring
 
@@ -85,24 +85,24 @@ docker logs -f wazeapp-mailserver | grep -i 'smtp\|postfix'
 **Backend SMTP:**
 - Host: `wazeapp-mailserver` (via dokploy-network)
 - Port: 587 (internal)
-- User: `noreply@wazeapp.xyz`
+- User: `noreply@wazeapp.ai`
 - Secure: false (StartTLS on port 587)
 
 ## Email Accounts Available
 
-1. **noreply@wazeapp.xyz** - System emails (verification, password reset)
-2. **support@wazeapp.xyz** - Customer support
-3. **admin@wazeapp.xyz** - Administrative emails
+1. **noreply@wazeapp.ai** - System emails (verification, password reset)
+2. **support@wazeapp.ai** - Customer support
+3. **admin@wazeapp.ai** - Administrative emails
 
 All passwords documented in: `MAILSERVER-SETUP-COMPLETE.md`
 
 ## DNS Records Configured
 
-✅ MX record: `mail.wazeapp.xyz` (priority 10)
-✅ A record: `mail.wazeapp.xyz` → 94.250.201.167
+✅ MX record: `mail.wazeapp.ai` (priority 10)
+✅ A record: `mail.wazeapp.ai` → 94.250.201.167
 ✅ SPF record: `v=spf1 mx ip4:94.250.201.167 ~all`
 ✅ DKIM record: Generated and configured
-✅ DMARC record: `v=DMARC1; p=quarantine; rua=mailto:admin@wazeapp.xyz`
+✅ DMARC record: `v=DMARC1; p=quarantine; rua=mailto:admin@wazeapp.ai`
 
 ## Deployment Details
 

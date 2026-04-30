@@ -62,7 +62,7 @@ export class EmailService {
   }
 
   private getFromAddress(): string {
-    return this.configService.get<string>('SMTP_FROM', 'noreply@wazeapp.xyz');
+    return this.configService.get<string>('SMTP_FROM', 'noreply@wazeapp.ai');
   }
 
   private getFromName(): string {
@@ -70,11 +70,11 @@ export class EmailService {
   }
 
   private getAppUrl(): string {
-    return this.configService.get<string>('APP_URL', 'https://wazeapp.xyz');
+    return this.configService.get<string>('APP_URL', 'https://wazeapp.ai');
   }
 
   private getDashboardUrl(): string {
-    return this.configService.get<string>('DASHBOARD_URL', 'https://app.wazeapp.xyz');
+    return this.configService.get<string>('DASHBOARD_URL', 'https://app.wazeapp.ai');
   }
 
   /**
@@ -393,7 +393,7 @@ export class EmailService {
               </div>
 
               <p style="font-size: 14px; color: #999; text-align: center;">
-                Des questions? Contactez-nous à support@wazeapp.xyz
+                Des questions? Contactez-nous à support@wazeapp.ai
               </p>
             </td>
           </tr>
@@ -524,7 +524,7 @@ export class EmailService {
                 <a href="${billingUrl}" style="display: inline-block; background: linear-gradient(135deg, #25D366 0%, #128C7E 100%); color: #ffffff; text-decoration: none; padding: 15px 40px; border-radius: 25px; font-weight: bold; font-size: 16px;">Acceder au dashboard</a>
               </div>
               <p style="font-size: 14px; color: #999; text-align: center;">
-                Des questions? Contactez-nous a support@wazeapp.xyz
+                Des questions? Contactez-nous a support@wazeapp.ai
               </p>
             </td>
           </tr>
@@ -623,7 +623,7 @@ export class EmailService {
                 <a href="${billingUrl}" style="display: inline-block; background: ${urgencyColor}; color: #ffffff; text-decoration: none; padding: 15px 40px; border-radius: 25px; font-weight: bold; font-size: 16px;">Payer maintenant</a>
               </div>
               <p style="font-size: 14px; color: #999; text-align: center;">
-                Des questions? Contactez-nous a support@wazeapp.xyz
+                Des questions? Contactez-nous a support@wazeapp.ai
               </p>
             </td>
           </tr>
@@ -709,7 +709,7 @@ export class EmailService {
                 <a href="${billingUrl}" style="display: inline-block; background: linear-gradient(135deg, #25D366 0%, #128C7E 100%); color: #ffffff; text-decoration: none; padding: 15px 40px; border-radius: 25px; font-weight: bold; font-size: 16px;">Reactiver mon compte</a>
               </div>
               <p style="font-size: 14px; color: #999; text-align: center;">
-                Des questions? Contactez-nous a support@wazeapp.xyz
+                Des questions? Contactez-nous a support@wazeapp.ai
               </p>
             </td>
           </tr>
@@ -805,7 +805,7 @@ export class EmailService {
                 <a href="${billingUrl}" style="display: inline-block; background: linear-gradient(135deg, #25D366 0%, #128C7E 100%); color: #ffffff; text-decoration: none; padding: 15px 40px; border-radius: 25px; font-weight: bold; font-size: 16px;">Payer maintenant</a>
               </div>
               <p style="font-size: 14px; color: #999; text-align: center;">
-                Des questions? Contactez-nous a support@wazeapp.xyz
+                Des questions? Contactez-nous a support@wazeapp.ai
               </p>
             </td>
           </tr>
@@ -903,7 +903,7 @@ export class EmailService {
                 <a href="${billingUrl}" style="display: inline-block; background: linear-gradient(135deg, #25D366 0%, #128C7E 100%); color: #ffffff; text-decoration: none; padding: 15px 40px; border-radius: 25px; font-weight: bold; font-size: 16px;">Reactiver mon abonnement</a>
               </div>
               <p style="font-size: 14px; color: #999; text-align: center;">
-                Des questions? Contactez-nous a support@wazeapp.xyz
+                Des questions? Contactez-nous a support@wazeapp.ai
               </p>
             </td>
           </tr>
@@ -989,7 +989,7 @@ export class EmailService {
             <td style="background-color: #f8f8f8; padding: 20px 30px; text-align: center; border-top: 1px solid #eeeeee;">
               <p style="color: #999999; margin: 0; font-size: 12px;">
                 © 2025 WazeApp. Tous droits réservés.<br>
-                <a href="https://wazeapp.xyz" style="color: #25D366; text-decoration: none;">wazeapp.xyz</a>
+                <a href="https://wazeapp.ai" style="color: #25D366; text-decoration: none;">wazeapp.ai</a>
               </p>
             </td>
           </tr>
@@ -1054,7 +1054,7 @@ export class EmailService {
             <td style="background-color: #f8f8f8; padding: 20px 30px; text-align: center; border-top: 1px solid #eeeeee;">
               <p style="color: #999999; margin: 0; font-size: 12px;">
                 © 2025 WazeApp. Tous droits réservés.<br>
-                <a href="https://wazeapp.xyz" style="color: #25D366; text-decoration: none;">wazeapp.xyz</a>
+                <a href="https://wazeapp.ai" style="color: #25D366; text-decoration: none;">wazeapp.ai</a>
               </p>
             </td>
           </tr>
@@ -1117,7 +1117,7 @@ export class EmailService {
             <td style="background-color: #f8f8f8; padding: 20px 30px; text-align: center; border-top: 1px solid #eeeeee;">
               <p style="color: #999999; margin: 0; font-size: 12px;">
                 © 2025 WazeApp. Tous droits réservés.<br>
-                <a href="https://wazeapp.xyz" style="color: #25D366; text-decoration: none;">wazeapp.xyz</a>
+                <a href="https://wazeapp.ai" style="color: #25D366; text-decoration: none;">wazeapp.ai</a>
               </p>
             </td>
           </tr>
@@ -1172,7 +1172,7 @@ export class EmailService {
                 </a>
               </div>
               <p style="color: #666666; line-height: 1.6; margin: 20px 0 0 0;">
-                Besoin d'aide ? Notre équipe support est là pour vous à <a href="mailto:support@wazeapp.xyz" style="color: #25D366;">support@wazeapp.xyz</a>
+                Besoin d'aide ? Notre équipe support est là pour vous à <a href="mailto:support@wazeapp.ai" style="color: #25D366;">support@wazeapp.ai</a>
               </p>
             </td>
           </tr>
@@ -1184,7 +1184,7 @@ export class EmailService {
               </p>
               <p style="color: #999999; margin: 0; font-size: 12px;">
                 © 2025 WazeApp. Tous droits réservés.<br>
-                <a href="https://wazeapp.xyz" style="color: #25D366; text-decoration: none;">wazeapp.xyz</a>
+                <a href="https://wazeapp.ai" style="color: #25D366; text-decoration: none;">wazeapp.ai</a>
               </p>
             </td>
           </tr>
@@ -1294,7 +1294,7 @@ export class EmailService {
 
               <p style="color: #999999; line-height: 1.6; margin: 20px 0 0 0; font-size: 12px; text-align: center;">
                 Vous recevez cet email car vous avez atteint un seuil d'utilisation important.<br>
-                Questions? Contactez-nous à <a href="mailto:support@wazeapp.xyz" style="color: #25D366;">support@wazeapp.xyz</a>
+                Questions? Contactez-nous à <a href="mailto:support@wazeapp.ai" style="color: #25D366;">support@wazeapp.ai</a>
               </p>
             </td>
           </tr>
@@ -1303,7 +1303,7 @@ export class EmailService {
             <td style="background-color: #f8f8f8; padding: 20px 30px; text-align: center; border-top: 1px solid #eeeeee;">
               <p style="color: #999999; margin: 0; font-size: 12px;">
                 © 2025 WazeApp. Tous droits réservés.<br>
-                <a href="https://wazeapp.xyz" style="color: #25D366; text-decoration: none;">wazeapp.xyz</a>
+                <a href="https://wazeapp.ai" style="color: #25D366; text-decoration: none;">wazeapp.ai</a>
               </p>
             </td>
           </tr>
@@ -1410,7 +1410,7 @@ export class EmailService {
 
               <p style="color: #999999; line-height: 1.6; margin: 20px 0 0 0; font-size: 12px; text-align: center;">
                 Conservez cet email comme preuve de paiement.<br>
-                Questions? Contactez-nous à <a href="mailto:support@wazeapp.xyz" style="color: #25D366;">support@wazeapp.xyz</a>
+                Questions? Contactez-nous à <a href="mailto:support@wazeapp.ai" style="color: #25D366;">support@wazeapp.ai</a>
               </p>
             </td>
           </tr>
@@ -1419,7 +1419,7 @@ export class EmailService {
             <td style="background-color: #f8f8f8; padding: 20px 30px; text-align: center; border-top: 1px solid #eeeeee;">
               <p style="color: #999999; margin: 0; font-size: 12px;">
                 © 2025 WazeApp. Tous droits réservés.<br>
-                <a href="https://wazeapp.xyz" style="color: #25D366; text-decoration: none;">wazeapp.xyz</a>
+                <a href="https://wazeapp.ai" style="color: #25D366; text-decoration: none;">wazeapp.ai</a>
               </p>
             </td>
           </tr>
@@ -1534,7 +1534,7 @@ export class EmailService {
 
               <p style="color: #999999; line-height: 1.6; margin: 20px 0 0 0; font-size: 12px; text-align: center;">
                 Merci de nous faire confiance! 💚<br>
-                Questions? Contactez-nous à <a href="mailto:support@wazeapp.xyz" style="color: #25D366;">support@wazeapp.xyz</a>
+                Questions? Contactez-nous à <a href="mailto:support@wazeapp.ai" style="color: #25D366;">support@wazeapp.ai</a>
               </p>
             </td>
           </tr>
@@ -1543,7 +1543,7 @@ export class EmailService {
             <td style="background-color: #f8f8f8; padding: 20px 30px; text-align: center; border-top: 1px solid #eeeeee;">
               <p style="color: #999999; margin: 0; font-size: 12px;">
                 © 2025 WazeApp. Tous droits réservés.<br>
-                <a href="https://wazeapp.xyz" style="color: #25D366; text-decoration: none;">wazeapp.xyz</a>
+                <a href="https://wazeapp.ai" style="color: #25D366; text-decoration: none;">wazeapp.ai</a>
               </p>
             </td>
           </tr>
@@ -1770,7 +1770,7 @@ export class EmailService {
 
               <p style="color: #999999; line-height: 1.6; margin: 20px 0 0 0; font-size: 12px; text-align: center;">
                 Si vous avez déjà effectué ce paiement, ignorez cet email.<br>
-                Questions? Contactez-nous à <a href="mailto:support@wazeapp.xyz" style="color: #25D366;">support@wazeapp.xyz</a>
+                Questions? Contactez-nous à <a href="mailto:support@wazeapp.ai" style="color: #25D366;">support@wazeapp.ai</a>
               </p>
             </td>
           </tr>
@@ -1779,7 +1779,7 @@ export class EmailService {
             <td style="background-color: #f8f8f8; padding: 20px 30px; text-align: center; border-top: 1px solid #eeeeee;">
               <p style="color: #999999; margin: 0; font-size: 12px;">
                 © 2025 WazeApp. Tous droits réservés.<br>
-                <a href="https://wazeapp.xyz" style="color: #25D366; text-decoration: none;">wazeapp.xyz</a>
+                <a href="https://wazeapp.ai" style="color: #25D366; text-decoration: none;">wazeapp.ai</a>
               </p>
             </td>
           </tr>
@@ -1896,7 +1896,7 @@ export class EmailService {
 
               <p style="color: #999999; line-height: 1.6; margin: 20px 0 0 0; font-size: 12px; text-align: center;">
                 Vous recevez cet email car vous êtes administrateur de l'organisation.<br>
-                Questions? Contactez-nous à <a href="mailto:support@wazeapp.xyz" style="color: #25D366;">support@wazeapp.xyz</a>
+                Questions? Contactez-nous à <a href="mailto:support@wazeapp.ai" style="color: #25D366;">support@wazeapp.ai</a>
               </p>
             </td>
           </tr>
@@ -1905,7 +1905,7 @@ export class EmailService {
             <td style="background-color: #f8f8f8; padding: 20px 30px; text-align: center; border-top: 1px solid #eeeeee;">
               <p style="color: #999999; margin: 0; font-size: 12px;">
                 © 2025 WazeApp. Tous droits réservés.<br>
-                <a href="https://wazeapp.xyz" style="color: #25D366; text-decoration: none;">wazeapp.xyz</a>
+                <a href="https://wazeapp.ai" style="color: #25D366; text-decoration: none;">wazeapp.ai</a>
               </p>
             </td>
           </tr>
@@ -2035,7 +2035,7 @@ export class EmailService {
 
               <p style="color: #999999; line-height: 1.6; margin: 20px 0 0 0; font-size: 12px; text-align: center;">
                 Vous recevez cet email car vous êtes administrateur de l'organisation.<br>
-                Questions? Contactez-nous à <a href="mailto:support@wazeapp.xyz" style="color: #25D366;">support@wazeapp.xyz</a>
+                Questions? Contactez-nous à <a href="mailto:support@wazeapp.ai" style="color: #25D366;">support@wazeapp.ai</a>
               </p>
             </td>
           </tr>
@@ -2044,7 +2044,7 @@ export class EmailService {
             <td style="background-color: #f8f8f8; padding: 20px 30px; text-align: center; border-top: 1px solid #eeeeee;">
               <p style="color: #999999; margin: 0; font-size: 12px;">
                 © 2025 WazeApp. Tous droits réservés.<br>
-                <a href="https://wazeapp.xyz" style="color: #25D366; text-decoration: none;">wazeapp.xyz</a>
+                <a href="https://wazeapp.ai" style="color: #25D366; text-decoration: none;">wazeapp.ai</a>
               </p>
             </td>
           </tr>
@@ -2190,7 +2190,7 @@ export class EmailService {
 
               <p style="color: #999999; line-height: 1.6; margin: 20px 0 0 0; font-size: 12px; text-align: center;">
                 Vous recevez cet email car vous êtes configuré comme destinataire des alertes d'escalade.<br>
-                Questions? Contactez-nous à <a href="mailto:support@wazeapp.xyz" style="color: #25D366;">support@wazeapp.xyz</a>
+                Questions? Contactez-nous à <a href="mailto:support@wazeapp.ai" style="color: #25D366;">support@wazeapp.ai</a>
               </p>
             </td>
           </tr>
@@ -2199,7 +2199,7 @@ export class EmailService {
             <td style="background-color: #f8f8f8; padding: 20px 30px; text-align: center; border-top: 1px solid #eeeeee;">
               <p style="color: #999999; margin: 0; font-size: 12px;">
                 © 2025 WazeApp. Tous droits réservés.<br>
-                <a href="https://wazeapp.xyz" style="color: #25D366; text-decoration: none;">wazeapp.xyz</a>
+                <a href="https://wazeapp.ai" style="color: #25D366; text-decoration: none;">wazeapp.ai</a>
               </p>
             </td>
           </tr>

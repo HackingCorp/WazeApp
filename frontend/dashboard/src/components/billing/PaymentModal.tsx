@@ -316,7 +316,7 @@ export function PaymentModal({
       const response = await api.initiateEnkapPayment({
         merchantReference: merchantRef,
         customerName: customerName || 'Client WazeApp',
-        customerEmail: customerEmail || 'client@wazeapp.xyz',
+        customerEmail: customerEmail || 'client@wazeapp.ai',
         customerPhone: getCleanPhoneNumber() || '237600000000',
         totalAmount: amount,
         currency: selectedCurrency, // Backend will convert to XAF if needed
@@ -328,7 +328,7 @@ export function PaymentModal({
           price: amount,
         }],
         returnUrl: `${window.location.origin}/billing?payment=success&plan=${plan.id}`,
-        notificationUrl: `${process.env.NEXT_PUBLIC_API_URL || 'https://api.wazeapp.xyz'}/api/v1/payments/enkap/webhook`,
+        notificationUrl: `${process.env.NEXT_PUBLIC_API_URL || 'https://api.wazeapp.ai'}/api/v1/payments/enkap/webhook`,
       });
 
       if (response.success && response.data) {

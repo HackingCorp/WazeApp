@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # WazeApp Mail Server Setup Script
-# This script sets up docker-mailserver for wazeapp.xyz
+# This script sets up docker-mailserver for wazeapp.ai
 
 set -e
 
@@ -27,9 +27,9 @@ chmod +x mailserver/setup.sh
 echo -e "${GREEN}📧 Creating email accounts...${NC}"
 echo ""
 echo "We'll create the following accounts:"
-echo "  - noreply@wazeapp.xyz (for system emails)"
-echo "  - support@wazeapp.xyz (for customer support)"
-echo "  - admin@wazeapp.xyz (for admin)"
+echo "  - noreply@wazeapp.ai (for system emails)"
+echo "  - support@wazeapp.ai (for customer support)"
+echo "  - admin@wazeapp.ai (for admin)"
 echo ""
 
 # Function to create email account
@@ -48,9 +48,9 @@ SUPPORT_PASS=$(openssl rand -base64 24)
 ADMIN_PASS=$(openssl rand -base64 24)
 
 echo "Generated passwords (save these securely!):"
-echo "  noreply@wazeapp.xyz: ${NOREPLY_PASS}"
-echo "  support@wazeapp.xyz: ${SUPPORT_PASS}"
-echo "  admin@wazeapp.xyz: ${ADMIN_PASS}"
+echo "  noreply@wazeapp.ai: ${NOREPLY_PASS}"
+echo "  support@wazeapp.ai: ${SUPPORT_PASS}"
+echo "  admin@wazeapp.ai: ${ADMIN_PASS}"
 echo ""
 
 # Save passwords to file
@@ -58,17 +58,17 @@ cat > mailserver/passwords.txt <<EOF
 # WazeApp Mail Server Credentials
 # Generated on $(date)
 
-noreply@wazeapp.xyz: ${NOREPLY_PASS}
-support@wazeapp.xyz: ${SUPPORT_PASS}
-admin@wazeapp.xyz: ${ADMIN_PASS}
+noreply@wazeapp.ai: ${NOREPLY_PASS}
+support@wazeapp.ai: ${SUPPORT_PASS}
+admin@wazeapp.ai: ${ADMIN_PASS}
 
 # SMTP Configuration for Backend:
 SMTP_HOST=wazeapp-mailserver (or localhost if on same server)
 SMTP_PORT=587
 SMTP_SECURE=true
-SMTP_USER=noreply@wazeapp.xyz
+SMTP_USER=noreply@wazeapp.ai
 SMTP_PASSWORD=${NOREPLY_PASS}
-EMAIL_FROM=noreply@wazeapp.xyz
+EMAIL_FROM=noreply@wazeapp.ai
 EMAIL_FROM_NAME=WazeApp
 EOF
 
@@ -79,7 +79,7 @@ echo -e "${GREEN}🔐 DKIM keys will be generated on first start${NC}"
 
 # DNS Configuration instructions
 cat > mailserver/DNS-CONFIGURATION.md <<'EOF'
-# DNS Configuration for wazeapp.xyz Mail Server
+# DNS Configuration for wazeapp.ai Mail Server
 
 ## Required DNS Records
 
@@ -88,7 +88,7 @@ cat > mailserver/DNS-CONFIGURATION.md <<'EOF'
 Type: MX
 Name: @
 Priority: 10
-Value: mail.wazeapp.xyz
+Value: mail.wazeapp.ai
 ```
 
 ### 2. A Record (Mail Server)
@@ -108,7 +108,7 @@ Value: v=spf1 mx a ip4:94.250.201.167 ~all
 ### 4. DKIM Record (DomainKeys Identified Mail)
 After starting the mailserver, get the DKIM key with:
 ```bash
-docker exec wazeapp-mailserver cat /tmp/docker-mailserver/opendkim/keys/wazeapp.xyz/mail.txt
+docker exec wazeapp-mailserver cat /tmp/docker-mailserver/opendkim/keys/wazeapp.ai/mail.txt
 ```
 
 Then create:
@@ -122,13 +122,13 @@ Value: [content from the command above]
 ```
 Type: TXT
 Name: _dmarc
-Value: v=DMARC1; p=quarantine; rua=mailto:admin@wazeapp.xyz; ruf=mailto:admin@wazeapp.xyz; fo=1
+Value: v=DMARC1; p=quarantine; rua=mailto:admin@wazeapp.ai; ruf=mailto:admin@wazeapp.ai; fo=1
 ```
 
 ### 6. PTR Record (Reverse DNS)
 Contact your hosting provider (Contabo) to set:
 ```
-94.250.201.167 → mail.wazeapp.xyz
+94.250.201.167 → mail.wazeapp.ai
 ```
 
 ## Verification
@@ -136,16 +136,16 @@ Contact your hosting provider (Contabo) to set:
 After adding DNS records, verify with:
 ```bash
 # Check MX record
-dig MX wazeapp.xyz +short
+dig MX wazeapp.ai +short
 
 # Check SPF record
-dig TXT wazeapp.xyz +short
+dig TXT wazeapp.ai +short
 
 # Check DKIM record
-dig TXT mail._domainkey.wazeapp.xyz +short
+dig TXT mail._domainkey.wazeapp.ai +short
 
 # Check DMARC record
-dig TXT _dmarc.wazeapp.xyz +short
+dig TXT _dmarc.wazeapp.ai +short
 ```
 
 ## Testing Email Delivery

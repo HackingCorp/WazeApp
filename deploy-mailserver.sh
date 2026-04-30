@@ -49,9 +49,9 @@ SUPPORT_PASS=$(openssl rand -base64 24)
 ADMIN_PASS=$(openssl rand -base64 24)
 
 echo "Generated credentials:"
-echo "noreply@wazeapp.xyz: ${NOREPLY_PASS}"
-echo "support@wazeapp.xyz: ${SUPPORT_PASS}"
-echo "admin@wazeapp.xyz: ${ADMIN_PASS}"
+echo "noreply@wazeapp.ai: ${NOREPLY_PASS}"
+echo "support@wazeapp.ai: ${SUPPORT_PASS}"
+echo "admin@wazeapp.ai: ${ADMIN_PASS}"
 
 # Save credentials
 cat > mailserver/credentials.env <<EOF
@@ -61,15 +61,15 @@ cat > mailserver/credentials.env <<EOF
 SMTP_HOST=localhost
 SMTP_PORT=3587
 SMTP_SECURE=true
-SMTP_USER=noreply@wazeapp.xyz
+SMTP_USER=noreply@wazeapp.ai
 SMTP_PASS=${NOREPLY_PASS}
-SMTP_FROM=noreply@wazeapp.xyz
+SMTP_FROM=noreply@wazeapp.ai
 SMTP_FROM_NAME=WazeApp
 
 # Email accounts:
-# noreply@wazeapp.xyz: ${NOREPLY_PASS}
-# support@wazeapp.xyz: ${SUPPORT_PASS}
-# admin@wazeapp.xyz: ${ADMIN_PASS}
+# noreply@wazeapp.ai: ${NOREPLY_PASS}
+# support@wazeapp.ai: ${SUPPORT_PASS}
+# admin@wazeapp.ai: ${ADMIN_PASS}
 EOF
 
 chmod 600 mailserver/credentials.env
@@ -92,22 +92,22 @@ echo ""
 echo "📧 Creating email accounts..."
 
 # Wait for container to be fully ready
-docker exec wazeapp-mailserver setup email add noreply@wazeapp.xyz "${NOREPLY_PASS}" || true
-docker exec wazeapp-mailserver setup email add support@wazeapp.xyz "${SUPPORT_PASS}" || true
-docker exec wazeapp-mailserver setup email add admin@wazeapp.xyz "${ADMIN_PASS}" || true
+docker exec wazeapp-mailserver setup email add noreply@wazeapp.ai "${NOREPLY_PASS}" || true
+docker exec wazeapp-mailserver setup email add support@wazeapp.ai "${SUPPORT_PASS}" || true
+docker exec wazeapp-mailserver setup email add admin@wazeapp.ai "${ADMIN_PASS}" || true
 
 echo ""
 echo "🔐 Getting DKIM key (add this to DNS)..."
 echo "----------------------------------------"
 sleep 5
-docker exec wazeapp-mailserver cat /tmp/docker-mailserver/opendkim/keys/wazeapp.xyz/mail.txt 2>/dev/null || echo "DKIM key not ready yet, try later with: docker exec wazeapp-mailserver cat /tmp/docker-mailserver/opendkim/keys/wazeapp.xyz/mail.txt"
+docker exec wazeapp-mailserver cat /tmp/docker-mailserver/opendkim/keys/wazeapp.ai/mail.txt 2>/dev/null || echo "DKIM key not ready yet, try later with: docker exec wazeapp-mailserver cat /tmp/docker-mailserver/opendkim/keys/wazeapp.ai/mail.txt"
 
 echo ""
 echo "✅ Mail server deployed successfully!"
 echo ""
 echo "📋 Next steps:"
 echo "1. Configure DNS records (see output above)"
-echo "2. Add DKIM key to DNS (mail._domainkey.wazeapp.xyz)"
+echo "2. Add DKIM key to DNS (mail._domainkey.wazeapp.ai)"
 echo "3. Verify with: docker logs wazeapp-mailserver"
 echo "4. Test sending: docker exec wazeapp-mailserver setup email test"
 echo ""

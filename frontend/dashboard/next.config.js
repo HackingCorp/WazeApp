@@ -12,7 +12,7 @@ const nextConfig = {
     ignoreDuringBuilds: false,
   },
   images: {
-    domains: ['localhost', 'api.wazeapp.xyz'],
+    domains: ['localhost', 'api.wazeapp.ai'],
     formats: ['image/avif', 'image/webp'],
     deviceSizes: [640, 750, 828, 1080, 1200, 1920],
     imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
@@ -51,7 +51,7 @@ const nextConfig = {
           },
           {
             key: 'Content-Security-Policy',
-            value: "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: blob:; font-src 'self' data:; connect-src 'self' https://api.wazeapp.xyz wss://api.wazeapp.xyz https://*.wazeapp.xyz https://*.posthog.com https://*.i.posthog.com https://analytics.wazeapp.xyz; frame-ancestors 'self';",
+            value: "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: blob:; font-src 'self' data:; connect-src 'self' https://api.wazeapp.ai wss://api.wazeapp.ai https://*.wazeapp.ai https://*.posthog.com https://*.i.posthog.com https://analytics.wazeapp.ai; frame-ancestors 'self';",
           },
         ],
       },

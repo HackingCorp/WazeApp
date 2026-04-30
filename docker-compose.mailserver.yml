@@ -4,8 +4,8 @@ services:
   mailserver:
     image: ghcr.io/docker-mailserver/docker-mailserver:latest
     container_name: wazeapp-mailserver
-    hostname: mail.wazeapp.xyz
-    domainname: wazeapp.xyz
+    hostname: mail.wazeapp.ai
+    domainname: wazeapp.ai
     restart: always
     ports:
       - "3025:25"   # SMTP (using port 3025 externally to avoid conflict)
@@ -20,7 +20,7 @@ services:
       - /etc/localtime:/etc/localtime:ro
     environment:
       # General Settings
-      - OVERRIDE_HOSTNAME=mail.wazeapp.xyz
+      - OVERRIDE_HOSTNAME=mail.wazeapp.ai
       - DMS_DEBUG=0
 
       # SSL/TLS Settings (disabled for now, will configure Let's Encrypt later)

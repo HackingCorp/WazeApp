@@ -4,7 +4,7 @@ const axios = require('axios');
 async function testBackendScraping() {
   console.log('🧪 Testing Backend Web Scraping - E-Market 237\n');
   
-  const API_BASE = 'https://api.wazeapp.xyz/api/v1';
+  const API_BASE = 'https://api.wazeapp.ai/api/v1';
   
   try {
     console.log('1. ✅ Testing Health Endpoint...');

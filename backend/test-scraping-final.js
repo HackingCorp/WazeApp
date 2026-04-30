@@ -5,7 +5,7 @@ async function testFinalScraping() {
   console.log('🚀 TEST FINAL - Service Web Scraping Amélioré\n');
   console.log('='*60 + '\n');
 
-  const API_BASE = 'https://api.wazeapp.xyz/api/v1';
+  const API_BASE = 'https://api.wazeapp.ai/api/v1';
   
   console.log('📊 État des services:');
   console.log('   ✅ Backend API: Opérationnel (healthy depuis 5h+)');
@@ -65,7 +65,7 @@ async function testFinalScraping() {
 
     console.log();
     console.log('💡 SOLUTION ALTERNATIVE IMMÉDIATE:');
-    console.log('   • Backend API: https://api.wazeapp.xyz/api/v1');
+    console.log('   • Backend API: https://api.wazeapp.ai/api/v1');
     console.log('   • Endpoint scraping: POST /documents/scrape-url');
     console.log('   • Test avec authentification appropriée');
     console.log('   • Résultats attendus: Contenu riche E-Market 237');

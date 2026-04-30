@@ -238,7 +238,7 @@ export default function LoginPage() {
 
                 <div className="mt-4">
                   <a
-                    href="https://wazeapp.xyz/login"
+                    href="https://wazeapp.ai/login"
                     className="text-green-600 hover:text-green-500 font-medium transition-colors"
                   >
                     {t('auth.useMainSiteLogin')} →

@@ -5,7 +5,7 @@ async function testProductionAPI() {
   console.log('🚀 Testing Production API - Enhanced Next.js Extraction\n');
   console.log('='*60 + '\n');
 
-  const API_BASE = 'https://api.wazeapp.xyz/api/v1';
+  const API_BASE = 'https://api.wazeapp.ai/api/v1';
   
   // Test URLs
   const testUrls = [

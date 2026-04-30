@@ -49,7 +49,7 @@ export class ShopifyService {
       "SHOPIFY_SCOPES",
       "read_products,read_inventory",
     );
-    const redirectUri = `${this.configService.get<string>("API_URL", "https://api.wazeapp.xyz")}/api/v1/ecommerce/stores/shopify/callback`;
+    const redirectUri = `${this.configService.get<string>("API_URL", "https://api.wazeapp.ai")}/api/v1/ecommerce/stores/shopify/callback`;
 
     const state = Buffer.from(
       JSON.stringify({ organizationId }),

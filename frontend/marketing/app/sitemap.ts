@@ -1,7 +1,7 @@
 import { MetadataRoute } from 'next'
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = 'https://wazeapp.xyz'
+  const baseUrl = 'https://wazeapp.ai'
 
   return [
     {

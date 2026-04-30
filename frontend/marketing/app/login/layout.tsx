@@ -10,7 +10,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Login to WazeApp",
     description: "Access your WhatsApp AI dashboard.",
-    url: "https://wazeapp.xyz/login",
+    url: "https://wazeapp.ai/login",
   },
   alternates: {
     canonical: "/login",

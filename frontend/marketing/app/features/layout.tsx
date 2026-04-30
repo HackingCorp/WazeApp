@@ -7,7 +7,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "WazeApp Features - Transform Your WhatsApp Communication",
     description: "24/7 AI responses, 95+ languages, rich media support, team collaboration, and enterprise-grade security.",
-    url: "https://wazeapp.xyz/features",
+    url: "https://wazeapp.ai/features",
     images: [{ url: "/og-image.png", width: 1200, height: 630, alt: "WazeApp Features" }],
   },
   twitter: {

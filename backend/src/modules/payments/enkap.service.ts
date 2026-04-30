@@ -111,8 +111,8 @@ export class EnkapService {
     }
     this.apiUrl = `${this.baseUrl}${this.apiVersion}`;
 
-    this.returnUrl = this.configService.get('ENKAP_RETURN_URL', 'https://app.wazeapp.xyz/billing?payment=success');
-    this.notificationUrl = this.configService.get('ENKAP_NOTIFICATION_URL', 'https://api.wazeapp.xyz/api/v1/payments/enkap/webhook');
+    this.returnUrl = this.configService.get('ENKAP_RETURN_URL', 'https://app.wazeapp.ai/billing?payment=success');
+    this.notificationUrl = this.configService.get('ENKAP_NOTIFICATION_URL', 'https://api.wazeapp.ai/api/v1/payments/enkap/webhook');
     this.currency = this.configService.get('ENKAP_CURRENCY', 'XAF');
     this.lang = this.configService.get('ENKAP_LANG', 'fr');
 
@@ -224,7 +224,7 @@ export class EnkapService {
         currency: orderData.currency || this.currency,
         customerName: orderData.customerName,
         description: orderData.description || 'Paiement WazeApp',
-        email: orderData.customerEmail || 'pay@wazeapp.xyz',
+        email: orderData.customerEmail || 'pay@wazeapp.ai',
         expiryDate,
         id: {
           uuid: orderUuid,
@@ -316,7 +316,7 @@ export class EnkapService {
               currency: orderData.currency || this.currency,
               customerName: orderData.customerName,
               description: orderData.description || 'Paiement WazeApp',
-              email: orderData.customerEmail || 'pay@wazeapp.xyz',
+              email: orderData.customerEmail || 'pay@wazeapp.ai',
               expiryDate,
               id: {
                 uuid: orderUuid,

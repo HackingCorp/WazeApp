@@ -85,11 +85,11 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=web"
-      - "traefik.http.routers.backend.rule=Host(`api.wazeapp.xyz`)"
+      - "traefik.http.routers.backend.rule=Host(`api.wazeapp.ai`)"
       - "traefik.http.routers.backend.tls=true"
       - "traefik.http.routers.backend.tls.certresolver=le"
       - "traefik.http.routers.backend.entrypoints=websecure"
-      - "traefik.http.routers.backend-redirect.rule=Host(`api.wazeapp.xyz`)"
+      - "traefik.http.routers.backend-redirect.rule=Host(`api.wazeapp.ai`)"
       - "traefik.http.routers.backend-redirect.entrypoints=web"
       - "traefik.http.routers.backend-redirect.middlewares=backend-redirect"
       - "traefik.http.middlewares.backend-redirect.redirectscheme.scheme=https"
@@ -109,9 +109,9 @@ services:
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
       JWT_ACCESS_EXPIRATION_TIME: 15m
       JWT_REFRESH_EXPIRATION_TIME: 7d
-      FRONTEND_URL: https://wazeapp.xyz
-      DASHBOARD_URL: https://app.wazeapp.xyz
-      API_URL: https://api.wazeapp.xyz
+      FRONTEND_URL: https://wazeapp.ai
+      DASHBOARD_URL: https://app.wazeapp.ai
+      API_URL: https://api.wazeapp.ai
       BAILEYS_WEBHOOK_URL: http://localhost:3100/api/whatsapp/webhook
       OLLAMA_BASE_URL: http://ollama:11434
       OLLAMA_MODEL: qwen2.5:14b

@@ -17,6 +17,6 @@ export default function robots(): MetadataRoute.Robots {
         ],
       },
     ],
-    sitemap: 'https://wazeapp.xyz/sitemap.xml',
+    sitemap: 'https://wazeapp.ai/sitemap.xml',
   }
 }

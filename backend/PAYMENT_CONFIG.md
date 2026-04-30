@@ -30,8 +30,8 @@ S3P_NOTIFICATION_EMAIL=lontsi05@gmail.com
 ENKAP_BASE_URL=https://api-v2.enkap.cm
 ENKAP_CONSUMER_KEY=wXRF_8iU7h9UNiBG4zNYFdCQPwga
 ENKAP_CONSUMER_SECRET=rD9fRGJkVVs8TZtfjJ0VTD7taOsa
-ENKAP_RETURN_URL=https://wazeapp.xyz/checkout/success
-ENKAP_NOTIFICATION_URL=https://api.wazeapp.xyz/api/v1/payments/enkap/webhook
+ENKAP_RETURN_URL=https://wazeapp.ai/checkout/success
+ENKAP_NOTIFICATION_URL=https://api.wazeapp.ai/api/v1/payments/enkap/webhook
 ENKAP_CURRENCY=XAF
 ENKAP_LANG=fr
 ```

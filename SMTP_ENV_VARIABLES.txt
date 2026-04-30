@@ -7,11 +7,11 @@
 SMTP_HOST=wazeapp-mailserver
 SMTP_PORT=587
 SMTP_SECURE=false
-SMTP_USER=noreply@wazeapp.xyz
+SMTP_USER=noreply@wazeapp.ai
 SMTP_PASS=/6vft3CdgBS56ou9hZftxt72jTfiFWts
-SMTP_FROM=noreply@wazeapp.xyz
+SMTP_FROM=noreply@wazeapp.ai
 SMTP_FROM_NAME=WazeApp
 
 # URLs de l'application (déjà configurées, vérifier)
-APP_URL=https://wazeapp.xyz
-DASHBOARD_URL=https://app.wazeapp.xyz
+APP_URL=https://wazeapp.ai
+DASHBOARD_URL=https://app.wazeapp.ai

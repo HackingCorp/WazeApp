@@ -10,8 +10,8 @@ RUN npm install
 
 # Build the app with proper base path resolution
 ENV NODE_ENV=production
-ENV NEXT_PUBLIC_API_URL=https://api.wazeapp.xyz
-ENV NEXT_PUBLIC_DASHBOARD_URL=https://app.wazeapp.xyz
+ENV NEXT_PUBLIC_API_URL=https://api.wazeapp.ai
+ENV NEXT_PUBLIC_DASHBOARD_URL=https://app.wazeapp.ai
 
 # Create a simple server
 RUN echo '{"name": "marketing-simple", "scripts": {"start": "npx serve@latest out -p 3102"}}' > serve-package.json

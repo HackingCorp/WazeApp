@@ -170,7 +170,7 @@ export class AuthService {
     let stripeCheckoutUrl: string | undefined;
     if (isStripePayment) {
       try {
-        const marketingUrl = this.configService.get('FRONTEND_URL') || 'https://wazeapp.xyz';
+        const marketingUrl = this.configService.get('FRONTEND_URL') || 'https://wazeapp.ai';
         const checkoutSession = await this.stripeService.createCheckoutSession({
           userId: user.id,
           organizationId: organization?.id,

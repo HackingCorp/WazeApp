@@ -36,7 +36,7 @@ SMTP_PORT=587
 
 ## How to Update in Dokploy
 
-1. Go to Dokploy dashboard: https://dokploy.wazeapp.xyz
+1. Go to Dokploy dashboard: https://dokploy.wazeapp.ai
 2. Navigate to the **backend** service
 3. Go to **Environment Variables** section
 4. Update these two variables:
@@ -47,7 +47,7 @@ SMTP_PORT=587
 ## Verification
 
 After redeploying, test the registration process:
-1. Go to https://app.wazeapp.xyz/register
+1. Go to https://app.wazeapp.ai/register
 2. Fill in the registration form
 3. Submit and check if the email is sent successfully
 4. Check backend logs for SMTP connection success
@@ -60,9 +60,9 @@ For reference, here are all SMTP-related environment variables that should be co
 SMTP_HOST=wazeapp-mailserver
 SMTP_PORT=587
 SMTP_SECURE=false
-SMTP_USER=noreply@wazeapp.xyz
+SMTP_USER=noreply@wazeapp.ai
 SMTP_PASS=/6vft3CdgBS56ou9hZftxt72jTfiFWts
-SMTP_FROM=noreply@wazeapp.xyz
+SMTP_FROM=noreply@wazeapp.ai
 SMTP_FROM_NAME=WazeApp
 ```
 

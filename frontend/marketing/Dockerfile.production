@@ -10,8 +10,8 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
 ARG NODE_ENV=production
-ARG NEXT_PUBLIC_API_URL=https://api.wazeapp.xyz
-ARG NEXT_PUBLIC_DASHBOARD_URL=https://app.wazeapp.xyz
+ARG NEXT_PUBLIC_API_URL=https://api.wazeapp.ai
+ARG NEXT_PUBLIC_DASHBOARD_URL=https://app.wazeapp.ai
 ARG NEXT_PUBLIC_POSTHOG_KEY
 ARG NEXT_PUBLIC_POSTHOG_HOST
 

@@ -9,7 +9,7 @@ import posthog from "posthog-js"
 import { useTranslations } from "@/lib/hooks/use-translations"
 
 // API URL - uses environment variable or defaults to production
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.wazeapp.xyz/api/v1'
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.wazeapp.ai/api/v1'
 
 interface CurrencyInfo {
   code: string

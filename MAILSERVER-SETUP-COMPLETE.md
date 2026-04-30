@@ -2,7 +2,7 @@
 
 ## 📊 État du Déploiement
 
-✅ **Serveur mail opérationnel** : mail.wazeapp.xyz
+✅ **Serveur mail opérationnel** : mail.wazeapp.ai
 ✅ **3 comptes email créés**
 ✅ **Clés DKIM générées**
 ✅ **Services actifs** : Postfix, Dovecot, OpenDKIM
@@ -13,19 +13,19 @@
 
 ### Compte noreply (pour les emails système)
 ```
-Email: noreply@wazeapp.xyz
+Email: noreply@wazeapp.ai
 Mot de passe: /6vft3CdgBS56ou9hZftxt72jTfiFWts
 ```
 
 ### Compte support (pour le support client)
 ```
-Email: support@wazeapp.xyz
+Email: support@wazeapp.ai
 Mot de passe: EjH39kWyn1LZAxPbMfEVoUsF3mS05vz6
 ```
 
 ### Compte admin (pour l'administration)
 ```
-Email: admin@wazeapp.xyz
+Email: admin@wazeapp.ai
 Mot de passe: oV2MENn5XImkv7xUk3fjYgvvIbnoUP46
 ```
 
@@ -37,17 +37,17 @@ Ajoutez ces variables d'environnement au service backend WazeApp :
 
 ```bash
 # Configuration SMTP
-SMTP_HOST=94.250.201.167  # ou mail.wazeapp.xyz (après configuration DNS)
+SMTP_HOST=94.250.201.167  # ou mail.wazeapp.ai (après configuration DNS)
 SMTP_PORT=3587
 SMTP_SECURE=false          # false car pas de SSL pour le moment
-SMTP_USER=noreply@wazeapp.xyz
+SMTP_USER=noreply@wazeapp.ai
 SMTP_PASS=/6vft3CdgBS56ou9hZftxt72jTfiFWts
-SMTP_FROM=noreply@wazeapp.xyz
+SMTP_FROM=noreply@wazeapp.ai
 SMTP_FROM_NAME=WazeApp
 
 # URL de l'application (pour les liens dans les emails)
-APP_URL=https://wazeapp.xyz
-DASHBOARD_URL=https://app.wazeapp.xyz
+APP_URL=https://wazeapp.ai
+DASHBOARD_URL=https://app.wazeapp.ai
 ```
 
 ---
@@ -60,11 +60,11 @@ DASHBOARD_URL=https://app.wazeapp.xyz
 Type: MX
 Nom: @
 Priorité: 10
-Valeur: mail.wazeapp.xyz
+Valeur: mail.wazeapp.ai
 TTL: 3600
 ```
 
-### 2. Enregistrement A (pour mail.wazeapp.xyz)
+### 2. Enregistrement A (pour mail.wazeapp.ai)
 
 ```
 Type: A
@@ -101,7 +101,7 @@ TTL: 3600
 ```
 Type: TXT
 Nom: _dmarc
-Valeur: v=DMARC1; p=quarantine; rua=mailto:admin@wazeapp.xyz; ruf=mailto:admin@wazeapp.xyz; fo=1; adkim=r; aspf=r
+Valeur: v=DMARC1; p=quarantine; rua=mailto:admin@wazeapp.ai; ruf=mailto:admin@wazeapp.ai; fo=1; adkim=r; aspf=r
 TTL: 3600
 ```
 
@@ -109,7 +109,7 @@ TTL: 3600
 
 Contactez le support Contabo pour configurer le PTR :
 ```
-94.250.201.167 → mail.wazeapp.xyz
+94.250.201.167 → mail.wazeapp.ai
 ```
 
 ---
@@ -120,19 +120,19 @@ Une fois les enregistrements DNS configurés, vérifiez-les avec :
 
 ```bash
 # Vérifier MX
-dig MX wazeapp.xyz +short
+dig MX wazeapp.ai +short
 
 # Vérifier SPF
-dig TXT wazeapp.xyz +short
+dig TXT wazeapp.ai +short
 
 # Vérifier DKIM
-dig TXT mail._domainkey.wazeapp.xyz +short
+dig TXT mail._domainkey.wazeapp.ai +short
 
 # Vérifier DMARC
-dig TXT _dmarc.wazeapp.xyz +short
+dig TXT _dmarc.wazeapp.ai +short
 
 # Vérifier l'enregistrement A de mail
-dig A mail.wazeapp.xyz +short
+dig A mail.wazeapp.ai +short
 ```
 
 ---
@@ -166,7 +166,7 @@ Utilisez des outils comme :
 - Serveur: 94.250.201.167
 - Port: 3993
 - Sécurité: STARTTLS
-- Nom d'utilisateur: noreply@wazeapp.xyz (ou autre compte)
+- Nom d'utilisateur: noreply@wazeapp.ai (ou autre compte)
 - Mot de passe: [voir ci-dessus]
 
 ---
@@ -180,13 +180,13 @@ Utilisez des outils comme :
 docker exec wazeapp-mailserver setup email list
 
 # Ajouter un compte
-docker exec wazeapp-mailserver setup email add user@wazeapp.xyz PASSWORD
+docker exec wazeapp-mailserver setup email add user@wazeapp.ai PASSWORD
 
 # Supprimer un compte
-docker exec wazeapp-mailserver setup email del user@wazeapp.xyz
+docker exec wazeapp-mailserver setup email del user@wazeapp.ai
 
 # Changer le mot de passe
-docker exec wazeapp-mailserver setup email update user@wazeapp.xyz NEW_PASSWORD
+docker exec wazeapp-mailserver setup email update user@wazeapp.ai NEW_PASSWORD
 ```
 
 ### Voir les logs
@@ -217,7 +217,7 @@ docker-compose restart
 Le serveur fonctionne actuellement **SANS SSL** pour éviter les problèmes de certificats.
 
 **Pour activer SSL avec Let's Encrypt plus tard** :
-1. Assurez-vous que mail.wazeapp.xyz pointe vers 94.250.201.167
+1. Assurez-vous que mail.wazeapp.ai pointe vers 94.250.201.167
 2. Modifiez le docker-compose.yml : `SSL_TYPE=letsencrypt`
 3. Redémarrez : `docker-compose restart`
 

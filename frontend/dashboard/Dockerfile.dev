@@ -11,8 +11,8 @@ COPY . .
 
 # Set environment variables
 ENV NODE_ENV=development
-ENV NEXT_PUBLIC_API_URL=https://api.wazeapp.xyz
-ENV NEXT_PUBLIC_SOCKET_URL=https://api.wazeapp.xyz
+ENV NEXT_PUBLIC_API_URL=https://api.wazeapp.ai
+ENV NEXT_PUBLIC_SOCKET_URL=https://api.wazeapp.ai
 ENV NEXT_TELEMETRY_DISABLED=1
 
 EXPOSE 3101

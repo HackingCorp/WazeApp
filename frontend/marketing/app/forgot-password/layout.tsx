@@ -10,7 +10,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Reset Your WazeApp Password",
     description: "Recover access to your WhatsApp AI dashboard.",
-    url: "https://wazeapp.xyz/forgot-password",
+    url: "https://wazeapp.ai/forgot-password",
   },
   alternates: {
     canonical: "/forgot-password",

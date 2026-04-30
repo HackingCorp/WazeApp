@@ -34,7 +34,7 @@ export function Navbar() {
             </Link>
           </div>
 
-          <div className="hidden md:flex md:items-center md:space-x-8">
+          <div className="hidden md:flex md:items-center md:space-x-4 lg:space-x-6">
             {navigation.map((item) => (
               <Link
                 key={item.name}

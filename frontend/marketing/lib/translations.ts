@@ -129,8 +129,12 @@ export const translations = {
     featureCustomIntegrations: "Custom integrations",
     featurePrioritySupport: "Priority support",
     featureSso: "Single Sign-On (SSO)",
+    feature500BroadcastContacts: "500 broadcast contacts",
+    feature2000BroadcastContacts: "2,000 broadcast contacts",
+    featureUnlimitedBroadcastContacts: "Unlimited broadcast contacts",
+    featureProductCatalog: "Product/service catalog",
     featureWhiteLabel: "White-label option",
-    
+
     // CTAs
     ctaStartFree: "Start Free",
     ctaStartTrial: "Start Trial",
@@ -650,6 +654,10 @@ Ready to future-proof your business? Try WazeApp free and experience the future 
     featureCustomIntegrations: "Intégrations personnalisées",
     featurePrioritySupport: "Support prioritaire",
     featureSso: "Authentification unique (SSO)",
+    feature500BroadcastContacts: "500 contacts de diffusion",
+    feature2000BroadcastContacts: "2 000 contacts de diffusion",
+    featureUnlimitedBroadcastContacts: "Contacts de diffusion illimités",
+    featureProductCatalog: "Catalogue produits/services",
     featureWhiteLabel: "Option marque blanche",
     
     // CTAs
@@ -1151,6 +1159,10 @@ Prêt à pérenniser votre entreprise ? Essayez WazeApp gratuitement et expérim
     featureCustomIntegrations: "Integraciones personalizadas",
     featurePrioritySupport: "Soporte prioritario",
     featureSso: "Inicio de sesión único (SSO)",
+    feature500BroadcastContacts: "500 contactos de difusión",
+    feature2000BroadcastContacts: "2.000 contactos de difusión",
+    featureUnlimitedBroadcastContacts: "Contactos de difusión ilimitados",
+    featureProductCatalog: "Catálogo de productos/servicios",
     featureWhiteLabel: "Opción marca blanca",
     
     // CTAs
@@ -1633,6 +1645,10 @@ El futuro de la comunicación empresarial es conversacional, inteligente y dispo
     featureCustomIntegrations: "Individuelle Integrationen",
     featurePrioritySupport: "Prioritäts-Support",
     featureSso: "Single Sign-On (SSO)",
+    feature500BroadcastContacts: "500 Broadcast-Kontakte",
+    feature2000BroadcastContacts: "2.000 Broadcast-Kontakte",
+    featureUnlimitedBroadcastContacts: "Unbegrenzte Broadcast-Kontakte",
+    featureProductCatalog: "Produkt-/Dienstkatalog",
     featureWhiteLabel: "White-Label-Option",
     
     // CTAs
@@ -1928,6 +1944,10 @@ El futuro de la comunicación empresarial es conversacional, inteligente y dispo
     featureCustomIntegrations: "Integrazioni personalizzate",
     featurePrioritySupport: "Supporto prioritario",
     featureSso: "Single Sign-On (SSO)",
+    feature500BroadcastContacts: "500 contatti broadcast",
+    feature2000BroadcastContacts: "2.000 contatti broadcast",
+    featureUnlimitedBroadcastContacts: "Contatti broadcast illimitati",
+    featureProductCatalog: "Catalogo prodotti/servizi",
     featureWhiteLabel: "Opzione white-label",
     
     // CTAs
@@ -2199,6 +2219,10 @@ El futuro de la comunicación empresarial es conversacional, inteligente y dispo
     featureCustomIntegrations: "Integrações personalizadas",
     featurePrioritySupport: "Suporte prioritário",
     featureSso: "Single Sign-On (SSO)",
+    feature500BroadcastContacts: "500 contatos de transmissão",
+    feature2000BroadcastContacts: "2.000 contatos de transmissão",
+    featureUnlimitedBroadcastContacts: "Contatos de transmissão ilimitados",
+    featureProductCatalog: "Catálogo de produtos/serviços",
     featureWhiteLabel: "Opção white-label",
     
     // CTAs
@@ -2468,6 +2492,10 @@ El futuro de la comunicación empresarial es conversacional, inteligente y dispo
     featureCustomIntegrations: "自定义集成",
     featurePrioritySupport: "优先支持",
     featureSso: "单点登录 (SSO)",
+    feature500BroadcastContacts: "500个广播联系人",
+    feature2000BroadcastContacts: "2,000个广播联系人",
+    featureUnlimitedBroadcastContacts: "无限广播联系人",
+    featureProductCatalog: "产品/服务目录",
     featureWhiteLabel: "白标签选项",
     
     // CTAs
@@ -2737,6 +2765,10 @@ El futuro de la comunicación empresarial es conversacional, inteligente y dispo
     featureCustomIntegrations: "カスタム統合",
     featurePrioritySupport: "優先サポート",
     featureSso: "シングルサインオン (SSO)",
+    feature500BroadcastContacts: "500ブロードキャスト連絡先",
+    feature2000BroadcastContacts: "2,000ブロードキャスト連絡先",
+    featureUnlimitedBroadcastContacts: "無制限ブロードキャスト連絡先",
+    featureProductCatalog: "商品・サービスカタログ",
     featureWhiteLabel: "ホワイトラベルオプション",
     
     // CTAs
@@ -3006,6 +3038,10 @@ El futuro de la comunicación empresarial es conversacional, inteligente y dispo
     featureCustomIntegrations: "تكاملات مخصصة",
     featurePrioritySupport: "دعم أولوي",
     featureSso: "تسجيل دخول موحد (SSO)",
+    feature500BroadcastContacts: "500 جهة اتصال بث",
+    feature2000BroadcastContacts: "2,000 جهة اتصال بث",
+    featureUnlimitedBroadcastContacts: "جهات اتصال بث غير محدودة",
+    featureProductCatalog: "كتالوج المنتجات/الخدمات",
     featureWhiteLabel: "خيار علامة بيضاء",
     
     // CTAs

@@ -3189,12 +3189,24 @@ RÈGLES:
           // Pass raw phone number to let sendMessage validate via onWhatsApp
           const operatorPhone = agent.escalationConfig.operatorWhatsAppNumber.replace(/@.*$/, '');
 
-          const clientPhone = fromNumber
+          // Resolve real phone number — LID JIDs are internal IDs, not phone numbers
+          let clientPhone = fromNumber
             .replace(/@s\.whatsapp\.net$/i, '')
             .replace(/@g\.us$/i, '')
             .replace(/@lid$/i, '')
             .replace(/@c\.us$/i, '')
             .trim();
+
+          if (fromNumber.includes('@lid')) {
+            try {
+              const resolved = await this.baileysService.resolveLidToPhoneNumber(session.id, fromNumber);
+              if (resolved) {
+                clientPhone = resolved;
+              }
+            } catch (e) {
+              this.logger.warn(`Could not resolve LID to phone: ${e.message}`);
+            }
+          }
 
           const notificationMsg = `🚨 *Escalade de conversation*\n\n` +
             `Agent: ${agent.name}\n` +

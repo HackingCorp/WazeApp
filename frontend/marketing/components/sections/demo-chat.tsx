@@ -182,7 +182,7 @@ export function DemoChatWidget() {
         <div className="bg-gradient-to-r from-whatsapp to-green-600 text-white p-4 flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <div className="h-10 w-10 rounded-full bg-white/20 flex items-center justify-center relative">
-              <span className="text-white font-bold text-lg">W</span>
+              <MessageCircle className="h-5 w-5" />
               <div className="absolute -bottom-1 -right-1 h-3 w-3 bg-green-400 rounded-full border-2 border-white"></div>
             </div>
             <div>

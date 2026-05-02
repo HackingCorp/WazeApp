@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Menu, X, Moon, Sun, MessageSquare } from "lucide-react"
+import { Menu, X, Moon, Sun, MessageCircle } from "lucide-react"
 import { useTheme } from "next-themes"
 import { LanguageSelector } from "@/components/ui/language-selector"
 import { useTranslations } from "@/lib/hooks/use-translations"
@@ -28,7 +28,7 @@ export function Navbar() {
           <div className="flex items-center">
             <Link href="/" className="flex items-center space-x-2">
               <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center shadow-sm">
-                <MessageSquare className="h-5 w-5 text-white" />
+                <MessageCircle className="h-5 w-5 text-white" />
               </div>
               <span className="text-xl font-bold">WazeApp</span>
             </Link>

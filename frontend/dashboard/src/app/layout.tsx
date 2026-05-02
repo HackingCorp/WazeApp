@@ -74,7 +74,7 @@ export default function RootLayout({
       <head>
         {/* Include precompiled Tailwind CSS */}
         <link rel="stylesheet" href="/global.css" />
-        {/* Inline favicon to avoid 404s if public assets are absent */}
+        {/* Inline favicon - chat bubble icon matching unified branding */}
         <link
           rel="icon"
           type="image/svg+xml"
@@ -82,18 +82,20 @@ export default function RootLayout({
             `data:image/svg+xml,` +
             encodeURIComponent(
               '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">' +
-                '<rect width="64" height="64" rx="12" fill="#059669"/>' +
-                '<text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle"' +
-                ' font-family="Arial, Helvetica, sans-serif" font-size="36" fill="#fff">W</text>' +
+                '<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">' +
+                '<stop offset="0%" stop-color="#22c55e"/><stop offset="100%" stop-color="#16a34a"/>' +
+                '</linearGradient></defs>' +
+                '<rect width="64" height="64" rx="12" fill="url(#g)"/>' +
+                '<g transform="translate(14,12)" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">' +
+                '<path d="M34 20c0 9.4-8 17-18 17-3.2 0-6.2-.8-8.8-2.1L0 38l3-7.4C1.1 28 0 24.7 0 21.2 0 11.5 7.6 3.7 17 3.7h0C25.5 3.7 34 10.6 34 20z"/>' +
+                '</g>' +
               '</svg>'
             )
           }
         />
-        {/* Remove external apple-touch and png icons to prevent 404s */}
-        <link rel="manifest" href="/manifest.json" />
-        <link rel="mask-icon" href="/safari-pinned-tab.svg" color="#059669" />
-        <meta name="msapplication-TileColor" content="#059669" />
-        <meta name="theme-color" content="#059669" />
+        <link rel="apple-touch-icon" href="/logo-128.png" />
+        <meta name="msapplication-TileColor" content="#22c55e" />
+        <meta name="theme-color" content="#22c55e" />
       </head>
       <body className={inter.className} suppressHydrationWarning>
         <I18nProvider>

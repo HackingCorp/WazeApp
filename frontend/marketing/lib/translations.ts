@@ -218,7 +218,57 @@ export const translations = {
     benefitWebhookSupport: "Custom webhook support",
     benefitCRMSync: "CRM synchronization",
     benefitEcommerceConnections: "E-commerce platform connections",
-    
+
+    // Knowledge Base Feature
+    featureKnowledgeBaseName: "Knowledge Base",
+    featureKnowledgeBaseDesc: "Upload documents, PDFs, and FAQs. Your AI learns from your content to give accurate, contextual answers.",
+    detailedFeatureKnowledgeBase: "Intelligent Knowledge Base",
+    detailedFeatureKnowledgeBaseDesc: "Upload your documents, product manuals, and FAQs. Our AI processes and indexes them for instant, accurate responses based on your actual business content.",
+    benefitDocumentUpload: "Upload PDFs, DOCX, and text files",
+    benefitVectorSearch: "Semantic search for accurate answers",
+    benefitAutoChunking: "Automatic content processing and indexing",
+    benefitMultiFormat: "Support for multiple document formats",
+
+    // Broadcast Feature
+    featureBroadcastName: "Broadcast Campaigns",
+    featureBroadcastDesc: "Send targeted messages to thousands of contacts. Schedule campaigns and track engagement in real-time.",
+    detailedFeatureBroadcast: "Broadcast & Campaigns",
+    detailedFeatureBroadcastDesc: "Reach your audience at scale with targeted WhatsApp broadcast campaigns. Segment contacts, schedule sends, and track engagement metrics in real-time.",
+    benefitBulkMessaging: "Send to thousands of contacts at once",
+    benefitContactSegmentation: "Smart contact segmentation",
+    benefitScheduledCampaigns: "Schedule campaigns in advance",
+    benefitCampaignAnalytics: "Track delivery and engagement rates",
+
+    // Escalation Feature
+    featureEscalationName: "Human Escalation",
+    featureEscalationDesc: "AI detects complex cases and seamlessly transfers to human agents with full conversation context.",
+    detailedFeatureEscalation: "Smart Human Escalation",
+    detailedFeatureEscalationDesc: "When conversations require a human touch, our AI detects the need and seamlessly transfers to your team with full context — no information lost, no customer frustration.",
+    benefitSmartRouting: "Intelligent escalation detection",
+    benefitFullContext: "Full conversation context transferred",
+    benefitConfigurableRules: "Customizable escalation rules",
+    benefitRealTimeNotifications: "Real-time agent notifications",
+
+    // Vision & Voice Feature
+    featureVisionVoiceName: "Vision & Voice AI",
+    featureVisionVoiceDesc: "Understand images, analyze documents, and transcribe voice messages automatically with advanced AI.",
+    detailedFeatureVisionVoice: "Vision & Voice Processing",
+    detailedFeatureVisionVoiceDesc: "Your AI agent sees and hears. Automatically analyze images, extract text from documents, and transcribe voice messages — handling every type of WhatsApp media intelligently.",
+    benefitImageAnalysis: "AI-powered image understanding",
+    benefitVoiceToText: "Automatic voice message transcription",
+    benefitDocumentOCR: "Document text extraction (OCR)",
+    benefitMediaUnderstanding: "Contextual media understanding",
+
+    // Multi-LLM Feature
+    featureMultiLlmName: "Multi-AI Engine",
+    featureMultiLlmDesc: "Choose from multiple AI providers (OpenAI, DeepSeek, Mistral) with automatic fallback for maximum reliability.",
+    detailedFeatureMultiLlm: "Multi-AI Provider Engine",
+    detailedFeatureMultiLlmDesc: "Don't depend on a single AI provider. WazeApp supports multiple LLMs including OpenAI, DeepSeek, and Mistral with intelligent routing and automatic fallback for maximum reliability.",
+    benefitMultipleProviders: "Choose from OpenAI, DeepSeek, Mistral",
+    benefitIntelligentRouting: "Intelligent request routing",
+    benefitFallbackSystem: "Automatic fallback if a provider is down",
+    benefitCostOptimization: "Optimize cost vs performance",
+
     // CTA Section
     ctaReadyTransform: "Ready to Transform Your WhatsApp?",
     ctaJoinBusinesses: "Join 10,000+ businesses already using WazeApp to automate their customer communication.",
@@ -743,6 +793,56 @@ Ready to future-proof your business? Try WazeApp free and experience the future 
     benefitWebhookSupport: "Support webhooks personnalisés",
     benefitCRMSync: "Synchronisation CRM",
     benefitEcommerceConnections: "Connexions plateformes e-commerce",
+
+    // Knowledge Base Feature
+    featureKnowledgeBaseName: "Base de Connaissances",
+    featureKnowledgeBaseDesc: "Téléchargez documents, PDFs et FAQs. Votre IA apprend de votre contenu pour des réponses précises et contextuelles.",
+    detailedFeatureKnowledgeBase: "Base de Connaissances Intelligente",
+    detailedFeatureKnowledgeBaseDesc: "Téléchargez vos documents, manuels produits et FAQs. Notre IA les traite et les indexe pour des réponses instantanées et précises basées sur votre contenu réel.",
+    benefitDocumentUpload: "Téléchargement de PDFs, DOCX et fichiers texte",
+    benefitVectorSearch: "Recherche sémantique pour des réponses précises",
+    benefitAutoChunking: "Traitement et indexation automatiques du contenu",
+    benefitMultiFormat: "Support de multiples formats de documents",
+
+    // Broadcast Feature
+    featureBroadcastName: "Campagnes de Diffusion",
+    featureBroadcastDesc: "Envoyez des messages ciblés à des milliers de contacts. Planifiez des campagnes et suivez l engagement en temps réel.",
+    detailedFeatureBroadcast: "Diffusion et Campagnes",
+    detailedFeatureBroadcastDesc: "Atteignez votre audience à grande échelle avec des campagnes de diffusion WhatsApp ciblées. Segmentez les contacts, planifiez les envois et suivez les métriques.",
+    benefitBulkMessaging: "Envoi à des milliers de contacts simultanément",
+    benefitContactSegmentation: "Segmentation intelligente des contacts",
+    benefitScheduledCampaigns: "Planification des campagnes à l avance",
+    benefitCampaignAnalytics: "Suivi des taux de livraison et d engagement",
+
+    // Escalation Feature
+    featureEscalationName: "Escalade Humaine",
+    featureEscalationDesc: "L IA détecte les cas complexes et transfère aux agents humains avec le contexte complet de la conversation.",
+    detailedFeatureEscalation: "Escalade Humaine Intelligente",
+    detailedFeatureEscalationDesc: "Quand les conversations nécessitent une touche humaine, notre IA détecte le besoin et transfère à votre équipe avec le contexte complet.",
+    benefitSmartRouting: "Détection intelligente d escalade",
+    benefitFullContext: "Contexte complet de conversation transféré",
+    benefitConfigurableRules: "Règles d escalade personnalisables",
+    benefitRealTimeNotifications: "Notifications en temps réel aux agents",
+
+    // Vision and Voice Feature
+    featureVisionVoiceName: "IA Vision et Voix",
+    featureVisionVoiceDesc: "Comprenez les images, analysez les documents et transcrivez les messages vocaux automatiquement avec l IA avancée.",
+    detailedFeatureVisionVoice: "Traitement Vision et Voix",
+    detailedFeatureVisionVoiceDesc: "Votre agent IA voit et entend. Analysez automatiquement les images, extrayez le texte des documents et transcrivez les messages vocaux.",
+    benefitImageAnalysis: "Compréhension d images par IA",
+    benefitVoiceToText: "Transcription automatique des messages vocaux",
+    benefitDocumentOCR: "Extraction de texte de documents (OCR)",
+    benefitMediaUnderstanding: "Compréhension contextuelle des médias",
+
+    // Multi-LLM Feature
+    featureMultiLlmName: "Multi-Moteur IA",
+    featureMultiLlmDesc: "Choisissez parmi plusieurs fournisseurs IA (OpenAI, DeepSeek, Mistral) avec basculement automatique pour une fiabilité maximale.",
+    detailedFeatureMultiLlm: "Moteur Multi-Fournisseurs IA",
+    detailedFeatureMultiLlmDesc: "Ne dépendez pas d un seul fournisseur IA. WazeApp supporte plusieurs LLMs dont OpenAI, DeepSeek et Mistral avec routage intelligent et basculement automatique.",
+    benefitMultipleProviders: "Choix entre OpenAI, DeepSeek, Mistral",
+    benefitIntelligentRouting: "Routage intelligent des requêtes",
+    benefitFallbackSystem: "Basculement automatique en cas de panne",
+    benefitCostOptimization: "Optimisation coût vs performance",
     
     // CTA Section
     ctaReadyTransform: "Prêt à Transformer Votre WhatsApp ?",
@@ -1248,6 +1348,56 @@ Prêt à pérenniser votre entreprise ? Essayez WazeApp gratuitement et expérim
     benefitWebhookSupport: "Soporte de webhooks personalizados",
     benefitCRMSync: "Sincronización de CRM",
     benefitEcommerceConnections: "Conexiones de plataformas de e-commerce",
+
+    // Knowledge Base Feature
+    featureKnowledgeBaseName: "Base de Conocimientos",
+    featureKnowledgeBaseDesc: "Sube documentos, PDFs y FAQs. Tu IA aprende de tu contenido para dar respuestas precisas y contextuales.",
+    detailedFeatureKnowledgeBase: "Base de Conocimientos Inteligente",
+    detailedFeatureKnowledgeBaseDesc: "Sube tus documentos, manuales de productos y FAQs. Nuestra IA los procesa e indexa para respuestas instantáneas y precisas basadas en tu contenido real.",
+    benefitDocumentUpload: "Carga de PDFs, DOCX y archivos de texto",
+    benefitVectorSearch: "Búsqueda semántica para respuestas precisas",
+    benefitAutoChunking: "Procesamiento e indexación automática del contenido",
+    benefitMultiFormat: "Soporte de múltiples formatos de documentos",
+
+    // Broadcast Feature
+    featureBroadcastName: "Campañas de Difusión",
+    featureBroadcastDesc: "Envía mensajes dirigidos a miles de contactos. Programa campañas y rastrea el engagement en tiempo real.",
+    detailedFeatureBroadcast: "Difusión y Campañas",
+    detailedFeatureBroadcastDesc: "Alcanza tu audiencia a gran escala con campañas de difusión WhatsApp dirigidas. Segmenta contactos, programa envíos y rastrea métricas de engagement en tiempo real.",
+    benefitBulkMessaging: "Envío a miles de contactos simultáneamente",
+    benefitContactSegmentation: "Segmentación inteligente de contactos",
+    benefitScheduledCampaigns: "Programación de campañas por adelantado",
+    benefitCampaignAnalytics: "Seguimiento de tasas de entrega y engagement",
+
+    // Escalation Feature
+    featureEscalationName: "Escalada Humana",
+    featureEscalationDesc: "La IA detecta casos complejos y transfiere a agentes humanos con el contexto completo de la conversación.",
+    detailedFeatureEscalation: "Escalada Humana Inteligente",
+    detailedFeatureEscalationDesc: "Cuando las conversaciones requieren un toque humano, nuestra IA detecta la necesidad y transfiere a tu equipo con el contexto completo.",
+    benefitSmartRouting: "Detección inteligente de escalada",
+    benefitFullContext: "Contexto completo de conversación transferido",
+    benefitConfigurableRules: "Reglas de escalada personalizables",
+    benefitRealTimeNotifications: "Notificaciones en tiempo real a agentes",
+
+    // Vision & Voice Feature
+    featureVisionVoiceName: "IA Visión y Voz",
+    featureVisionVoiceDesc: "Comprende imágenes, analiza documentos y transcribe mensajes de voz automáticamente con IA avanzada.",
+    detailedFeatureVisionVoice: "Procesamiento de Visión y Voz",
+    detailedFeatureVisionVoiceDesc: "Tu agente IA ve y escucha. Analiza automáticamente imágenes, extrae texto de documentos y transcribe mensajes de voz.",
+    benefitImageAnalysis: "Comprensión de imágenes por IA",
+    benefitVoiceToText: "Transcripción automática de mensajes de voz",
+    benefitDocumentOCR: "Extracción de texto de documentos (OCR)",
+    benefitMediaUnderstanding: "Comprensión contextual de medios",
+
+    // Multi-LLM Feature
+    featureMultiLlmName: "Multi-Motor IA",
+    featureMultiLlmDesc: "Elige entre múltiples proveedores IA (OpenAI, DeepSeek, Mistral) con respaldo automático para máxima fiabilidad.",
+    detailedFeatureMultiLlm: "Motor Multi-Proveedor IA",
+    detailedFeatureMultiLlmDesc: "No dependas de un solo proveedor IA. WazeApp soporta múltiples LLMs incluyendo OpenAI, DeepSeek y Mistral con enrutamiento inteligente y respaldo automático.",
+    benefitMultipleProviders: "Elección entre OpenAI, DeepSeek, Mistral",
+    benefitIntelligentRouting: "Enrutamiento inteligente de solicitudes",
+    benefitFallbackSystem: "Respaldo automático si un proveedor falla",
+    benefitCostOptimization: "Optimización costo vs rendimiento",
     
     // CTA Section
     ctaReadyTransform: "¿Listo para Transformar tu WhatsApp?",
@@ -1734,6 +1884,56 @@ El futuro de la comunicación empresarial es conversacional, inteligente y dispo
     benefitWebhookSupport: "Custom-Webhook-Support",
     benefitCRMSync: "CRM-Synchronisation",
     benefitEcommerceConnections: "E-Commerce-Plattform-Verbindungen",
+
+    // Knowledge Base Feature
+    featureKnowledgeBaseName: "Wissensdatenbank",
+    featureKnowledgeBaseDesc: "Laden Sie Dokumente, PDFs und FAQs hoch. Ihre KI lernt aus Ihren Inhalten für präzise, kontextuelle Antworten.",
+    detailedFeatureKnowledgeBase: "Intelligente Wissensdatenbank",
+    detailedFeatureKnowledgeBaseDesc: "Laden Sie Ihre Dokumente, Produkthandbücher und FAQs hoch. Unsere KI verarbeitet und indexiert sie für sofortige, präzise Antworten basierend auf Ihren echten Inhalten.",
+    benefitDocumentUpload: "Upload von PDFs, DOCX und Textdateien",
+    benefitVectorSearch: "Semantische Suche für präzise Antworten",
+    benefitAutoChunking: "Automatische Inhaltsverarbeitung und Indexierung",
+    benefitMultiFormat: "Unterstützung mehrerer Dokumentformate",
+
+    // Broadcast Feature
+    featureBroadcastName: "Broadcast-Kampagnen",
+    featureBroadcastDesc: "Senden Sie gezielte Nachrichten an Tausende von Kontakten. Planen Sie Kampagnen und verfolgen Sie das Engagement in Echtzeit.",
+    detailedFeatureBroadcast: "Broadcast & Kampagnen",
+    detailedFeatureBroadcastDesc: "Erreichen Sie Ihre Zielgruppe in großem Maßstab mit gezielten WhatsApp-Broadcast-Kampagnen. Segmentieren Sie Kontakte, planen Sie Versendungen und verfolgen Sie Engagement-Metriken.",
+    benefitBulkMessaging: "Versand an Tausende von Kontakten gleichzeitig",
+    benefitContactSegmentation: "Intelligente Kontaktsegmentierung",
+    benefitScheduledCampaigns: "Kampagnen im Voraus planen",
+    benefitCampaignAnalytics: "Zustellungs- und Engagement-Raten verfolgen",
+
+    // Escalation Feature
+    featureEscalationName: "Menschliche Eskalation",
+    featureEscalationDesc: "KI erkennt komplexe Fälle und übergibt nahtlos an menschliche Agenten mit vollständigem Gesprächskontext.",
+    detailedFeatureEscalation: "Intelligente menschliche Eskalation",
+    detailedFeatureEscalationDesc: "Wenn Gespräche eine menschliche Note erfordern, erkennt unsere KI den Bedarf und übergibt nahtlos an Ihr Team mit vollständigem Kontext.",
+    benefitSmartRouting: "Intelligente Eskalationserkennung",
+    benefitFullContext: "Vollständiger Gesprächskontext übertragen",
+    benefitConfigurableRules: "Anpassbare Eskalationsregeln",
+    benefitRealTimeNotifications: "Echtzeit-Benachrichtigungen für Agenten",
+
+    // Vision & Voice Feature
+    featureVisionVoiceName: "Vision & Sprach-KI",
+    featureVisionVoiceDesc: "Verstehen Sie Bilder, analysieren Sie Dokumente und transkribieren Sie Sprachnachrichten automatisch mit fortschrittlicher KI.",
+    detailedFeatureVisionVoice: "Vision- & Sprachverarbeitung",
+    detailedFeatureVisionVoiceDesc: "Ihr KI-Agent sieht und hört. Analysieren Sie automatisch Bilder, extrahieren Sie Text aus Dokumenten und transkribieren Sie Sprachnachrichten.",
+    benefitImageAnalysis: "KI-gestützte Bildverständnis",
+    benefitVoiceToText: "Automatische Sprachnachricht-Transkription",
+    benefitDocumentOCR: "Dokumenten-Textextraktion (OCR)",
+    benefitMediaUnderstanding: "Kontextuelle Medienverständnis",
+
+    // Multi-LLM Feature
+    featureMultiLlmName: "Multi-KI-Engine",
+    featureMultiLlmDesc: "Wählen Sie zwischen mehreren KI-Anbietern (OpenAI, DeepSeek, Mistral) mit automatischem Fallback für maximale Zuverlässigkeit.",
+    detailedFeatureMultiLlm: "Multi-KI-Anbieter-Engine",
+    detailedFeatureMultiLlmDesc: "Verlassen Sie sich nicht auf einen einzigen KI-Anbieter. WazeApp unterstützt mehrere LLMs einschließlich OpenAI, DeepSeek und Mistral mit intelligentem Routing.",
+    benefitMultipleProviders: "Wahl zwischen OpenAI, DeepSeek, Mistral",
+    benefitIntelligentRouting: "Intelligentes Anfrage-Routing",
+    benefitFallbackSystem: "Automatischer Fallback bei Ausfall",
+    benefitCostOptimization: "Kosten-Leistungs-Optimierung",
     
     // CTA Section
     ctaReadyTransform: "Bereit, dein WhatsApp zu transformieren?",
@@ -2033,6 +2233,56 @@ El futuro de la comunicación empresarial es conversacional, inteligente y dispo
     benefitWebhookSupport: "Supporto webhook personalizzati",
     benefitCRMSync: "Sincronizzazione CRM",
     benefitEcommerceConnections: "Connessioni piattaforme e-commerce",
+
+    // Knowledge Base Feature
+    featureKnowledgeBaseName: "Base di Conoscenza",
+    featureKnowledgeBaseDesc: "Carica documenti, PDF e FAQ. La tua IA impara dal tuo contenuto per risposte precise e contestuali.",
+    detailedFeatureKnowledgeBase: "Base di Conoscenza Intelligente",
+    detailedFeatureKnowledgeBaseDesc: "Carica i tuoi documenti, manuali prodotto e FAQ. La nostra IA li elabora e indicizza per risposte istantanee e precise basate sul tuo contenuto reale.",
+    benefitDocumentUpload: "Caricamento di PDF, DOCX e file di testo",
+    benefitVectorSearch: "Ricerca semantica per risposte precise",
+    benefitAutoChunking: "Elaborazione e indicizzazione automatica dei contenuti",
+    benefitMultiFormat: "Supporto di più formati di documenti",
+
+    // Broadcast Feature
+    featureBroadcastName: "Campagne di Diffusione",
+    featureBroadcastDesc: "Invia messaggi mirati a migliaia di contatti. Programma campagne e monitora il coinvolgimento in tempo reale.",
+    detailedFeatureBroadcast: "Diffusione e Campagne",
+    detailedFeatureBroadcastDesc: "Raggiungi il tuo pubblico su larga scala con campagne di diffusione WhatsApp mirate. Segmenta contatti, programma invii e monitora le metriche di coinvolgimento.",
+    benefitBulkMessaging: "Invio a migliaia di contatti contemporaneamente",
+    benefitContactSegmentation: "Segmentazione intelligente dei contatti",
+    benefitScheduledCampaigns: "Programmazione campagne in anticipo",
+    benefitCampaignAnalytics: "Monitoraggio tassi di consegna e coinvolgimento",
+
+    // Escalation Feature
+    featureEscalationName: "Escalation Umana",
+    featureEscalationDesc: "L'IA rileva i casi complessi e trasferisce agli agenti umani con il contesto completo della conversazione.",
+    detailedFeatureEscalation: "Escalation Umana Intelligente",
+    detailedFeatureEscalationDesc: "Quando le conversazioni richiedono un tocco umano, la nostra IA rileva il bisogno e trasferisce al tuo team con il contesto completo.",
+    benefitSmartRouting: "Rilevamento intelligente dell'escalation",
+    benefitFullContext: "Contesto completo della conversazione trasferito",
+    benefitConfigurableRules: "Regole di escalation personalizzabili",
+    benefitRealTimeNotifications: "Notifiche in tempo reale agli agenti",
+
+    // Vision & Voice Feature
+    featureVisionVoiceName: "IA Visione e Voce",
+    featureVisionVoiceDesc: "Comprendi le immagini, analizza i documenti e trascrivi i messaggi vocali automaticamente con IA avanzata.",
+    detailedFeatureVisionVoice: "Elaborazione Visione e Voce",
+    detailedFeatureVisionVoiceDesc: "Il tuo agente IA vede e sente. Analizza automaticamente le immagini, estrai il testo dai documenti e trascrivi i messaggi vocali.",
+    benefitImageAnalysis: "Comprensione delle immagini tramite IA",
+    benefitVoiceToText: "Trascrizione automatica dei messaggi vocali",
+    benefitDocumentOCR: "Estrazione testo da documenti (OCR)",
+    benefitMediaUnderstanding: "Comprensione contestuale dei media",
+
+    // Multi-LLM Feature
+    featureMultiLlmName: "Multi-Motore IA",
+    featureMultiLlmDesc: "Scegli tra più fornitori IA (OpenAI, DeepSeek, Mistral) con fallback automatico per massima affidabilità.",
+    detailedFeatureMultiLlm: "Motore Multi-Fornitore IA",
+    detailedFeatureMultiLlmDesc: "Non dipendere da un singolo fornitore IA. WazeApp supporta più LLM tra cui OpenAI, DeepSeek e Mistral con routing intelligente e fallback automatico.",
+    benefitMultipleProviders: "Scelta tra OpenAI, DeepSeek, Mistral",
+    benefitIntelligentRouting: "Routing intelligente delle richieste",
+    benefitFallbackSystem: "Fallback automatico in caso di guasto",
+    benefitCostOptimization: "Ottimizzazione costo vs prestazioni",
     
     // CTA Section
     ctaReadyTransform: "Pronto a Trasformare il Tuo WhatsApp?",
@@ -2308,6 +2558,56 @@ El futuro de la comunicación empresarial es conversacional, inteligente y dispo
     benefitWebhookSupport: "Suporte a webhooks personalizados",
     benefitCRMSync: "Sincronização de CRM",
     benefitEcommerceConnections: "Conexões de plataformas de e-commerce",
+
+    // Knowledge Base Feature
+    featureKnowledgeBaseName: "Base de Conhecimento",
+    featureKnowledgeBaseDesc: "Carregue documentos, PDFs e FAQs. Sua IA aprende com seu conteúdo para respostas precisas e contextuais.",
+    detailedFeatureKnowledgeBase: "Base de Conhecimento Inteligente",
+    detailedFeatureKnowledgeBaseDesc: "Carregue seus documentos, manuais de produtos e FAQs. Nossa IA os processa e indexa para respostas instantâneas e precisas baseadas no seu conteúdo real.",
+    benefitDocumentUpload: "Upload de PDFs, DOCX e arquivos de texto",
+    benefitVectorSearch: "Busca semântica para respostas precisas",
+    benefitAutoChunking: "Processamento e indexação automática do conteúdo",
+    benefitMultiFormat: "Suporte a múltiplos formatos de documentos",
+
+    // Broadcast Feature
+    featureBroadcastName: "Campanhas de Difusão",
+    featureBroadcastDesc: "Envie mensagens direcionadas a milhares de contatos. Agende campanhas e acompanhe o engajamento em tempo real.",
+    detailedFeatureBroadcast: "Difusão e Campanhas",
+    detailedFeatureBroadcastDesc: "Alcance sua audiência em escala com campanhas de difusão WhatsApp direcionadas. Segmente contatos, agende envios e acompanhe métricas de engajamento em tempo real.",
+    benefitBulkMessaging: "Envio a milhares de contatos simultaneamente",
+    benefitContactSegmentation: "Segmentação inteligente de contatos",
+    benefitScheduledCampaigns: "Agendamento de campanhas antecipadamente",
+    benefitCampaignAnalytics: "Acompanhamento de taxas de entrega e engajamento",
+
+    // Escalation Feature
+    featureEscalationName: "Escalação Humana",
+    featureEscalationDesc: "A IA detecta casos complexos e transfere para agentes humanos com o contexto completo da conversa.",
+    detailedFeatureEscalation: "Escalação Humana Inteligente",
+    detailedFeatureEscalationDesc: "Quando as conversas requerem um toque humano, nossa IA detecta a necessidade e transfere para sua equipe com o contexto completo.",
+    benefitSmartRouting: "Detecção inteligente de escalação",
+    benefitFullContext: "Contexto completo da conversa transferido",
+    benefitConfigurableRules: "Regras de escalação personalizáveis",
+    benefitRealTimeNotifications: "Notificações em tempo real para agentes",
+
+    // Vision & Voice Feature
+    featureVisionVoiceName: "IA Visão e Voz",
+    featureVisionVoiceDesc: "Compreenda imagens, analise documentos e transcreva mensagens de voz automaticamente com IA avançada.",
+    detailedFeatureVisionVoice: "Processamento de Visão e Voz",
+    detailedFeatureVisionVoiceDesc: "Seu agente IA vê e ouve. Analise automaticamente imagens, extraia texto de documentos e transcreva mensagens de voz.",
+    benefitImageAnalysis: "Compreensão de imagens por IA",
+    benefitVoiceToText: "Transcrição automática de mensagens de voz",
+    benefitDocumentOCR: "Extração de texto de documentos (OCR)",
+    benefitMediaUnderstanding: "Compreensão contextual de mídia",
+
+    // Multi-LLM Feature
+    featureMultiLlmName: "Multi-Motor IA",
+    featureMultiLlmDesc: "Escolha entre múltiplos provedores IA (OpenAI, DeepSeek, Mistral) com fallback automático para máxima confiabilidade.",
+    detailedFeatureMultiLlm: "Motor Multi-Provedor IA",
+    detailedFeatureMultiLlmDesc: "Não dependa de um único provedor IA. WazeApp suporta múltiplos LLMs incluindo OpenAI, DeepSeek e Mistral com roteamento inteligente e fallback automático.",
+    benefitMultipleProviders: "Escolha entre OpenAI, DeepSeek, Mistral",
+    benefitIntelligentRouting: "Roteamento inteligente de solicitações",
+    benefitFallbackSystem: "Fallback automático em caso de falha",
+    benefitCostOptimization: "Otimização custo vs desempenho",
     
     // CTA Section
     ctaReadyTransform: "Pronto para Transformar seu WhatsApp?",
@@ -2581,6 +2881,56 @@ El futuro de la comunicación empresarial es conversacional, inteligente y dispo
     benefitWebhookSupport: "自定义webhook支持",
     benefitCRMSync: "CRM同步",
     benefitEcommerceConnections: "电商平台连接",
+
+    // Knowledge Base Feature
+    featureKnowledgeBaseName: "知识库",
+    featureKnowledgeBaseDesc: "上传文档、PDF和常见问题。您的AI从内容中学习，提供精准的上下文回答。",
+    detailedFeatureKnowledgeBase: "智能知识库",
+    detailedFeatureKnowledgeBaseDesc: "上传您的文档、产品手册和常见问题。我们的AI处理并索引它们，基于您的实际内容提供即时、准确的回答。",
+    benefitDocumentUpload: "上传PDF、DOCX和文本文件",
+    benefitVectorSearch: "语义搜索获取精准答案",
+    benefitAutoChunking: "自动内容处理和索引",
+    benefitMultiFormat: "支持多种文档格式",
+
+    // Broadcast Feature
+    featureBroadcastName: "群发活动",
+    featureBroadcastDesc: "向数千个联系人发送定向消息。安排活动并实时跟踪互动。",
+    detailedFeatureBroadcast: "群发与活动",
+    detailedFeatureBroadcastDesc: "通过定向WhatsApp群发活动大规模触达您的受众。细分联系人、安排发送并实时跟踪互动指标。",
+    benefitBulkMessaging: "同时发送给数千个联系人",
+    benefitContactSegmentation: "智能联系人细分",
+    benefitScheduledCampaigns: "提前安排活动",
+    benefitCampaignAnalytics: "跟踪送达率和互动率",
+
+    // Escalation Feature
+    featureEscalationName: "人工转接",
+    featureEscalationDesc: "AI检测复杂案例并将完整对话上下文无缝转移给人工客服。",
+    detailedFeatureEscalation: "智能人工转接",
+    detailedFeatureEscalationDesc: "当对话需要人工介入时，我们的AI检测到需求并将完整上下文无缝转移给您的团队。",
+    benefitSmartRouting: "智能转接检测",
+    benefitFullContext: "完整对话上下文转移",
+    benefitConfigurableRules: "可自定义转接规则",
+    benefitRealTimeNotifications: "实时通知客服人员",
+
+    // Vision & Voice Feature
+    featureVisionVoiceName: "视觉与语音AI",
+    featureVisionVoiceDesc: "通过先进AI自动理解图片、分析文档和转录语音消息。",
+    detailedFeatureVisionVoice: "视觉与语音处理",
+    detailedFeatureVisionVoiceDesc: "您的AI助手能看能听。自动分析图片、从文档中提取文字、转录语音消息。",
+    benefitImageAnalysis: "AI驱动的图像理解",
+    benefitVoiceToText: "自动语音消息转录",
+    benefitDocumentOCR: "文档文字提取（OCR）",
+    benefitMediaUnderstanding: "上下文媒体理解",
+
+    // Multi-LLM Feature
+    featureMultiLlmName: "多AI引擎",
+    featureMultiLlmDesc: "在多个AI提供商（OpenAI、DeepSeek、Mistral）之间选择，自动故障转移确保最大可靠性。",
+    detailedFeatureMultiLlm: "多AI提供商引擎",
+    detailedFeatureMultiLlmDesc: "不依赖单一AI提供商。WazeApp支持多个LLM，包括OpenAI、DeepSeek和Mistral，具有智能路由和自动故障转移。",
+    benefitMultipleProviders: "选择OpenAI、DeepSeek、Mistral",
+    benefitIntelligentRouting: "智能请求路由",
+    benefitFallbackSystem: "提供商故障时自动切换",
+    benefitCostOptimization: "成本与性能优化",
     
     // CTA Section
     ctaReadyTransform: "准备好改造您的WhatsApp了吗？",
@@ -2854,6 +3204,56 @@ El futuro de la comunicación empresarial es conversacional, inteligente y dispo
     benefitWebhookSupport: "カスタムwebhookサポート",
     benefitCRMSync: "CRM同期",
     benefitEcommerceConnections: "eCommerceプラットフォーム接続",
+
+    // Knowledge Base Feature
+    featureKnowledgeBaseName: "ナレッジベース",
+    featureKnowledgeBaseDesc: "ドキュメント、PDF、FAQをアップロード。AIがコンテンツから学習し、正確で文脈に沿った回答を提供します。",
+    detailedFeatureKnowledgeBase: "インテリジェントナレッジベース",
+    detailedFeatureKnowledgeBaseDesc: "ドキュメント、製品マニュアル、FAQをアップロード。AIが処理・索引付けし、実際のコンテンツに基づいた即時かつ正確な回答を提供します。",
+    benefitDocumentUpload: "PDF、DOCX、テキストファイルのアップロード",
+    benefitVectorSearch: "正確な回答のためのセマンティック検索",
+    benefitAutoChunking: "自動コンテンツ処理とインデックス作成",
+    benefitMultiFormat: "複数のドキュメント形式をサポート",
+
+    // Broadcast Feature
+    featureBroadcastName: "ブロードキャストキャンペーン",
+    featureBroadcastDesc: "数千の連絡先にターゲットメッセージを送信。キャンペーンをスケジュールし、リアルタイムでエンゲージメントを追跡。",
+    detailedFeatureBroadcast: "ブロードキャスト＆キャンペーン",
+    detailedFeatureBroadcastDesc: "ターゲットを絞ったWhatsAppブロードキャストキャンペーンで大規模にオーディエンスに到達。連絡先をセグメント化し、送信をスケジュールし、エンゲージメント指標を追跡。",
+    benefitBulkMessaging: "数千の連絡先に同時送信",
+    benefitContactSegmentation: "スマートな連絡先セグメンテーション",
+    benefitScheduledCampaigns: "キャンペーンの事前スケジュール",
+    benefitCampaignAnalytics: "配信率とエンゲージメント率の追跡",
+
+    // Escalation Feature
+    featureEscalationName: "人間へのエスカレーション",
+    featureEscalationDesc: "AIが複雑なケースを検出し、完全な会話コンテキストと共にシームレスに人間のエージェントに転送。",
+    detailedFeatureEscalation: "スマートな人間エスカレーション",
+    detailedFeatureEscalationDesc: "会話に人間のタッチが必要な時、AIがニーズを検出し、完全なコンテキストと共にチームにシームレスに転送します。",
+    benefitSmartRouting: "インテリジェントなエスカレーション検出",
+    benefitFullContext: "完全な会話コンテキストの転送",
+    benefitConfigurableRules: "カスタマイズ可能なエスカレーションルール",
+    benefitRealTimeNotifications: "リアルタイムのエージェント通知",
+
+    // Vision & Voice Feature
+    featureVisionVoiceName: "ビジョン＆音声AI",
+    featureVisionVoiceDesc: "高度なAIで画像の理解、ドキュメントの分析、音声メッセージの自動文字起こしを実現。",
+    detailedFeatureVisionVoice: "ビジョン＆音声処理",
+    detailedFeatureVisionVoiceDesc: "AIエージェントは見て聞くことができます。画像の自動分析、ドキュメントからのテキスト抽出、音声メッセージの文字起こしを実行。",
+    benefitImageAnalysis: "AI搭載の画像理解",
+    benefitVoiceToText: "音声メッセージの自動文字起こし",
+    benefitDocumentOCR: "ドキュメントテキスト抽出（OCR）",
+    benefitMediaUnderstanding: "コンテキストに基づくメディア理解",
+
+    // Multi-LLM Feature
+    featureMultiLlmName: "マルチAIエンジン",
+    featureMultiLlmDesc: "複数のAIプロバイダー（OpenAI、DeepSeek、Mistral）から選択。自動フォールバックで最大の信頼性を確保。",
+    detailedFeatureMultiLlm: "マルチAIプロバイダーエンジン",
+    detailedFeatureMultiLlmDesc: "単一のAIプロバイダーに依存しない。WazeAppはOpenAI、DeepSeek、Mistralを含む複数のLLMをサポートし、インテリジェントルーティングと自動フォールバックを提供。",
+    benefitMultipleProviders: "OpenAI、DeepSeek、Mistralから選択",
+    benefitIntelligentRouting: "インテリジェントなリクエストルーティング",
+    benefitFallbackSystem: "プロバイダーダウン時の自動フォールバック",
+    benefitCostOptimization: "コスト対パフォーマンスの最適化",
     
     // CTA Section
     ctaReadyTransform: "WhatsAppを変革する準備はできましたか？",
@@ -3127,6 +3527,56 @@ El futuro de la comunicación empresarial es conversacional, inteligente y dispo
     benefitWebhookSupport: "دعم webhooks مخصصة",
     benefitCRMSync: "مزامنة CRM",
     benefitEcommerceConnections: "اتصالات منصات تجارة إلكترونية",
+
+    // Knowledge Base Feature
+    featureKnowledgeBaseName: "قاعدة المعرفة",
+    featureKnowledgeBaseDesc: "ارفع المستندات والأسئلة الشائعة. يتعلم الذكاء الاصطناعي من محتواك لتقديم إجابات دقيقة وسياقية.",
+    detailedFeatureKnowledgeBase: "قاعدة معرفة ذكية",
+    detailedFeatureKnowledgeBaseDesc: "ارفع مستنداتك وأدلة المنتجات والأسئلة الشائعة. يعالجها الذكاء الاصطناعي ويفهرسها لتقديم إجابات فورية ودقيقة.",
+    benefitDocumentUpload: "رفع ملفات PDF و DOCX والنصوص",
+    benefitVectorSearch: "بحث دلالي للحصول على إجابات دقيقة",
+    benefitAutoChunking: "معالجة وفهرسة تلقائية للمحتوى",
+    benefitMultiFormat: "دعم تنسيقات مستندات متعددة",
+
+    // Broadcast Feature
+    featureBroadcastName: "حملات البث",
+    featureBroadcastDesc: "أرسل رسائل موجهة لآلاف جهات الاتصال. جدول الحملات وتتبع التفاعل في الوقت الفعلي.",
+    detailedFeatureBroadcast: "البث والحملات",
+    detailedFeatureBroadcastDesc: "اصل إلى جمهورك على نطاق واسع مع حملات بث واتساب موجهة. قسّم جهات الاتصال وجدول الإرسال وتتبع مقاييس التفاعل.",
+    benefitBulkMessaging: "إرسال لآلاف جهات الاتصال في وقت واحد",
+    benefitContactSegmentation: "تقسيم ذكي لجهات الاتصال",
+    benefitScheduledCampaigns: "جدولة الحملات مسبقاً",
+    benefitCampaignAnalytics: "تتبع معدلات التوصيل والتفاعل",
+
+    // Escalation Feature
+    featureEscalationName: "التصعيد البشري",
+    featureEscalationDesc: "يكتشف الذكاء الاصطناعي الحالات المعقدة وينقلها بسلاسة إلى الوكلاء البشريين مع سياق المحادثة الكامل.",
+    detailedFeatureEscalation: "تصعيد بشري ذكي",
+    detailedFeatureEscalationDesc: "عندما تحتاج المحادثات إلى لمسة بشرية، يكتشف الذكاء الاصطناعي الحاجة وينقل إلى فريقك بسياق كامل.",
+    benefitSmartRouting: "اكتشاف ذكي للتصعيد",
+    benefitFullContext: "نقل سياق المحادثة الكامل",
+    benefitConfigurableRules: "قواعد تصعيد قابلة للتخصيص",
+    benefitRealTimeNotifications: "إشعارات فورية للوكلاء",
+
+    // Vision & Voice Feature
+    featureVisionVoiceName: "ذكاء اصطناعي بصري وصوتي",
+    featureVisionVoiceDesc: "فهم الصور وتحليل المستندات ونسخ الرسائل الصوتية تلقائياً بالذكاء الاصطناعي المتقدم.",
+    detailedFeatureVisionVoice: "معالجة بصرية وصوتية",
+    detailedFeatureVisionVoiceDesc: "وكيل الذكاء الاصطناعي يرى ويسمع. تحليل الصور تلقائياً واستخراج النص من المستندات ونسخ الرسائل الصوتية.",
+    benefitImageAnalysis: "فهم الصور بالذكاء الاصطناعي",
+    benefitVoiceToText: "نسخ تلقائي للرسائل الصوتية",
+    benefitDocumentOCR: "استخراج نص المستندات (OCR)",
+    benefitMediaUnderstanding: "فهم سياقي للوسائط",
+
+    // Multi-LLM Feature
+    featureMultiLlmName: "محرك ذكاء اصطناعي متعدد",
+    featureMultiLlmDesc: "اختر من بين مزودي ذكاء اصطناعي متعددين (OpenAI، DeepSeek، Mistral) مع تبديل تلقائي لأقصى موثوقية.",
+    detailedFeatureMultiLlm: "محرك متعدد المزودين",
+    detailedFeatureMultiLlmDesc: "لا تعتمد على مزود واحد. يدعم WazeApp عدة نماذج LLM بما في ذلك OpenAI و DeepSeek و Mistral مع توجيه ذكي وتبديل تلقائي.",
+    benefitMultipleProviders: "اختيار بين OpenAI و DeepSeek و Mistral",
+    benefitIntelligentRouting: "توجيه ذكي للطلبات",
+    benefitFallbackSystem: "تبديل تلقائي عند تعطل المزود",
+    benefitCostOptimization: "تحسين التكلفة مقابل الأداء",
     
     // CTA Section
     ctaReadyTransform: "جاهز لتحويل واتسابك؟",

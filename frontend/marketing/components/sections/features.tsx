@@ -10,6 +10,11 @@ import {
   FileText,
   Sparkles,
   Clock,
+  BookOpen,
+  Megaphone,
+  UserCheck,
+  Eye,
+  Brain,
 } from "lucide-react"
 import { useTranslations } from "@/lib/hooks/use-translations"
 
@@ -17,6 +22,36 @@ export function FeaturesSection() {
   const { t } = useTranslations()
 
   const features = [
+    {
+      name: t("featureAiName"),
+      description: t("featureAiDesc"),
+      icon: Sparkles,
+    },
+    {
+      name: t("featureKnowledgeBaseName"),
+      description: t("featureKnowledgeBaseDesc"),
+      icon: BookOpen,
+    },
+    {
+      name: t("featureBroadcastName"),
+      description: t("featureBroadcastDesc"),
+      icon: Megaphone,
+    },
+    {
+      name: t("featureEscalationName"),
+      description: t("featureEscalationDesc"),
+      icon: UserCheck,
+    },
+    {
+      name: t("featureVisionVoiceName"),
+      description: t("featureVisionVoiceDesc"),
+      icon: Eye,
+    },
+    {
+      name: t("featureMultiLlmName"),
+      description: t("featureMultiLlmDesc"),
+      icon: Brain,
+    },
     {
       name: t("feature24_7Name"),
       description: t("feature24_7Desc"),
@@ -33,29 +68,19 @@ export function FeaturesSection() {
       icon: Zap,
     },
     {
-      name: t("featureMediaName"),
-      description: t("featureMediaDesc"),
-      icon: FileText,
-    },
-    {
-      name: t("featureTeamName"),
-      description: t("featureTeamDesc"),
-      icon: Users,
-    },
-    {
       name: t("featureAnalyticsName"),
       description: t("featureAnalyticsDesc"),
       icon: BarChart3,
     },
     {
+      name: t("featureMediaName"),
+      description: t("featureMediaDesc"),
+      icon: FileText,
+    },
+    {
       name: t("featureSecurityName"),
       description: t("featureSecurityDesc"),
       icon: Shield,
-    },
-    {
-      name: t("featureAiName"),
-      description: t("featureAiDesc"),
-      icon: Sparkles,
     },
   ]
 
@@ -73,7 +98,7 @@ export function FeaturesSection() {
           </div>
         </div>
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {features.map((feature, index) => (
             <div
               key={feature.name}

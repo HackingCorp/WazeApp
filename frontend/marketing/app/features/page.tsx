@@ -15,6 +15,11 @@ import {
   Clock,
   ArrowRight,
   CheckCircle,
+  BookOpen,
+  Megaphone,
+  UserCheck,
+  Eye,
+  Brain,
 } from "lucide-react"
 import { useTranslations } from "@/lib/hooks/use-translations"
 import featureIllustrations from "@/components/features/feature-illustrations"
@@ -121,6 +126,61 @@ export default function FeaturesPage() {
         t("benefitWebhookSupport"),
         t("benefitCRMSync"),
         t("benefitEcommerceConnections"),
+      ],
+    },
+    {
+      name: t("detailedFeatureKnowledgeBase"),
+      description: t("detailedFeatureKnowledgeBaseDesc"),
+      icon: BookOpen,
+      benefits: [
+        t("benefitDocumentUpload"),
+        t("benefitVectorSearch"),
+        t("benefitAutoChunking"),
+        t("benefitMultiFormat"),
+      ],
+    },
+    {
+      name: t("detailedFeatureBroadcast"),
+      description: t("detailedFeatureBroadcastDesc"),
+      icon: Megaphone,
+      benefits: [
+        t("benefitBulkMessaging"),
+        t("benefitContactSegmentation"),
+        t("benefitScheduledCampaigns"),
+        t("benefitCampaignAnalytics"),
+      ],
+    },
+    {
+      name: t("detailedFeatureEscalation"),
+      description: t("detailedFeatureEscalationDesc"),
+      icon: UserCheck,
+      benefits: [
+        t("benefitSmartRouting"),
+        t("benefitFullContext"),
+        t("benefitConfigurableRules"),
+        t("benefitRealTimeNotifications"),
+      ],
+    },
+    {
+      name: t("detailedFeatureVisionVoice"),
+      description: t("detailedFeatureVisionVoiceDesc"),
+      icon: Eye,
+      benefits: [
+        t("benefitImageAnalysis"),
+        t("benefitVoiceToText"),
+        t("benefitDocumentOCR"),
+        t("benefitMediaUnderstanding"),
+      ],
+    },
+    {
+      name: t("detailedFeatureMultiLlm"),
+      description: t("detailedFeatureMultiLlmDesc"),
+      icon: Brain,
+      benefits: [
+        t("benefitMultipleProviders"),
+        t("benefitIntelligentRouting"),
+        t("benefitFallbackSystem"),
+        t("benefitCostOptimization"),
       ],
     },
   ]

@@ -3189,9 +3189,16 @@ RÈGLES:
           // Pass raw phone number to let sendMessage validate via onWhatsApp
           const operatorPhone = agent.escalationConfig.operatorWhatsAppNumber.replace(/@.*$/, '');
 
+          const clientPhone = fromNumber
+            .replace(/@s\.whatsapp\.net$/i, '')
+            .replace(/@g\.us$/i, '')
+            .replace(/@lid$/i, '')
+            .replace(/@c\.us$/i, '')
+            .trim();
+
           const notificationMsg = `🚨 *Escalade de conversation*\n\n` +
             `Agent: ${agent.name}\n` +
-            `Client: ${fromNumber}\n` +
+            `Client: +${clientPhone}\n` +
             `Raison: ${reason}\n` +
             `Date: ${new Date().toLocaleString('fr-FR')}\n\n` +
             `Connectez-vous au dashboard pour répondre.`;

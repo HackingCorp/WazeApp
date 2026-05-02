@@ -1,8 +1,9 @@
-import { Injectable, Logger, OnModuleDestroy } from "@nestjs/common";
+import { Injectable, Logger, OnModuleDestroy, Inject, forwardRef } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository, Between } from "typeorm";
 import { EventEmitter2, OnEvent } from "@nestjs/event-emitter";
 import { v4 as uuidv4 } from "uuid";
+import { BaileysService } from "./baileys.service";
 import {
   WhatsAppSession,
   WhatsAppContact,
@@ -84,6 +85,8 @@ export class SimpleConversationService implements OnModuleDestroy {
     @InjectRepository(Organization)
     private organizationRepository: Repository<Organization>,
     private eventEmitter: EventEmitter2,
+    @Inject(forwardRef(() => BaileysService))
+    private baileysService: BaileysService,
   ) {
     // Load existing conversations from database on startup
     this.loadPersistedConversations();
@@ -1447,9 +1450,25 @@ export class SimpleConversationService implements OnModuleDestroy {
     conversationData: ConversationData,
   ): Promise<void> {
     try {
-      const normalizedPhone = this.normalizePhoneNumber(
+      let normalizedPhone = this.normalizePhoneNumber(
         conversationData.phoneNumber,
       );
+
+      // Resolve LID to real phone number — LID JIDs are internal identifiers, not real phone numbers
+      if (conversationData.phoneNumber.includes('@lid')) {
+        try {
+          const resolvedPhone = await this.baileysService.resolveLidToPhoneNumber(
+            conversationData.sessionId,
+            conversationData.phoneNumber,
+          );
+          if (resolvedPhone) {
+            normalizedPhone = resolvedPhone.replace(/^\+/, '').trim();
+            this.logger.log(`Resolved LID to real phone: ${normalizedPhone}`);
+          }
+        } catch (e) {
+          this.logger.warn(`Could not resolve LID to phone for conversation: ${e.message}`);
+        }
+      }
 
       // Check if conversation already exists with normalized phone
       let dbConversation = await this.conversationRepository.findOne({

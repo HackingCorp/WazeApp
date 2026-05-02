@@ -1111,13 +1111,26 @@ Always respond directly in the user's language without any formatting.`,
   ): Promise<AgentConversation> {
     const conversationTitle = `WhatsApp - ${fromNumber}`;
     // Normalize phone for matching against externalId (strip @s.whatsapp.net etc.)
-    const normalizedPhone = fromNumber
+    let normalizedPhone = fromNumber
       .replace(/@s\.whatsapp\.net$/i, "")
       .replace(/@g\.us$/i, "")
       .replace(/@lid$/i, "")
       .replace(/@c\.us$/i, "")
       .replace(/^\+/, "")
       .trim();
+
+    // Resolve LID to real phone number — LID JIDs are internal identifiers, not real phone numbers
+    if (fromNumber.includes('@lid')) {
+      try {
+        const resolvedPhone = await this.baileysService.resolveLidToPhoneNumber(session.id, fromNumber);
+        if (resolvedPhone) {
+          normalizedPhone = resolvedPhone.replace(/^\+/, '').trim();
+          this.logger.log(`Resolved LID to real phone: ${normalizedPhone}`);
+        }
+      } catch (e) {
+        this.logger.warn(`Could not resolve LID to phone for conversation: ${e.message}`);
+      }
+    }
 
     // PRIORITY 1: Find existing conversation by sessionId + phone (matches simple-conversation's lookup)
     // This prevents dual-conversation creation between AI responder and simple-conversation service

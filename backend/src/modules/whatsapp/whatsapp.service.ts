@@ -1044,11 +1044,18 @@ export class WhatsAppService {
         return;
       }
 
-      // Resolve LID to real phone number if needed
-      const originalJid = remoteJid;
-      remoteJid = await this.resolveRealPhoneNumber(sessionId, remoteJid);
-      if (originalJid !== remoteJid) {
-        this.logger.log(`Resolved LID JID ${originalJid} to real phone JID ${remoteJid}`);
+      // Use remoteJidAlt (real phone number) when remoteJid is a LID
+      // Baileys v7 provides the alternate JID directly in the message key
+      if (remoteJid.includes('@lid') && message.key.remoteJidAlt) {
+        this.logger.log(`Using remoteJidAlt ${message.key.remoteJidAlt} instead of LID ${remoteJid}`);
+        remoteJid = message.key.remoteJidAlt;
+      } else if (remoteJid.includes('@lid')) {
+        // Fallback: try resolving via cached mappings
+        const originalJid = remoteJid;
+        remoteJid = await this.resolveRealPhoneNumber(sessionId, remoteJid);
+        if (originalJid !== remoteJid) {
+          this.logger.log(`Resolved LID JID ${originalJid} to real phone JID ${remoteJid}`);
+        }
       }
 
       const fromNumber = remoteJid

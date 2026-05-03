@@ -435,7 +435,10 @@ export class WhatsAppAIResponderService {
   async handleIncomingMessage(event: WhatsAppMessageEvent) {
     const message = event.message;
     const messageId = message.key?.id;
-    const fromNumber = message.key?.remoteJid;
+    // Use remoteJidAlt (real phone number) when remoteJid is a LID
+    const fromNumber = (message.key?.remoteJid?.includes('@lid') && message.key?.remoteJidAlt)
+      ? message.key.remoteJidAlt
+      : message.key?.remoteJid;
 
     // Skip if no message ID, no fromNumber, or if we're already processing this message
     if (!messageId || !fromNumber || this.processingMessages.has(messageId)) {

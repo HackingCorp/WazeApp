@@ -29,6 +29,7 @@ import { WooCommerceService } from "../services/woocommerce.service";
 import { EMarketService } from "../services/emarket.service";
 import { SyncService } from "../services/sync.service";
 import { ConnectShopifyDto, ConnectWooCommerceDto, ConnectEMarketDto, CreateManualCatalogDto } from "../dto/store.dto";
+import { QuotaEnforcementService } from "../../subscriptions/quota-enforcement.service";
 
 @ApiTags("E-Commerce - Stores")
 @Controller("ecommerce/stores")
@@ -42,6 +43,7 @@ export class StoreController {
     private readonly eMarketService: EMarketService,
     private readonly syncService: SyncService,
     private readonly configService: ConfigService,
+    private readonly quotaEnforcementService: QuotaEnforcementService,
   ) {}
 
   @Get()
@@ -65,6 +67,7 @@ export class StoreController {
     @Body() dto: CreateManualCatalogDto,
   ) {
     const organizationId = (user as any).organizationId || user.id;
+    await this.quotaEnforcementService.enforceFeatureAccess(organizationId, 'ecommerce');
     const store = await this.storeService.createManualCatalog(
       organizationId,
       user.id,
@@ -97,6 +100,7 @@ export class StoreController {
     @Body() dto: ConnectShopifyDto,
   ) {
     const organizationId = (user as any).organizationId || user.id;
+    await this.quotaEnforcementService.enforceFeatureAccess(organizationId, 'ecommerce');
     const authUrl = this.shopifyService.generateAuthUrl(
       dto.shopDomain,
       organizationId,
@@ -158,6 +162,7 @@ export class StoreController {
     @Body() dto: ConnectWooCommerceDto,
   ) {
     const organizationId = (user as any).organizationId || user.id;
+    await this.quotaEnforcementService.enforceFeatureAccess(organizationId, 'ecommerce');
 
     // Test connection first
     await this.wooCommerceService.testConnection(
@@ -188,6 +193,7 @@ export class StoreController {
     @Body() dto: ConnectEMarketDto,
   ) {
     const organizationId = (user as any).organizationId || user.id;
+    await this.quotaEnforcementService.enforceFeatureAccess(organizationId, 'ecommerce');
 
     // Test connection first (skip if it fails, still save the store)
     try {

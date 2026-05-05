@@ -5,6 +5,7 @@ import { useAuth } from '@/providers/AuthProvider';
 import { api } from '@/lib/api';
 import { analytics } from '@/lib/analytics';
 import toast from 'react-hot-toast';
+import { AlertTriangle, Mail, Loader2 } from 'lucide-react';
 
 // Force this page to be dynamically rendered
 export const dynamic = 'force-dynamic';
@@ -35,6 +36,7 @@ export default function ProfilePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isResendingVerification, setIsResendingVerification] = useState(false);
 
   const [formData, setFormData] = useState({
     firstName: '',
@@ -102,6 +104,28 @@ export default function ProfilePage() {
     setIsEditing(false);
   };
 
+  const handleResendVerification = async () => {
+    if (!profile?.user.email) return;
+    try {
+      setIsResendingVerification(true);
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://api.wazeapp.ai'}/api/v1/auth/resend-verification`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: profile.user.email }),
+      });
+      if (response.ok) {
+        toast.success('Email de vérification envoyé ! Vérifiez votre boîte de réception.');
+      } else {
+        const data = await response.json().catch(() => null);
+        toast.error(data?.message || 'Impossible d\'envoyer l\'email. Réessayez plus tard.');
+      }
+    } catch (error) {
+      toast.error('Erreur réseau. Réessayez plus tard.');
+    } finally {
+      setIsResendingVerification(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -138,6 +162,33 @@ export default function ProfilePage() {
             Manage your account information and settings
           </p>
         </div>
+
+        {/* Email verification alert banner */}
+        {profile && !profile.user.emailVerified && (
+          <div className="mb-6 bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-700 rounded-lg p-4 flex items-start gap-3">
+            <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <h3 className="text-sm font-semibold text-amber-800 dark:text-amber-300">
+                Adresse email non vérifiée
+              </h3>
+              <p className="text-sm text-amber-700 dark:text-amber-400 mt-1">
+                Votre adresse email <strong>{profile.user.email}</strong> n&apos;a pas encore été vérifiée. Vérifiez votre boîte de réception ou renvoyez l&apos;email de vérification.
+              </p>
+            </div>
+            <button
+              onClick={handleResendVerification}
+              disabled={isResendingVerification}
+              className="flex-shrink-0 inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-amber-800 dark:text-amber-200 bg-amber-200 dark:bg-amber-800 hover:bg-amber-300 dark:hover:bg-amber-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isResendingVerification ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Mail className="h-4 w-4" />
+              )}
+              {isResendingVerification ? 'Envoi...' : 'Renvoyer'}
+            </button>
+          </div>
+        )}
 
         {/* Profile Information Card */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">

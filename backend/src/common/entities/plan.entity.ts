@@ -151,6 +151,14 @@ export class Plan extends BaseEntity {
   @Column({ default: false })
   featureScheduledCampaigns: boolean;
 
+  @ApiProperty({ description: 'Has escalation (human handoff) feature' })
+  @Column({ default: false })
+  featureEscalation: boolean;
+
+  @ApiProperty({ description: 'Has e-commerce feature' })
+  @Column({ default: false })
+  featureEcommerce: boolean;
+
   // Stripe integration
   @ApiProperty({ description: 'Stripe Product ID' })
   @Column({ nullable: true })

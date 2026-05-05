@@ -33,6 +33,7 @@ import { SyncConsumer } from "./processors/sync.consumer";
 
 // Audit
 import { AuditService } from "../audit/audit.service";
+import { SubscriptionModule } from "../subscriptions/subscription.module";
 
 @Module({
   imports: [
@@ -46,6 +47,7 @@ import { AuditService } from "../audit/audit.service";
     ]),
     HttpModule,
     ConfigModule,
+    SubscriptionModule,
     BullModule.registerQueue({
       name: "ecommerce-sync",
       defaultJobOptions: {

@@ -100,6 +100,8 @@ export class Subscription extends BaseEntity {
     webhooks: boolean;
     scheduling: boolean;
     sso: boolean;
+    escalation: boolean;
+    ecommerce: boolean;
   };
 
   @ApiProperty({ description: "Subscription metadata" })
@@ -226,6 +228,8 @@ export const SUBSCRIPTION_FEATURES = {
     webhooks: false,         // No webhooks
     scheduling: false,       // No scheduled messages
     sso: false,
+    escalation: false,
+    ecommerce: false,
   },
   [SubscriptionPlan.STANDARD]: {
     customBranding: false,
@@ -241,6 +245,8 @@ export const SUBSCRIPTION_FEATURES = {
     webhooks: false,         // No webhooks (matches pricing)
     scheduling: true,        // Scheduled messages
     sso: false,
+    escalation: false,
+    ecommerce: false,
   },
   [SubscriptionPlan.PRO]: {
     customBranding: true,
@@ -256,6 +262,8 @@ export const SUBSCRIPTION_FEATURES = {
     webhooks: true,          // Webhooks enabled (matches pricing)
     scheduling: true,        // Scheduled messages
     sso: false,
+    escalation: true,
+    ecommerce: true,
   },
   [SubscriptionPlan.ENTERPRISE]: {
     customBranding: true,
@@ -271,5 +279,7 @@ export const SUBSCRIPTION_FEATURES = {
     webhooks: true,          // Webhooks enabled
     scheduling: true,        // Scheduled messages
     sso: true,
+    escalation: true,
+    ecommerce: true,
   },
 };

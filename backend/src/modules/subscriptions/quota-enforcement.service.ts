@@ -845,6 +845,8 @@ export class QuotaEnforcementService {
           webhooks: false,
           scheduling: false,
           sso: false,
+          escalation: false,
+          ecommerce: false,
         };
         // Cache the blocked version (not persisted to DB)
         await this.cacheManager.set(cacheKey, existingSubscription, this.SUBSCRIPTION_CACHE_TTL);
@@ -1029,6 +1031,8 @@ export class QuotaEnforcementService {
           webhooks: false,
           scheduling: false,
           sso: false,
+          escalation: false,
+          ecommerce: false,
         };
         activeSubscription = existingSubscription;
         // Cache the blocked version (not persisted to DB)

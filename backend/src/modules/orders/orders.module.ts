@@ -4,9 +4,10 @@ import { Order, OrderItem, Product, ProductVariant } from '@/common/entities';
 import { OrderController } from './controllers/order.controller';
 import { OrderService } from './services/order.service';
 import { OrderTagParserService } from './services/order-tag-parser.service';
+import { SubscriptionModule } from '../subscriptions/subscription.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Order, OrderItem, Product, ProductVariant])],
+  imports: [TypeOrmModule.forFeature([Order, OrderItem, Product, ProductVariant]), SubscriptionModule],
   controllers: [OrderController],
   providers: [OrderService, OrderTagParserService],
   exports: [OrderService, OrderTagParserService],

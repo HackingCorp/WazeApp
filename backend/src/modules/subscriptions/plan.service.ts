@@ -44,6 +44,8 @@ const DEFAULT_PLANS = [
     featureCustomEmbeddings: false,
     featurePremiumVectorSearch: false,
     featureScheduledCampaigns: false,
+    featureEscalation: false,
+    featureEcommerce: false,
     trialDays: 0,
     displayOrder: 0,
   },
@@ -83,6 +85,8 @@ const DEFAULT_PLANS = [
     featureCustomEmbeddings: false,
     featurePremiumVectorSearch: false,
     featureScheduledCampaigns: true,
+    featureEscalation: false,
+    featureEcommerce: false,
     trialDays: 7,
     displayOrder: 1,
   },
@@ -122,6 +126,8 @@ const DEFAULT_PLANS = [
     featureCustomEmbeddings: false,
     featurePremiumVectorSearch: true,
     featureScheduledCampaigns: true,
+    featureEscalation: true,
+    featureEcommerce: true,
     trialDays: 14,
     displayOrder: 2,
   },
@@ -161,6 +167,8 @@ const DEFAULT_PLANS = [
     featureCustomEmbeddings: true,
     featurePremiumVectorSearch: true,
     featureScheduledCampaigns: true,
+    featureEscalation: true,
+    featureEcommerce: true,
     trialDays: 14,
     displayOrder: 3,
   },
@@ -379,6 +387,8 @@ export class PlanService implements OnModuleInit, OnModuleDestroy {
     webhooks: boolean;
     scheduling: boolean;
     sso: boolean;
+    escalation: boolean;
+    ecommerce: boolean;
   } {
     const plan = this.getPlanByCode(code);
 
@@ -398,6 +408,8 @@ export class PlanService implements OnModuleInit, OnModuleDestroy {
         webhooks: false,
         scheduling: false,
         sso: false,
+        escalation: false,
+        ecommerce: false,
       };
     }
 
@@ -415,6 +427,8 @@ export class PlanService implements OnModuleInit, OnModuleDestroy {
       webhooks: plan.featureWebhooks,
       scheduling: plan.featureScheduledCampaigns,
       sso: plan.featureSso,
+      escalation: plan.featureEscalation,
+      ecommerce: plan.featureEcommerce,
     };
   }
 

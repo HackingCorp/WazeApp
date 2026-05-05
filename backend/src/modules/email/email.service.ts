@@ -328,90 +328,7 @@ export class EmailService {
     const periodFormatted = `${invoiceDetails.periodStart.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })} - ${invoiceDetails.periodEnd.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}`;
     const dueDateFormatted = invoiceDetails.dueDate.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
 
-    const html = `
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Nouvelle facture</title>
-</head>
-<body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f4f4f4; padding: 20px;">
-    <tr>
-      <td align="center">
-        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-          <!-- Header -->
-          <tr>
-            <td style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center;">
-              <h1 style="color: #ffffff; margin: 0; font-size: 24px;">📄 Nouvelle Facture</h1>
-            </td>
-          </tr>
-
-          <!-- Content -->
-          <tr>
-            <td style="padding: 40px;">
-              <p style="font-size: 16px; color: #333; margin-bottom: 20px;">Bonjour ${firstName},</p>
-
-              <p style="font-size: 16px; color: #333; margin-bottom: 20px;">
-                Votre facture de renouvellement pour <strong>${invoiceDetails.organizationName}</strong> est disponible.
-              </p>
-
-              <!-- Invoice Details Box -->
-              <div style="background-color: #f8f9fa; border-radius: 8px; padding: 20px; margin: 20px 0; border-left: 4px solid #667eea;">
-                <table width="100%" style="border-collapse: collapse;">
-                  <tr>
-                    <td style="padding: 8px 0; color: #666;">Numéro de facture:</td>
-                    <td style="padding: 8px 0; color: #333; font-weight: bold; text-align: right;">${invoiceDetails.invoiceNumber}</td>
-                  </tr>
-                  <tr>
-                    <td style="padding: 8px 0; color: #666;">Plan:</td>
-                    <td style="padding: 8px 0; color: #333; font-weight: bold; text-align: right;">${invoiceDetails.planName}</td>
-                  </tr>
-                  <tr>
-                    <td style="padding: 8px 0; color: #666;">Période:</td>
-                    <td style="padding: 8px 0; color: #333; text-align: right;">${periodFormatted}</td>
-                  </tr>
-                  <tr>
-                    <td style="padding: 8px 0; color: #666;">Montant:</td>
-                    <td style="padding: 8px 0; color: #667eea; font-weight: bold; font-size: 18px; text-align: right;">${invoiceDetails.amount.toLocaleString()} ${invoiceDetails.currency}</td>
-                  </tr>
-                  <tr>
-                    <td style="padding: 8px 0; color: #666;">Date d'échéance:</td>
-                    <td style="padding: 8px 0; color: #e74c3c; font-weight: bold; text-align: right;">${dueDateFormatted}</td>
-                  </tr>
-                </table>
-              </div>
-
-              <p style="font-size: 14px; color: #666; margin: 20px 0;">
-                Pour assurer la continuité de votre service, veuillez procéder au paiement avant la date d'échéance.
-              </p>
-
-              <!-- CTA Button -->
-              <div style="text-align: center; margin: 30px 0;">
-                <a href="${billingUrl}" style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #ffffff; text-decoration: none; padding: 15px 40px; border-radius: 25px; font-weight: bold; font-size: 16px;">Payer maintenant</a>
-              </div>
-
-              <p style="font-size: 14px; color: #999; text-align: center;">
-                Des questions? Contactez-nous à support@wazeapp.ai
-              </p>
-            </td>
-          </tr>
-
-          <!-- Footer -->
-          <tr>
-            <td style="background-color: #f8f9fa; padding: 20px; text-align: center;">
-              <p style="margin: 0; font-size: 12px; color: #999;">
-                © ${new Date().getFullYear()} WazeApp. Tous droits réservés.
-              </p>
-            </td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>`;
+    const html = this.getNewInvoiceEmailTemplate(firstName, invoiceDetails, billingUrl, periodFormatted, dueDateFormatted);
 
     try {
       await this.transporter.sendMail({
@@ -488,59 +405,7 @@ export class EmailService {
       year: 'numeric',
     });
 
-    const html = `
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Essai gratuit active</title>
-</head>
-<body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f4f4f4; padding: 20px;">
-    <tr>
-      <td align="center">
-        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-          <tr>
-            <td style="background: linear-gradient(135deg, #25D366 0%, #128C7E 100%); padding: 30px; text-align: center;">
-              <h1 style="color: #ffffff; margin: 0; font-size: 24px;">Votre essai gratuit est actif !</h1>
-            </td>
-          </tr>
-          <tr>
-            <td style="padding: 40px;">
-              <p style="font-size: 16px; color: #333; margin-bottom: 20px;">Bonjour ${firstName},</p>
-              <p style="font-size: 16px; color: #333; margin-bottom: 20px;">
-                Votre essai gratuit du plan <strong>${details.planName}</strong> est maintenant actif pour <strong>${details.trialDays} jours</strong>.
-              </p>
-              <div style="background-color: #d4edda; border-left: 4px solid #28a745; padding: 20px; margin: 20px 0; border-radius: 4px;">
-                <p style="color: #155724; margin: 0; font-size: 16px;">
-                  Profitez de toutes les fonctionnalites du plan ${details.planName} jusqu'au <strong>${trialEndFormatted}</strong>.
-                </p>
-              </div>
-              <p style="font-size: 14px; color: #666; margin: 20px 0;">
-                Une facture a ete generee et sera due a la fin de votre periode d'essai. Si vous payez avant cette date, votre abonnement sera active sans interruption.
-              </p>
-              <div style="text-align: center; margin: 30px 0;">
-                <a href="${billingUrl}" style="display: inline-block; background: linear-gradient(135deg, #25D366 0%, #128C7E 100%); color: #ffffff; text-decoration: none; padding: 15px 40px; border-radius: 25px; font-weight: bold; font-size: 16px;">Acceder au dashboard</a>
-              </div>
-              <p style="font-size: 14px; color: #999; text-align: center;">
-                Des questions? Contactez-nous a support@wazeapp.ai
-              </p>
-            </td>
-          </tr>
-          <tr>
-            <td style="background-color: #f8f9fa; padding: 20px; text-align: center;">
-              <p style="margin: 0; font-size: 12px; color: #999;">
-                &copy; ${new Date().getFullYear()} WazeApp. Tous droits reserves.
-              </p>
-            </td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>`;
+    const html = this.getTrialStartEmailTemplate(firstName, details, billingUrl, trialEndFormatted);
 
     if (!this.transporter) {
       this.logger.warn(`SMTP not configured, skipping trial start email to ${email}`);
@@ -581,65 +446,13 @@ export class EmailService {
       year: 'numeric',
     });
 
-    const urgencyColor = details.daysRemaining <= 1 ? '#dc3545' : '#fd7e14';
-    const urgencyBg = details.daysRemaining <= 1 ? '#f8d7da' : '#fff3cd';
     const urgencyText = details.daysRemaining === 0
       ? 'Votre essai gratuit expire aujourd\'hui !'
       : details.daysRemaining === 1
         ? 'Votre essai gratuit expire demain !'
         : `Votre essai gratuit expire dans ${details.daysRemaining} jours.`;
 
-    const html = `
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Rappel essai gratuit</title>
-</head>
-<body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f4f4f4; padding: 20px;">
-    <tr>
-      <td align="center">
-        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-          <tr>
-            <td style="background: linear-gradient(135deg, ${urgencyColor} 0%, #c82333 100%); padding: 30px; text-align: center;">
-              <h1 style="color: #ffffff; margin: 0; font-size: 24px;">Rappel - Essai Gratuit</h1>
-            </td>
-          </tr>
-          <tr>
-            <td style="padding: 40px;">
-              <p style="font-size: 16px; color: #333; margin-bottom: 20px;">Bonjour ${firstName},</p>
-              <div style="background-color: ${urgencyBg}; border-left: 4px solid ${urgencyColor}; padding: 20px; margin: 20px 0; border-radius: 4px;">
-                <p style="color: #333; margin: 0; font-size: 16px; font-weight: bold;">
-                  ${urgencyText}
-                </p>
-              </div>
-              <p style="font-size: 14px; color: #666; margin: 20px 0;">
-                Votre essai du plan <strong>${details.planName}</strong> se termine le <strong>${trialEndFormatted}</strong>.
-                Pour continuer a profiter de toutes les fonctionnalites, payez votre facture avant cette date.
-              </p>
-              <div style="text-align: center; margin: 30px 0;">
-                <a href="${billingUrl}" style="display: inline-block; background: ${urgencyColor}; color: #ffffff; text-decoration: none; padding: 15px 40px; border-radius: 25px; font-weight: bold; font-size: 16px;">Payer maintenant</a>
-              </div>
-              <p style="font-size: 14px; color: #999; text-align: center;">
-                Des questions? Contactez-nous a support@wazeapp.ai
-              </p>
-            </td>
-          </tr>
-          <tr>
-            <td style="background-color: #f8f9fa; padding: 20px; text-align: center;">
-              <p style="margin: 0; font-size: 12px; color: #999;">
-                &copy; ${new Date().getFullYear()} WazeApp. Tous droits reserves.
-              </p>
-            </td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>`;
+    const html = this.getTrialReminderEmailTemplate(firstName, details, billingUrl, trialEndFormatted, urgencyText);
 
     if (!this.transporter) {
       this.logger.warn(`SMTP not configured, skipping trial reminder email to ${email}`);
@@ -675,57 +488,7 @@ export class EmailService {
     const dashboardUrl = this.getDashboardUrl();
     const billingUrl = `${dashboardUrl}/billing`;
 
-    const html = `
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Essai gratuit expire</title>
-</head>
-<body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f4f4f4; padding: 20px;">
-    <tr>
-      <td align="center">
-        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-          <tr>
-            <td style="background: linear-gradient(135deg, #dc3545 0%, #c82333 100%); padding: 30px; text-align: center;">
-              <h1 style="color: #ffffff; margin: 0; font-size: 24px;">Essai Gratuit Expire</h1>
-            </td>
-          </tr>
-          <tr>
-            <td style="padding: 40px;">
-              <p style="font-size: 16px; color: #333; margin-bottom: 20px;">Bonjour ${firstName},</p>
-              <div style="background-color: #f8d7da; border-left: 4px solid #dc3545; padding: 20px; margin: 20px 0; border-radius: 4px;">
-                <p style="color: #721c24; margin: 0; font-size: 16px; font-weight: bold;">
-                  Votre essai gratuit du plan ${details.planName} a expire.
-                </p>
-              </div>
-              <p style="font-size: 14px; color: #666; margin: 20px 0;">
-                Votre compte a ete temporairement limite aux fonctionnalites du plan gratuit.
-                Pour reactiver toutes les fonctionnalites du plan ${details.planName}, payez votre facture en attente.
-              </p>
-              <div style="text-align: center; margin: 30px 0;">
-                <a href="${billingUrl}" style="display: inline-block; background: linear-gradient(135deg, #25D366 0%, #128C7E 100%); color: #ffffff; text-decoration: none; padding: 15px 40px; border-radius: 25px; font-weight: bold; font-size: 16px;">Reactiver mon compte</a>
-              </div>
-              <p style="font-size: 14px; color: #999; text-align: center;">
-                Des questions? Contactez-nous a support@wazeapp.ai
-              </p>
-            </td>
-          </tr>
-          <tr>
-            <td style="background-color: #f8f9fa; padding: 20px; text-align: center;">
-              <p style="margin: 0; font-size: 12px; color: #999;">
-                &copy; ${new Date().getFullYear()} WazeApp. Tous droits reserves.
-              </p>
-            </td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>`;
+    const html = this.getTrialExpiredEmailTemplate(firstName, details, billingUrl);
 
     if (!this.transporter) {
       this.logger.warn(`SMTP not configured, skipping trial expired email to ${email}`);
@@ -764,64 +527,7 @@ export class EmailService {
     const deadlineDate = new Date(details.nextBillingDate);
     deadlineDate.setDate(deadlineDate.getDate() + details.gracePeriodDays);
 
-    const html = `
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Paiement en retard</title>
-</head>
-<body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f4f4f4; padding: 20px;">
-    <tr>
-      <td align="center">
-        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-          <tr>
-            <td style="background: linear-gradient(135deg, #e67e22 0%, #d35400 100%); padding: 30px; text-align: center;">
-              <h1 style="color: #ffffff; margin: 0; font-size: 24px;">Paiement en retard</h1>
-            </td>
-          </tr>
-          <tr>
-            <td style="padding: 40px;">
-              <p style="font-size: 16px; color: #333; margin-bottom: 20px;">Bonjour ${firstName},</p>
-              <div style="background-color: #fef3cd; border-left: 4px solid #e67e22; padding: 20px; margin: 20px 0; border-radius: 4px;">
-                <p style="color: #856404; margin: 0; font-size: 16px; font-weight: bold;">
-                  Votre abonnement ${details.planName} n'a pas ete renouvele.
-                </p>
-                <p style="color: #856404; margin: 10px 0 0 0; font-size: 14px;">
-                  Le paiement prevu le ${details.nextBillingDate.toLocaleDateString('fr-FR')} n'a pas ete recu.
-                </p>
-              </div>
-              <p style="font-size: 14px; color: #666; margin: 20px 0;">
-                Vous disposez d'un <strong>delai de grace de ${details.gracePeriodDays} jours</strong>
-                (jusqu'au <strong>${deadlineDate.toLocaleDateString('fr-FR')}</strong>) pour effectuer votre paiement.
-              </p>
-              <p style="font-size: 14px; color: #666; margin: 20px 0;">
-                Passe ce delai, votre compte sera automatiquement retrograde vers le plan gratuit
-                et vous perdrez l'acces aux fonctionnalites du plan ${details.planName}.
-              </p>
-              <div style="text-align: center; margin: 30px 0;">
-                <a href="${billingUrl}" style="display: inline-block; background: linear-gradient(135deg, #25D366 0%, #128C7E 100%); color: #ffffff; text-decoration: none; padding: 15px 40px; border-radius: 25px; font-weight: bold; font-size: 16px;">Payer maintenant</a>
-              </div>
-              <p style="font-size: 14px; color: #999; text-align: center;">
-                Des questions? Contactez-nous a support@wazeapp.ai
-              </p>
-            </td>
-          </tr>
-          <tr>
-            <td style="background-color: #f8f9fa; padding: 20px; text-align: center;">
-              <p style="margin: 0; font-size: 12px; color: #999;">
-                &copy; ${new Date().getFullYear()} WazeApp. Tous droits reserves.
-              </p>
-            </td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>`;
+    const html = this.getSubscriptionPastDueEmailTemplate(firstName, details, billingUrl, deadlineDate);
 
     if (!this.transporter) {
       this.logger.warn(`SMTP not configured, skipping past-due email to ${email}`);
@@ -856,70 +562,7 @@ export class EmailService {
     const dashboardUrl = this.getDashboardUrl();
     const billingUrl = `${dashboardUrl}/billing`;
 
-    const html = `
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Abonnement retrograde</title>
-</head>
-<body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f4f4f4; padding: 20px;">
-    <tr>
-      <td align="center">
-        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-          <tr>
-            <td style="background: linear-gradient(135deg, #dc3545 0%, #c82333 100%); padding: 30px; text-align: center;">
-              <h1 style="color: #ffffff; margin: 0; font-size: 24px;">Abonnement retrograde</h1>
-            </td>
-          </tr>
-          <tr>
-            <td style="padding: 40px;">
-              <p style="font-size: 16px; color: #333; margin-bottom: 20px;">Bonjour ${firstName},</p>
-              <div style="background-color: #f8d7da; border-left: 4px solid #dc3545; padding: 20px; margin: 20px 0; border-radius: 4px;">
-                <p style="color: #721c24; margin: 0; font-size: 16px; font-weight: bold;">
-                  Votre abonnement ${details.previousPlan} a ete retrograde vers le plan Gratuit.
-                </p>
-              </div>
-              <p style="font-size: 14px; color: #666; margin: 20px 0;">
-                Apres ${details.gracePeriodDays} jours sans paiement, votre compte a ete automatiquement
-                retrograde vers le plan gratuit. Vos donnees sont conservees, mais l'acces aux
-                fonctionnalites avancees est desormais limite.
-              </p>
-              <p style="font-size: 14px; color: #666; margin: 20px 0;">
-                <strong>Ce que cela signifie :</strong>
-              </p>
-              <ul style="font-size: 14px; color: #666; margin: 10px 0; padding-left: 20px;">
-                <li>Limites reduites sur les campagnes, contacts et templates</li>
-                <li>Fonctionnalites avancees desactivees (webhooks, API, etc.)</li>
-                <li>Vos donnees existantes sont conservees</li>
-              </ul>
-              <p style="font-size: 14px; color: #666; margin: 20px 0;">
-                Vous pouvez reactiver votre abonnement ${details.previousPlan} a tout moment
-                depuis votre espace de facturation.
-              </p>
-              <div style="text-align: center; margin: 30px 0;">
-                <a href="${billingUrl}" style="display: inline-block; background: linear-gradient(135deg, #25D366 0%, #128C7E 100%); color: #ffffff; text-decoration: none; padding: 15px 40px; border-radius: 25px; font-weight: bold; font-size: 16px;">Reactiver mon abonnement</a>
-              </div>
-              <p style="font-size: 14px; color: #999; text-align: center;">
-                Des questions? Contactez-nous a support@wazeapp.ai
-              </p>
-            </td>
-          </tr>
-          <tr>
-            <td style="background-color: #f8f9fa; padding: 20px; text-align: center;">
-              <p style="margin: 0; font-size: 12px; color: #999;">
-                &copy; ${new Date().getFullYear()} WazeApp. Tous droits reserves.
-              </p>
-            </td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>`;
+    const html = this.getSubscriptionDowngradedEmailTemplate(firstName, details, billingUrl);
 
     if (!this.transporter) {
       this.logger.warn(`SMTP not configured, skipping downgrade email to ${email}`);
@@ -938,622 +581,6 @@ export class EmailService {
     } catch (error) {
       this.logger.error(`Failed to send downgrade email to ${email}: ${error.message}`);
     }
-  }
-
-  // ============= EMAIL TEMPLATES =============
-
-  private getVerificationEmailTemplate(verificationUrl: string): string {
-    return `
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Vérifiez votre email</title>
-</head>
-<body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f4f4f4; padding: 20px;">
-    <tr>
-      <td align="center">
-        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-          <!-- Header -->
-          <tr>
-            <td style="background: linear-gradient(135deg, #25D366 0%, #128C7E 100%); padding: 40px 20px; text-align: center;">
-              <h1 style="color: #ffffff; margin: 0; font-size: 28px;">WazeApp</h1>
-              <p style="color: #ffffff; margin: 10px 0 0 0; font-size: 16px;">Agents IA WhatsApp</p>
-            </td>
-          </tr>
-          <!-- Content -->
-          <tr>
-            <td style="padding: 40px 30px;">
-              <h2 style="color: #333333; margin: 0 0 20px 0; font-size: 24px;">Vérifiez votre adresse email</h2>
-              <p style="color: #666666; line-height: 1.6; margin: 0 0 20px 0;">
-                Merci de vous être inscrit sur WazeApp ! Pour activer votre compte et commencer à créer vos agents IA WhatsApp, veuillez vérifier votre adresse email.
-              </p>
-              <div style="text-align: center; margin: 30px 0;">
-                <a href="${verificationUrl}" style="display: inline-block; background-color: #25D366; color: #ffffff; text-decoration: none; padding: 15px 40px; border-radius: 5px; font-weight: bold; font-size: 16px;">
-                  Vérifier mon email
-                </a>
-              </div>
-              <p style="color: #666666; line-height: 1.6; margin: 20px 0 0 0; font-size: 14px;">
-                Ou copiez ce lien dans votre navigateur:<br>
-                <a href="${verificationUrl}" style="color: #25D366; word-break: break-all;">${verificationUrl}</a>
-              </p>
-              <p style="color: #999999; line-height: 1.6; margin: 20px 0 0 0; font-size: 12px;">
-                Ce lien expire dans 24 heures. Si vous n'avez pas créé de compte WazeApp, ignorez cet email.
-              </p>
-            </td>
-          </tr>
-          <!-- Footer -->
-          <tr>
-            <td style="background-color: #f8f8f8; padding: 20px 30px; text-align: center; border-top: 1px solid #eeeeee;">
-              <p style="color: #999999; margin: 0; font-size: 12px;">
-                © 2025 WazeApp. Tous droits réservés.<br>
-                <a href="https://wazeapp.ai" style="color: #25D366; text-decoration: none;">wazeapp.ai</a>
-              </p>
-            </td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>
-    `;
-  }
-
-  private getPasswordResetEmailTemplate(resetUrl: string): string {
-    return `
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Réinitialisation de mot de passe</title>
-</head>
-<body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f4f4f4; padding: 20px;">
-    <tr>
-      <td align="center">
-        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-          <!-- Header -->
-          <tr>
-            <td style="background: linear-gradient(135deg, #25D366 0%, #128C7E 100%); padding: 40px 20px; text-align: center;">
-              <h1 style="color: #ffffff; margin: 0; font-size: 28px;">WazeApp</h1>
-              <p style="color: #ffffff; margin: 10px 0 0 0; font-size: 16px;">Agents IA WhatsApp</p>
-            </td>
-          </tr>
-          <!-- Content -->
-          <tr>
-            <td style="padding: 40px 30px;">
-              <h2 style="color: #333333; margin: 0 0 20px 0; font-size: 24px;">Réinitialisation de mot de passe</h2>
-              <p style="color: #666666; line-height: 1.6; margin: 0 0 20px 0;">
-                Vous avez demandé à réinitialiser votre mot de passe. Cliquez sur le bouton ci-dessous pour créer un nouveau mot de passe.
-              </p>
-              <div style="text-align: center; margin: 30px 0;">
-                <a href="${resetUrl}" style="display: inline-block; background-color: #25D366; color: #ffffff; text-decoration: none; padding: 15px 40px; border-radius: 5px; font-weight: bold; font-size: 16px;">
-                  Réinitialiser mon mot de passe
-                </a>
-              </div>
-              <p style="color: #666666; line-height: 1.6; margin: 20px 0 0 0; font-size: 14px;">
-                Ou copiez ce lien dans votre navigateur:<br>
-                <a href="${resetUrl}" style="color: #25D366; word-break: break-all;">${resetUrl}</a>
-              </p>
-              <div style="background-color: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 20px 0;">
-                <p style="color: #856404; margin: 0; font-size: 14px;">
-                  <strong>⚠️ Important:</strong> Ce lien expire dans 15 minutes pour des raisons de sécurité.
-                </p>
-              </div>
-              <p style="color: #999999; line-height: 1.6; margin: 20px 0 0 0; font-size: 12px;">
-                Si vous n'avez pas demandé cette réinitialisation, ignorez cet email. Votre mot de passe restera inchangé.
-              </p>
-            </td>
-          </tr>
-          <!-- Footer -->
-          <tr>
-            <td style="background-color: #f8f8f8; padding: 20px 30px; text-align: center; border-top: 1px solid #eeeeee;">
-              <p style="color: #999999; margin: 0; font-size: 12px;">
-                © 2025 WazeApp. Tous droits réservés.<br>
-                <a href="https://wazeapp.ai" style="color: #25D366; text-decoration: none;">wazeapp.ai</a>
-              </p>
-            </td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>
-    `;
-  }
-
-  private getInvitationEmailTemplate(inviteUrl: string, organizationName: string): string {
-    return `
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Invitation à rejoindre ${organizationName}</title>
-</head>
-<body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f4f4f4; padding: 20px;">
-    <tr>
-      <td align="center">
-        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-          <!-- Header -->
-          <tr>
-            <td style="background: linear-gradient(135deg, #25D366 0%, #128C7E 100%); padding: 40px 20px; text-align: center;">
-              <h1 style="color: #ffffff; margin: 0; font-size: 28px;">WazeApp</h1>
-              <p style="color: #ffffff; margin: 10px 0 0 0; font-size: 16px;">Invitation</p>
-            </td>
-          </tr>
-          <!-- Content -->
-          <tr>
-            <td style="padding: 40px 30px;">
-              <h2 style="color: #333333; margin: 0 0 20px 0; font-size: 24px;">Vous êtes invité!</h2>
-              <p style="color: #666666; line-height: 1.6; margin: 0 0 20px 0;">
-                Vous avez été invité à rejoindre l'organisation <strong style="color: #25D366;">${organizationName}</strong> sur WazeApp.
-              </p>
-              <p style="color: #666666; line-height: 1.6; margin: 0 0 20px 0;">
-                En acceptant cette invitation, vous pourrez collaborer avec votre équipe pour créer et gérer des agents IA WhatsApp.
-              </p>
-              <div style="text-align: center; margin: 30px 0;">
-                <a href="${inviteUrl}" style="display: inline-block; background-color: #25D366; color: #ffffff; text-decoration: none; padding: 15px 40px; border-radius: 5px; font-weight: bold; font-size: 16px;">
-                  Accepter l'invitation
-                </a>
-              </div>
-              <p style="color: #666666; line-height: 1.6; margin: 20px 0 0 0; font-size: 14px;">
-                Ou copiez ce lien dans votre navigateur:<br>
-                <a href="${inviteUrl}" style="color: #25D366; word-break: break-all;">${inviteUrl}</a>
-              </p>
-              <p style="color: #999999; line-height: 1.6; margin: 20px 0 0 0; font-size: 12px;">
-                Si vous ne souhaitez pas rejoindre cette organisation, ignorez simplement cet email.
-              </p>
-            </td>
-          </tr>
-          <!-- Footer -->
-          <tr>
-            <td style="background-color: #f8f8f8; padding: 20px 30px; text-align: center; border-top: 1px solid #eeeeee;">
-              <p style="color: #999999; margin: 0; font-size: 12px;">
-                © 2025 WazeApp. Tous droits réservés.<br>
-                <a href="https://wazeapp.ai" style="color: #25D366; text-decoration: none;">wazeapp.ai</a>
-              </p>
-            </td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>
-    `;
-  }
-
-  private getWelcomeEmailTemplate(firstName: string, dashboardUrl: string): string {
-    return `
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Bienvenue sur WazeApp</title>
-</head>
-<body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f4f4f4; padding: 20px;">
-    <tr>
-      <td align="center">
-        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-          <!-- Header -->
-          <tr>
-            <td style="background: linear-gradient(135deg, #25D366 0%, #128C7E 100%); padding: 40px 20px; text-align: center;">
-              <h1 style="color: #ffffff; margin: 0; font-size: 32px;">🎉 Bienvenue sur WazeApp!</h1>
-            </td>
-          </tr>
-          <!-- Content -->
-          <tr>
-            <td style="padding: 40px 30px;">
-              <p style="color: #666666; line-height: 1.6; margin: 0 0 20px 0; font-size: 18px;">
-                Bonjour <strong style="color: #25D366;">${firstName}</strong>,
-              </p>
-              <p style="color: #666666; line-height: 1.6; margin: 0 0 20px 0;">
-                Félicitations ! Votre compte WazeApp est maintenant actif. Vous pouvez commencer à créer vos agents IA WhatsApp et automatiser vos conversations.
-              </p>
-              <h3 style="color: #333333; margin: 30px 0 15px 0;">🚀 Premiers pas :</h3>
-              <ul style="color: #666666; line-height: 1.8; padding-left: 20px;">
-                <li>Connectez votre numéro WhatsApp</li>
-                <li>Créez votre premier agent IA</li>
-                <li>Ajoutez des connaissances à votre base</li>
-                <li>Commencez à converser avec vos clients</li>
-              </ul>
-              <div style="text-align: center; margin: 30px 0;">
-                <a href="${dashboardUrl}" style="display: inline-block; background-color: #25D366; color: #ffffff; text-decoration: none; padding: 15px 40px; border-radius: 5px; font-weight: bold; font-size: 16px;">
-                  Accéder au Dashboard
-                </a>
-              </div>
-              <p style="color: #666666; line-height: 1.6; margin: 20px 0 0 0;">
-                Besoin d'aide ? Notre équipe support est là pour vous à <a href="mailto:support@wazeapp.ai" style="color: #25D366;">support@wazeapp.ai</a>
-              </p>
-            </td>
-          </tr>
-          <!-- Footer -->
-          <tr>
-            <td style="background-color: #f8f8f8; padding: 20px 30px; text-align: center; border-top: 1px solid #eeeeee;">
-              <p style="color: #999999; margin: 0 0 10px 0; font-size: 12px;">
-                Merci de nous faire confiance! 💚
-              </p>
-              <p style="color: #999999; margin: 0; font-size: 12px;">
-                © 2025 WazeApp. Tous droits réservés.<br>
-                <a href="https://wazeapp.ai" style="color: #25D366; text-decoration: none;">wazeapp.ai</a>
-              </p>
-            </td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>
-    `;
-  }
-
-  private getQuotaAlertEmailTemplate(
-    firstName: string,
-    percentUsed: number,
-    currentUsage: number,
-    limit: number,
-    planName: string,
-    billingUrl: string,
-  ): string {
-    const isExceeded = percentUsed >= 100;
-    const alertColor = isExceeded ? '#dc3545' : percentUsed >= 90 ? '#fd7e14' : '#ffc107';
-    const alertBgColor = isExceeded ? '#f8d7da' : percentUsed >= 90 ? '#fff3cd' : '#fff3cd';
-    const alertIcon = isExceeded ? '🚨' : '⚠️';
-    const headerBg = isExceeded
-      ? 'linear-gradient(135deg, #dc3545 0%, #c82333 100%)'
-      : 'linear-gradient(135deg, #fd7e14 0%, #e06700 100%)';
-
-    return `
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Alerte Quota - WazeApp</title>
-</head>
-<body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f4f4f4; padding: 20px;">
-    <tr>
-      <td align="center">
-        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-          <!-- Header -->
-          <tr>
-            <td style="background: ${headerBg}; padding: 40px 20px; text-align: center;">
-              <h1 style="color: #ffffff; margin: 0; font-size: 28px;">WazeApp</h1>
-              <p style="color: #ffffff; margin: 10px 0 0 0; font-size: 16px;">${alertIcon} Alerte Quota</p>
-            </td>
-          </tr>
-          <!-- Content -->
-          <tr>
-            <td style="padding: 40px 30px;">
-              <p style="color: #666666; line-height: 1.6; margin: 0 0 20px 0; font-size: 18px;">
-                Bonjour <strong style="color: #333;">${firstName}</strong>,
-              </p>
-
-              <!-- Alert Box -->
-              <div style="background-color: ${alertBgColor}; border-left: 4px solid ${alertColor}; padding: 20px; margin: 20px 0; border-radius: 4px;">
-                <p style="color: #333; margin: 0; font-size: 16px; font-weight: bold;">
-                  ${isExceeded
-                    ? '🚨 Votre quota de messages est atteint!'
-                    : `⚠️ Vous avez utilisé ${percentUsed}% de votre quota`}
-                </p>
-              </div>
-
-              <!-- Usage Stats -->
-              <div style="background-color: #f8f9fa; padding: 25px; border-radius: 8px; margin: 20px 0;">
-                <h3 style="color: #333; margin: 0 0 15px 0; font-size: 16px;">📊 Utilisation actuelle</h3>
-
-                <div style="margin-bottom: 15px;">
-                  <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
-                    <span style="color: #666;">Messages utilisés</span>
-                    <span style="color: #333; font-weight: bold;">${currentUsage.toLocaleString()} / ${limit.toLocaleString()}</span>
-                  </div>
-                  <!-- Progress Bar -->
-                  <div style="background-color: #e9ecef; border-radius: 10px; height: 20px; overflow: hidden;">
-                    <div style="background-color: ${alertColor}; height: 100%; width: ${Math.min(percentUsed, 100)}%; border-radius: 10px;"></div>
-                  </div>
-                  <p style="color: #666; font-size: 12px; margin: 5px 0 0 0; text-align: right;">
-                    ${percentUsed}% utilisé
-                  </p>
-                </div>
-
-                <div style="border-top: 1px solid #dee2e6; padding-top: 15px; margin-top: 15px;">
-                  <p style="color: #666; margin: 0; font-size: 14px;">
-                    <strong>Plan actuel:</strong> ${planName}
-                  </p>
-                </div>
-              </div>
-
-              ${isExceeded ? `
-              <div style="background-color: #f8d7da; border: 1px solid #f5c6cb; padding: 15px; border-radius: 4px; margin: 20px 0;">
-                <p style="color: #721c24; margin: 0; font-size: 14px;">
-                  <strong>Important:</strong> Vos agents WhatsApp ne pourront plus répondre aux messages tant que votre quota n'aura pas été renouvelé ou que vous n'aurez pas mis à niveau votre plan.
-                </p>
-              </div>
-              ` : `
-              <p style="color: #666666; line-height: 1.6; margin: 20px 0;">
-                Pour éviter toute interruption de service, nous vous recommandons de mettre à niveau votre plan avant d'atteindre la limite.
-              </p>
-              `}
-
-              <div style="text-align: center; margin: 30px 0;">
-                <a href="${billingUrl}" style="display: inline-block; background-color: #25D366; color: #ffffff; text-decoration: none; padding: 15px 40px; border-radius: 5px; font-weight: bold; font-size: 16px;">
-                  Mettre à niveau mon plan
-                </a>
-              </div>
-
-              <p style="color: #999999; line-height: 1.6; margin: 20px 0 0 0; font-size: 12px; text-align: center;">
-                Vous recevez cet email car vous avez atteint un seuil d'utilisation important.<br>
-                Questions? Contactez-nous à <a href="mailto:support@wazeapp.ai" style="color: #25D366;">support@wazeapp.ai</a>
-              </p>
-            </td>
-          </tr>
-          <!-- Footer -->
-          <tr>
-            <td style="background-color: #f8f8f8; padding: 20px 30px; text-align: center; border-top: 1px solid #eeeeee;">
-              <p style="color: #999999; margin: 0; font-size: 12px;">
-                © 2025 WazeApp. Tous droits réservés.<br>
-                <a href="https://wazeapp.ai" style="color: #25D366; text-decoration: none;">wazeapp.ai</a>
-              </p>
-            </td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>
-    `;
-  }
-
-  private getPaymentConfirmationEmailTemplate(
-    firstName: string,
-    paymentDetails: {
-      amount: number;
-      currency: string;
-      transactionId: string;
-      paymentMethod: string;
-      planName: string;
-      date: Date;
-    },
-    dashboardUrl: string,
-  ): string {
-    const formattedDate = paymentDetails.date.toLocaleDateString('fr-FR', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-
-    return `
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Confirmation de paiement</title>
-</head>
-<body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f4f4f4; padding: 20px;">
-    <tr>
-      <td align="center">
-        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-          <!-- Header -->
-          <tr>
-            <td style="background: linear-gradient(135deg, #25D366 0%, #128C7E 100%); padding: 40px 20px; text-align: center;">
-              <h1 style="color: #ffffff; margin: 0; font-size: 28px;">✅ Paiement Confirmé</h1>
-              <p style="color: #ffffff; margin: 10px 0 0 0; font-size: 16px;">Merci pour votre confiance!</p>
-            </td>
-          </tr>
-          <!-- Content -->
-          <tr>
-            <td style="padding: 40px 30px;">
-              <p style="color: #666666; line-height: 1.6; margin: 0 0 20px 0; font-size: 18px;">
-                Bonjour <strong style="color: #333;">${firstName}</strong>,
-              </p>
-              <p style="color: #666666; line-height: 1.6; margin: 0 0 20px 0;">
-                Votre paiement a été traité avec succès. Voici les détails de votre transaction :
-              </p>
-
-              <!-- Payment Details Box -->
-              <div style="background-color: #f8f9fa; border-radius: 8px; padding: 25px; margin: 25px 0;">
-                <table width="100%" cellpadding="5" cellspacing="0">
-                  <tr>
-                    <td style="color: #666; padding: 8px 0; border-bottom: 1px solid #e9ecef;">Montant</td>
-                    <td style="color: #25D366; font-weight: bold; font-size: 20px; text-align: right; padding: 8px 0; border-bottom: 1px solid #e9ecef;">
-                      ${paymentDetails.amount.toLocaleString()} ${paymentDetails.currency}
-                    </td>
-                  </tr>
-                  <tr>
-                    <td style="color: #666; padding: 8px 0; border-bottom: 1px solid #e9ecef;">Plan</td>
-                    <td style="color: #333; font-weight: bold; text-align: right; padding: 8px 0; border-bottom: 1px solid #e9ecef;">
-                      ${paymentDetails.planName}
-                    </td>
-                  </tr>
-                  <tr>
-                    <td style="color: #666; padding: 8px 0; border-bottom: 1px solid #e9ecef;">Méthode</td>
-                    <td style="color: #333; text-align: right; padding: 8px 0; border-bottom: 1px solid #e9ecef;">
-                      ${paymentDetails.paymentMethod}
-                    </td>
-                  </tr>
-                  <tr>
-                    <td style="color: #666; padding: 8px 0; border-bottom: 1px solid #e9ecef;">Date</td>
-                    <td style="color: #333; text-align: right; padding: 8px 0; border-bottom: 1px solid #e9ecef;">
-                      ${formattedDate}
-                    </td>
-                  </tr>
-                  <tr>
-                    <td style="color: #666; padding: 8px 0;">Référence</td>
-                    <td style="color: #999; text-align: right; padding: 8px 0; font-size: 12px;">
-                      ${paymentDetails.transactionId}
-                    </td>
-                  </tr>
-                </table>
-              </div>
-
-              <div style="text-align: center; margin: 30px 0;">
-                <a href="${dashboardUrl}" style="display: inline-block; background-color: #25D366; color: #ffffff; text-decoration: none; padding: 15px 40px; border-radius: 5px; font-weight: bold; font-size: 16px;">
-                  Accéder au Dashboard
-                </a>
-              </div>
-
-              <p style="color: #999999; line-height: 1.6; margin: 20px 0 0 0; font-size: 12px; text-align: center;">
-                Conservez cet email comme preuve de paiement.<br>
-                Questions? Contactez-nous à <a href="mailto:support@wazeapp.ai" style="color: #25D366;">support@wazeapp.ai</a>
-              </p>
-            </td>
-          </tr>
-          <!-- Footer -->
-          <tr>
-            <td style="background-color: #f8f8f8; padding: 20px 30px; text-align: center; border-top: 1px solid #eeeeee;">
-              <p style="color: #999999; margin: 0; font-size: 12px;">
-                © 2025 WazeApp. Tous droits réservés.<br>
-                <a href="https://wazeapp.ai" style="color: #25D366; text-decoration: none;">wazeapp.ai</a>
-              </p>
-            </td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>
-    `;
-  }
-
-  private getSubscriptionUpgradeEmailTemplate(
-    firstName: string,
-    upgradeDetails: {
-      previousPlan: string;
-      newPlan: string;
-      newLimits: {
-        messages: number;
-        agents: number;
-        storage: string;
-      };
-      nextBillingDate: Date;
-      amount: number;
-      currency: string;
-    },
-    dashboardUrl: string,
-  ): string {
-    const formattedBillingDate = upgradeDetails.nextBillingDate.toLocaleDateString('fr-FR', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-    });
-
-    return `
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Abonnement mis à niveau</title>
-</head>
-<body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f4f4f4; padding: 20px;">
-    <tr>
-      <td align="center">
-        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-          <!-- Header -->
-          <tr>
-            <td style="background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); padding: 40px 20px; text-align: center;">
-              <h1 style="color: #ffffff; margin: 0; font-size: 28px;">🚀 Félicitations!</h1>
-              <p style="color: #ffffff; margin: 10px 0 0 0; font-size: 16px;">Votre abonnement a été mis à niveau</p>
-            </td>
-          </tr>
-          <!-- Content -->
-          <tr>
-            <td style="padding: 40px 30px;">
-              <p style="color: #666666; line-height: 1.6; margin: 0 0 20px 0; font-size: 18px;">
-                Bonjour <strong style="color: #333;">${firstName}</strong>,
-              </p>
-              <p style="color: #666666; line-height: 1.6; margin: 0 0 20px 0;">
-                Votre abonnement WazeApp a été mis à niveau avec succès !
-              </p>
-
-              <!-- Upgrade Summary -->
-              <div style="background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border-radius: 8px; padding: 25px; margin: 25px 0; text-align: center;">
-                <div style="display: inline-block; margin-bottom: 10px;">
-                  <span style="color: #666; font-size: 14px; text-decoration: line-through;">${upgradeDetails.previousPlan}</span>
-                  <span style="color: #25D366; font-size: 24px; margin: 0 15px;">→</span>
-                  <span style="color: #25D366; font-size: 24px; font-weight: bold;">${upgradeDetails.newPlan}</span>
-                </div>
-              </div>
-
-              <!-- New Limits -->
-              <h3 style="color: #333; margin: 30px 0 15px 0; font-size: 16px;">🎁 Vos nouvelles limites :</h3>
-              <div style="background-color: #f8f9fa; border-radius: 8px; padding: 20px; margin: 15px 0;">
-                <table width="100%" cellpadding="8" cellspacing="0">
-                  <tr>
-                    <td style="color: #666;">💬 Messages / mois</td>
-                    <td style="color: #25D366; font-weight: bold; text-align: right;">
-                      ${upgradeDetails.newLimits.messages.toLocaleString()}
-                    </td>
-                  </tr>
-                  <tr>
-                    <td style="color: #666;">🤖 Agents WhatsApp</td>
-                    <td style="color: #25D366; font-weight: bold; text-align: right;">
-                      ${upgradeDetails.newLimits.agents}
-                    </td>
-                  </tr>
-                  <tr>
-                    <td style="color: #666;">💾 Stockage</td>
-                    <td style="color: #25D366; font-weight: bold; text-align: right;">
-                      ${upgradeDetails.newLimits.storage}
-                    </td>
-                  </tr>
-                </table>
-              </div>
-
-              <!-- Billing Info -->
-              <div style="background-color: #f8f9fa; border-radius: 8px; padding: 15px; margin: 20px 0;">
-                <p style="color: #666; margin: 0; font-size: 14px;">
-                  <strong>Prochaine facturation :</strong> ${formattedBillingDate}<br>
-                  <strong>Montant :</strong> ${upgradeDetails.amount.toLocaleString()} ${upgradeDetails.currency}
-                </p>
-              </div>
-
-              <div style="text-align: center; margin: 30px 0;">
-                <a href="${dashboardUrl}" style="display: inline-block; background-color: #25D366; color: #ffffff; text-decoration: none; padding: 15px 40px; border-radius: 5px; font-weight: bold; font-size: 16px;">
-                  Profiter de mon nouveau plan
-                </a>
-              </div>
-
-              <p style="color: #999999; line-height: 1.6; margin: 20px 0 0 0; font-size: 12px; text-align: center;">
-                Merci de nous faire confiance! 💚<br>
-                Questions? Contactez-nous à <a href="mailto:support@wazeapp.ai" style="color: #25D366;">support@wazeapp.ai</a>
-              </p>
-            </td>
-          </tr>
-          <!-- Footer -->
-          <tr>
-            <td style="background-color: #f8f8f8; padding: 20px 30px; text-align: center; border-top: 1px solid #eeeeee;">
-              <p style="color: #999999; margin: 0; font-size: 12px;">
-                © 2025 WazeApp. Tous droits réservés.<br>
-                <a href="https://wazeapp.ai" style="color: #25D366; text-decoration: none;">wazeapp.ai</a>
-              </p>
-            </td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>
-    `;
   }
 
   /**
@@ -1637,426 +664,6 @@ export class EmailService {
     }
   }
 
-  private getPaymentReminderEmailTemplate(
-    firstName: string,
-    reminderDetails: {
-      invoiceNumber: string;
-      amount: number;
-      currency: string;
-      dueDate: Date;
-      daysUntilDue: number;
-      planName: string;
-      organizationName: string;
-      isOverdue: boolean;
-    },
-    billingUrl: string,
-  ): string {
-    const formattedDueDate = reminderDetails.dueDate.toLocaleDateString('fr-FR', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-    });
-
-    const headerBg = reminderDetails.isOverdue
-      ? 'linear-gradient(135deg, #dc3545 0%, #c82333 100%)'
-      : reminderDetails.daysUntilDue <= 1
-        ? 'linear-gradient(135deg, #fd7e14 0%, #e06700 100%)'
-        : 'linear-gradient(135deg, #25D366 0%, #128C7E 100%)';
-
-    const alertIcon = reminderDetails.isOverdue ? '🚨' : reminderDetails.daysUntilDue <= 1 ? '⚠️' : '📅';
-    const alertColor = reminderDetails.isOverdue ? '#dc3545' : reminderDetails.daysUntilDue <= 1 ? '#fd7e14' : '#25D366';
-    const alertBgColor = reminderDetails.isOverdue ? '#f8d7da' : reminderDetails.daysUntilDue <= 1 ? '#fff3cd' : '#d4edda';
-
-    const headerTitle = reminderDetails.isOverdue
-      ? 'Facture en retard'
-      : reminderDetails.daysUntilDue <= 1
-        ? 'Dernière chance de paiement'
-        : 'Rappel de paiement';
-
-    const urgencyMessage = reminderDetails.isOverdue
-      ? `Votre facture est en retard de ${Math.abs(reminderDetails.daysUntilDue)} jour(s). Pour éviter une suspension de votre service, veuillez régler cette facture dès que possible.`
-      : reminderDetails.daysUntilDue <= 1
-        ? `Votre facture arrive à échéance demain. Pensez à effectuer votre paiement pour garantir la continuité de votre service.`
-        : `Votre facture arrive à échéance dans ${reminderDetails.daysUntilDue} jours. Pensez à effectuer votre paiement avant la date limite.`;
-
-    return `
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${headerTitle}</title>
-</head>
-<body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f4f4f4; padding: 20px;">
-    <tr>
-      <td align="center">
-        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-          <!-- Header -->
-          <tr>
-            <td style="background: ${headerBg}; padding: 40px 20px; text-align: center;">
-              <h1 style="color: #ffffff; margin: 0; font-size: 28px;">WazeApp</h1>
-              <p style="color: #ffffff; margin: 10px 0 0 0; font-size: 16px;">${alertIcon} ${headerTitle}</p>
-            </td>
-          </tr>
-          <!-- Content -->
-          <tr>
-            <td style="padding: 40px 30px;">
-              <p style="color: #666666; line-height: 1.6; margin: 0 0 20px 0; font-size: 18px;">
-                Bonjour <strong style="color: #333;">${firstName}</strong>,
-              </p>
-
-              <!-- Alert Box -->
-              <div style="background-color: ${alertBgColor}; border-left: 4px solid ${alertColor}; padding: 20px; margin: 20px 0; border-radius: 4px;">
-                <p style="color: #333; margin: 0; font-size: 14px;">
-                  ${urgencyMessage}
-                </p>
-              </div>
-
-              <!-- Invoice Details Box -->
-              <div style="background-color: #f8f9fa; border-radius: 8px; padding: 25px; margin: 25px 0;">
-                <h3 style="color: #333; margin: 0 0 15px 0; font-size: 16px;">📄 Détails de la facture</h3>
-                <table width="100%" cellpadding="5" cellspacing="0">
-                  <tr>
-                    <td style="color: #666; padding: 8px 0; border-bottom: 1px solid #e9ecef;">Numéro de facture</td>
-                    <td style="color: #333; font-weight: bold; text-align: right; padding: 8px 0; border-bottom: 1px solid #e9ecef;">
-                      ${reminderDetails.invoiceNumber}
-                    </td>
-                  </tr>
-                  <tr>
-                    <td style="color: #666; padding: 8px 0; border-bottom: 1px solid #e9ecef;">Organisation</td>
-                    <td style="color: #333; text-align: right; padding: 8px 0; border-bottom: 1px solid #e9ecef;">
-                      ${reminderDetails.organizationName}
-                    </td>
-                  </tr>
-                  <tr>
-                    <td style="color: #666; padding: 8px 0; border-bottom: 1px solid #e9ecef;">Plan</td>
-                    <td style="color: #333; text-align: right; padding: 8px 0; border-bottom: 1px solid #e9ecef;">
-                      ${reminderDetails.planName}
-                    </td>
-                  </tr>
-                  <tr>
-                    <td style="color: #666; padding: 8px 0; border-bottom: 1px solid #e9ecef;">Date d'échéance</td>
-                    <td style="color: ${reminderDetails.isOverdue ? '#dc3545' : '#333'}; font-weight: ${reminderDetails.isOverdue ? 'bold' : 'normal'}; text-align: right; padding: 8px 0; border-bottom: 1px solid #e9ecef;">
-                      ${formattedDueDate}
-                    </td>
-                  </tr>
-                  <tr>
-                    <td style="color: #666; padding: 8px 0;">Montant à payer</td>
-                    <td style="color: ${alertColor}; font-weight: bold; font-size: 20px; text-align: right; padding: 8px 0;">
-                      ${reminderDetails.amount.toLocaleString()} ${reminderDetails.currency}
-                    </td>
-                  </tr>
-                </table>
-              </div>
-
-              ${reminderDetails.isOverdue ? `
-              <div style="background-color: #f8d7da; border: 1px solid #f5c6cb; padding: 15px; border-radius: 4px; margin: 20px 0;">
-                <p style="color: #721c24; margin: 0; font-size: 14px;">
-                  <strong>Important:</strong> Sans paiement dans les 48 heures, votre accès aux services WazeApp pourrait être temporairement suspendu.
-                </p>
-              </div>
-              ` : ''}
-
-              <div style="text-align: center; margin: 30px 0;">
-                <a href="${billingUrl}" style="display: inline-block; background-color: ${alertColor}; color: #ffffff; text-decoration: none; padding: 15px 40px; border-radius: 5px; font-weight: bold; font-size: 16px;">
-                  Payer maintenant
-                </a>
-              </div>
-
-              <p style="color: #666666; line-height: 1.6; margin: 20px 0 0 0; font-size: 14px; text-align: center;">
-                Vous pouvez payer par Mobile Money (MTN, Orange Money) directement depuis votre tableau de bord.
-              </p>
-
-              <p style="color: #999999; line-height: 1.6; margin: 20px 0 0 0; font-size: 12px; text-align: center;">
-                Si vous avez déjà effectué ce paiement, ignorez cet email.<br>
-                Questions? Contactez-nous à <a href="mailto:support@wazeapp.ai" style="color: #25D366;">support@wazeapp.ai</a>
-              </p>
-            </td>
-          </tr>
-          <!-- Footer -->
-          <tr>
-            <td style="background-color: #f8f8f8; padding: 20px 30px; text-align: center; border-top: 1px solid #eeeeee;">
-              <p style="color: #999999; margin: 0; font-size: 12px;">
-                © 2025 WazeApp. Tous droits réservés.<br>
-                <a href="https://wazeapp.ai" style="color: #25D366; text-decoration: none;">wazeapp.ai</a>
-              </p>
-            </td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>
-    `;
-  }
-
-  private getWhatsAppDisconnectionEmailTemplate(
-    firstName: string,
-    details: {
-      sessionName: string;
-      phoneNumber: string;
-      organizationName: string;
-      disconnectedAt: Date;
-    },
-    whatsappUrl: string,
-  ): string {
-    const formattedDate = details.disconnectedAt.toLocaleDateString('fr-FR', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-    });
-    const formattedTime = details.disconnectedAt.toLocaleTimeString('fr-FR', {
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-
-    return `
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Session WhatsApp déconnectée</title>
-</head>
-<body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f4f4f4; padding: 20px;">
-    <tr>
-      <td align="center">
-        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-          <!-- Header -->
-          <tr>
-            <td style="background: linear-gradient(135deg, #dc3545 0%, #c82333 100%); padding: 40px 20px; text-align: center;">
-              <h1 style="color: #ffffff; margin: 0; font-size: 28px;">🔴 Session Déconnectée</h1>
-              <p style="color: #ffffff; margin: 10px 0 0 0; font-size: 16px;">Action requise</p>
-            </td>
-          </tr>
-          <!-- Content -->
-          <tr>
-            <td style="padding: 40px 30px;">
-              <p style="color: #666666; line-height: 1.6; margin: 0 0 20px 0; font-size: 18px;">
-                Bonjour <strong style="color: #333;">${firstName}</strong>,
-              </p>
-
-              <!-- Alert Box -->
-              <div style="background-color: #f8d7da; border-left: 4px solid #dc3545; padding: 20px; margin: 20px 0; border-radius: 4px;">
-                <p style="color: #721c24; margin: 0; font-size: 16px; font-weight: bold;">
-                  Votre session WhatsApp s'est déconnectée !
-                </p>
-              </div>
-
-              <p style="color: #666666; line-height: 1.6; margin: 0 0 20px 0;">
-                Vos agents IA ne peuvent plus répondre aux messages sur ce numéro tant que la session n'est pas reconnectée.
-              </p>
-
-              <!-- Session Details Box -->
-              <div style="background-color: #f8f9fa; border-radius: 8px; padding: 25px; margin: 25px 0;">
-                <h3 style="color: #333; margin: 0 0 15px 0; font-size: 16px;">📱 Détails de la session</h3>
-                <table width="100%" cellpadding="5" cellspacing="0">
-                  <tr>
-                    <td style="color: #666; padding: 8px 0; border-bottom: 1px solid #e9ecef;">Nom de la session</td>
-                    <td style="color: #333; font-weight: bold; text-align: right; padding: 8px 0; border-bottom: 1px solid #e9ecef;">
-                      ${details.sessionName}
-                    </td>
-                  </tr>
-                  <tr>
-                    <td style="color: #666; padding: 8px 0; border-bottom: 1px solid #e9ecef;">Numéro WhatsApp</td>
-                    <td style="color: #333; text-align: right; padding: 8px 0; border-bottom: 1px solid #e9ecef;">
-                      ${details.phoneNumber}
-                    </td>
-                  </tr>
-                  <tr>
-                    <td style="color: #666; padding: 8px 0; border-bottom: 1px solid #e9ecef;">Organisation</td>
-                    <td style="color: #333; text-align: right; padding: 8px 0; border-bottom: 1px solid #e9ecef;">
-                      ${details.organizationName}
-                    </td>
-                  </tr>
-                  <tr>
-                    <td style="color: #666; padding: 8px 0;">Déconnexion</td>
-                    <td style="color: #dc3545; font-weight: bold; text-align: right; padding: 8px 0;">
-                      ${formattedDate} à ${formattedTime}
-                    </td>
-                  </tr>
-                </table>
-              </div>
-
-              <!-- Warning Box -->
-              <div style="background-color: #fff3cd; border: 1px solid #ffc107; padding: 15px; border-radius: 4px; margin: 20px 0;">
-                <p style="color: #856404; margin: 0; font-size: 14px;">
-                  <strong>⚠️ Important:</strong> Les messages WhatsApp reçus pendant la déconnexion ne seront pas traités par vos agents IA.
-                </p>
-              </div>
-
-              <div style="text-align: center; margin: 30px 0;">
-                <a href="${whatsappUrl}" style="display: inline-block; background-color: #25D366; color: #ffffff; text-decoration: none; padding: 15px 40px; border-radius: 5px; font-weight: bold; font-size: 16px;">
-                  Reconnecter maintenant
-                </a>
-              </div>
-
-              <p style="color: #999999; line-height: 1.6; margin: 20px 0 0 0; font-size: 12px; text-align: center;">
-                Vous recevez cet email car vous êtes administrateur de l'organisation.<br>
-                Questions? Contactez-nous à <a href="mailto:support@wazeapp.ai" style="color: #25D366;">support@wazeapp.ai</a>
-              </p>
-            </td>
-          </tr>
-          <!-- Footer -->
-          <tr>
-            <td style="background-color: #f8f8f8; padding: 20px 30px; text-align: center; border-top: 1px solid #eeeeee;">
-              <p style="color: #999999; margin: 0; font-size: 12px;">
-                © 2025 WazeApp. Tous droits réservés.<br>
-                <a href="https://wazeapp.ai" style="color: #25D366; text-decoration: none;">wazeapp.ai</a>
-              </p>
-            </td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>
-    `;
-  }
-
-  private getWhatsAppReconnectionEmailTemplate(
-    firstName: string,
-    details: {
-      sessionName: string;
-      phoneNumber: string;
-      organizationName: string;
-      reconnectedAt: Date;
-      downtimeMinutes: number;
-    },
-    whatsappUrl: string,
-  ): string {
-    const formattedDate = details.reconnectedAt.toLocaleDateString('fr-FR', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-    });
-    const formattedTime = details.reconnectedAt.toLocaleTimeString('fr-FR', {
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-
-    // Format downtime
-    let downtimeText = '';
-    if (details.downtimeMinutes < 60) {
-      downtimeText = `${details.downtimeMinutes} minute${details.downtimeMinutes > 1 ? 's' : ''}`;
-    } else {
-      const hours = Math.floor(details.downtimeMinutes / 60);
-      const minutes = details.downtimeMinutes % 60;
-      downtimeText = `${hours} heure${hours > 1 ? 's' : ''}`;
-      if (minutes > 0) {
-        downtimeText += ` et ${minutes} minute${minutes > 1 ? 's' : ''}`;
-      }
-    }
-
-    return `
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Session WhatsApp reconnectée</title>
-</head>
-<body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f4f4f4; padding: 20px;">
-    <tr>
-      <td align="center">
-        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-          <!-- Header -->
-          <tr>
-            <td style="background: linear-gradient(135deg, #25D366 0%, #128C7E 100%); padding: 40px 20px; text-align: center;">
-              <h1 style="color: #ffffff; margin: 0; font-size: 28px;">🟢 Session Reconnectée</h1>
-              <p style="color: #ffffff; margin: 10px 0 0 0; font-size: 16px;">Tout est revenu à la normale</p>
-            </td>
-          </tr>
-          <!-- Content -->
-          <tr>
-            <td style="padding: 40px 30px;">
-              <p style="color: #666666; line-height: 1.6; margin: 0 0 20px 0; font-size: 18px;">
-                Bonjour <strong style="color: #333;">${firstName}</strong>,
-              </p>
-
-              <!-- Success Box -->
-              <div style="background-color: #d4edda; border-left: 4px solid #28a745; padding: 20px; margin: 20px 0; border-radius: 4px;">
-                <p style="color: #155724; margin: 0; font-size: 16px; font-weight: bold;">
-                  ✅ Bonne nouvelle ! Votre session WhatsApp est de nouveau connectée.
-                </p>
-              </div>
-
-              <p style="color: #666666; line-height: 1.6; margin: 0 0 20px 0;">
-                Vos agents IA peuvent à nouveau répondre aux messages sur ce numéro.
-              </p>
-
-              <!-- Session Details Box -->
-              <div style="background-color: #f8f9fa; border-radius: 8px; padding: 25px; margin: 25px 0;">
-                <h3 style="color: #333; margin: 0 0 15px 0; font-size: 16px;">📱 Détails de la session</h3>
-                <table width="100%" cellpadding="5" cellspacing="0">
-                  <tr>
-                    <td style="color: #666; padding: 8px 0; border-bottom: 1px solid #e9ecef;">Nom de la session</td>
-                    <td style="color: #333; font-weight: bold; text-align: right; padding: 8px 0; border-bottom: 1px solid #e9ecef;">
-                      ${details.sessionName}
-                    </td>
-                  </tr>
-                  <tr>
-                    <td style="color: #666; padding: 8px 0; border-bottom: 1px solid #e9ecef;">Numéro WhatsApp</td>
-                    <td style="color: #333; text-align: right; padding: 8px 0; border-bottom: 1px solid #e9ecef;">
-                      ${details.phoneNumber}
-                    </td>
-                  </tr>
-                  <tr>
-                    <td style="color: #666; padding: 8px 0; border-bottom: 1px solid #e9ecef;">Organisation</td>
-                    <td style="color: #333; text-align: right; padding: 8px 0; border-bottom: 1px solid #e9ecef;">
-                      ${details.organizationName}
-                    </td>
-                  </tr>
-                  <tr>
-                    <td style="color: #666; padding: 8px 0; border-bottom: 1px solid #e9ecef;">Reconnexion</td>
-                    <td style="color: #25D366; font-weight: bold; text-align: right; padding: 8px 0; border-bottom: 1px solid #e9ecef;">
-                      ${formattedDate} à ${formattedTime}
-                    </td>
-                  </tr>
-                  <tr>
-                    <td style="color: #666; padding: 8px 0;">Durée d'indisponibilité</td>
-                    <td style="color: #666; text-align: right; padding: 8px 0;">
-                      ${downtimeText}
-                    </td>
-                  </tr>
-                </table>
-              </div>
-
-              <div style="text-align: center; margin: 30px 0;">
-                <a href="${whatsappUrl}" style="display: inline-block; background-color: #25D366; color: #ffffff; text-decoration: none; padding: 15px 40px; border-radius: 5px; font-weight: bold; font-size: 16px;">
-                  Voir le statut
-                </a>
-              </div>
-
-              <p style="color: #999999; line-height: 1.6; margin: 20px 0 0 0; font-size: 12px; text-align: center;">
-                Vous recevez cet email car vous êtes administrateur de l'organisation.<br>
-                Questions? Contactez-nous à <a href="mailto:support@wazeapp.ai" style="color: #25D366;">support@wazeapp.ai</a>
-              </p>
-            </td>
-          </tr>
-          <!-- Footer -->
-          <tr>
-            <td style="background-color: #f8f8f8; padding: 20px 30px; text-align: center; border-top: 1px solid #eeeeee;">
-              <p style="color: #999999; margin: 0; font-size: 12px;">
-                © 2025 WazeApp. Tous droits réservés.<br>
-                <a href="https://wazeapp.ai" style="color: #25D366; text-decoration: none;">wazeapp.ai</a>
-              </p>
-            </td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>
-    `;
-  }
-
   /**
    * Send escalation alert email to operator
    */
@@ -2097,6 +704,485 @@ export class EmailService {
     }
   }
 
+  // ============= EMAIL TEMPLATE HELPERS =============
+
+  private baseTemplate(options: {
+    title: string;
+    preheader?: string;
+    content: string;
+    accentColor?: string;
+  }): string {
+    const { title, preheader, content, accentColor = '#059669' } = options;
+    return `<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>${title}</title>
+${preheader ? `<span style="display:none;font-size:1px;color:#f9fafb;max-height:0;overflow:hidden;mso-hide:all;">${preheader}</span>` : ''}
+</head>
+<body style="margin:0;padding:0;background-color:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f9fafb;padding:32px 16px;">
+<tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.1);border-top:4px solid ${accentColor};">
+<!-- Header -->
+<tr><td style="padding:32px 40px 24px 40px;">
+<table width="100%" cellpadding="0" cellspacing="0"><tr>
+<td><span style="font-size:22px;font-weight:700;color:${accentColor};letter-spacing:-0.5px;">WazeApp</span></td>
+</tr></table>
+</td></tr>
+<!-- Content -->
+<tr><td style="padding:0 40px 40px 40px;">
+${content}
+</td></tr>
+<!-- Footer -->
+<tr><td style="padding:24px 40px;border-top:1px solid #e5e7eb;">
+<p style="margin:0;font-size:13px;color:#9ca3af;line-height:1.5;">
+&copy; ${new Date().getFullYear()} WazeApp. Tous droits r&eacute;serv&eacute;s.<br>
+<a href="https://wazeapp.ai" style="color:#059669;text-decoration:none;">wazeapp.ai</a>
+&nbsp;&middot;&nbsp;
+<a href="mailto:support@wazeapp.ai" style="color:#059669;text-decoration:none;">support@wazeapp.ai</a>
+</p>
+</td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>`;
+  }
+
+  private buttonHtml(text: string, url: string, color: string = '#059669'): string {
+    return `<div style="text-align:center;margin:32px 0;">
+<a href="${url}" style="display:inline-block;background-color:${color};color:#ffffff;text-decoration:none;padding:14px 32px;border-radius:8px;font-weight:600;font-size:15px;line-height:1;">${text}</a>
+</div>`;
+  }
+
+  private infoBoxHtml(rows: Array<{label: string; value: string; valueColor?: string}>): string {
+    const rowsHtml = rows.map((r, i) => {
+      const border = i < rows.length - 1 ? 'border-bottom:1px solid #f3f4f6;' : '';
+      return `<tr>
+<td style="padding:10px 0;color:#6b7280;font-size:14px;${border}">${r.label}</td>
+<td style="padding:10px 0;text-align:right;font-weight:600;color:${r.valueColor || '#111827'};font-size:14px;${border}">${r.value}</td>
+</tr>`;
+    }).join('');
+    return `<div style="background-color:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:20px;margin:24px 0;">
+<table width="100%" cellpadding="0" cellspacing="0">${rowsHtml}</table>
+</div>`;
+  }
+
+  private alertBoxHtml(text: string, type: 'warning' | 'error' | 'success' | 'info' = 'warning'): string {
+    const colors = {
+      warning: { bg: '#fffbeb', border: '#f59e0b', text: '#92400e' },
+      error: { bg: '#fef2f2', border: '#ef4444', text: '#991b1b' },
+      success: { bg: '#ecfdf5', border: '#059669', text: '#065f46' },
+      info: { bg: '#eff6ff', border: '#3b82f6', text: '#1e40af' },
+    };
+    const c = colors[type];
+    return `<div style="background-color:${c.bg};border-left:4px solid ${c.border};padding:16px 20px;margin:24px 0;border-radius:0 8px 8px 0;">
+<p style="margin:0;color:${c.text};font-size:14px;line-height:1.5;">${text}</p>
+</div>`;
+  }
+
+  private linkTextHtml(text: string, url: string): string {
+    return `<p style="margin:16px 0 0 0;font-size:13px;color:#9ca3af;line-height:1.5;">
+${text}<br><a href="${url}" style="color:#059669;word-break:break-all;font-size:12px;">${url}</a>
+</p>`;
+  }
+
+  // ============= EMAIL TEMPLATES =============
+
+  private getVerificationEmailTemplate(verificationUrl: string): string {
+    return this.baseTemplate({
+      title: 'Vérifiez votre email',
+      preheader: 'Vérifiez votre adresse email pour activer votre compte WazeApp',
+      content: `
+<h1 style="margin:0 0 16px 0;font-size:22px;font-weight:700;color:#111827;">Vérifiez votre adresse email</h1>
+<p style="margin:0 0 16px 0;font-size:15px;color:#6b7280;line-height:1.6;">
+Merci de vous être inscrit sur WazeApp ! Pour activer votre compte et commencer à créer vos agents IA WhatsApp, veuillez vérifier votre adresse email.
+</p>
+${this.buttonHtml('Vérifier mon email', verificationUrl)}
+${this.linkTextHtml('Ou copiez ce lien dans votre navigateur :', verificationUrl)}
+<p style="margin:24px 0 0 0;font-size:13px;color:#9ca3af;line-height:1.5;">
+Ce lien expire dans 24 heures. Si vous n'avez pas créé de compte WazeApp, ignorez cet email.
+</p>
+      `,
+    });
+  }
+
+  private getPasswordResetEmailTemplate(resetUrl: string): string {
+    return this.baseTemplate({
+      title: 'Réinitialisation de mot de passe',
+      preheader: 'Réinitialisez votre mot de passe WazeApp',
+      content: `
+<h1 style="margin:0 0 16px 0;font-size:22px;font-weight:700;color:#111827;">Réinitialisation du mot de passe</h1>
+<p style="margin:0 0 16px 0;font-size:15px;color:#6b7280;line-height:1.6;">
+Vous avez demandé à réinitialiser votre mot de passe. Cliquez sur le bouton ci-dessous pour créer un nouveau mot de passe.
+</p>
+${this.buttonHtml('Réinitialiser mon mot de passe', resetUrl)}
+${this.linkTextHtml('Ou copiez ce lien dans votre navigateur :', resetUrl)}
+${this.alertBoxHtml('<strong>Important :</strong> Ce lien expire dans 15 minutes pour des raisons de sécurité.', 'warning')}
+<p style="margin:16px 0 0 0;font-size:13px;color:#9ca3af;line-height:1.5;">
+Si vous n'avez pas demandé cette réinitialisation, ignorez cet email. Votre mot de passe restera inchangé.
+</p>
+      `,
+    });
+  }
+
+  private getInvitationEmailTemplate(inviteUrl: string, organizationName: string): string {
+    return this.baseTemplate({
+      title: `Invitation à rejoindre ${organizationName}`,
+      preheader: `Vous avez été invité à rejoindre ${organizationName} sur WazeApp`,
+      content: `
+<h1 style="margin:0 0 16px 0;font-size:22px;font-weight:700;color:#111827;">Invitation</h1>
+<p style="margin:0 0 16px 0;font-size:15px;color:#6b7280;line-height:1.6;">
+Vous avez été invité à rejoindre l'organisation <strong style="color:#111827;">${organizationName}</strong> sur WazeApp.
+</p>
+<p style="margin:0 0 16px 0;font-size:15px;color:#6b7280;line-height:1.6;">
+En acceptant cette invitation, vous pourrez collaborer avec votre équipe pour créer et gérer des agents IA WhatsApp.
+</p>
+${this.buttonHtml('Accepter l\'invitation', inviteUrl)}
+${this.linkTextHtml('Ou copiez ce lien dans votre navigateur :', inviteUrl)}
+<p style="margin:24px 0 0 0;font-size:13px;color:#9ca3af;line-height:1.5;">
+Si vous ne souhaitez pas rejoindre cette organisation, ignorez simplement cet email.
+</p>
+      `,
+    });
+  }
+
+  private getWelcomeEmailTemplate(firstName: string, dashboardUrl: string): string {
+    return this.baseTemplate({
+      title: 'Bienvenue sur WazeApp',
+      preheader: `Bienvenue ${firstName} ! Votre compte WazeApp est actif.`,
+      content: `
+<h1 style="margin:0 0 16px 0;font-size:22px;font-weight:700;color:#111827;">Bienvenue ${firstName}</h1>
+<p style="margin:0 0 16px 0;font-size:15px;color:#6b7280;line-height:1.6;">
+Votre compte WazeApp est maintenant actif. Vous pouvez commencer à créer vos agents IA WhatsApp et automatiser vos conversations.
+</p>
+<p style="margin:0 0 8px 0;font-size:15px;font-weight:600;color:#111827;">Premiers pas :</p>
+<table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 16px 0;">
+<tr><td style="padding:6px 0;font-size:14px;color:#6b7280;line-height:1.5;">1. Connectez votre numéro WhatsApp</td></tr>
+<tr><td style="padding:6px 0;font-size:14px;color:#6b7280;line-height:1.5;">2. Créez votre premier agent IA</td></tr>
+<tr><td style="padding:6px 0;font-size:14px;color:#6b7280;line-height:1.5;">3. Ajoutez des connaissances à votre base</td></tr>
+<tr><td style="padding:6px 0;font-size:14px;color:#6b7280;line-height:1.5;">4. Commencez à converser avec vos clients</td></tr>
+</table>
+${this.buttonHtml('Accéder au Dashboard', dashboardUrl)}
+<p style="margin:16px 0 0 0;font-size:14px;color:#6b7280;line-height:1.6;">
+Besoin d'aide ? Notre équipe support est là pour vous à <a href="mailto:support@wazeapp.ai" style="color:#059669;text-decoration:none;">support@wazeapp.ai</a>
+</p>
+      `,
+    });
+  }
+
+  private getQuotaAlertEmailTemplate(
+    firstName: string,
+    percentUsed: number,
+    currentUsage: number,
+    limit: number,
+    planName: string,
+    billingUrl: string,
+  ): string {
+    const isExceeded = percentUsed >= 100;
+    const barColor = isExceeded ? '#ef4444' : percentUsed >= 90 ? '#f59e0b' : '#059669';
+    const accentColor = isExceeded ? '#ef4444' : '#059669';
+
+    const alertText = isExceeded
+      ? 'Votre quota de messages est atteint ! Vos agents WhatsApp ne pourront plus répondre aux messages tant que votre quota n\'aura pas été renouvelé ou que vous n\'aurez pas mis à niveau votre plan.'
+      : `Vous avez utilisé ${percentUsed}% de votre quota. Pour éviter toute interruption de service, nous vous recommandons de mettre à niveau votre plan avant d'atteindre la limite.`;
+
+    const alertType = isExceeded ? 'error' : 'warning';
+
+    return this.baseTemplate({
+      title: 'Alerte Quota - WazeApp',
+      preheader: `${percentUsed}% de votre quota de messages utilisé`,
+      accentColor,
+      content: `
+<h1 style="margin:0 0 16px 0;font-size:22px;font-weight:700;color:#111827;">Alerte quota de messages</h1>
+<p style="margin:0 0 16px 0;font-size:15px;color:#6b7280;line-height:1.6;">
+Bonjour <strong style="color:#111827;">${firstName}</strong>,
+</p>
+${this.alertBoxHtml(alertText, alertType)}
+<div style="background-color:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:20px;margin:24px 0;">
+<table width="100%" cellpadding="0" cellspacing="0">
+<tr>
+<td style="padding:0 0 8px 0;font-size:14px;color:#6b7280;">Messages utilisés</td>
+<td style="padding:0 0 8px 0;text-align:right;font-weight:600;color:#111827;font-size:14px;">${currentUsage.toLocaleString()} / ${limit.toLocaleString()}</td>
+</tr>
+</table>
+<div style="background-color:#e5e7eb;border-radius:4px;height:8px;overflow:hidden;margin:8px 0;">
+<div style="background-color:${barColor};height:100%;width:${Math.min(percentUsed, 100)}%;border-radius:4px;"></div>
+</div>
+<p style="margin:8px 0 0 0;font-size:13px;color:#9ca3af;text-align:right;">${percentUsed}% utilisé</p>
+<table width="100%" cellpadding="0" cellspacing="0" style="margin-top:12px;border-top:1px solid #e5e7eb;padding-top:12px;">
+<tr>
+<td style="font-size:14px;color:#6b7280;">Plan actuel</td>
+<td style="text-align:right;font-weight:600;color:#111827;font-size:14px;">${planName}</td>
+</tr>
+</table>
+</div>
+${this.buttonHtml('Mettre à niveau mon plan', billingUrl)}
+      `,
+    });
+  }
+
+  private getPaymentConfirmationEmailTemplate(
+    firstName: string,
+    paymentDetails: {
+      amount: number;
+      currency: string;
+      transactionId: string;
+      paymentMethod: string;
+      planName: string;
+      date: Date;
+    },
+    dashboardUrl: string,
+  ): string {
+    const formattedDate = paymentDetails.date.toLocaleDateString('fr-FR', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+
+    return this.baseTemplate({
+      title: 'Confirmation de paiement',
+      preheader: `Paiement de ${paymentDetails.amount.toLocaleString()} ${paymentDetails.currency} confirmé`,
+      content: `
+<h1 style="margin:0 0 16px 0;font-size:22px;font-weight:700;color:#111827;">Paiement confirmé</h1>
+<p style="margin:0 0 16px 0;font-size:15px;color:#6b7280;line-height:1.6;">
+Bonjour <strong style="color:#111827;">${firstName}</strong>,
+</p>
+<p style="margin:0 0 16px 0;font-size:15px;color:#6b7280;line-height:1.6;">
+Votre paiement a été traité avec succès. Voici les détails de votre transaction :
+</p>
+${this.infoBoxHtml([
+  { label: 'Montant', value: `${paymentDetails.amount.toLocaleString()} ${paymentDetails.currency}`, valueColor: '#059669' },
+  { label: 'Plan', value: paymentDetails.planName },
+  { label: 'Méthode', value: paymentDetails.paymentMethod },
+  { label: 'Date', value: formattedDate },
+  { label: 'Référence', value: paymentDetails.transactionId, valueColor: '#9ca3af' },
+])}
+${this.buttonHtml('Accéder au Dashboard', dashboardUrl)}
+<p style="margin:16px 0 0 0;font-size:13px;color:#9ca3af;line-height:1.5;text-align:center;">
+Conservez cet email comme preuve de paiement.
+</p>
+      `,
+    });
+  }
+
+  private getSubscriptionUpgradeEmailTemplate(
+    firstName: string,
+    upgradeDetails: {
+      previousPlan: string;
+      newPlan: string;
+      newLimits: {
+        messages: number;
+        agents: number;
+        storage: string;
+      };
+      nextBillingDate: Date;
+      amount: number;
+      currency: string;
+    },
+    dashboardUrl: string,
+  ): string {
+    const formattedBillingDate = upgradeDetails.nextBillingDate.toLocaleDateString('fr-FR', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    });
+
+    return this.baseTemplate({
+      title: 'Abonnement mis à niveau',
+      preheader: `Votre abonnement a été mis à niveau vers ${upgradeDetails.newPlan}`,
+      content: `
+<h1 style="margin:0 0 16px 0;font-size:22px;font-weight:700;color:#111827;">Abonnement mis à niveau</h1>
+<p style="margin:0 0 16px 0;font-size:15px;color:#6b7280;line-height:1.6;">
+Bonjour <strong style="color:#111827;">${firstName}</strong>,
+</p>
+<p style="margin:0 0 16px 0;font-size:15px;color:#6b7280;line-height:1.6;">
+Votre abonnement WazeApp a été mis à niveau avec succès !
+</p>
+<div style="background-color:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:20px;margin:24px 0;text-align:center;">
+<span style="color:#9ca3af;font-size:14px;text-decoration:line-through;">${upgradeDetails.previousPlan}</span>
+<span style="color:#059669;font-size:20px;margin:0 12px;font-weight:700;">&rarr;</span>
+<span style="color:#059669;font-size:20px;font-weight:700;">${upgradeDetails.newPlan}</span>
+</div>
+${this.infoBoxHtml([
+  { label: 'Messages / mois', value: upgradeDetails.newLimits.messages.toLocaleString(), valueColor: '#059669' },
+  { label: 'Agents WhatsApp', value: String(upgradeDetails.newLimits.agents), valueColor: '#059669' },
+  { label: 'Stockage', value: upgradeDetails.newLimits.storage, valueColor: '#059669' },
+  { label: 'Prochaine facturation', value: formattedBillingDate },
+  { label: 'Montant', value: `${upgradeDetails.amount.toLocaleString()} ${upgradeDetails.currency}` },
+])}
+${this.buttonHtml('Profiter de mon nouveau plan', dashboardUrl)}
+      `,
+    });
+  }
+
+  private getPaymentReminderEmailTemplate(
+    firstName: string,
+    reminderDetails: {
+      invoiceNumber: string;
+      amount: number;
+      currency: string;
+      dueDate: Date;
+      daysUntilDue: number;
+      planName: string;
+      organizationName: string;
+      isOverdue: boolean;
+    },
+    billingUrl: string,
+  ): string {
+    const formattedDueDate = reminderDetails.dueDate.toLocaleDateString('fr-FR', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    });
+
+    const headerTitle = reminderDetails.isOverdue
+      ? 'Facture en retard'
+      : reminderDetails.daysUntilDue <= 1
+        ? 'Dernière chance de paiement'
+        : 'Rappel de paiement';
+
+    const urgencyMessage = reminderDetails.isOverdue
+      ? `Votre facture est en retard de ${Math.abs(reminderDetails.daysUntilDue)} jour(s). Pour éviter une suspension de votre service, veuillez régler cette facture dès que possible.`
+      : reminderDetails.daysUntilDue <= 1
+        ? 'Votre facture arrive à échéance demain. Pensez à effectuer votre paiement pour garantir la continuité de votre service.'
+        : `Votre facture arrive à échéance dans ${reminderDetails.daysUntilDue} jours. Pensez à effectuer votre paiement avant la date limite.`;
+
+    const alertType: 'error' | 'warning' | 'info' = reminderDetails.isOverdue ? 'error' : reminderDetails.daysUntilDue <= 1 ? 'warning' : 'info';
+    const accentColor = reminderDetails.isOverdue ? '#ef4444' : reminderDetails.daysUntilDue <= 1 ? '#f59e0b' : '#059669';
+    const buttonColor = reminderDetails.isOverdue ? '#ef4444' : reminderDetails.daysUntilDue <= 1 ? '#f59e0b' : '#059669';
+
+    const overdueWarning = reminderDetails.isOverdue
+      ? this.alertBoxHtml('<strong>Important :</strong> Sans paiement dans les 48 heures, votre accès aux services WazeApp pourrait être temporairement suspendu.', 'error')
+      : '';
+
+    return this.baseTemplate({
+      title: headerTitle,
+      preheader: urgencyMessage,
+      accentColor,
+      content: `
+<h1 style="margin:0 0 16px 0;font-size:22px;font-weight:700;color:#111827;">${headerTitle}</h1>
+<p style="margin:0 0 16px 0;font-size:15px;color:#6b7280;line-height:1.6;">
+Bonjour <strong style="color:#111827;">${firstName}</strong>,
+</p>
+${this.alertBoxHtml(urgencyMessage, alertType)}
+${this.infoBoxHtml([
+  { label: 'Numéro de facture', value: reminderDetails.invoiceNumber },
+  { label: 'Organisation', value: reminderDetails.organizationName },
+  { label: 'Plan', value: reminderDetails.planName },
+  { label: 'Date d\'échéance', value: formattedDueDate, valueColor: reminderDetails.isOverdue ? '#ef4444' : '#111827' },
+  { label: 'Montant à payer', value: `${reminderDetails.amount.toLocaleString()} ${reminderDetails.currency}`, valueColor: accentColor },
+])}
+${overdueWarning}
+${this.buttonHtml('Payer maintenant', billingUrl, buttonColor)}
+<p style="margin:16px 0 0 0;font-size:13px;color:#9ca3af;line-height:1.5;text-align:center;">
+Si vous avez déjà effectué ce paiement, ignorez cet email.
+</p>
+      `,
+    });
+  }
+
+  private getWhatsAppDisconnectionEmailTemplate(
+    firstName: string,
+    details: {
+      sessionName: string;
+      phoneNumber: string;
+      organizationName: string;
+      disconnectedAt: Date;
+    },
+    whatsappUrl: string,
+  ): string {
+    const formattedDate = details.disconnectedAt.toLocaleDateString('fr-FR', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    });
+    const formattedTime = details.disconnectedAt.toLocaleTimeString('fr-FR', {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+
+    return this.baseTemplate({
+      title: 'Session WhatsApp déconnectée',
+      preheader: `Session "${details.sessionName}" déconnectée - Action requise`,
+      accentColor: '#ef4444',
+      content: `
+<h1 style="margin:0 0 16px 0;font-size:22px;font-weight:700;color:#111827;">Session WhatsApp déconnectée</h1>
+<p style="margin:0 0 16px 0;font-size:15px;color:#6b7280;line-height:1.6;">
+Bonjour <strong style="color:#111827;">${firstName}</strong>,
+</p>
+${this.alertBoxHtml('Votre session WhatsApp s\'est déconnectée ! Vos agents IA ne peuvent plus répondre aux messages sur ce numéro tant que la session n\'est pas reconnectée.', 'error')}
+${this.infoBoxHtml([
+  { label: 'Nom de la session', value: details.sessionName },
+  { label: 'Numéro WhatsApp', value: details.phoneNumber },
+  { label: 'Organisation', value: details.organizationName },
+  { label: 'Déconnexion', value: `${formattedDate} à ${formattedTime}`, valueColor: '#ef4444' },
+])}
+${this.alertBoxHtml('<strong>Important :</strong> Les messages WhatsApp reçus pendant la déconnexion ne seront pas traités par vos agents IA.', 'warning')}
+${this.buttonHtml('Reconnecter maintenant', whatsappUrl)}
+      `,
+    });
+  }
+
+  private getWhatsAppReconnectionEmailTemplate(
+    firstName: string,
+    details: {
+      sessionName: string;
+      phoneNumber: string;
+      organizationName: string;
+      reconnectedAt: Date;
+      downtimeMinutes: number;
+    },
+    whatsappUrl: string,
+  ): string {
+    const formattedDate = details.reconnectedAt.toLocaleDateString('fr-FR', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    });
+    const formattedTime = details.reconnectedAt.toLocaleTimeString('fr-FR', {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+
+    // Format downtime
+    let downtimeText = '';
+    if (details.downtimeMinutes < 60) {
+      downtimeText = `${details.downtimeMinutes} minute${details.downtimeMinutes > 1 ? 's' : ''}`;
+    } else {
+      const hours = Math.floor(details.downtimeMinutes / 60);
+      const minutes = details.downtimeMinutes % 60;
+      downtimeText = `${hours} heure${hours > 1 ? 's' : ''}`;
+      if (minutes > 0) {
+        downtimeText += ` et ${minutes} minute${minutes > 1 ? 's' : ''}`;
+      }
+    }
+
+    return this.baseTemplate({
+      title: 'Session WhatsApp reconnectée',
+      preheader: `Session "${details.sessionName}" reconnectée avec succès`,
+      content: `
+<h1 style="margin:0 0 16px 0;font-size:22px;font-weight:700;color:#111827;">Session WhatsApp reconnectée</h1>
+<p style="margin:0 0 16px 0;font-size:15px;color:#6b7280;line-height:1.6;">
+Bonjour <strong style="color:#111827;">${firstName}</strong>,
+</p>
+${this.alertBoxHtml('Bonne nouvelle ! Votre session WhatsApp est de nouveau connectée. Vos agents IA peuvent à nouveau répondre aux messages.', 'success')}
+${this.infoBoxHtml([
+  { label: 'Nom de la session', value: details.sessionName },
+  { label: 'Numéro WhatsApp', value: details.phoneNumber },
+  { label: 'Organisation', value: details.organizationName },
+  { label: 'Reconnexion', value: `${formattedDate} à ${formattedTime}`, valueColor: '#059669' },
+  { label: 'Durée d\'indisponibilité', value: downtimeText },
+])}
+${this.buttonHtml('Voir le statut', whatsappUrl)}
+      `,
+    });
+  }
+
   private getEscalationAlertEmailTemplate(
     details: {
       agentName: string;
@@ -2117,98 +1203,210 @@ export class EmailService {
       minute: '2-digit',
     });
 
-    return `
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Escalade de conversation</title>
-</head>
-<body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f4f4f4; padding: 20px;">
-    <tr>
-      <td align="center">
-        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-          <!-- Header -->
-          <tr>
-            <td style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); padding: 40px 20px; text-align: center;">
-              <h1 style="color: #ffffff; margin: 0; font-size: 28px;">🚨 Escalade de Conversation</h1>
-              <p style="color: #ffffff; margin: 10px 0 0 0; font-size: 16px;">Intervention humaine requise</p>
-            </td>
-          </tr>
-          <!-- Content -->
-          <tr>
-            <td style="padding: 40px 30px;">
-              <p style="color: #666666; line-height: 1.6; margin: 0 0 20px 0; font-size: 16px;">
-                Une conversation a été transférée à un opérateur humain et nécessite votre attention.
-              </p>
+    return this.baseTemplate({
+      title: 'Escalade de conversation',
+      preheader: 'Une conversation nécessite votre attention',
+      accentColor: '#f59e0b',
+      content: `
+<h1 style="margin:0 0 16px 0;font-size:22px;font-weight:700;color:#111827;">Escalade de conversation</h1>
+<p style="margin:0 0 16px 0;font-size:15px;color:#6b7280;line-height:1.6;">
+Une conversation a été transférée à un opérateur humain et nécessite votre attention.
+</p>
+${this.alertBoxHtml('Un client attend une réponse humaine !', 'warning')}
+${this.infoBoxHtml([
+  { label: 'Agent IA', value: details.agentName },
+  { label: 'Numéro du client', value: details.clientPhoneNumber },
+  { label: 'Raison', value: details.reason },
+  { label: 'Date', value: `${formattedDate} à ${formattedTime}`, valueColor: '#f59e0b' },
+])}
+${this.buttonHtml('Voir la conversation', conversationsUrl)}
+      `,
+    });
+  }
 
-              <!-- Alert Box -->
-              <div style="background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 20px; margin: 20px 0; border-radius: 4px;">
-                <p style="color: #92400e; margin: 0; font-size: 16px; font-weight: bold;">
-                  Un client attend une réponse humaine !
-                </p>
-              </div>
+  private getTrialStartEmailTemplate(
+    firstName: string,
+    details: { planName: string; trialDays: number; trialEndsAt: Date },
+    billingUrl: string,
+    trialEndFormatted: string,
+  ): string {
+    return this.baseTemplate({
+      title: 'Essai gratuit activé',
+      preheader: `Votre essai gratuit du plan ${details.planName} est actif pour ${details.trialDays} jours`,
+      content: `
+<h1 style="margin:0 0 16px 0;font-size:22px;font-weight:700;color:#111827;">Essai gratuit activé</h1>
+<p style="margin:0 0 16px 0;font-size:15px;color:#6b7280;line-height:1.6;">
+Bonjour <strong style="color:#111827;">${firstName}</strong>,
+</p>
+<p style="margin:0 0 16px 0;font-size:15px;color:#6b7280;line-height:1.6;">
+Votre essai gratuit du plan <strong style="color:#111827;">${details.planName}</strong> est maintenant actif pour <strong style="color:#111827;">${details.trialDays} jours</strong>.
+</p>
+${this.alertBoxHtml(`Profitez de toutes les fonctionnalités du plan ${details.planName} jusqu'au <strong>${trialEndFormatted}</strong>.`, 'success')}
+<p style="margin:0 0 16px 0;font-size:14px;color:#6b7280;line-height:1.6;">
+Une facture a été générée et sera due à la fin de votre période d'essai. Si vous payez avant cette date, votre abonnement sera activé sans interruption.
+</p>
+${this.buttonHtml('Accéder au dashboard', billingUrl)}
+      `,
+    });
+  }
 
-              <!-- Details Box -->
-              <div style="background-color: #f8f9fa; border-radius: 8px; padding: 25px; margin: 25px 0;">
-                <h3 style="color: #333; margin: 0 0 15px 0; font-size: 16px;">📋 Détails de l'escalade</h3>
-                <table width="100%" cellpadding="5" cellspacing="0">
-                  <tr>
-                    <td style="color: #666; padding: 8px 0; border-bottom: 1px solid #e9ecef;">Agent IA</td>
-                    <td style="color: #333; font-weight: bold; text-align: right; padding: 8px 0; border-bottom: 1px solid #e9ecef;">
-                      ${details.agentName}
-                    </td>
-                  </tr>
-                  <tr>
-                    <td style="color: #666; padding: 8px 0; border-bottom: 1px solid #e9ecef;">Numéro du client</td>
-                    <td style="color: #333; text-align: right; padding: 8px 0; border-bottom: 1px solid #e9ecef;">
-                      ${details.clientPhoneNumber}
-                    </td>
-                  </tr>
-                  <tr>
-                    <td style="color: #666; padding: 8px 0; border-bottom: 1px solid #e9ecef;">Raison</td>
-                    <td style="color: #333; text-align: right; padding: 8px 0; border-bottom: 1px solid #e9ecef;">
-                      ${details.reason}
-                    </td>
-                  </tr>
-                  <tr>
-                    <td style="color: #666; padding: 8px 0;">Date</td>
-                    <td style="color: #f59e0b; font-weight: bold; text-align: right; padding: 8px 0;">
-                      ${formattedDate} à ${formattedTime}
-                    </td>
-                  </tr>
-                </table>
-              </div>
+  private getTrialReminderEmailTemplate(
+    firstName: string,
+    details: { planName: string; daysRemaining: number; trialEndsAt: Date },
+    billingUrl: string,
+    trialEndFormatted: string,
+    urgencyText: string,
+  ): string {
+    const alertType: 'error' | 'warning' = details.daysRemaining <= 1 ? 'error' : 'warning';
+    const accentColor = details.daysRemaining <= 1 ? '#ef4444' : '#f59e0b';
+    const buttonColor = details.daysRemaining <= 1 ? '#ef4444' : '#f59e0b';
 
-              <div style="text-align: center; margin: 30px 0;">
-                <a href="${conversationsUrl}" style="display: inline-block; background-color: #059669; color: #ffffff; text-decoration: none; padding: 15px 40px; border-radius: 5px; font-weight: bold; font-size: 16px;">
-                  Voir la conversation
-                </a>
-              </div>
+    return this.baseTemplate({
+      title: 'Rappel essai gratuit',
+      preheader: urgencyText,
+      accentColor,
+      content: `
+<h1 style="margin:0 0 16px 0;font-size:22px;font-weight:700;color:#111827;">Rappel - Essai gratuit</h1>
+<p style="margin:0 0 16px 0;font-size:15px;color:#6b7280;line-height:1.6;">
+Bonjour <strong style="color:#111827;">${firstName}</strong>,
+</p>
+${this.alertBoxHtml(`<strong>${urgencyText}</strong>`, alertType)}
+<p style="margin:0 0 16px 0;font-size:15px;color:#6b7280;line-height:1.6;">
+Votre essai du plan <strong style="color:#111827;">${details.planName}</strong> se termine le <strong style="color:#111827;">${trialEndFormatted}</strong>.
+Pour continuer à profiter de toutes les fonctionnalités, payez votre facture avant cette date.
+</p>
+${this.buttonHtml('Payer maintenant', billingUrl, buttonColor)}
+      `,
+    });
+  }
 
-              <p style="color: #999999; line-height: 1.6; margin: 20px 0 0 0; font-size: 12px; text-align: center;">
-                Vous recevez cet email car vous êtes configuré comme destinataire des alertes d'escalade.<br>
-                Questions? Contactez-nous à <a href="mailto:support@wazeapp.ai" style="color: #25D366;">support@wazeapp.ai</a>
-              </p>
-            </td>
-          </tr>
-          <!-- Footer -->
-          <tr>
-            <td style="background-color: #f8f8f8; padding: 20px 30px; text-align: center; border-top: 1px solid #eeeeee;">
-              <p style="color: #999999; margin: 0; font-size: 12px;">
-                © 2025 WazeApp. Tous droits réservés.<br>
-                <a href="https://wazeapp.ai" style="color: #25D366; text-decoration: none;">wazeapp.ai</a>
-              </p>
-            </td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>
-    `;
+  private getTrialExpiredEmailTemplate(
+    firstName: string,
+    details: { planName: string },
+    billingUrl: string,
+  ): string {
+    return this.baseTemplate({
+      title: 'Essai gratuit expiré',
+      preheader: `Votre essai gratuit du plan ${details.planName} a expiré`,
+      accentColor: '#ef4444',
+      content: `
+<h1 style="margin:0 0 16px 0;font-size:22px;font-weight:700;color:#111827;">Essai gratuit expiré</h1>
+<p style="margin:0 0 16px 0;font-size:15px;color:#6b7280;line-height:1.6;">
+Bonjour <strong style="color:#111827;">${firstName}</strong>,
+</p>
+${this.alertBoxHtml(`Votre essai gratuit du plan ${details.planName} a expiré.`, 'error')}
+<p style="margin:0 0 16px 0;font-size:15px;color:#6b7280;line-height:1.6;">
+Votre compte a été temporairement limité aux fonctionnalités du plan gratuit.
+Pour réactiver toutes les fonctionnalités du plan ${details.planName}, payez votre facture en attente.
+</p>
+${this.buttonHtml('Réactiver mon compte', billingUrl)}
+      `,
+    });
+  }
+
+  private getSubscriptionPastDueEmailTemplate(
+    firstName: string,
+    details: { planName: string; gracePeriodDays: number; nextBillingDate: Date },
+    billingUrl: string,
+    deadlineDate: Date,
+  ): string {
+    return this.baseTemplate({
+      title: 'Paiement en retard',
+      preheader: `Votre abonnement ${details.planName} n'a pas été renouvelé`,
+      accentColor: '#f59e0b',
+      content: `
+<h1 style="margin:0 0 16px 0;font-size:22px;font-weight:700;color:#111827;">Paiement en retard</h1>
+<p style="margin:0 0 16px 0;font-size:15px;color:#6b7280;line-height:1.6;">
+Bonjour <strong style="color:#111827;">${firstName}</strong>,
+</p>
+${this.alertBoxHtml(`Votre abonnement ${details.planName} n'a pas été renouvelé. Le paiement prévu le ${details.nextBillingDate.toLocaleDateString('fr-FR')} n'a pas été reçu.`, 'warning')}
+<p style="margin:0 0 16px 0;font-size:15px;color:#6b7280;line-height:1.6;">
+Vous disposez d'un <strong style="color:#111827;">délai de grâce de ${details.gracePeriodDays} jours</strong>
+(jusqu'au <strong style="color:#111827;">${deadlineDate.toLocaleDateString('fr-FR')}</strong>) pour effectuer votre paiement.
+</p>
+<p style="margin:0 0 16px 0;font-size:15px;color:#6b7280;line-height:1.6;">
+Passé ce délai, votre compte sera automatiquement rétrogradé vers le plan gratuit
+et vous perdrez l'accès aux fonctionnalités du plan ${details.planName}.
+</p>
+${this.buttonHtml('Payer maintenant', billingUrl)}
+      `,
+    });
+  }
+
+  private getSubscriptionDowngradedEmailTemplate(
+    firstName: string,
+    details: { previousPlan: string; gracePeriodDays: number },
+    billingUrl: string,
+  ): string {
+    return this.baseTemplate({
+      title: 'Abonnement rétrogradé',
+      preheader: `Votre abonnement ${details.previousPlan} a été rétrogradé vers le plan Gratuit`,
+      accentColor: '#ef4444',
+      content: `
+<h1 style="margin:0 0 16px 0;font-size:22px;font-weight:700;color:#111827;">Abonnement rétrogradé</h1>
+<p style="margin:0 0 16px 0;font-size:15px;color:#6b7280;line-height:1.6;">
+Bonjour <strong style="color:#111827;">${firstName}</strong>,
+</p>
+${this.alertBoxHtml(`Votre abonnement ${details.previousPlan} a été rétrogradé vers le plan Gratuit.`, 'error')}
+<p style="margin:0 0 16px 0;font-size:15px;color:#6b7280;line-height:1.6;">
+Après ${details.gracePeriodDays} jours sans paiement, votre compte a été automatiquement
+rétrogradé vers le plan gratuit. Vos données sont conservées, mais l'accès aux
+fonctionnalités avancées est désormais limité.
+</p>
+<p style="margin:0 0 8px 0;font-size:15px;font-weight:600;color:#111827;">Ce que cela signifie :</p>
+<table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 16px 0;">
+<tr><td style="padding:6px 0;font-size:14px;color:#6b7280;line-height:1.5;">- Limites réduites sur les campagnes, contacts et templates</td></tr>
+<tr><td style="padding:6px 0;font-size:14px;color:#6b7280;line-height:1.5;">- Fonctionnalités avancées désactivées (webhooks, API, etc.)</td></tr>
+<tr><td style="padding:6px 0;font-size:14px;color:#6b7280;line-height:1.5;">- Vos données existantes sont conservées</td></tr>
+</table>
+<p style="margin:0 0 16px 0;font-size:15px;color:#6b7280;line-height:1.6;">
+Vous pouvez réactiver votre abonnement ${details.previousPlan} à tout moment
+depuis votre espace de facturation.
+</p>
+${this.buttonHtml('Réactiver mon abonnement', billingUrl)}
+      `,
+    });
+  }
+
+  private getNewInvoiceEmailTemplate(
+    firstName: string,
+    invoiceDetails: {
+      invoiceNumber: string;
+      amount: number;
+      currency: string;
+      dueDate: Date;
+      planName: string;
+      organizationName: string;
+      periodStart: Date;
+      periodEnd: Date;
+    },
+    billingUrl: string,
+    periodFormatted: string,
+    dueDateFormatted: string,
+  ): string {
+    return this.baseTemplate({
+      title: 'Nouvelle facture',
+      preheader: `Facture ${invoiceDetails.invoiceNumber} - ${invoiceDetails.amount.toLocaleString()} ${invoiceDetails.currency}`,
+      content: `
+<h1 style="margin:0 0 16px 0;font-size:22px;font-weight:700;color:#111827;">Nouvelle facture</h1>
+<p style="margin:0 0 16px 0;font-size:15px;color:#6b7280;line-height:1.6;">
+Bonjour <strong style="color:#111827;">${firstName}</strong>,
+</p>
+<p style="margin:0 0 16px 0;font-size:15px;color:#6b7280;line-height:1.6;">
+Votre facture de renouvellement pour <strong style="color:#111827;">${invoiceDetails.organizationName}</strong> est disponible.
+</p>
+${this.infoBoxHtml([
+  { label: 'Numéro de facture', value: invoiceDetails.invoiceNumber },
+  { label: 'Plan', value: invoiceDetails.planName },
+  { label: 'Période', value: periodFormatted },
+  { label: 'Montant', value: `${invoiceDetails.amount.toLocaleString()} ${invoiceDetails.currency}`, valueColor: '#059669' },
+  { label: 'Date d\'échéance', value: dueDateFormatted, valueColor: '#ef4444' },
+])}
+<p style="margin:0 0 16px 0;font-size:14px;color:#6b7280;line-height:1.6;">
+Pour assurer la continuité de votre service, veuillez procéder au paiement avant la date d'échéance.
+</p>
+${this.buttonHtml('Payer maintenant', billingUrl)}
+      `,
+    });
   }
 }

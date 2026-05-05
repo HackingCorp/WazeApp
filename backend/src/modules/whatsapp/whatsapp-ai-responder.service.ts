@@ -610,6 +610,14 @@ export class WhatsAppAIResponderService {
         const matchedKeyword = keywords.find(kw => lowerMessage.includes(kw.toLowerCase()));
         if (matchedKeyword) {
           this.logger.log(`🚨 Escalation keyword in catch-up: "${matchedKeyword}" in conversation ${conversation.id}`);
+          // Check if escalation feature is available on current plan
+          if (agent.organizationId) {
+            const escalationAccess = await this.quotaEnforcementService.checkFeatureAccess(agent.organizationId, 'escalation');
+            if (!escalationAccess.enabled) {
+              this.logger.log(`⛔ Escalation blocked — ${escalationAccess.requiredPlan} plan required`);
+              return; // Skip escalation, let AI continue
+            }
+          }
           await this.escalateConversation(conversation, agent, fullSession, clientPhoneNumber, `Keyword detected: ${matchedKeyword}`);
           return;
         }
@@ -656,7 +664,10 @@ export class WhatsAppAIResponderService {
 
     const firstMessage = bufferedMessages[0];
     const event = firstMessage.event;
-    const fromNumber = event.message.key?.remoteJid;
+    // Use remoteJidAlt (real phone number) when remoteJid is a LID
+    const fromNumber = (event.message.key?.remoteJid?.includes('@lid') && event.message.key?.remoteJidAlt)
+      ? event.message.key.remoteJidAlt
+      : event.message.key?.remoteJid;
 
     this.logger.log(`🔄 Processing batch of ${bufferedMessages.length} messages from ${fromNumber}`);
 
@@ -840,6 +851,37 @@ export class WhatsAppAIResponderService {
       // Log the system prompt being used (first 200 chars)
       this.logger.log(`📝 Agent System Prompt (first 200 chars): ${agent.systemPrompt?.substring(0, 200) || 'NO PROMPT'}...`);
 
+      // === Check if this message is from the operator replying to an escalation ===
+      if (agent.escalationConfig?.operatorWhatsAppNumber) {
+        const normalizedFrom = fromNumber.replace(/@.*$/, '').replace(/\D/g, '');
+        const normalizedOperator = agent.escalationConfig.operatorWhatsAppNumber.replace(/@.*$/, '').replace(/\D/g, '');
+
+        if (normalizedFrom === normalizedOperator) {
+          this.logger.log(`📞 Message from operator phone ${normalizedFrom} — checking for escalation match`);
+          const escalationMatch = await this.matchOperatorReplyToEscalation(
+            bufferedMessages,
+            session,
+            agent,
+            normalizedFrom,
+          );
+
+          if (escalationMatch) {
+            this.logger.log(`✅ Operator WhatsApp reply matched to escalation — conversation ${escalationMatch.conversationId}`);
+            await this.handleOperatorWhatsAppReply(
+              escalationMatch,
+              bufferedMessages,
+              fullMessageContent,
+              session,
+              agent,
+            );
+            return;
+          }
+          // No escalation match — fall through to normal AI processing
+          // (operator may also be a regular client of a different agent)
+          this.logger.log(`ℹ️ No active escalation match for operator ${normalizedFrom} — processing as normal message`);
+        }
+      }
+
       // Get or create conversation
       const conversation = await this.getOrCreateConversation(fromNumber, session, agent);
 
@@ -878,18 +920,40 @@ export class WhatsAppAIResponderService {
 
         if (matchedKeyword) {
           this.logger.log(`🚨 Escalation keyword detected: "${matchedKeyword}" in conversation ${conversation.id}`);
-          // Save the incoming messages first
-          for (const msg of bufferedMessages) {
-            let msgContent = msg.messageText || "";
-            if (msg.mediaAnalysis) {
-              msgContent += msg.mediaAnalysis.description ? ` [${msg.mediaAnalysis.type}: ${msg.mediaAnalysis.description}]` : ` [${msg.mediaAnalysis.type}]`;
+          // Check if escalation feature is available on current plan
+          if (agent.organizationId) {
+            const escalationAccess = await this.quotaEnforcementService.checkFeatureAccess(agent.organizationId, 'escalation');
+            if (!escalationAccess.enabled) {
+              this.logger.log(`⛔ Escalation blocked — ${escalationAccess.requiredPlan} plan required`);
+              // Don't escalate — fall through to normal AI response
+            } else {
+              // Save the incoming messages first
+              for (const msg of bufferedMessages) {
+                let msgContent = msg.messageText || "";
+                if (msg.mediaAnalysis) {
+                  msgContent += msg.mediaAnalysis.description ? ` [${msg.mediaAnalysis.type}: ${msg.mediaAnalysis.description}]` : ` [${msg.mediaAnalysis.type}]`;
+                }
+                if (msgContent.trim()) {
+                  await this.saveIncomingMessage(conversation, msgContent.trim(), msg.event.message, msg.mediaAnalysis);
+                }
+              }
+              await this.escalateConversation(conversation, agent, session, fromNumber, `Keyword detected: ${matchedKeyword}`);
+              return;
             }
-            if (msgContent.trim()) {
-              await this.saveIncomingMessage(conversation, msgContent.trim(), msg.event.message, msg.mediaAnalysis);
+          } else {
+            // Save the incoming messages first
+            for (const msg of bufferedMessages) {
+              let msgContent = msg.messageText || "";
+              if (msg.mediaAnalysis) {
+                msgContent += msg.mediaAnalysis.description ? ` [${msg.mediaAnalysis.type}: ${msg.mediaAnalysis.description}]` : ` [${msg.mediaAnalysis.type}]`;
+              }
+              if (msgContent.trim()) {
+                await this.saveIncomingMessage(conversation, msgContent.trim(), msg.event.message, msg.mediaAnalysis);
+              }
             }
+            await this.escalateConversation(conversation, agent, session, fromNumber, `Keyword detected: ${matchedKeyword}`);
+            return;
           }
-          await this.escalateConversation(conversation, agent, session, fromNumber, `Keyword detected: ${matchedKeyword}`);
-          return;
         }
       }
 
@@ -2188,8 +2252,24 @@ EXEMPLES DE CONTEXTE:
         const escalateMatch = response.content.match(/\[ESCALAT[EE]\]\s*(.*)/i);
         const reason = escalateMatch?.[1]?.trim() || 'AI determined escalation needed';
         this.logger.log(`🚨 AI triggered escalation for conversation ${conversation.id}: ${reason}`);
-        await this.escalateConversation(conversation, agent, session, fromNumber, reason);
-        return;
+
+        // Check if escalation feature is available on current plan
+        let escalationAllowed = true;
+        if (agent.organizationId) {
+          const escalationAccess = await this.quotaEnforcementService.checkFeatureAccess(agent.organizationId, 'escalation');
+          if (!escalationAccess.enabled) {
+            this.logger.log(`⛔ AI-triggered escalation blocked — ${escalationAccess.requiredPlan} plan required`);
+            escalationAllowed = false;
+          }
+        }
+
+        if (escalationAllowed) {
+          await this.escalateConversation(conversation, agent, session, fromNumber, reason);
+          return;
+        } else {
+          // Strip [ESCALATE]/[ESCALADE] tag and send the cleaned response
+          response.content = response.content.replace(/\[ESCALAT[EE]\]\s*.*/i, '').trim();
+        }
       }
 
       // Check for [ORDER] tag in AI response
@@ -3229,14 +3309,41 @@ RÈGLES:
             `Client: +${clientPhone}\n` +
             `Raison: ${reason}\n` +
             `Date: ${new Date().toLocaleString('fr-FR')}\n\n` +
-            `Connectez-vous au dashboard pour répondre.`;
+            `💬 Répondez directement à ce message pour envoyer votre réponse au client.`;
 
-          await this.baileysService.sendMessage(session.id, {
+          const notifResult = await this.baileysService.sendMessage(session.id, {
             to: operatorPhone,
             message: notificationMsg,
             type: 'text',
           });
           this.logger.log(`✅ WhatsApp escalation notification sent to operator ${operatorPhone}`);
+
+          // Store Redis keys for matching operator WhatsApp replies
+          if (notifResult?.messageId) {
+            const escalationData = JSON.stringify({
+              conversationId: conversation.id,
+              sessionId: session.id,
+              clientPhoneNumber: fromNumber,
+              agentId: agent.id,
+            });
+            const TTL_48H = 48 * 60 * 60;
+            // Key for matching quoted replies to this specific notification
+            await this.redisClient.set(
+              `escalation:notif:${notifResult.messageId}`,
+              escalationData,
+              'EX',
+              TTL_48H,
+            );
+            // Key for matching plain (non-quoted) replies from this operator on this session
+            const normalizedOperator = operatorPhone.replace(/\D/g, '');
+            await this.redisClient.set(
+              `escalation:active:${session.id}:${normalizedOperator}`,
+              escalationData,
+              'EX',
+              TTL_48H,
+            );
+            this.logger.log(`📌 Stored escalation Redis keys for notif ${notifResult.messageId} and operator ${normalizedOperator}`);
+          }
         } catch (whatsappError) {
           this.logger.error(`❌ Failed to send WhatsApp escalation notification: ${whatsappError.message}`);
         }
@@ -3263,6 +3370,194 @@ RÈGLES:
       this.logger.log(`✅ Conversation ${conversation.id} escalated successfully. Reason: ${reason}`);
     } catch (error) {
       this.logger.error(`❌ Failed to escalate conversation ${conversation.id}: ${error.message}`, error.stack);
+    }
+  }
+
+  /**
+   * Match an operator's WhatsApp reply to an active escalation.
+   * Three-tier strategy: quoted reply → parse notification text → plain reply fallback.
+   */
+  private async matchOperatorReplyToEscalation(
+    bufferedMessages: any[],
+    session: WhatsAppSession,
+    agent: AiAgent,
+    normalizedOperatorPhone: string,
+  ): Promise<{ conversationId: string; sessionId: string; clientPhoneNumber: string; agentId: string } | null> {
+    try {
+      // Tier 1: Check if operator quoted the escalation notification
+      const firstMsg = bufferedMessages[0]?.event?.message;
+      if (firstMsg) {
+        const replyCtx = this.extractReplyContext(firstMsg);
+        if (replyCtx.isReply && replyCtx.quotedMessageId) {
+          // Look up the quoted message ID in Redis
+          const redisData = await this.redisClient.get(`escalation:notif:${replyCtx.quotedMessageId}`);
+          if (redisData) {
+            this.logger.log(`🎯 Tier 1 match: operator quoted escalation notification ${replyCtx.quotedMessageId}`);
+            return JSON.parse(redisData);
+          }
+
+          // Tier 2: Parse the quoted message text for client phone number
+          if (replyCtx.quotedMessage) {
+            const phoneMatch = replyCtx.quotedMessage.match(/Client:\s*\+(\d+)/);
+            if (phoneMatch) {
+              const clientPhone = phoneMatch[1];
+              this.logger.log(`🔍 Tier 2: found client phone +${clientPhone} in quoted notification text`);
+              // Find matching escalated conversation
+              const conversation = await this.conversationRepository.findOne({
+                where: {
+                  clientPhoneNumber: clientPhone,
+                  agentId: agent.id,
+                  isHumanControlled: true,
+                },
+                order: { updatedAt: 'DESC' },
+              });
+              if (conversation) {
+                return {
+                  conversationId: conversation.id,
+                  sessionId: session.id,
+                  clientPhoneNumber: clientPhone,
+                  agentId: agent.id,
+                };
+              }
+            }
+          }
+        }
+      }
+
+      // Tier 3: Plain reply fallback — check Redis active key
+      const activeData = await this.redisClient.get(`escalation:active:${session.id}:${normalizedOperatorPhone}`);
+      if (activeData) {
+        const parsed = JSON.parse(activeData);
+        // Verify the conversation is still escalated
+        const conversation = await this.conversationRepository.findOne({
+          where: { id: parsed.conversationId, isHumanControlled: true },
+        });
+        if (conversation) {
+          this.logger.log(`🎯 Tier 3 match: active escalation key for operator on session ${session.id}`);
+          return parsed;
+        }
+      }
+
+      // Tier 3 fallback: check if exactly ONE active escalation exists for this session
+      const activeEscalations = await this.conversationRepository.find({
+        where: {
+          agentId: agent.id,
+          isHumanControlled: true,
+        },
+        order: { updatedAt: 'DESC' },
+        take: 2, // Only need to know if there's exactly 1
+      });
+
+      if (activeEscalations.length === 1) {
+        const conv = activeEscalations[0];
+        this.logger.log(`🎯 Tier 3 fallback: single active escalation found — conversation ${conv.id}`);
+        return {
+          conversationId: conv.id,
+          sessionId: session.id,
+          clientPhoneNumber: conv.clientPhoneNumber,
+          agentId: agent.id,
+        };
+      }
+
+      if (activeEscalations.length > 1) {
+        // Multiple active escalations — send disambiguation message
+        this.logger.log(`⚠️ Multiple active escalations (${activeEscalations.length}) — sending disambiguation to operator`);
+        const operatorJid = agent.escalationConfig.operatorWhatsAppNumber.replace(/@.*$/, '');
+        let disambigMsg = `⚠️ *Plusieurs conversations escaladées en cours*\n\nVeuillez citer (répondre à) la notification spécifique du client auquel vous souhaitez répondre.\n\n`;
+        disambigMsg += `Conversations actives:\n`;
+        for (const conv of activeEscalations) {
+          disambigMsg += `• Client: +${conv.clientPhoneNumber}\n`;
+        }
+        await this.baileysService.sendMessage(session.id, {
+          to: operatorJid,
+          message: disambigMsg,
+          type: 'text',
+        });
+      }
+
+      return null;
+    } catch (error) {
+      this.logger.error(`Error matching operator reply to escalation: ${error.message}`, error.stack);
+      return null;
+    }
+  }
+
+  /**
+   * Handle an operator's WhatsApp reply to an escalated conversation.
+   * Saves the message, forwards it to the client, and notifies the dashboard.
+   */
+  private async handleOperatorWhatsAppReply(
+    escalationMatch: { conversationId: string; sessionId: string; clientPhoneNumber: string; agentId: string },
+    bufferedMessages: any[],
+    fullMessageContent: string,
+    session: WhatsAppSession,
+    agent: AiAgent,
+  ): Promise<void> {
+    try {
+      const replyText = fullMessageContent.trim();
+      if (!replyText) {
+        this.logger.warn(`Empty operator reply — skipping`);
+        return;
+      }
+
+      // Get next sequence number
+      const lastMessage = await this.messageRepository.findOne({
+        where: { conversationId: escalationMatch.conversationId },
+        order: { sequenceNumber: 'DESC' },
+      });
+      const nextSequence = (lastMessage?.sequenceNumber || 0) + 1;
+
+      // Save operator message in conversation history
+      const operatorMessage = this.messageRepository.create({
+        conversationId: escalationMatch.conversationId,
+        role: MessageRole.OPERATOR,
+        content: replyText,
+        status: MessageStatus.SENT,
+        sequenceNumber: nextSequence,
+        metadata: {
+          fromWhatsApp: true,
+          replyChannel: 'whatsapp',
+          originalSender: 'operator',
+        } as any,
+      });
+      const savedMessage = await this.messageRepository.save(operatorMessage);
+
+      // Emit operator.message.send event — existing handler forwards to client via Baileys
+      this.eventEmitter.emit('operator.message.send', {
+        sessionId: escalationMatch.sessionId,
+        clientPhoneNumber: escalationMatch.clientPhoneNumber,
+        message: replyText,
+        conversationId: escalationMatch.conversationId,
+        messageId: savedMessage.id,
+        operatorId: 'whatsapp-reply',
+      });
+
+      // Emit message.sent socket event — dashboard updates in real-time
+      this.eventEmitter.emit('message.sent', {
+        conversationId: escalationMatch.conversationId,
+        message: {
+          id: savedMessage.id,
+          content: replyText,
+          role: 'operator',
+          status: 'sent',
+          createdAt: new Date(),
+          metadata: { fromWhatsApp: true, replyChannel: 'whatsapp' },
+        },
+        organizationId: agent.organizationId,
+      });
+
+      // Refresh the escalation:active Redis key TTL (operator is actively responding)
+      const normalizedOperator = (agent.escalationConfig?.operatorWhatsAppNumber || '').replace(/@.*$/, '').replace(/\D/g, '');
+      const activeKey = `escalation:active:${session.id}:${normalizedOperator}`;
+      const existingData = await this.redisClient.get(activeKey);
+      if (existingData) {
+        const TTL_48H = 48 * 60 * 60;
+        await this.redisClient.set(activeKey, existingData, 'EX', TTL_48H);
+      }
+
+      this.logger.log(`✅ Operator WhatsApp reply forwarded to client +${escalationMatch.clientPhoneNumber} (conversation ${escalationMatch.conversationId})`);
+    } catch (error) {
+      this.logger.error(`Failed to handle operator WhatsApp reply: ${error.message}`, error.stack);
     }
   }
 

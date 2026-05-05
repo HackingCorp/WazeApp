@@ -3,12 +3,16 @@ import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { OrderService } from '../services/order.service';
 import { CreateOrderDto, UpdateOrderStatusDto, OrderQueryDto } from '../dto/order.dto';
 import { OrderSource } from '@/common/enums';
+import { QuotaEnforcementService } from '../../subscriptions/quota-enforcement.service';
 
 @ApiTags('Orders')
 @ApiBearerAuth()
 @Controller('orders')
 export class OrderController {
-  constructor(private readonly orderService: OrderService) {}
+  constructor(
+    private readonly orderService: OrderService,
+    private readonly quotaEnforcementService: QuotaEnforcementService,
+  ) {}
 
   @Get()
   async findAll(@Req() req: any, @Query() query: OrderQueryDto) {
@@ -41,6 +45,7 @@ export class OrderController {
   @Post()
   async create(@Req() req: any, @Body() dto: CreateOrderDto) {
     const organizationId = req.user.organizationId || req.user.organization?.id;
+    await this.quotaEnforcementService.enforceFeatureAccess(organizationId, 'ecommerce');
     return this.orderService.create(organizationId, {
       ...dto,
       source: dto.source || OrderSource.DASHBOARD,

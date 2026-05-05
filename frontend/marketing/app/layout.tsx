@@ -30,10 +30,6 @@ export const metadata: Metadata = {
   publisher: "WazeApp",
   alternates: {
     canonical: "/",
-    languages: {
-      "en": "/en",
-      "fr": "/fr",
-    },
   },
   openGraph: {
     title: "WazeApp - WhatsApp AI Assistant",
@@ -69,9 +65,10 @@ export const metadata: Metadata = {
       "max-snippet": -1,
     },
   },
-  verification: {
-    google: "your-google-verification-code",
-  },
+  // TODO: Add real Google Search Console verification code
+  // verification: {
+  //   google: "your-real-verification-code",
+  // },
   category: "technology",
 };
 

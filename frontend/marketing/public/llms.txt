@@ -1,0 +1,41 @@
+# WazeApp
+
+> WazeApp is an AI-powered WhatsApp automation platform that enables businesses to create intelligent chatbot agents for customer support, sales, and engagement on WhatsApp.
+
+## What WazeApp Does
+
+WazeApp transforms WhatsApp into an AI-powered customer engagement platform. Businesses can:
+
+- Create AI agents that respond to WhatsApp messages 24/7
+- Build knowledge bases from documents (PDF, text, URLs) for accurate AI responses
+- Support 95+ languages with automatic detection
+- Handle voice messages, images, and rich media
+- Escalate conversations to human operators when needed
+- Send broadcast campaigns to multiple contacts
+- Manage an e-commerce catalog and take orders via WhatsApp
+- Track analytics on agent performance and customer satisfaction
+
+## Key Features
+
+- **AI Agents**: Configure custom AI personalities with system prompts, tone, and language settings
+- **Knowledge Base**: Upload documents to train your agent with domain-specific knowledge using vector search
+- **Multi-Provider AI**: Supports OpenAI, DeepSeek, Mistral, and local models via Ollama
+- **Human Escalation**: Automatic handoff to human operators with keyword triggers
+- **Broadcast**: Send templated messages to contact lists
+- **E-commerce**: Product catalogs, order management, appointment scheduling via WhatsApp
+- **Analytics**: Real-time dashboards for message volume, response times, and satisfaction
+- **Team Collaboration**: Multi-user organizations with role-based access
+
+## Plans
+
+- **Standard**: 1 AI agent, 500 messages/month, 1 WhatsApp session
+- **Pro**: 3 AI agents, 5,000 messages/month, 3 WhatsApp sessions, escalation, e-commerce
+- **Enterprise**: 10 AI agents, unlimited messages, 10 WhatsApp sessions, priority support
+
+## Links
+
+- Website: https://wazeapp.ai
+- Dashboard: https://app.wazeapp.ai
+- Pricing: https://wazeapp.ai/pricing
+- Features: https://wazeapp.ai/features
+- Contact: support@wazeapp.ai

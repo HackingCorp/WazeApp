@@ -20,10 +20,73 @@ export const metadata: Metadata = {
   },
 }
 
+const faqJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: [
+    {
+      "@type": "Question",
+      name: "Can I change plans anytime?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "Yes, you can upgrade or downgrade your plan at any time. Changes take effect immediately.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "What happens if I exceed my message limit?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "You'll be notified when you reach 80% of your limit. You can upgrade your plan or purchase additional messages.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "Is there a setup fee?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "No, there are no setup fees. You can start using WazeApp immediately after signing up.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "Do you offer refunds?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "We offer a 14-day money-back guarantee for all paid plans. No questions asked.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "Can I use multiple WhatsApp numbers?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "Yes, each agent represents one WhatsApp number. You can add more agents based on your plan.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "What payment methods do you accept?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "We accept all major credit cards, PayPal, and bank transfers for enterprise customers.",
+      },
+    },
+  ],
+}
+
 export default function PricingLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  return children
+  return (
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
+      />
+      {children}
+    </>
+  )
 }

@@ -6,6 +6,7 @@ import { ThemeProvider } from "@/components/providers/theme-provider";
 import { LanguageProvider } from "@/components/providers/language-provider";
 import { Navbar } from "@/components/navigation/navbar";
 import { PostHogProvider } from "@/components/providers/posthog-provider";
+import { MetaPixelProvider } from "@/components/providers/meta-pixel-provider";
 
 const DemoChatWidget = dynamic(
   () => import("@/components/sections/demo-chat").then((m) => ({ default: m.DemoChatWidget })),
@@ -150,9 +151,11 @@ export default function RootLayout({
         >
           <LanguageProvider>
             <PostHogProvider>
-              <Navbar />
-              <main>{children}</main>
-              <DemoChatWidget />
+              <MetaPixelProvider>
+                <Navbar />
+                <main>{children}</main>
+                <DemoChatWidget />
+              </MetaPixelProvider>
             </PostHogProvider>
           </LanguageProvider>
         </ThemeProvider>

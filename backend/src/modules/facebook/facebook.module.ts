@@ -22,7 +22,7 @@ import {
   ConversationContext,
   LlmProvider,
 } from "@/common/entities";
-import { AuditService } from "../audit/audit.service";
+import { AuditModule } from "../audit/audit.module";
 import { SubscriptionModule } from "../subscriptions/subscription.module";
 import { ConversationManagementModule } from "../conversation-management/conversation-management.module";
 
@@ -62,13 +62,13 @@ import { ConversationManagementModule } from "../conversation-management/convers
     }),
     SubscriptionModule,
     ConversationManagementModule,
+    AuditModule,
   ],
   controllers: [FacebookController],
   providers: [
     FacebookService,
     FacebookCommentResponderService,
     FacebookCommentProcessor,
-    AuditService,
   ],
   exports: [FacebookService, FacebookCommentResponderService],
 })

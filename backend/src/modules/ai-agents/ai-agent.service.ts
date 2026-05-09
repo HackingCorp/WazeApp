@@ -297,7 +297,7 @@ export class AiAgentService {
   async findOne(organizationId: string, id: string): Promise<AiAgent> {
     const agent = await this.agentRepository.findOne({
       where: { id, organizationId },
-      relations: ["creator", "knowledgeBases", "catalogs", "conversations"],
+      relations: ["creator", "knowledgeBases", "catalogs", "conversations", "whatsappSessions", "facebookPageSessions"],
     });
 
     if (!agent) {
@@ -321,7 +321,7 @@ export class AiAgentService {
           { id, organizationId },
           { id, createdBy: userId, organizationId: IsNull() }
         ],
-        relations: ["creator", "knowledgeBases", "catalogs", "conversations"],
+        relations: ["creator", "knowledgeBases", "catalogs", "conversations", "whatsappSessions", "facebookPageSessions"],
       });
     } else {
       // User without organization - find only agents they created
@@ -329,7 +329,7 @@ export class AiAgentService {
         where: [
           { id, createdBy: userId },
         ],
-        relations: ["creator", "knowledgeBases", "catalogs", "conversations"],
+        relations: ["creator", "knowledgeBases", "catalogs", "conversations", "whatsappSessions", "facebookPageSessions"],
       });
     }
 

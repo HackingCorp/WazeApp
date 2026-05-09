@@ -142,6 +142,7 @@ export enum ConversationStatus {
 
 export enum ConversationChannel {
   WHATSAPP = "whatsapp",
+  FACEBOOK = "facebook",
   WEB_CHAT = "web_chat",
   API = "api",
   PHONE = "phone",

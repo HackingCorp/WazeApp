@@ -27,6 +27,10 @@ import {
   ChevronUp,
   RotateCcw,
   AlertTriangle,
+  Share2,
+  CheckCircle2,
+  XCircle,
+  Circle,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useI18n } from '@/providers/I18nProvider';
@@ -71,6 +75,21 @@ interface Agent {
     operatorWhatsAppNumber?: string;
     notificationEmails?: string[];
   };
+  whatsappSessions?: Array<{
+    id: string;
+    name: string;
+    phoneNumber?: string;
+    status: string;
+    isActive: boolean;
+  }>;
+  facebookPageSessions?: Array<{
+    id: string;
+    name: string;
+    pageName?: string;
+    pageUsername?: string;
+    status: string;
+    isActive: boolean;
+  }>;
 }
 
 interface CatalogStore {
@@ -457,6 +476,7 @@ export default function EditAgentPage() {
   const tabs = [
     { id: 'basic', name: 'Informations de base', icon: Bot },
     { id: 'knowledge', name: 'Base de connaissances', icon: Database },
+    { id: 'channels', name: 'Canaux connectés', icon: Share2 },
     { id: 'advanced', name: 'Paramètres avancés', icon: Settings },
     { id: 'escalation', name: 'Escalade', icon: AlertTriangle },
   ];
@@ -1168,6 +1188,144 @@ export default function EditAgentPage() {
                     {agent?.id}
                   </p>
                 </div>
+              </div>
+            </div>
+          </div>
+        );
+
+      case 'channels':
+        return (
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
+                Canaux connectés
+              </h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
+                Consultez les canaux de communication WhatsApp et Facebook connectés à cet agent.
+              </p>
+
+              {/* WhatsApp Sessions */}
+              <div className="mb-6">
+                <h4 className="text-md font-medium text-gray-800 dark:text-gray-200 mb-3 flex items-center">
+                  <MessageSquare className="w-5 h-5 mr-2 text-green-600" />
+                  WhatsApp ({agent?.whatsappSessions?.length || 0})
+                </h4>
+                {agent?.whatsappSessions && agent.whatsappSessions.length > 0 ? (
+                  <div className="space-y-2">
+                    {agent.whatsappSessions.map((session) => (
+                      <div
+                        key={session.id}
+                        className="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-900"
+                      >
+                        <div className="flex items-center space-x-3">
+                          <div className="w-10 h-10 rounded-full bg-green-100 dark:bg-green-900 flex items-center justify-center">
+                            <MessageSquare className="w-5 h-5 text-green-600 dark:text-green-400" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-gray-900 dark:text-white">
+                              {session.name}
+                            </p>
+                            {session.phoneNumber && (
+                              <p className="text-xs text-gray-500 dark:text-gray-400">
+                                {session.phoneNumber}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          {session.status === 'connected' && session.isActive ? (
+                            <span className="flex items-center text-xs text-green-600 dark:text-green-400">
+                              <CheckCircle2 className="w-4 h-4 mr-1" />
+                              Connecté
+                            </span>
+                          ) : session.status === 'disconnected' ? (
+                            <span className="flex items-center text-xs text-gray-500 dark:text-gray-400">
+                              <XCircle className="w-4 h-4 mr-1" />
+                              Déconnecté
+                            </span>
+                          ) : (
+                            <span className="flex items-center text-xs text-yellow-600 dark:text-yellow-400">
+                              <Circle className="w-4 h-4 mr-1" />
+                              {session.status}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-6 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-900 text-center">
+                    <MessageSquare className="w-12 h-12 mx-auto mb-3 text-gray-400 dark:text-gray-600" />
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      Aucune session WhatsApp connectée
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                      Connectez une session WhatsApp depuis la page WhatsApp pour l'assigner à cet agent
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Facebook Page Sessions */}
+              <div>
+                <h4 className="text-md font-medium text-gray-800 dark:text-gray-200 mb-3 flex items-center">
+                  <MessageSquare className="w-5 h-5 mr-2 text-blue-600" />
+                  Facebook ({agent?.facebookPageSessions?.length || 0})
+                </h4>
+                {agent?.facebookPageSessions && agent.facebookPageSessions.length > 0 ? (
+                  <div className="space-y-2">
+                    {agent.facebookPageSessions.map((session) => (
+                      <div
+                        key={session.id}
+                        className="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-900"
+                      >
+                        <div className="flex items-center space-x-3">
+                          <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center">
+                            <MessageSquare className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-gray-900 dark:text-white">
+                              {session.name}
+                            </p>
+                            {(session.pageName || session.pageUsername) && (
+                              <p className="text-xs text-gray-500 dark:text-gray-400">
+                                {session.pageName || `@${session.pageUsername}`}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          {session.status === 'connected' && session.isActive ? (
+                            <span className="flex items-center text-xs text-green-600 dark:text-green-400">
+                              <CheckCircle2 className="w-4 h-4 mr-1" />
+                              Connecté
+                            </span>
+                          ) : session.status === 'disconnected' ? (
+                            <span className="flex items-center text-xs text-gray-500 dark:text-gray-400">
+                              <XCircle className="w-4 h-4 mr-1" />
+                              Déconnecté
+                            </span>
+                          ) : (
+                            <span className="flex items-center text-xs text-yellow-600 dark:text-yellow-400">
+                              <Circle className="w-4 h-4 mr-1" />
+                              {session.status}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-6 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-900 text-center">
+                    <MessageSquare className="w-12 h-12 mx-auto mb-3 text-gray-400 dark:text-gray-600" />
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      Aucune page Facebook connectée
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                      Connectez une page Facebook depuis la page Facebook pour l'assigner à cet agent
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           </div>

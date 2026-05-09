@@ -4,9 +4,18 @@ export class AddFacebookSupport1783000000000 implements MigrationInterface {
   name = 'AddFacebookSupport1783000000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
-    // 1. Add 'facebook' value to conversation_channel_enum
+    // 1. Add 'facebook' value to the conversation channel enum
+    // TypeORM may name it differently depending on how schema was created
+    const enumName = await queryRunner.query(`
+      SELECT t.typname FROM pg_type t
+      JOIN pg_enum e ON t.oid = e.enumtypid
+      WHERE e.enumlabel = 'whatsapp'
+      AND t.typname LIKE '%channel%'
+      LIMIT 1;
+    `);
+    const typeName = enumName?.[0]?.typname || 'agent_conversations_channel_enum';
     await queryRunner.query(`
-      ALTER TYPE "conversation_channel_enum" ADD VALUE IF NOT EXISTS 'facebook';
+      ALTER TYPE "${typeName}" ADD VALUE IF NOT EXISTS 'facebook';
     `);
 
     // 2. Create FacebookPageSessionStatus enum

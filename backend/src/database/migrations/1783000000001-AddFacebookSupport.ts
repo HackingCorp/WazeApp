@@ -1,7 +1,7 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class AddFacebookSupport1783000000000 implements MigrationInterface {
-  name = 'AddFacebookSupport1783000000000';
+export class AddFacebookSupport1783000000001 implements MigrationInterface {
+  name = 'AddFacebookSupport1783000000001';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     // 1. Add 'facebook' value to the conversation channel enum
@@ -178,13 +178,13 @@ export class AddFacebookSupport1783000000000 implements MigrationInterface {
 
     await queryRunner.query(`
       ALTER TABLE "plans"
-      ADD COLUMN IF NOT EXISTS "facebookCommentsLimit" integer NOT NULL DEFAULT 0
+      ADD COLUMN IF NOT EXISTS "maxFacebookComments" integer NOT NULL DEFAULT 0
     `);
 
     // 12. Enable Facebook for PRO and ENTERPRISE plans
     await queryRunner.query(`
       UPDATE "plans"
-      SET "featureFacebook" = true, "facebookCommentsLimit" = 1000
+      SET "featureFacebook" = true, "maxFacebookComments" = 1000
       WHERE "code" IN ('pro', 'enterprise')
     `);
   }
@@ -192,7 +192,7 @@ export class AddFacebookSupport1783000000000 implements MigrationInterface {
   public async down(queryRunner: QueryRunner): Promise<void> {
     // Drop Facebook quota columns from plans table
     await queryRunner.query(`
-      ALTER TABLE "plans" DROP COLUMN IF EXISTS "facebookCommentsLimit"
+      ALTER TABLE "plans" DROP COLUMN IF EXISTS "maxFacebookComments"
     `);
 
     await queryRunner.query(`

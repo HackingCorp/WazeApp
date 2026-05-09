@@ -86,27 +86,35 @@ export class AddFacebookSupport1783000000001 implements MigrationInterface {
 
     // 6. Add foreign key constraints for facebook_page_sessions
     await queryRunner.query(`
-      ALTER TABLE "facebook_page_sessions"
-      ADD CONSTRAINT "FK_facebook_page_sessions_user"
-      FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE
+      DO $$ BEGIN
+        ALTER TABLE "facebook_page_sessions"
+        ADD CONSTRAINT "FK_facebook_page_sessions_user"
+        FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE;
+      EXCEPTION WHEN duplicate_object THEN null; END $$
     `);
 
     await queryRunner.query(`
-      ALTER TABLE "facebook_page_sessions"
-      ADD CONSTRAINT "FK_facebook_page_sessions_organization"
-      FOREIGN KEY ("organizationId") REFERENCES "organizations"("id") ON DELETE CASCADE
+      DO $$ BEGIN
+        ALTER TABLE "facebook_page_sessions"
+        ADD CONSTRAINT "FK_facebook_page_sessions_organization"
+        FOREIGN KEY ("organizationId") REFERENCES "organizations"("id") ON DELETE CASCADE;
+      EXCEPTION WHEN duplicate_object THEN null; END $$
     `);
 
     await queryRunner.query(`
-      ALTER TABLE "facebook_page_sessions"
-      ADD CONSTRAINT "FK_facebook_page_sessions_agent"
-      FOREIGN KEY ("agentId") REFERENCES "ai_agents"("id") ON DELETE SET NULL
+      DO $$ BEGIN
+        ALTER TABLE "facebook_page_sessions"
+        ADD CONSTRAINT "FK_facebook_page_sessions_agent"
+        FOREIGN KEY ("agentId") REFERENCES "ai_agents"("id") ON DELETE SET NULL;
+      EXCEPTION WHEN duplicate_object THEN null; END $$
     `);
 
     await queryRunner.query(`
-      ALTER TABLE "facebook_page_sessions"
-      ADD CONSTRAINT "FK_facebook_page_sessions_knowledge_base"
-      FOREIGN KEY ("knowledgeBaseId") REFERENCES "knowledge_bases"("id") ON DELETE SET NULL
+      DO $$ BEGIN
+        ALTER TABLE "facebook_page_sessions"
+        ADD CONSTRAINT "FK_facebook_page_sessions_knowledge_base"
+        FOREIGN KEY ("knowledgeBaseId") REFERENCES "knowledge_bases"("id") ON DELETE SET NULL;
+      EXCEPTION WHEN duplicate_object THEN null; END $$
     `);
 
     // 7. Create facebook_contacts table
@@ -153,21 +161,27 @@ export class AddFacebookSupport1783000000001 implements MigrationInterface {
 
     // 10. Add foreign key constraints for facebook_contacts
     await queryRunner.query(`
-      ALTER TABLE "facebook_contacts"
-      ADD CONSTRAINT "FK_facebook_contacts_session"
-      FOREIGN KEY ("sessionId") REFERENCES "facebook_page_sessions"("id") ON DELETE CASCADE
+      DO $$ BEGIN
+        ALTER TABLE "facebook_contacts"
+        ADD CONSTRAINT "FK_facebook_contacts_session"
+        FOREIGN KEY ("sessionId") REFERENCES "facebook_page_sessions"("id") ON DELETE CASCADE;
+      EXCEPTION WHEN duplicate_object THEN null; END $$
     `);
 
     await queryRunner.query(`
-      ALTER TABLE "facebook_contacts"
-      ADD CONSTRAINT "FK_facebook_contacts_user"
-      FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE SET NULL
+      DO $$ BEGIN
+        ALTER TABLE "facebook_contacts"
+        ADD CONSTRAINT "FK_facebook_contacts_user"
+        FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE SET NULL;
+      EXCEPTION WHEN duplicate_object THEN null; END $$
     `);
 
     await queryRunner.query(`
-      ALTER TABLE "facebook_contacts"
-      ADD CONSTRAINT "FK_facebook_contacts_organization"
-      FOREIGN KEY ("organizationId") REFERENCES "organizations"("id") ON DELETE CASCADE
+      DO $$ BEGIN
+        ALTER TABLE "facebook_contacts"
+        ADD CONSTRAINT "FK_facebook_contacts_organization"
+        FOREIGN KEY ("organizationId") REFERENCES "organizations"("id") ON DELETE CASCADE;
+      EXCEPTION WHEN duplicate_object THEN null; END $$
     `);
 
     // 11. Add Facebook quota columns to plans table

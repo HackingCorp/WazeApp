@@ -126,12 +126,11 @@ export class FacebookCommentResponderService {
       }
 
       // Check quota
-      const canProcess = await this.quotaEnforcementService.checkQuota(
+      const quotaCheck = await this.quotaEnforcementService.checkFacebookCommentQuota(
         session.organizationId,
-        "aiMessages",
       );
 
-      if (!canProcess) {
+      if (!quotaCheck.allowed) {
         this.logger.warn(
           `Quota exceeded for organization ${session.organizationId}, skipping comment`,
         );
@@ -155,11 +154,11 @@ export class FacebookCommentResponderService {
 
       // Save user message
       const userMessage = this.messageRepository.create({
-        conversationId: conversation.id,
+        conversation: { id: conversation.id },
         role: MessageRole.USER,
         content: commentEvent.message,
         status: MessageStatus.DELIVERED,
-        metadata: {
+        customData: {
           commentId: commentEvent.id,
           createdTime: commentEvent.created_time,
           postId: commentEvent.post_id,
@@ -172,32 +171,38 @@ export class FacebookCommentResponderService {
 
       // Get conversation history
       const conversationHistory = await this.messageRepository.find({
-        where: { conversationId: conversation.id },
+        where: { conversation: { id: conversation.id } },
         order: { createdAt: "ASC" },
         take: 10,
       });
 
+      // Get or create conversation context
+      const context = await this.conversationRepository
+        .createQueryBuilder("conv")
+        .leftJoinAndSelect("conv.context", "context")
+        .where("conv.id = :id", { id: conversation.id })
+        .getOne();
+
       // Generate AI response using ResponseGenerationService
       const aiResponse = await this.responseGenerationService.generateResponse({
-        conversationId: conversation.id,
         agentId: session.agent.id,
         userMessage: commentEvent.message,
-        context: conversation.context || {},
+        context: context?.context || null,
         conversationHistory,
         priority: "normal",
       });
 
       // Save AI message
       const aiMessage = this.messageRepository.create({
-        conversationId: conversation.id,
-        role: MessageRole.ASSISTANT,
+        conversation: { id: conversation.id },
+        role: MessageRole.AGENT,
         content: aiResponse.content,
-        status: MessageStatus.PENDING,
-        metadata: {
-          model: aiResponse.metadata.model,
-          tokensUsed: aiResponse.metadata.tokensUsed,
-          processingTimeMs: aiResponse.metadata.processingTimeMs,
-          confidence: aiResponse.confidence,
+        status: MessageStatus.SENT,
+        modelUsed: aiResponse.metadata.model,
+        tokensUsed: aiResponse.metadata.tokensUsed,
+        processingTimeMs: aiResponse.metadata.processingTimeMs,
+        confidence: aiResponse.confidence,
+        customData: {
           ragUsed: aiResponse.metadata.ragUsed,
         },
       });
@@ -214,8 +219,8 @@ export class FacebookCommentResponderService {
 
         // Update message status
         aiMessage.status = MessageStatus.DELIVERED;
-        aiMessage.metadata = {
-          ...aiMessage.metadata,
+        aiMessage.customData = {
+          ...aiMessage.customData,
           commentId: replyResult.id,
           sentAt: new Date(),
         };
@@ -228,8 +233,8 @@ export class FacebookCommentResponderService {
           error.stack,
         );
         aiMessage.status = MessageStatus.FAILED;
-        aiMessage.metadata = {
-          ...aiMessage.metadata,
+        aiMessage.customData = {
+          ...aiMessage.customData,
           error: error.message,
         };
         await this.messageRepository.save(aiMessage);
@@ -247,13 +252,6 @@ export class FacebookCommentResponderService {
 
       // Track usage
       await this.trackUsage(session, aiResponse.metadata.tokensUsed);
-
-      // Increment quota
-      await this.quotaEnforcementService.incrementUsage(
-        session.organizationId,
-        "aiMessages",
-        1,
-      );
     } catch (error) {
       this.logger.error(
         `Error processing comment ${commentId}: ${error.message}`,
@@ -275,7 +273,7 @@ export class FacebookCommentResponderService {
     // Try to find existing active conversation
     let conversation = await this.conversationRepository.findOne({
       where: {
-        agentId: session.agentId,
+        agent: { id: session.agentId },
         channel: ConversationChannel.FACEBOOK,
         externalId: facebookUserId,
         status: ConversationStatus.ACTIVE,
@@ -286,12 +284,12 @@ export class FacebookCommentResponderService {
     if (!conversation) {
       // Create new conversation
       conversation = this.conversationRepository.create({
-        agentId: session.agentId,
+        agent: { id: session.agentId },
         channel: ConversationChannel.FACEBOOK,
         externalId: facebookUserId,
         status: ConversationStatus.ACTIVE,
         sessionId: session.id,
-        context: {
+        metadata: {
           sessionId: session.id,
           pageId: session.pageId,
           postId,
@@ -326,7 +324,7 @@ export class FacebookCommentResponderService {
       const metric = this.usageMetricRepository.create({
         organizationId: session.organizationId,
         userId: session.userId,
-        type: UsageMetricType.AI_MESSAGE,
+        type: UsageMetricType.API_REQUESTS,
         value: 1,
         metadata: {
           sessionId: session.id,

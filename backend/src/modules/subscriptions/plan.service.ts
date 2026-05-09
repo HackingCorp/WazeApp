@@ -335,6 +335,7 @@ export class PlanService implements OnModuleInit, OnModuleDestroy {
     maxDocumentsPerKB: number;
     maxFileUploadSize: number;
     broadcastContacts: number;
+    maxFacebookComments: number;
   } {
     const plan = this.getPlanByCode(code);
 
@@ -352,6 +353,7 @@ export class PlanService implements OnModuleInit, OnModuleDestroy {
         maxDocumentsPerKB: 50,
         maxFileUploadSize: 10 * 1024 * 1024,
         broadcastContacts: 50,
+        maxFacebookComments: 100,
       };
     }
 
@@ -367,6 +369,7 @@ export class PlanService implements OnModuleInit, OnModuleDestroy {
       maxDocumentsPerKB: plan.maxDocumentsPerKb,
       maxFileUploadSize: plan.maxFileUploadBytes,
       broadcastContacts: plan.maxBroadcastContacts,
+      maxFacebookComments: plan.maxFacebookComments || 0,
     };
   }
 

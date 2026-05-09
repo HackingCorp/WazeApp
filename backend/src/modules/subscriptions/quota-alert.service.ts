@@ -268,7 +268,6 @@ export class QuotaAlertService {
         currentUsage,
         limit,
         this.formatPlanName(planName),
-        channel,
       );
 
       // Mark all thresholds up to this one as sent

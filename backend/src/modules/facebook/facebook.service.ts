@@ -19,6 +19,7 @@ import {
   AiAgent,
 } from "@/common/entities";
 import { FacebookPageSessionStatus } from "@/common/entities/facebook-page-session.entity";
+import { AuditAction } from "@/common/enums";
 import {
   ConnectPageDto,
   UpdatePageSessionDto,
@@ -109,7 +110,7 @@ export class FacebookService {
       await this.auditService.log({
         userId,
         organizationId: organizationId || null,
-        action: "facebook.page.connected",
+        action: AuditAction.CREATE,
         resourceType: "facebook_page_session",
         resourceId: savedSession.id,
         metadata: {
@@ -288,7 +289,7 @@ export class FacebookService {
     await this.auditService.log({
       userId,
       organizationId: organizationId || null,
-      action: "facebook.page.updated",
+      action: AuditAction.UPDATE,
       resourceType: "facebook_page_session",
       resourceId: id,
       metadata: dto,
@@ -321,7 +322,7 @@ export class FacebookService {
     await this.auditService.log({
       userId,
       organizationId: organizationId || null,
-      action: "facebook.page.disconnected",
+      action: AuditAction.DELETE,
       resourceType: "facebook_page_session",
       resourceId: id,
       metadata: { pageId: session.pageId },

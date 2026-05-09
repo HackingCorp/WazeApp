@@ -16,6 +16,7 @@ import { Organization } from "./organization.entity";
 import { OrganizationMember } from "./organization-member.entity";
 import { AuditLog } from "./audit-log.entity";
 import { WhatsAppSession } from "./whatsapp-session.entity";
+import { FacebookPageSession } from "./facebook-page-session.entity";
 
 @Entity("users")
 @Index("IDX_USER_EMAIL", ["email"])
@@ -124,6 +125,9 @@ export class User extends BaseEntity {
 
   @OneToMany(() => WhatsAppSession, (session) => session.user)
   whatsappSessions: WhatsAppSession[];
+
+  @OneToMany(() => FacebookPageSession, (session) => session.user)
+  facebookPageSessions: FacebookPageSession[];
 
   // Virtual properties
   @ApiProperty({ description: "User full name" })

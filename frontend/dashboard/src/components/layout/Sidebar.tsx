@@ -25,6 +25,7 @@ import {
   ClipboardList,
   Calendar,
   Key,
+  Facebook,
 } from 'lucide-react';
 import { useI18n } from '@/providers/I18nProvider';
 import { useAuth } from '@/providers/AuthProvider';
@@ -52,6 +53,12 @@ export function Sidebar({ collapsed, onToggleCollapse }: SidebarProps) {
       name: t('sidebar.whatsapp'),
       href: '/dashboard/whatsapp',
       icon: Smartphone,
+      permission: null,
+    },
+    {
+      name: t('sidebar.facebook'),
+      href: '/dashboard/facebook',
+      icon: Facebook,
       permission: null,
     },
     {

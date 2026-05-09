@@ -16,6 +16,7 @@ import { AuthModule } from "./modules/auth/auth.module";
 import { UsersModule } from "./modules/users/users.module";
 import { OrganizationsModule } from "./modules/organizations/organizations.module";
 import { WhatsAppModule } from "./modules/whatsapp/whatsapp.module";
+import { FacebookModule } from "./modules/facebook/facebook.module";
 import { BroadcastModule } from "./modules/broadcast/broadcast.module";
 import { HealthModule } from "./modules/health/health.module";
 
@@ -132,6 +133,7 @@ import { AppController } from "./app.controller";
     UsersModule,
     OrganizationsModule,
     WhatsAppModule,
+    FacebookModule,
     BroadcastModule,
     HealthModule,
 

@@ -14,6 +14,7 @@ import { OrganizationMember } from "./organization-member.entity";
 import { Subscription } from "./subscription.entity";
 import { AuditLog } from "./audit-log.entity";
 import { WhatsAppSession } from "./whatsapp-session.entity";
+import { FacebookPageSession } from "./facebook-page-session.entity";
 import { UsageMetric } from "./usage-metric.entity";
 
 @Entity("organizations")
@@ -75,6 +76,9 @@ export class Organization extends BaseEntity {
 
   @OneToMany(() => WhatsAppSession, (session) => session.organization)
   whatsappSessions: WhatsAppSession[];
+
+  @OneToMany(() => FacebookPageSession, (session) => session.organization)
+  facebookPageSessions: FacebookPageSession[];
 
   @OneToMany(() => UsageMetric, (metric) => metric.organization)
   usageMetrics: UsageMetric[];

@@ -426,6 +426,83 @@ export class QuotaEnforcementService {
   }
 
   /**
+   * Check Facebook comment quota for organization
+   * Counts AI responses to Facebook comments in the current billing period
+   */
+  async checkFacebookCommentQuota(organizationId: string): Promise<QuotaCheck> {
+    // Check cache first for quota result
+    const cacheKey = `quota:facebook:org:${organizationId}`;
+    const cached = await this.cacheManager.get<QuotaCheck>(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
+    const subscription = await this.getActiveSubscription(organizationId);
+    const planLimit = subscription.limits.maxFacebookComments || 0; // Default to 0 if not set
+    const { start: periodStart, end: periodEnd } = this.getBillingPeriod(subscription);
+
+    // Get bonus credits info from database (includes both active and exhausted credits)
+    const bonusCreditsInfo = await this.getBonusCreditsInfo(organizationId, periodStart);
+
+    // Get actual Facebook comment count for this billing period
+    const totalCommentsUsed = await this.getActualFacebookCommentCount(organizationId);
+
+    // Bonus credits used comes from the database (actual consumed credits)
+    const bonusCreditsUsed = bonusCreditsInfo.used;
+
+    // Bonus credits available is what's remaining in active credit packs
+    const bonusCreditsAvailable = bonusCreditsInfo.available;
+
+    // Comments from subscription = total comments - bonus credits actually used
+    const commentsFromSubscription = Math.max(0, totalCommentsUsed - bonusCreditsUsed);
+
+    this.logger.debug(`Org ${organizationId}: ${commentsFromSubscription}/${planLimit} Facebook comments (${bonusCreditsAvailable} bonus available, period: ${periodStart.toISOString().slice(0, 10)} → ${periodEnd.toISOString().slice(0, 10)})`);
+
+    // Build quota check based on subscription usage only
+    const quotaCheck = this.buildQuotaCheck(commentsFromSubscription, planLimit, "monthly Facebook comments");
+
+    // Use the computed billing period end as reset date (always in the future)
+    quotaCheck.resetDate = periodEnd.toISOString();
+
+    // Add bonus credits info
+    quotaCheck.bonusCredits = {
+      available: bonusCreditsAvailable,
+      used: bonusCreditsUsed,
+      nextExpiration: bonusCreditsInfo.nextExpiration,
+    };
+
+    // Recalculate allowed status considering bonus credits
+    // User can send comments if: bonusCreditsAvailable > 0 OR commentsFromSubscription < planLimit
+    quotaCheck.allowed = bonusCreditsAvailable > 0 || commentsFromSubscription < planLimit;
+
+    // Update remaining to include remaining bonus
+    quotaCheck.remaining = bonusCreditsAvailable + Math.max(0, planLimit - commentsFromSubscription);
+
+    // Cache the result
+    await this.cacheManager.set(cacheKey, quotaCheck, this.QUOTA_CACHE_TTL);
+
+    return quotaCheck;
+  }
+
+  /**
+   * Check Facebook comment quota for a user (without organization)
+   */
+  async checkUserFacebookCommentQuota(userId: string): Promise<QuotaCheck> {
+    const subscription = await this.getActiveUserSubscription(userId);
+    const limit = subscription.limits.maxFacebookComments || 0;
+    const { end: periodEnd } = this.getBillingPeriod(subscription);
+
+    const current = await this.getUserActualFacebookCommentCount(userId);
+
+    const quotaCheck = this.buildQuotaCheck(current, limit, "monthly Facebook comments");
+
+    // Use computed billing period end as reset date (always in the future)
+    quotaCheck.resetDate = periodEnd.toISOString();
+
+    return quotaCheck;
+  }
+
+  /**
    * Get actual WhatsApp AI response count for organization from AgentMessage table
    * Counts only ASSISTANT messages (AI responses) - these are what count towards quota
    * Messages from conversations linked to sessions OR agents of this organization
@@ -477,6 +554,69 @@ export class QuotaEnforcementService {
         `(
           conv."sessionId" IN (SELECT id::text FROM whatsapp_sessions WHERE "userId" = :userId AND "organizationId" IS NULL)
           OR conv."agentId" IN (SELECT id FROM ai_agents WHERE "createdBy" = :userId AND "organizationId" IS NULL)
+        )`,
+        { userId },
+      )
+      .getCount();
+
+    return result;
+  }
+
+  /**
+   * Get actual Facebook comment count for organization from AgentMessage table
+   * Counts only AGENT messages (AI responses) - these are what count towards quota
+   * Messages from Facebook conversations linked to this organization
+   * Uses billing cycle based on subscription's nextBillingDate
+   */
+  private async getActualFacebookCommentCount(organizationId: string): Promise<number> {
+    const subscription = await this.getActiveSubscription(organizationId);
+    const { start: periodStart } = this.getBillingPeriod(subscription);
+
+    // Import ConversationChannel from agent-conversation.entity
+    const { ConversationChannel } = await import('../../common/entities/agent-conversation.entity');
+
+    // Count AGENT messages from Facebook conversations for this organization
+    const result = await this.messageRepository
+      .createQueryBuilder('msg')
+      .innerJoin('msg.conversation', 'conv')
+      .where('msg.role = :role', { role: MessageRole.AGENT })
+      .andWhere('msg.createdAt >= :periodStart', { periodStart })
+      .andWhere('conv.channel = :channel', { channel: ConversationChannel.FACEBOOK })
+      .andWhere(
+        `(
+          conv."agentId" IN (SELECT id FROM ai_agents WHERE "organizationId" = :orgId)
+        )`,
+        { orgId: organizationId },
+      )
+      .getCount();
+
+    return result;
+  }
+
+  /**
+   * Get actual Facebook comment count for user from AgentMessage table
+   * Counts only AGENT messages (AI responses) - these are what count towards quota
+   * Messages from Facebook conversations linked to user's agents (without organization)
+   * Uses billing cycle based on subscription's nextBillingDate
+   */
+  private async getUserActualFacebookCommentCount(userId: string): Promise<number> {
+    // Get subscription to determine billing period
+    const subscription = await this.getActiveUserSubscription(userId);
+    const { start: periodStart } = this.getBillingPeriod(subscription);
+
+    // Import ConversationChannel from agent-conversation.entity
+    const { ConversationChannel } = await import('../../common/entities/agent-conversation.entity');
+
+    // Count AGENT messages from Facebook conversations for this user
+    const result = await this.messageRepository
+      .createQueryBuilder('msg')
+      .innerJoin('msg.conversation', 'conv')
+      .where('msg.role = :role', { role: MessageRole.AGENT })
+      .andWhere('msg.createdAt >= :periodStart', { periodStart })
+      .andWhere('conv.channel = :channel', { channel: ConversationChannel.FACEBOOK })
+      .andWhere(
+        `(
+          conv."agentId" IN (SELECT id FROM ai_agents WHERE "createdBy" = :userId AND "organizationId" IS NULL)
         )`,
         { userId },
       )

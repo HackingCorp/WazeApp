@@ -461,6 +461,46 @@ class ApiClient {
     });
   }
 
+  // Facebook endpoints
+  async getFacebookPages() {
+    return this.request('/facebook/pages');
+  }
+
+  async connectFacebookPage(data: {
+    pageAccessToken: string;
+    agentId?: string;
+    autoReplyEnabled?: boolean;
+    replyDelay?: number;
+    keywordsFilter?: string[];
+  }) {
+    return this.request('/facebook/pages/connect', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getFacebookPage(pageId: string) {
+    return this.request(`/facebook/pages/${pageId}`);
+  }
+
+  async updateFacebookPage(pageId: string, data: {
+    agentId?: string;
+    autoReplyEnabled?: boolean;
+    replyDelay?: number;
+    keywordsFilter?: string[];
+  }) {
+    return this.request(`/facebook/pages/${pageId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async disconnectFacebookPage(pageId: string) {
+    return this.request(`/facebook/pages/${pageId}`, {
+      method: 'DELETE',
+    });
+  }
+
   // Conversations endpoints
   async getConversations(params?: {
     page?: number;

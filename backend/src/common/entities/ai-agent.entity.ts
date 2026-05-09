@@ -16,6 +16,7 @@ import { KnowledgeBase } from "./knowledge-base.entity";
 import { EcommerceStore } from "./ecommerce-store.entity";
 import { AgentConversation } from "./agent-conversation.entity";
 import { WhatsAppSession } from "./whatsapp-session.entity";
+import { FacebookPageSession } from "./facebook-page-session.entity";
 import {
   AgentStatus,
   AgentLanguage,
@@ -207,4 +208,8 @@ export class AiAgent extends BaseEntity {
   @ApiProperty({ description: "WhatsApp sessions using this agent" })
   @OneToMany(() => WhatsAppSession, (session) => session.agent)
   whatsappSessions: WhatsAppSession[];
+
+  @ApiProperty({ description: "Facebook page sessions using this agent" })
+  @OneToMany(() => FacebookPageSession, (session) => session.agent)
+  facebookPageSessions: FacebookPageSession[];
 }

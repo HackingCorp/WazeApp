@@ -62,6 +62,10 @@ export class Plan extends BaseEntity {
   @Column({ default: 100 })
   maxWhatsAppMessages: number;
 
+  @ApiProperty({ description: 'Max Facebook comments per month' })
+  @Column({ default: 0 })
+  maxFacebookComments: number;
+
   @ApiProperty({ description: 'Max API requests per month' })
   @Column({ default: 1000 })
   maxApiRequests: number;

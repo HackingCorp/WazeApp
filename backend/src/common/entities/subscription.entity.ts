@@ -82,6 +82,7 @@ export class Subscription extends BaseEntity {
     maxConversationsPerMonth: number;
     maxDocumentsPerKB: number;
     maxFileUploadSize: number; // bytes
+    maxFacebookComments: number;
   };
 
   @ApiProperty({ description: "Subscription features" })
@@ -168,6 +169,7 @@ export const SUBSCRIPTION_LIMITS = {
     maxConversationsPerMonth: 50,
     maxDocumentsPerKB: 50,
     maxFileUploadSize: 10 * 1024 * 1024,
+    maxFacebookComments: 0,
     broadcastContacts: 50,
   },
   [SubscriptionPlan.STANDARD]: {
@@ -181,6 +183,7 @@ export const SUBSCRIPTION_LIMITS = {
     maxConversationsPerMonth: 500,
     maxDocumentsPerKB: 200,
     maxFileUploadSize: 25 * 1024 * 1024,
+    maxFacebookComments: 0,
     broadcastContacts: 1000,
   },
   [SubscriptionPlan.PRO]: {
@@ -194,6 +197,7 @@ export const SUBSCRIPTION_LIMITS = {
     maxConversationsPerMonth: 2500,
     maxDocumentsPerKB: 1000,
     maxFileUploadSize: 100 * 1024 * 1024,
+    maxFacebookComments: 0,
     broadcastContacts: 5000,
   },
   [SubscriptionPlan.ENTERPRISE]: {
@@ -207,6 +211,7 @@ export const SUBSCRIPTION_LIMITS = {
     maxConversationsPerMonth: 10000,
     maxDocumentsPerKB: 5000,
     maxFileUploadSize: 500 * 1024 * 1024,
+    maxFacebookComments: 0,
     broadcastContacts: 10000,
   },
 };

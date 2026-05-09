@@ -111,6 +111,7 @@ export class SubscriptionResponseDto {
     maxConversationsPerMonth: number;
     maxDocumentsPerKB: number;
     maxFileUploadSize: number;
+    maxFacebookComments: number;
   };
 
   @ApiProperty({ description: "Subscription features" })
@@ -159,6 +160,7 @@ export class UsageStatsDto {
     storageUsed: number;
     knowledgeChars: number;
     whatsappMessages: number;
+    facebookComments: number;
   };
 
   @ApiProperty({ description: "Usage limits" })

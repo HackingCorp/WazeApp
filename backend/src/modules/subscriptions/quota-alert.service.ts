@@ -46,20 +46,20 @@ export class QuotaAlertService {
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   }
 
-  private getAlertCacheKey(organizationId: string | null, userId: string | null, threshold: number): string {
+  private getAlertCacheKey(organizationId: string | null, userId: string | null, threshold: number, channel: string = 'WhatsApp'): string {
     const month = this.getCurrentMonth();
     const entityKey = organizationId ? `org:${organizationId}` : `user:${userId}`;
-    return `quota-alert:${entityKey}:${threshold}:${month}`;
+    return `quota-alert:${entityKey}:${channel}:${threshold}:${month}`;
   }
 
-  private async hasAlertBeenSent(organizationId: string | null, userId: string | null, threshold: number): Promise<boolean> {
-    const key = this.getAlertCacheKey(organizationId, userId, threshold);
+  private async hasAlertBeenSent(organizationId: string | null, userId: string | null, threshold: number, channel: string = 'WhatsApp'): Promise<boolean> {
+    const key = this.getAlertCacheKey(organizationId, userId, threshold, channel);
     const sent = await this.cacheManager.get<boolean>(key);
     return sent === true;
   }
 
-  private async markAlertAsSent(organizationId: string | null, userId: string | null, threshold: number): Promise<void> {
-    const key = this.getAlertCacheKey(organizationId, userId, threshold);
+  private async markAlertAsSent(organizationId: string | null, userId: string | null, threshold: number, channel: string = 'WhatsApp'): Promise<void> {
+    const key = this.getAlertCacheKey(organizationId, userId, threshold, channel);
     await this.cacheManager.set(key, true, this.ALERT_CACHE_TTL);
   }
 
@@ -102,17 +102,34 @@ export class QuotaAlertService {
       if (!subscription.organizationId) continue;
 
       try {
-        const quota = await this.quotaEnforcementService.checkWhatsAppMessageQuota(
+        // Check WhatsApp quota
+        const whatsappQuota = await this.quotaEnforcementService.checkWhatsAppMessageQuota(
           subscription.organizationId,
         );
 
         await this.processQuotaAlert(
           subscription.organizationId,
           null,
-          quota.percentUsed,
-          quota.current,
-          quota.limit,
+          whatsappQuota.percentUsed,
+          whatsappQuota.current,
+          whatsappQuota.limit,
           subscription.plan,
+          'WhatsApp',
+        );
+
+        // Check Facebook quota
+        const facebookQuota = await this.quotaEnforcementService.checkFacebookCommentQuota(
+          subscription.organizationId,
+        );
+
+        await this.processQuotaAlert(
+          subscription.organizationId,
+          null,
+          facebookQuota.percentUsed,
+          facebookQuota.current,
+          facebookQuota.limit,
+          subscription.plan,
+          'Facebook',
         );
       } catch (error) {
         this.logger.warn(
@@ -141,17 +158,34 @@ export class QuotaAlertService {
       if (!subscription.userId) continue;
 
       try {
-        const quota = await this.quotaEnforcementService.checkUserWhatsAppMessageQuota(
+        // Check WhatsApp quota
+        const whatsappQuota = await this.quotaEnforcementService.checkUserWhatsAppMessageQuota(
           subscription.userId,
         );
 
         await this.processQuotaAlert(
           null,
           subscription.userId,
-          quota.percentUsed,
-          quota.current,
-          quota.limit,
+          whatsappQuota.percentUsed,
+          whatsappQuota.current,
+          whatsappQuota.limit,
           subscription.plan,
+          'WhatsApp',
+        );
+
+        // Check Facebook quota
+        const facebookQuota = await this.quotaEnforcementService.checkUserFacebookCommentQuota(
+          subscription.userId,
+        );
+
+        await this.processQuotaAlert(
+          null,
+          subscription.userId,
+          facebookQuota.percentUsed,
+          facebookQuota.current,
+          facebookQuota.limit,
+          subscription.plan,
+          'Facebook',
         );
       } catch (error) {
         this.logger.warn(
@@ -171,6 +205,7 @@ export class QuotaAlertService {
     currentUsage: number,
     limit: number,
     planName: string,
+    channel: string = 'WhatsApp',
   ): Promise<void> {
     // Find the highest threshold that has been crossed
     const crossedThresholds = QUOTA_ALERT_THRESHOLDS.filter(
@@ -185,7 +220,7 @@ export class QuotaAlertService {
     const highestThreshold = Math.max(...crossedThresholds);
 
     // Check if we already sent an alert for this threshold
-    if (await this.hasAlertBeenSent(organizationId, userId, highestThreshold)) {
+    if (await this.hasAlertBeenSent(organizationId, userId, highestThreshold, channel)) {
       return; // Already sent
     }
 
@@ -222,7 +257,7 @@ export class QuotaAlertService {
 
     // Send the alert email
     this.logger.log(
-      `📧 Sending ${highestThreshold}% quota alert to ${email} (${currentUsage}/${limit} messages)`,
+      `📧 Sending ${highestThreshold}% ${channel} quota alert to ${email} (${currentUsage}/${limit} messages)`,
     );
 
     try {
@@ -233,14 +268,15 @@ export class QuotaAlertService {
         currentUsage,
         limit,
         this.formatPlanName(planName),
+        channel,
       );
 
       // Mark all thresholds up to this one as sent
       for (const threshold of crossedThresholds) {
-        await this.markAlertAsSent(organizationId, userId, threshold);
+        await this.markAlertAsSent(organizationId, userId, threshold, channel);
       }
 
-      this.logger.log(`✅ Quota alert (${highestThreshold}%) sent to ${email}`);
+      this.logger.log(`✅ ${channel} quota alert (${highestThreshold}%) sent to ${email}`);
     } catch (error) {
       this.logger.error(`❌ Failed to send quota alert to ${email}:`, error);
     }

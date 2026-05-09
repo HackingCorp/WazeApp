@@ -1,20 +1,8 @@
 'use client';
 
+import Image from "next/image"
 import { Star } from "lucide-react"
 import { useTranslations } from "@/lib/hooks/use-translations"
-
-const avatarColors = [
-  "bg-blue-600",
-  "bg-emerald-600",
-  "bg-purple-600",
-  "bg-orange-600",
-  "bg-rose-600",
-  "bg-teal-600",
-]
-
-function getInitials(name: string): string {
-  return name.split(' ').map(n => n[0]).join('').toUpperCase()
-}
 
 export function TestimonialsSection() {
   const { t } = useTranslations()
@@ -26,6 +14,7 @@ export function TestimonialsSection() {
       company: "DigiServ Afrique",
       content: t("testimonialSarah"),
       rating: 5,
+      image: "/images/testimonials/aminata.jpg",
     },
     {
       name: "Jean-Pierre Mbarga",
@@ -33,6 +22,7 @@ export function TestimonialsSection() {
       company: "E-Commerce Plus",
       content: t("testimonialMichael"),
       rating: 5,
+      image: "/images/testimonials/jean-pierre.jpg",
     },
     {
       name: "Fatou Ndiaye",
@@ -40,6 +30,7 @@ export function TestimonialsSection() {
       company: "GlobalTrade Co.",
       content: t("testimonialEmma"),
       rating: 5,
+      image: "/images/testimonials/fatou.jpg",
     },
     {
       name: "David Kouam\u00e9",
@@ -47,6 +38,7 @@ export function TestimonialsSection() {
       company: "FastFood Express",
       content: t("testimonialDavid"),
       rating: 5,
+      image: "/images/testimonials/david.jpg",
     },
     {
       name: "Claire Tchamba",
@@ -54,6 +46,7 @@ export function TestimonialsSection() {
       company: "Beauty & Style",
       content: t("testimonialLisa"),
       rating: 5,
+      image: "/images/testimonials/claire.jpg",
     },
     {
       name: "Olivier Nguema",
@@ -61,76 +54,17 @@ export function TestimonialsSection() {
       company: "Immo Pro",
       content: t("testimonialTom"),
       rating: 5,
+      image: "/images/testimonials/olivier.jpg",
     },
   ]
 
   const companies = [
-    {
-      name: "DigiServ",
-      logo: (
-        <svg viewBox="0 0 40 40" className="h-10 w-10">
-          <rect width="40" height="40" rx="8" fill="#2563EB" />
-          <path d="M10 12h8a8 8 0 010 16h-8V12z" fill="white" opacity="0.9" />
-          <rect x="22" y="12" width="4" height="16" rx="2" fill="white" opacity="0.6" />
-          <rect x="28" y="16" width="4" height="8" rx="2" fill="white" opacity="0.4" />
-        </svg>
-      ),
-    },
-    {
-      name: "AfriTech",
-      logo: (
-        <svg viewBox="0 0 40 40" className="h-10 w-10">
-          <rect width="40" height="40" rx="8" fill="#059669" />
-          <polygon points="20,8 32,28 8,28" fill="white" opacity="0.9" />
-          <polygon points="20,14 26,24 14,24" fill="#059669" />
-          <circle cx="20" cy="22" r="2" fill="white" />
-        </svg>
-      ),
-    },
-    {
-      name: "GlobalTrade",
-      logo: (
-        <svg viewBox="0 0 40 40" className="h-10 w-10">
-          <rect width="40" height="40" rx="8" fill="#7C3AED" />
-          <circle cx="20" cy="20" r="10" fill="none" stroke="white" strokeWidth="2" opacity="0.9" />
-          <ellipse cx="20" cy="20" rx="5" ry="10" fill="none" stroke="white" strokeWidth="1.5" opacity="0.6" />
-          <line x1="10" y1="20" x2="30" y2="20" stroke="white" strokeWidth="1.5" opacity="0.5" />
-          <line x1="13" y1="14" x2="27" y2="14" stroke="white" strokeWidth="1" opacity="0.4" />
-          <line x1="13" y1="26" x2="27" y2="26" stroke="white" strokeWidth="1" opacity="0.4" />
-        </svg>
-      ),
-    },
-    {
-      name: "FastExpress",
-      logo: (
-        <svg viewBox="0 0 40 40" className="h-10 w-10">
-          <rect width="40" height="40" rx="8" fill="#EA580C" />
-          <path d="M8 20h16l-4-6h8l-12 12 4-6H8z" fill="white" opacity="0.9" />
-        </svg>
-      ),
-    },
-    {
-      name: "CloudAfrica",
-      logo: (
-        <svg viewBox="0 0 40 40" className="h-10 w-10">
-          <rect width="40" height="40" rx="8" fill="#0891B2" />
-          <path d="M28 24H14a5 5 0 01-.5-9.97A7 7 0 0127 16a5 5 0 011 8z" fill="white" opacity="0.9" />
-          <circle cx="22" cy="28" r="1.5" fill="white" opacity="0.5" />
-          <circle cx="18" cy="30" r="1" fill="white" opacity="0.4" />
-        </svg>
-      ),
-    },
-    {
-      name: "MediaPro",
-      logo: (
-        <svg viewBox="0 0 40 40" className="h-10 w-10">
-          <rect width="40" height="40" rx="8" fill="#E11D48" />
-          <rect x="8" y="12" width="16" height="16" rx="2" fill="white" opacity="0.9" />
-          <polygon points="28,12 34,20 28,28" fill="white" opacity="0.7" />
-          <circle cx="16" cy="20" r="4" fill="#E11D48" opacity="0.6" />
-        </svg>
-      ),
-    },
+    { name: "MTN", logo: "/images/logos/mtn.png" },
+    { name: "Orange", logo: "/images/logos/orange.png" },
+    { name: "Jumia", logo: "/images/logos/jumia.png" },
+    { name: "Flutterwave", logo: "/images/logos/flutterwave.png" },
+    { name: "DHL", logo: "/images/logos/dhl.png" },
+    { name: "Bolt", logo: "/images/logos/bolt.png" },
   ]
 
   return (
@@ -163,9 +97,13 @@ export function TestimonialsSection() {
                 &ldquo;{testimonial.content}&rdquo;
               </p>
               <div className="flex items-center">
-                <div className={`h-12 w-12 rounded-full mr-4 flex items-center justify-center text-white font-bold text-sm ${avatarColors[index % avatarColors.length]} ring-2 ring-offset-2 ring-offset-white dark:ring-offset-gray-800 ring-${avatarColors[index % avatarColors.length].replace('bg-', '')}/30 shadow-lg`}>
-                  {getInitials(testimonial.name)}
-                </div>
+                <Image
+                  src={testimonial.image}
+                  alt={testimonial.name}
+                  width={48}
+                  height={48}
+                  className="h-12 w-12 rounded-full mr-4 object-cover ring-2 ring-offset-2 ring-offset-white dark:ring-offset-gray-800 ring-primary/30 shadow-lg"
+                />
                 <div>
                   <p className="font-semibold text-gray-900 dark:text-white">
                     {testimonial.name}
@@ -183,13 +121,19 @@ export function TestimonialsSection() {
           <p className="text-center text-sm text-muted-foreground mb-8">
             {t("trustedByCompanies")}
           </p>
-          <div className="flex flex-wrap justify-center items-center gap-8">
+          <div className="flex flex-wrap justify-center items-center gap-10">
             {companies.map((company) => (
               <div
                 key={company.name}
-                className="flex items-center space-x-2 text-gray-400"
+                className="flex items-center space-x-2 grayscale opacity-60 hover:grayscale-0 hover:opacity-100 transition-all duration-300"
               >
-                {company.logo}
+                <Image
+                  src={company.logo}
+                  alt={company.name}
+                  width={40}
+                  height={40}
+                  className="rounded-lg"
+                />
                 <span className="text-lg font-semibold text-gray-600 dark:text-gray-400">{company.name}</span>
               </div>
             ))}

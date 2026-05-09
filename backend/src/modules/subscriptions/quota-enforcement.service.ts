@@ -970,6 +970,7 @@ export class QuotaEnforcementService {
           maxConversationsPerMonth: 0,
           maxDocumentsPerKB: 0,
           maxFileUploadSize: 0,
+          maxFacebookComments: 0,
         };
         existingSubscription.features = {
           customBranding: false,
@@ -1156,6 +1157,7 @@ export class QuotaEnforcementService {
           maxConversationsPerMonth: 0,
           maxDocumentsPerKB: 0,
           maxFileUploadSize: 0,
+          maxFacebookComments: 0,
         };
         existingSubscription.features = {
           customBranding: false,

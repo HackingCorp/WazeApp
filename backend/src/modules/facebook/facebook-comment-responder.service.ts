@@ -158,13 +158,11 @@ export class FacebookCommentResponderService {
         role: MessageRole.USER,
         content: commentEvent.message,
         status: MessageStatus.DELIVERED,
-        customData: {
-          commentId: commentEvent.id,
-          createdTime: commentEvent.created_time,
-          postId: commentEvent.post_id,
-          isReply: !!commentEvent.parent,
-          parentCommentId: commentEvent.parent?.id,
+        sequenceNumber: 0,
+        metadata: {
+          fromWhatsApp: false,
         },
+        externalMessageId: commentEvent.id,
       });
 
       await this.messageRepository.save(userMessage);
@@ -185,9 +183,10 @@ export class FacebookCommentResponderService {
 
       // Generate AI response using ResponseGenerationService
       const aiResponse = await this.responseGenerationService.generateResponse({
+        conversationId: conversation.id,
         agentId: session.agent.id,
         userMessage: commentEvent.message,
-        context: context?.context || null,
+        context: context?.context as any || {} as any,
         conversationHistory,
         priority: "normal",
       });
@@ -198,12 +197,11 @@ export class FacebookCommentResponderService {
         role: MessageRole.AGENT,
         content: aiResponse.content,
         status: MessageStatus.SENT,
-        modelUsed: aiResponse.metadata.model,
-        tokensUsed: aiResponse.metadata.tokensUsed,
-        processingTimeMs: aiResponse.metadata.processingTimeMs,
-        confidence: aiResponse.confidence,
-        customData: {
-          ragUsed: aiResponse.metadata.ragUsed,
+        sequenceNumber: 1,
+        metadata: {
+          modelUsed: aiResponse.metadata?.model,
+          tokenCount: aiResponse.metadata?.tokensUsed,
+          processingTime: aiResponse.metadata?.processingTimeMs,
         },
       });
 
@@ -219,11 +217,7 @@ export class FacebookCommentResponderService {
 
         // Update message status
         aiMessage.status = MessageStatus.DELIVERED;
-        aiMessage.customData = {
-          ...aiMessage.customData,
-          commentId: replyResult.id,
-          sentAt: new Date(),
-        };
+        aiMessage.externalMessageId = replyResult.id;
         await this.messageRepository.save(aiMessage);
 
         this.logger.log(`Successfully replied to comment ${commentId}`);
@@ -233,9 +227,9 @@ export class FacebookCommentResponderService {
           error.stack,
         );
         aiMessage.status = MessageStatus.FAILED;
-        aiMessage.customData = {
-          ...aiMessage.customData,
-          error: error.message,
+        aiMessage.metadata = {
+          ...aiMessage.metadata,
+          error: { message: error.message, code: "FACEBOOK_REPLY_FAILED", timestamp: new Date() },
         };
         await this.messageRepository.save(aiMessage);
       }
@@ -289,11 +283,11 @@ export class FacebookCommentResponderService {
         externalId: facebookUserId,
         status: ConversationStatus.ACTIVE,
         sessionId: session.id,
-        metadata: {
+        context: {
           sessionId: session.id,
-          pageId: session.pageId,
-          postId,
-          userProfile: {
+          customData: {
+            pageId: session.pageId,
+            postId,
             facebookUserId,
           },
         },
@@ -322,14 +316,14 @@ export class FacebookCommentResponderService {
   ): Promise<void> {
     try {
       const metric = this.usageMetricRepository.create({
-        organizationId: session.organizationId,
-        userId: session.userId,
+        organization: { id: session.organizationId },
         type: UsageMetricType.API_REQUESTS,
         value: 1,
+        date: new Date().toISOString().split("T")[0],
         metadata: {
           sessionId: session.id,
           pageId: session.pageId,
-          channel: ConversationChannel.FACEBOOK,
+          channel: "facebook",
           tokensUsed,
         },
       });

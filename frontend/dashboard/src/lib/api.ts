@@ -495,6 +495,10 @@ class ApiClient {
     });
   }
 
+  async getFacebookPageActivity(pageId: string, limit: number = 20) {
+    return this.request(`/facebook/pages/${pageId}/activity?limit=${limit}`);
+  }
+
   async disconnectFacebookPage(pageId: string) {
     return this.request(`/facebook/pages/${pageId}`, {
       method: 'DELETE',

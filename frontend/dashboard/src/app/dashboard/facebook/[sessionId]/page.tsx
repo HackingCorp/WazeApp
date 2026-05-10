@@ -48,6 +48,21 @@ interface Agent {
   status: string;
 }
 
+interface ActivityMessage {
+  id: string;
+  role: 'user' | 'agent';
+  content: string;
+  status: string;
+  createdAt: string;
+}
+
+interface ActivityItem {
+  conversationId: string;
+  externalId: string;
+  createdAt: string;
+  messages: ActivityMessage[];
+}
+
 export default function FacebookPageDetail() {
   const router = useRouter();
   const params = useParams();
@@ -57,6 +72,7 @@ export default function FacebookPageDetail() {
 
   const [page, setPage] = useState<FacebookPage | null>(null);
   const [agents, setAgents] = useState<Agent[]>([]);
+  const [activity, setActivity] = useState<ActivityItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -70,6 +86,7 @@ export default function FacebookPageDetail() {
     if (sessionId) {
       fetchPageDetails();
       fetchAgents();
+      fetchActivity();
     }
   }, [sessionId]);
 
@@ -114,6 +131,19 @@ export default function FacebookPageDetail() {
     } catch (error: any) {
       if (process.env.NODE_ENV === 'development') {
         console.error('Error fetching agents:', error);
+      }
+    }
+  };
+
+  const fetchActivity = async () => {
+    try {
+      const response = await api.getFacebookPageActivity(sessionId);
+      if (response.success && response.data) {
+        setActivity(response.data);
+      }
+    } catch (error: any) {
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Error fetching activity:', error);
       }
     }
   };
@@ -448,10 +478,49 @@ export default function FacebookPageDetail() {
           <span>Recent Activity</span>
         </h2>
 
-        <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-          <MessageSquare className="w-12 h-12 mx-auto mb-2 opacity-50" />
-          <p>Comment and reply statistics will appear here</p>
-        </div>
+        {activity.length === 0 ? (
+          <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+            <MessageSquare className="w-12 h-12 mx-auto mb-2 opacity-50" />
+            <p>No comment activity yet</p>
+          </div>
+        ) : (
+          <div className="space-y-4 max-h-96 overflow-y-auto">
+            {activity.map((item) => (
+              <div
+                key={item.conversationId}
+                className="border border-gray-200 dark:border-gray-700 rounded-lg p-4"
+              >
+                <div className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                  {new Date(item.createdAt).toLocaleString()}
+                </div>
+                <div className="space-y-2">
+                  {item.messages.map((msg) => (
+                    <div
+                      key={msg.id}
+                      className={`flex ${msg.role === 'agent' ? 'justify-end' : 'justify-start'}`}
+                    >
+                      <div
+                        className={`max-w-[80%] px-3 py-2 rounded-lg text-sm ${
+                          msg.role === 'agent'
+                            ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-900 dark:text-blue-100'
+                            : 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100'
+                        }`}
+                      >
+                        <div className="text-xs font-medium mb-1 opacity-70">
+                          {msg.role === 'agent' ? 'AI Reply' : 'Comment'}
+                        </div>
+                        <p>{msg.content}</p>
+                        <div className="text-xs opacity-50 mt-1">
+                          {new Date(msg.createdAt).toLocaleTimeString()}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

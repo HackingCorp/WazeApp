@@ -44,7 +44,8 @@ import {
 import { JwtAuthGuard } from "@/common/guards/jwt-auth.guard";
 import { Public } from "@/common/decorators/public.decorator";
 import { AllowIndividualUsers } from "@/common/decorators/allow-individual-users.decorator";
-import { FacebookPageSession } from "@/common/entities";
+import { FacebookPageSession, AgentConversation, AgentMessage } from "@/common/entities";
+import { ConversationChannel } from "@/common/enums";
 
 @ApiTags("Facebook")
 @Controller("facebook")
@@ -60,6 +61,10 @@ export class FacebookController {
     private configService: ConfigService,
     @InjectRepository(FacebookPageSession)
     private sessionRepository: Repository<FacebookPageSession>,
+    @InjectRepository(AgentConversation)
+    private conversationRepository: Repository<AgentConversation>,
+    @InjectRepository(AgentMessage)
+    private messageRepository: Repository<AgentMessage>,
   ) {}
 
   @Post("pages/connect")
@@ -110,6 +115,62 @@ export class FacebookController {
       user.userId,
       user.organizationId || null,
     );
+  }
+
+  @Get("pages/:id/activity")
+  @ApiOperation({ summary: "Get recent comment/reply activity for a Facebook Page" })
+  @ApiResponse({ status: 200, description: "Activity retrieved" })
+  async getPageActivity(
+    @Param("id", ParseUUIDPipe) id: string,
+    @CurrentUser() user: AuthenticatedRequest,
+    @Query("limit") limit?: string,
+  ) {
+    // Verify session belongs to user
+    const session = await this.sessionRepository.findOne({
+      where: { id, userId: user.userId },
+    });
+    if (!session) {
+      throw new NotFoundException("Facebook Page session not found");
+    }
+
+    const take = Math.min(parseInt(limit || "20", 10), 50);
+
+    // Get conversations for this session
+    const conversations = await this.conversationRepository.find({
+      where: {
+        sessionId: session.id,
+        channel: ConversationChannel.FACEBOOK,
+      },
+      order: { updatedAt: "DESC" },
+      take,
+    });
+
+    // Get messages for these conversations
+    const activity = [];
+    for (const conv of conversations) {
+      const messages = await this.messageRepository.find({
+        where: { conversation: { id: conv.id } },
+        order: { createdAt: "ASC" },
+        take: 10,
+      });
+
+      if (messages.length > 0) {
+        activity.push({
+          conversationId: conv.id,
+          externalId: conv.externalId,
+          createdAt: conv.createdAt,
+          messages: messages.map((m) => ({
+            id: m.id,
+            role: m.role,
+            content: m.content,
+            status: m.status,
+            createdAt: m.createdAt,
+          })),
+        });
+      }
+    }
+
+    return activity;
   }
 
   @Put("pages/:id")

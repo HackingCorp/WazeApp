@@ -76,6 +76,14 @@ export class FacebookCommentResponderService {
       return;
     }
 
+    // Skip comments from the page itself (prevent infinite reply loop)
+    if (commentEvent.from.id === session.pageId) {
+      this.logger.debug(
+        `Skipping comment from page itself (${session.pageId}), preventing reply loop`,
+      );
+      return;
+    }
+
     // Check if comment is a reply (parent exists) and config excludes replies
     if (commentEvent.parent && session.config.excludeReplies) {
       this.logger.debug(`Skipping comment reply based on session config`);

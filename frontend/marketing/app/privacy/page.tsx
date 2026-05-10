@@ -270,7 +270,7 @@ export default function PrivacyPage() {
             </ul>
 
             {/* 7. Your Rights (GDPR) */}
-            <h2>7. Your Rights</h2>
+            <h2 id="data-deletion">7. Your Rights and Data Deletion</h2>
             <p>
               If you are located in the European Economic Area (EEA), the United
               Kingdom, or another jurisdiction with applicable data protection laws,
@@ -319,6 +319,28 @@ export default function PrivacyPage() {
               respond to your request within 30 days. You also have the right to
               lodge a complaint with your local data protection supervisory authority.
             </p>
+
+            <h3>How to Delete Your Data</h3>
+            <p>
+              To request deletion of your data, you can:
+            </p>
+            <ul>
+              <li>
+                <strong>Delete your account:</strong> Go to your dashboard settings
+                and click &quot;Delete Account&quot;. This will permanently remove all your
+                personal data, conversations, and connected sessions.
+              </li>
+              <li>
+                <strong>Disconnect Facebook/WhatsApp:</strong> Remove connected pages
+                or sessions from your dashboard. All associated data will be deleted.
+              </li>
+              <li>
+                <strong>Email us:</strong> Send a request to{" "}
+                <a href="mailto:privacy@wazeapp.ai">privacy@wazeapp.ai</a> with
+                the subject &quot;Data Deletion Request&quot;. We will process your request
+                within 30 days.
+              </li>
+            </ul>
 
             {/* 8. Cookies and Tracking */}
             <h2>8. Cookies and Tracking</h2>

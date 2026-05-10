@@ -597,6 +597,7 @@ export class FacebookService {
       isActive: session.isActive,
       aiResponsesEnabled: session.aiResponsesEnabled,
       commentAutoReplyEnabled: session.commentAutoReplyEnabled,
+      autoReplyEnabled: session.commentAutoReplyEnabled && session.aiResponsesEnabled,
       isConnected: session.isConnected,
       createdAt: session.createdAt,
       updatedAt: session.updatedAt,

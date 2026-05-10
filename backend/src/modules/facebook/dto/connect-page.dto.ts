@@ -114,6 +114,9 @@ export class FacebookPageSessionResponseDto {
   commentAutoReplyEnabled: boolean;
 
   @ApiProperty()
+  autoReplyEnabled: boolean;
+
+  @ApiProperty()
   isConnected: boolean;
 
   @ApiProperty()

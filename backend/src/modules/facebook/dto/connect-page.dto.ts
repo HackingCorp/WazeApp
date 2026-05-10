@@ -76,6 +76,18 @@ export class UpdatePageSessionDto {
   @IsOptional()
   autoReplyEnabled?: boolean;
 
+  @ApiProperty({ description: "Delay in seconds before replying", required: false })
+  @IsNumber()
+  @IsOptional()
+  @Min(0)
+  @Max(300)
+  replyDelay?: number;
+
+  @ApiProperty({ description: "Keywords filter for auto-reply", required: false })
+  @IsArray()
+  @IsOptional()
+  keywordsFilter?: string[];
+
   @ApiProperty({ description: "Auto-reconnect enabled", required: false })
   @IsBoolean()
   @IsOptional()
@@ -118,6 +130,18 @@ export class FacebookPageSessionResponseDto {
 
   @ApiProperty()
   isConnected: boolean;
+
+  @ApiProperty({ required: false })
+  agentId?: string;
+
+  @ApiProperty({ required: false })
+  agent?: { id: string; name: string };
+
+  @ApiProperty({ required: false })
+  replyDelay?: number;
+
+  @ApiProperty({ required: false })
+  keywordsFilter?: string[];
 
   @ApiProperty()
   createdAt: Date;

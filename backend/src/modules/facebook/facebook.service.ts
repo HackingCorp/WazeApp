@@ -421,6 +421,7 @@ export class FacebookService {
   ): Promise<FacebookPageSessionResponseDto> {
     const session = await this.sessionRepository.findOne({
       where: { id, userId, ...(organizationId && { organizationId }) },
+      relations: ["agent"],
     });
 
     if (!session) {
@@ -437,6 +438,12 @@ export class FacebookService {
     if (dto.autoReplyEnabled !== undefined) {
       session.commentAutoReplyEnabled = dto.autoReplyEnabled;
       session.aiResponsesEnabled = dto.autoReplyEnabled;
+    }
+    if (dto.replyDelay !== undefined) {
+      session.config = { ...session.config, replyDelay: dto.replyDelay };
+    }
+    if (dto.keywordsFilter !== undefined) {
+      session.config = { ...session.config, keywordsFilter: dto.keywordsFilter };
     }
     if (dto.autoReconnect !== undefined)
       session.autoReconnect = dto.autoReconnect;
@@ -599,6 +606,10 @@ export class FacebookService {
       commentAutoReplyEnabled: session.commentAutoReplyEnabled,
       autoReplyEnabled: session.commentAutoReplyEnabled && session.aiResponsesEnabled,
       isConnected: session.isConnected,
+      agentId: session.agentId,
+      agent: session.agent ? { id: session.agent.id, name: session.agent.name } : undefined,
+      replyDelay: session.config?.replyDelay,
+      keywordsFilter: session.config?.keywordsFilter,
       createdAt: session.createdAt,
       updatedAt: session.updatedAt,
     };

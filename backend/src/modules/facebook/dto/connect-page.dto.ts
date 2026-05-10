@@ -71,6 +71,11 @@ export class UpdatePageSessionDto {
   @IsOptional()
   commentAutoReplyEnabled?: boolean;
 
+  @ApiProperty({ description: "Enable auto-reply (alias for commentAutoReplyEnabled)", required: false })
+  @IsBoolean()
+  @IsOptional()
+  autoReplyEnabled?: boolean;
+
   @ApiProperty({ description: "Auto-reconnect enabled", required: false })
   @IsBoolean()
   @IsOptional()

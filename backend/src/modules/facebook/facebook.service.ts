@@ -434,6 +434,10 @@ export class FacebookService {
       session.aiResponsesEnabled = dto.aiResponsesEnabled;
     if (dto.commentAutoReplyEnabled !== undefined)
       session.commentAutoReplyEnabled = dto.commentAutoReplyEnabled;
+    if (dto.autoReplyEnabled !== undefined) {
+      session.commentAutoReplyEnabled = dto.autoReplyEnabled;
+      session.aiResponsesEnabled = dto.autoReplyEnabled;
+    }
     if (dto.autoReconnect !== undefined)
       session.autoReconnect = dto.autoReconnect;
 

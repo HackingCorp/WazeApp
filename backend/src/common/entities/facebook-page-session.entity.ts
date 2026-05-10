@@ -103,6 +103,8 @@ export class FacebookPageSession extends BaseEntity {
     replyToMentionsOnly?: boolean;
     excludeReplies?: boolean; // Don't reply to comment replies, only top-level comments
     maxResponseLength?: number;
+    replyDelay?: number; // Delay in seconds before auto-replying (default: 30)
+    keywordsFilter?: string[]; // Only reply to comments containing these keywords
     rateLimit?: {
       maxPerHour?: number; // Default: 200 (Facebook limit)
       maxPerDay?: number;

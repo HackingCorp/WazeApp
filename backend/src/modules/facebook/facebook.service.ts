@@ -87,12 +87,17 @@ export class FacebookService {
       session.tokenExpiresAt = pageData.tokenExpiresAt;
       session.status = FacebookPageSessionStatus.CONNECTED;
       session.isActive = true;
-      session.aiResponsesEnabled = dto.aiResponsesEnabled ?? true;
-      session.commentAutoReplyEnabled = dto.commentAutoReplyEnabled ?? true;
+      session.aiResponsesEnabled = dto.aiResponsesEnabled ?? dto.autoReplyEnabled ?? true;
+      session.commentAutoReplyEnabled = dto.commentAutoReplyEnabled ?? dto.autoReplyEnabled ?? true;
       session.userId = userId;
       session.organizationId = organizationId || null;
       session.agentId = dto.agentId || null;
       session.grantedScopes = pageDetails.granted_scopes || [];
+      session.config = {
+        replyDelay: dto.replyDelay ?? 30,
+        keywordsFilter: dto.keywordsFilter || [],
+        replyToAllComments: true,
+      };
       session.metadata = {
         followersCount: pageDetails.followers_count,
         likesCount: pageDetails.fan_count,

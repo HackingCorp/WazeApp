@@ -1,5 +1,5 @@
 import { ApiProperty } from "@nestjs/swagger";
-import { IsString, IsNotEmpty, IsOptional, IsBoolean, IsUUID } from "class-validator";
+import { IsString, IsNotEmpty, IsOptional, IsBoolean, IsUUID, IsNumber, IsArray, Min, Max } from "class-validator";
 
 export class ConnectPageDto {
   @ApiProperty({ description: "Facebook Access Token (User or Page token from Graph API Explorer)" })
@@ -31,6 +31,23 @@ export class ConnectPageDto {
   @IsBoolean()
   @IsOptional()
   commentAutoReplyEnabled?: boolean;
+
+  @ApiProperty({ description: "Enable auto-reply (alias for commentAutoReplyEnabled)", required: false })
+  @IsBoolean()
+  @IsOptional()
+  autoReplyEnabled?: boolean;
+
+  @ApiProperty({ description: "Delay in seconds before replying", required: false })
+  @IsNumber()
+  @IsOptional()
+  @Min(0)
+  @Max(300)
+  replyDelay?: number;
+
+  @ApiProperty({ description: "Keywords filter for auto-reply", required: false })
+  @IsArray()
+  @IsOptional()
+  keywordsFilter?: string[];
 }
 
 export class UpdatePageSessionDto {

@@ -117,8 +117,8 @@ services:
       OLLAMA_MODEL: qwen2.5:14b
       GOOGLE_CLIENT_ID: "disabled"
       GOOGLE_CLIENT_SECRET: "disabled"
-      FACEBOOK_APP_ID: "disabled"
-      FACEBOOK_APP_SECRET: "disabled"
+      FACEBOOK_APP_ID: "${FACEBOOK_APP_ID:-disabled}"
+      FACEBOOK_APP_SECRET: "${FACEBOOK_APP_SECRET:-disabled}"
       MICROSOFT_CLIENT_ID: "disabled"
       MICROSOFT_CLIENT_SECRET: "disabled"
       DEEPSEEK_API_KEY: "disabled"

@@ -5,6 +5,7 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { LanguageProvider } from "@/components/providers/language-provider";
 import { Navbar } from "@/components/navigation/navbar";
+import { Footer } from "@/components/navigation/footer";
 import { PostHogProvider } from "@/components/providers/posthog-provider";
 import { MetaPixelProvider } from "@/components/providers/meta-pixel-provider";
 
@@ -154,6 +155,7 @@ export default function RootLayout({
               <MetaPixelProvider>
                 <Navbar />
                 <main>{children}</main>
+                <Footer />
                 <DemoChatWidget />
               </MetaPixelProvider>
             </PostHogProvider>

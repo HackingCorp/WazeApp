@@ -118,6 +118,7 @@ export class FacebookService {
         action: AuditAction.CREATE,
         resourceType: "facebook_page_session",
         resourceId: savedSession.id,
+        description: `Connected Facebook Page: ${pageData.pageName} (${pageData.pageId})`,
         metadata: {
           pageId: pageData.pageId,
           pageName: pageData.pageName,
@@ -444,6 +445,7 @@ export class FacebookService {
       action: AuditAction.UPDATE,
       resourceType: "facebook_page_session",
       resourceId: id,
+      description: `Updated Facebook Page session: ${session.pageName || id}`,
       metadata: dto,
     });
 
@@ -477,6 +479,7 @@ export class FacebookService {
       action: AuditAction.DELETE,
       resourceType: "facebook_page_session",
       resourceId: id,
+      description: `Disconnected Facebook Page: ${session.pageName || session.pageId}`,
       metadata: { pageId: session.pageId },
     });
 

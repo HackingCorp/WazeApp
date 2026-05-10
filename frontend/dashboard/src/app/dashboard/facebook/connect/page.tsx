@@ -174,7 +174,8 @@ export default function ConnectFacebookPage() {
               <li>Select your app and page from the dropdowns</li>
               <li>
                 Add these permissions: <code className="bg-blue-100 dark:bg-blue-900 px-1 rounded">pages_read_engagement</code>,{' '}
-                <code className="bg-blue-100 dark:bg-blue-900 px-1 rounded">pages_manage_posts</code>,{' '}
+                <code className="bg-blue-100 dark:bg-blue-900 px-1 rounded">pages_manage_metadata</code>,{' '}
+                <code className="bg-blue-100 dark:bg-blue-900 px-1 rounded">pages_show_list</code>,{' '}
                 <code className="bg-blue-100 dark:bg-blue-900 px-1 rounded">pages_messaging</code>
               </li>
               <li>Click "Generate Access Token" and copy the token</li>

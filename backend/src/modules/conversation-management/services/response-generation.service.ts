@@ -143,7 +143,7 @@ export class ResponseGenerationService {
       // Get agent configuration
       const agent = await this.agentRepository.findOne({
         where: { id: request.agentId },
-        relations: ["knowledgeBases", "llmProvider"],
+        relations: ["knowledgeBases"],
       });
 
       if (!agent) {

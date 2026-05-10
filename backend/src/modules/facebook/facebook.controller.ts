@@ -7,6 +7,7 @@ import {
   Body,
   Param,
   Query,
+  Res,
   UseGuards,
   ParseUUIDPipe,
   Logger,
@@ -15,6 +16,7 @@ import {
   HttpCode,
   HttpStatus,
 } from "@nestjs/common";
+import { Response } from "express";
 import { ConfigService } from "@nestjs/config";
 import {
   ApiTags,
@@ -153,7 +155,7 @@ export class FacebookController {
   @Public()
   @ApiOperation({ summary: "Verify Facebook webhook" })
   @ApiResponse({ status: 200, description: "Webhook verified" })
-  async verifyWebhook(@Query() query: any): Promise<string> {
+  async verifyWebhook(@Query() query: any, @Res() res: Response): Promise<void> {
     const mode = query["hub.mode"];
     const token = query["hub.verify_token"];
     const challenge = query["hub.challenge"];
@@ -163,10 +165,11 @@ export class FacebookController {
 
     if (mode === "subscribe" && token === verifyToken) {
       this.logger.log("Facebook webhook verified successfully");
-      return challenge;
+      // Facebook expects the raw challenge string, not a JSON-wrapped response
+      res.status(200).send(challenge);
     } else {
       this.logger.warn("Facebook webhook verification failed");
-      throw new BadRequestException("Verification failed");
+      res.status(403).send("Verification failed");
     }
   }
 

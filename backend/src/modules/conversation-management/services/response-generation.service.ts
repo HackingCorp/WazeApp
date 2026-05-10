@@ -530,7 +530,7 @@ INSTRUCTIONS:
 
 AGENT INSTRUCTIONS:
 ${agent.systemPrompt || "Be helpful, accurate, and professional."}
-${context.channelInstructions ? `\nCHANNEL-SPECIFIC INSTRUCTIONS:\n${context.channelInstructions}` : ""}`;
+${(context as any).channelInstructions ? `\nCHANNEL-SPECIFIC INSTRUCTIONS:\n${(context as any).channelInstructions}` : ""}`;
   }
 
   /**
@@ -553,7 +553,7 @@ INSTRUCTIONS:
 
 AGENT INSTRUCTIONS:
 ${agent.systemPrompt || "Be helpful, accurate, and professional."}
-${context.channelInstructions ? `\nCHANNEL-SPECIFIC INSTRUCTIONS:\n${context.channelInstructions}` : ""}`;
+${(context as any).channelInstructions ? `\nCHANNEL-SPECIFIC INSTRUCTIONS:\n${(context as any).channelInstructions}` : ""}`;
   }
 
   /**

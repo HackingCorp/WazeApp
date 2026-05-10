@@ -194,7 +194,7 @@ export class FacebookCommentResponderService {
         userMessage: commentEvent.message,
         context: {
           ...(context?.context as any || {}),
-          channelInstructions: "This is a Facebook comment reply. IMPORTANT: 1) Reply in the SAME LANGUAGE as the user's comment. 2) Do NOT use any Markdown formatting (no **bold**, no *italic*, no bullet points with -, no headers with #). Write plain text only. 3) Keep the reply concise and suitable for a Facebook comment.",
+          channelInstructions: `This is a Facebook comment reply to ${commentEvent.from.name}. IMPORTANT: 1) Start your reply by addressing the user by their first name (e.g. "Hi ${commentEvent.from.name.split(' ')[0]}, ..."). 2) Reply in the SAME LANGUAGE as the user's comment. 3) Do NOT use any Markdown formatting (no **bold**, no *italic*, no bullet points with -, no headers with #). Write plain text only. 4) Keep the reply concise and suitable for a Facebook comment.`,
         },
         conversationHistory,
         priority: "normal",

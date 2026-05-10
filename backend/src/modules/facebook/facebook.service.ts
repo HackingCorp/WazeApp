@@ -540,7 +540,8 @@ export class FacebookService {
       this.logger.log(`Replied to comment ${commentId} on page ${session.pageId}`);
       return response.data;
     } catch (error) {
-      this.logger.error(`Failed to reply to comment: ${error.message}`, error.stack);
+      const errorData = error.response?.data ? JSON.stringify(error.response.data) : 'no response data';
+      this.logger.error(`Failed to reply to comment ${commentId}: ${error.message} - Facebook response: ${errorData}`);
       throw error;
     }
   }

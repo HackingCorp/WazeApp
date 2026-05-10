@@ -115,6 +115,7 @@ export class FacebookPageSession extends BaseEntity {
     followersCount?: number;
     likesCount?: number;
     category?: string;
+    tokenType?: string;
     connectedAt?: Date;
     lastSyncAt?: Date;
   };

@@ -2,25 +2,25 @@ import { ApiProperty } from "@nestjs/swagger";
 import { IsString, IsNotEmpty, IsOptional, IsBoolean, IsUUID } from "class-validator";
 
 export class ConnectPageDto {
-  @ApiProperty({ description: "Session name/identifier" })
-  @IsString()
-  @IsNotEmpty()
-  name: string;
-
-  @ApiProperty({ description: "Facebook Page Access Token" })
+  @ApiProperty({ description: "Facebook Access Token (User or Page token from Graph API Explorer)" })
   @IsString()
   @IsNotEmpty()
   pageAccessToken: string;
-
-  @ApiProperty({ description: "Facebook Page ID" })
-  @IsString()
-  @IsNotEmpty()
-  pageId: string;
 
   @ApiProperty({ description: "AI Agent ID to associate with this page", required: false })
   @IsUUID()
   @IsOptional()
   agentId?: string;
+
+  @ApiProperty({ description: "Facebook Page ID (auto-detected if not provided)", required: false })
+  @IsString()
+  @IsOptional()
+  pageId?: string;
+
+  @ApiProperty({ description: "Session name (auto-detected from page name if not provided)", required: false })
+  @IsString()
+  @IsOptional()
+  name?: string;
 
   @ApiProperty({ description: "Enable AI auto-reply to comments", required: false })
   @IsBoolean()

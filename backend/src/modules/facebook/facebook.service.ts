@@ -59,47 +59,47 @@ export class FacebookService {
     this.logger.log(`Connecting Facebook Page for user: ${userId}`);
 
     try {
-      // Verify the page access token and get page details
-      const pageDetails = await this.verifyPageToken(dto.pageAccessToken, dto.pageId);
+      // Step 1: Get a permanent page access token
+      const pageData = await this.resolvePageToken(dto.pageAccessToken, dto.pageId);
+
+      this.logger.log(`Resolved page: ${pageData.pageName} (${pageData.pageId})`);
 
       // Check if page already connected
       const existingSession = await this.sessionRepository.findOne({
-        where: { pageId: dto.pageId },
+        where: { pageId: pageData.pageId },
       });
 
       if (existingSession) {
         throw new BadRequestException("This Facebook Page is already connected");
       }
 
-      // Get long-lived token
-      const longLivedToken = await this.exchangeForLongLivedToken(dto.pageAccessToken);
+      // Step 2: Get full page details using the permanent token
+      const pageDetails = await this.getPageDetails(pageData.pageAccessToken, pageData.pageId);
 
       // Create session
-      const session = this.sessionRepository.create({
-        name: dto.name,
-        pageId: dto.pageId,
-        pageName: pageDetails.name,
-        pageUsername: pageDetails.username,
-        pageAvatarUrl: pageDetails.picture?.data?.url,
-        pageAccessToken: longLivedToken.access_token,
-        tokenExpiresAt: longLivedToken.expires_at
-          ? new Date(longLivedToken.expires_at * 1000)
-          : null,
-        status: FacebookPageSessionStatus.CONNECTED,
-        isActive: true,
-        aiResponsesEnabled: dto.aiResponsesEnabled ?? true,
-        commentAutoReplyEnabled: dto.commentAutoReplyEnabled ?? true,
-        userId,
-        organizationId: organizationId || null,
-        agentId: dto.agentId || null,
-        grantedScopes: pageDetails.granted_scopes || [],
-        metadata: {
-          followersCount: pageDetails.followers_count,
-          likesCount: pageDetails.fan_count,
-          category: pageDetails.category,
-          connectedAt: new Date(),
-        },
-      });
+      const session = new FacebookPageSession();
+      session.name = dto.name || pageData.pageName || `Facebook Page ${pageData.pageId}`;
+      session.pageId = pageData.pageId;
+      session.pageName = pageData.pageName || pageDetails.name;
+      session.pageUsername = pageDetails.username;
+      session.pageAvatarUrl = pageDetails.picture?.data?.url;
+      session.pageAccessToken = pageData.pageAccessToken;
+      session.tokenExpiresAt = pageData.tokenExpiresAt;
+      session.status = FacebookPageSessionStatus.CONNECTED;
+      session.isActive = true;
+      session.aiResponsesEnabled = dto.aiResponsesEnabled ?? true;
+      session.commentAutoReplyEnabled = dto.commentAutoReplyEnabled ?? true;
+      session.userId = userId;
+      session.organizationId = organizationId || null;
+      session.agentId = dto.agentId || null;
+      session.grantedScopes = pageDetails.granted_scopes || [];
+      session.metadata = {
+        followersCount: pageDetails.followers_count,
+        likesCount: pageDetails.fan_count,
+        category: pageDetails.category,
+        tokenType: pageData.tokenType,
+        connectedAt: new Date(),
+      };
 
       const savedSession = await this.sessionRepository.save(session);
 
@@ -114,8 +114,9 @@ export class FacebookService {
         resourceType: "facebook_page_session",
         resourceId: savedSession.id,
         metadata: {
-          pageId: dto.pageId,
-          pageName: pageDetails.name,
+          pageId: pageData.pageId,
+          pageName: pageData.pageName,
+          tokenType: pageData.tokenType,
         },
       });
 
@@ -128,6 +129,7 @@ export class FacebookService {
       return this.toResponseDto(savedSession);
     } catch (error) {
       this.logger.error(`Failed to connect Facebook Page: ${error.message}`, error.stack);
+      if (error instanceof BadRequestException) throw error;
       throw new BadRequestException(
         `Failed to connect Facebook Page: ${error.message}`,
       );
@@ -135,9 +137,185 @@ export class FacebookService {
   }
 
   /**
-   * Verify page access token and get page details
+   * Resolve the provided token into a permanent Page Access Token.
+   * Flow:
+   *   1. Exchange short-lived user token → long-lived user token
+   *   2. Call /me/accounts → get permanent page access tokens
+   *   3. Return the matching page token (or first page if no pageId specified)
+   *
+   * If /me/accounts fails (token is already a page token), fall back to using it directly.
    */
-  private async verifyPageToken(accessToken: string, pageId: string): Promise<any> {
+  private async resolvePageToken(
+    inputToken: string,
+    requestedPageId?: string,
+  ): Promise<{
+    pageAccessToken: string;
+    pageId: string;
+    pageName: string;
+    tokenExpiresAt: Date | null;
+    tokenType: string;
+  }> {
+    const appId = this.configService.get("FACEBOOK_APP_ID");
+    const appSecret = this.configService.get("FACEBOOK_APP_SECRET");
+
+    // Step 1: Try to exchange for long-lived user token
+    let longLivedUserToken = inputToken;
+    let exchanged = false;
+
+    if (appId && appSecret) {
+      try {
+        const exchangeResponse = await firstValueFrom(
+          this.httpService.get(`${this.GRAPH_API_BASE_URL}/oauth/access_token`, {
+            params: {
+              grant_type: "fb_exchange_token",
+              client_id: appId,
+              client_secret: appSecret,
+              fb_exchange_token: inputToken,
+            },
+          }),
+        );
+        longLivedUserToken = exchangeResponse.data.access_token;
+        exchanged = true;
+        this.logger.log("Successfully exchanged for long-lived user token");
+      } catch (error) {
+        this.logger.warn(`Token exchange failed (${error.message}), trying as page token`);
+      }
+    } else {
+      this.logger.warn("FACEBOOK_APP_ID/FACEBOOK_APP_SECRET not configured, cannot exchange tokens");
+    }
+
+    // Step 2: Call /me/accounts to get permanent page access tokens
+    try {
+      const accountsResponse = await firstValueFrom(
+        this.httpService.get(`${this.GRAPH_API_BASE_URL}/me/accounts`, {
+          params: {
+            access_token: longLivedUserToken,
+            fields: "id,name,access_token",
+          },
+        }),
+      );
+
+      const pages = accountsResponse.data?.data || [];
+
+      if (pages.length === 0) {
+        throw new BadRequestException("No Facebook Pages found for this account. Make sure you have admin access to at least one page.");
+      }
+
+      // Find the requested page or use the first one
+      let selectedPage: any;
+      if (requestedPageId) {
+        selectedPage = pages.find((p: any) => p.id === requestedPageId);
+        if (!selectedPage) {
+          const availablePages = pages.map((p: any) => `${p.name} (${p.id})`).join(", ");
+          throw new BadRequestException(
+            `Page ${requestedPageId} not found. Available pages: ${availablePages}`,
+          );
+        }
+      } else {
+        selectedPage = pages[0];
+        if (pages.length > 1) {
+          this.logger.log(`Multiple pages found, using first: ${selectedPage.name} (${selectedPage.id})`);
+        }
+      }
+
+      // Page tokens obtained via /me/accounts with a long-lived user token are permanent
+      this.logger.log(`Obtained permanent page token for: ${selectedPage.name} (${selectedPage.id})`);
+
+      return {
+        pageAccessToken: selectedPage.access_token,
+        pageId: selectedPage.id,
+        pageName: selectedPage.name,
+        tokenExpiresAt: null, // Permanent token — never expires
+        tokenType: exchanged ? "permanent" : "long-lived",
+      };
+    } catch (error) {
+      if (error instanceof BadRequestException) throw error;
+
+      // /me/accounts failed — the token might already be a page token
+      this.logger.warn(`/me/accounts failed (${error.message}), trying token as direct page token`);
+
+      // Try to use the token directly to get page info
+      return this.resolveDirectPageToken(longLivedUserToken, requestedPageId);
+    }
+  }
+
+  /**
+   * Fallback: treat the token as a direct Page Access Token
+   */
+  private async resolveDirectPageToken(
+    token: string,
+    requestedPageId?: string,
+  ): Promise<{
+    pageAccessToken: string;
+    pageId: string;
+    pageName: string;
+    tokenExpiresAt: Date | null;
+    tokenType: string;
+  }> {
+    try {
+      // Try /me to get the page identity
+      const meResponse = await firstValueFrom(
+        this.httpService.get(`${this.GRAPH_API_BASE_URL}/me`, {
+          params: {
+            access_token: token,
+            fields: "id,name",
+          },
+        }),
+      );
+
+      const pageId = meResponse.data.id;
+      const pageName = meResponse.data.name;
+
+      if (requestedPageId && pageId !== requestedPageId) {
+        throw new BadRequestException(
+          `Token belongs to page ${pageName} (${pageId}), not ${requestedPageId}`,
+        );
+      }
+
+      // Check token expiry via debug_token
+      let tokenExpiresAt: Date | null = null;
+      try {
+        const appId = this.configService.get("FACEBOOK_APP_ID");
+        const appSecret = this.configService.get("FACEBOOK_APP_SECRET");
+        if (appId && appSecret) {
+          const debugResponse = await firstValueFrom(
+            this.httpService.get(`${this.GRAPH_API_BASE_URL}/debug_token`, {
+              params: {
+                input_token: token,
+                access_token: `${appId}|${appSecret}`,
+              },
+            }),
+          );
+          const expiresAt = debugResponse.data?.data?.expires_at;
+          if (expiresAt && expiresAt > 0) {
+            tokenExpiresAt = new Date(expiresAt * 1000);
+            this.logger.warn(`Page token expires at: ${tokenExpiresAt.toISOString()}`);
+          } else {
+            this.logger.log("Page token does not expire (permanent)");
+          }
+        }
+      } catch {
+        // debug_token failed, ignore
+      }
+
+      return {
+        pageAccessToken: token,
+        pageId,
+        pageName,
+        tokenExpiresAt,
+        tokenType: tokenExpiresAt ? "short-lived" : "unknown",
+      };
+    } catch (error) {
+      if (error instanceof BadRequestException) throw error;
+      this.logger.error(`Failed to resolve page token: ${error.message}`);
+      throw new BadRequestException("Invalid access token. Please provide a valid User Access Token from Graph API Explorer.");
+    }
+  }
+
+  /**
+   * Get page details using a page access token
+   */
+  private async getPageDetails(accessToken: string, pageId: string): Promise<any> {
     try {
       const response = await firstValueFrom(
         this.httpService.get(`${this.GRAPH_API_BASE_URL}/${pageId}`, {
@@ -150,39 +328,8 @@ export class FacebookService {
 
       return response.data;
     } catch (error) {
-      this.logger.error(`Failed to verify page token: ${error.message}`);
-      throw new BadRequestException("Invalid page access token or page ID");
-    }
-  }
-
-  /**
-   * Exchange short-lived token for long-lived token
-   */
-  private async exchangeForLongLivedToken(shortLivedToken: string): Promise<any> {
-    const appId = this.configService.get("FACEBOOK_APP_ID");
-    const appSecret = this.configService.get("FACEBOOK_APP_SECRET");
-
-    if (!appId || !appSecret) {
-      this.logger.warn("Facebook App credentials not configured, using short-lived token");
-      return { access_token: shortLivedToken };
-    }
-
-    try {
-      const response = await firstValueFrom(
-        this.httpService.get(`${this.GRAPH_API_BASE_URL}/oauth/access_token`, {
-          params: {
-            grant_type: "fb_exchange_token",
-            client_id: appId,
-            client_secret: appSecret,
-            fb_exchange_token: shortLivedToken,
-          },
-        }),
-      );
-
-      return response.data;
-    } catch (error) {
-      this.logger.warn(`Failed to exchange token: ${error.message}, using short-lived token`);
-      return { access_token: shortLivedToken };
+      this.logger.warn(`Failed to get page details: ${error.message}`);
+      return {};
     }
   }
 

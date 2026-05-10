@@ -529,7 +529,8 @@ INSTRUCTIONS:
 - Always cite your sources when using context information
 
 AGENT INSTRUCTIONS:
-${agent.systemPrompt || "Be helpful, accurate, and professional."}`;
+${agent.systemPrompt || "Be helpful, accurate, and professional."}
+${context.channelInstructions ? `\nCHANNEL-SPECIFIC INSTRUCTIONS:\n${context.channelInstructions}` : ""}`;
   }
 
   /**
@@ -551,7 +552,8 @@ INSTRUCTIONS:
 - Keep responses helpful and engaging
 
 AGENT INSTRUCTIONS:
-${agent.systemPrompt || "Be helpful, accurate, and professional."}`;
+${agent.systemPrompt || "Be helpful, accurate, and professional."}
+${context.channelInstructions ? `\nCHANNEL-SPECIFIC INSTRUCTIONS:\n${context.channelInstructions}` : ""}`;
   }
 
   /**

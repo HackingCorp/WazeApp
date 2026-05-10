@@ -192,7 +192,10 @@ export class FacebookCommentResponderService {
         conversationId: conversation.id,
         agentId: session.agent.id,
         userMessage: commentEvent.message,
-        context: context?.context as any || {} as any,
+        context: {
+          ...(context?.context as any || {}),
+          channelInstructions: "This is a Facebook comment reply. IMPORTANT: 1) Reply in the SAME LANGUAGE as the user's comment. 2) Do NOT use any Markdown formatting (no **bold**, no *italic*, no bullet points with -, no headers with #). Write plain text only. 3) Keep the reply concise and suitable for a Facebook comment.",
+        },
         conversationHistory,
         priority: "normal",
       });
@@ -213,11 +216,12 @@ export class FacebookCommentResponderService {
 
       await this.messageRepository.save(aiMessage);
 
-      // Send reply to Facebook
+      // Send reply to Facebook (strip markdown since Facebook doesn't support it)
       try {
+        const cleanContent = this.stripMarkdown(aiResponse.content);
         const replyResult = await this.facebookService.replyToComment(
           commentId,
-          aiResponse.content,
+          cleanContent,
           session,
         );
 
@@ -316,6 +320,23 @@ export class FacebookCommentResponderService {
   /**
    * Track usage metrics
    */
+  /**
+   * Strip Markdown formatting for platforms that don't support it (Facebook)
+   */
+  private stripMarkdown(text: string): string {
+    return text
+      .replace(/\*\*(.*?)\*\*/g, '$1')   // **bold** → bold
+      .replace(/\*(.*?)\*/g, '$1')        // *italic* → italic
+      .replace(/__(.*?)__/g, '$1')        // __underline__ → underline
+      .replace(/~~(.*?)~~/g, '$1')        // ~~strikethrough~~ → strikethrough
+      .replace(/^#{1,6}\s+/gm, '')        // # headers → text
+      .replace(/^\s*[-*+]\s+/gm, '• ')    // - list items → bullet
+      .replace(/^\s*\d+\.\s+/gm, '')      // 1. numbered list → text
+      .replace(/`{1,3}(.*?)`{1,3}/g, '$1') // `code` → code
+      .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1') // [link](url) → link
+      .trim();
+  }
+
   private async trackUsage(
     session: FacebookPageSession,
     tokensUsed: number,

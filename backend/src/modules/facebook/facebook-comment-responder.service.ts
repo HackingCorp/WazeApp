@@ -174,12 +174,10 @@ export class FacebookCommentResponderService {
         take: 10,
       });
 
-      // Get or create conversation context
-      const context = await this.conversationRepository
-        .createQueryBuilder("conv")
-        .leftJoinAndSelect("conv.context", "context")
-        .where("conv.id = :id", { id: conversation.id })
-        .getOne();
+      // Get conversation with context
+      const context = await this.conversationRepository.findOne({
+        where: { id: conversation.id },
+      });
 
       // Generate AI response using ResponseGenerationService
       const aiResponse = await this.responseGenerationService.generateResponse({

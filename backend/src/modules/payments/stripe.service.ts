@@ -451,6 +451,11 @@ export class StripeService {
 
       await this.subscriptionRepository.save(result.subscription);
 
+      // Handle renewal: cancel old Stripe subscription if this was a renewal checkout
+      if (organizationId) {
+        await this.cancelOldRenewalSubscription(organizationId, result.subscription.id);
+      }
+
       this.logger.log(
         `Stripe checkout completed: ${planCode} plan for ${organizationId || userId}`,
       );
@@ -950,44 +955,44 @@ export class StripeService {
   }
 
   /**
-   * Renew subscription immediately by cancelling the current one and creating a new checkout
+   * Renew subscription by creating a new checkout session.
+   * The old subscription is NOT cancelled until the new payment is confirmed.
+   * The old Stripe subscription ID is stored in metadata so it can be cancelled
+   * after successful checkout via the webhook handler.
    */
   async renewSubscriptionNow(userId: string, organizationId: string): Promise<{ sessionId: string; url: string }> {
     const stripe = this.ensureStripe();
 
-    // Find the active subscription for this org (with Stripe ID, most recent first)
+    // Find the active subscription for this org (most recent first)
     const subscription = await this.subscriptionRepository.findOne({
       where: { organizationId, status: SubscriptionStatus.ACTIVE },
       order: { createdAt: 'DESC' },
     });
 
-    if (!subscription || !subscription.stripeSubscriptionId) {
-      throw new BadRequestException('No active Stripe subscription found for this organization');
-    }
-
-    if (subscription.status !== SubscriptionStatus.ACTIVE && subscription.status !== SubscriptionStatus.PAST_DUE) {
-      throw new BadRequestException('Subscription is not in a renewable state');
+    if (!subscription) {
+      throw new BadRequestException('No active subscription found for this organization');
     }
 
     const planCode = subscription.plan;
 
-    // Retrieve billing interval from Stripe before cancelling
+    // Retrieve billing interval from Stripe
     let billingPeriod: 'monthly' | 'annually' = 'monthly';
-    try {
-      const stripeSub = await stripe.subscriptions.retrieve(subscription.stripeSubscriptionId);
-      const interval = stripeSub.items?.data?.[0]?.price?.recurring?.interval;
-      if (interval === 'year') {
-        billingPeriod = 'annually';
+    if (subscription.stripeSubscriptionId) {
+      try {
+        const stripeSub = await stripe.subscriptions.retrieve(subscription.stripeSubscriptionId);
+        const interval = stripeSub.items?.data?.[0]?.price?.recurring?.interval;
+        if (interval === 'year') {
+          billingPeriod = 'annually';
+        }
+      } catch (e) {
+        this.logger.warn(`Could not retrieve Stripe subscription interval, defaulting to monthly: ${e.message}`);
       }
-    } catch (e) {
-      this.logger.warn(`Could not retrieve Stripe subscription interval, defaulting to monthly: ${e.message}`);
     }
 
-    // Cancel the current Stripe subscription immediately
-    await stripe.subscriptions.cancel(subscription.stripeSubscriptionId);
-    this.logger.log(`Cancelled Stripe subscription ${subscription.stripeSubscriptionId} for immediate renewal`);
+    // Store the old subscription ID so we can cancel it after successful renewal
+    const oldStripeSubId = subscription.stripeSubscriptionId;
 
-    // Create a new checkout session for the same plan
+    // Create a new checkout session for the same plan (DO NOT cancel old sub yet)
     const dashboardUrl = this.configService.get('DASHBOARD_URL') || 'https://app.wazeapp.ai';
     const result = await this.createCheckoutSession({
       userId,
@@ -998,7 +1003,63 @@ export class StripeService {
       cancelUrl: `${dashboardUrl}/dashboard?renewal=cancelled`,
     });
 
+    // Mark the subscription as pending renewal with the old Stripe sub ID
+    subscription.metadata = {
+      ...subscription.metadata,
+      pendingRenewal: true,
+      oldStripeSubscriptionId: oldStripeSubId,
+    };
+    await this.subscriptionRepository.save(subscription);
+
+    this.logger.log(`Created renewal checkout for org ${organizationId}, old sub: ${oldStripeSubId}`);
+
     return result;
+  }
+
+  /**
+   * Cancel the old Stripe subscription after a renewal checkout completes successfully.
+   * Finds any old subscription with pendingRenewal metadata and cancels it on both Stripe and DB.
+   */
+  private async cancelOldRenewalSubscription(organizationId: string, newSubscriptionId: string): Promise<void> {
+    try {
+      // Find old subscriptions with pendingRenewal flag (exclude the new one)
+      const oldSubs = await this.subscriptionRepository.find({
+        where: { organizationId, status: SubscriptionStatus.ACTIVE },
+      });
+
+      for (const oldSub of oldSubs) {
+        if (oldSub.id === newSubscriptionId) continue;
+        if (!oldSub.metadata?.pendingRenewal) continue;
+
+        const oldStripeSubId = oldSub.metadata.oldStripeSubscriptionId;
+
+        // Cancel on Stripe
+        if (oldStripeSubId) {
+          try {
+            const stripe = this.ensureStripe();
+            await stripe.subscriptions.cancel(oldStripeSubId);
+            this.logger.log(`Cancelled old Stripe subscription ${oldStripeSubId} after successful renewal`);
+          } catch (e) {
+            // May already be cancelled — that's fine
+            this.logger.warn(`Could not cancel old Stripe subscription ${oldStripeSubId}: ${e.message}`);
+          }
+        }
+
+        // Mark old DB subscription as cancelled and clean up metadata
+        oldSub.status = SubscriptionStatus.CANCELLED;
+        oldSub.metadata = {
+          ...oldSub.metadata,
+          pendingRenewal: false,
+          oldStripeSubscriptionId: undefined,
+          cancelledByRenewal: true,
+          renewedAt: new Date().toISOString(),
+        };
+        await this.subscriptionRepository.save(oldSub);
+        this.logger.log(`Marked old subscription ${oldSub.id} as cancelled after renewal`);
+      }
+    } catch (error) {
+      this.logger.error(`Error cancelling old renewal subscriptions: ${error.message}`, error.stack);
+    }
   }
 
   /**

@@ -955,9 +955,10 @@ export class StripeService {
   async renewSubscriptionNow(userId: string, organizationId: string): Promise<{ sessionId: string; url: string }> {
     const stripe = this.ensureStripe();
 
-    // Find the active subscription for this org
+    // Find the active subscription for this org (with Stripe ID, most recent first)
     const subscription = await this.subscriptionRepository.findOne({
-      where: { organizationId },
+      where: { organizationId, status: SubscriptionStatus.ACTIVE },
+      order: { createdAt: 'DESC' },
     });
 
     if (!subscription || !subscription.stripeSubscriptionId) {

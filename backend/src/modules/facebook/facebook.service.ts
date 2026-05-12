@@ -163,12 +163,13 @@ export class FacebookService {
   }> {
     const appId = this.configService.get("FACEBOOK_APP_ID");
     const appSecret = this.configService.get("FACEBOOK_APP_SECRET");
+    const hasAppCredentials = appId && appSecret && appId !== "disabled" && appSecret !== "disabled";
 
     // Step 1: Try to exchange for long-lived user token
     let longLivedUserToken = inputToken;
     let exchanged = false;
 
-    if (appId && appSecret) {
+    if (hasAppCredentials) {
       try {
         const exchangeResponse = await firstValueFrom(
           this.httpService.get(`${this.GRAPH_API_BASE_URL}/oauth/access_token`, {
@@ -187,7 +188,7 @@ export class FacebookService {
         this.logger.warn(`Token exchange failed (${error.message}), trying as page token`);
       }
     } else {
-      this.logger.warn("FACEBOOK_APP_ID/FACEBOOK_APP_SECRET not configured, cannot exchange tokens");
+      this.logger.warn("FACEBOOK_APP_ID/FACEBOOK_APP_SECRET not configured (or set to 'disabled'), cannot exchange tokens");
     }
 
     // Step 2: Call /me/accounts to get permanent page access tokens
@@ -283,7 +284,7 @@ export class FacebookService {
       try {
         const appId = this.configService.get("FACEBOOK_APP_ID");
         const appSecret = this.configService.get("FACEBOOK_APP_SECRET");
-        if (appId && appSecret) {
+        if (appId && appSecret && appId !== "disabled" && appSecret !== "disabled") {
           const debugResponse = await firstValueFrom(
             this.httpService.get(`${this.GRAPH_API_BASE_URL}/debug_token`, {
               params: {
@@ -448,6 +449,31 @@ export class FacebookService {
     if (dto.autoReconnect !== undefined)
       session.autoReconnect = dto.autoReconnect;
 
+    // Handle token refresh
+    if (dto.pageAccessToken) {
+      this.logger.log(`Refreshing access token for session ${id}`);
+      try {
+        const pageData = await this.resolvePageToken(dto.pageAccessToken, session.pageId);
+        session.pageAccessToken = pageData.pageAccessToken;
+        session.tokenExpiresAt = pageData.tokenExpiresAt;
+        session.status = FacebookPageSessionStatus.CONNECTED;
+        session.isActive = true;
+        session.retryCount = 0;
+        session.metadata = {
+          ...session.metadata,
+          tokenType: pageData.tokenType,
+          lastSyncAt: new Date(),
+        };
+
+        // Re-subscribe to webhooks with the new token
+        await this.subscribeToWebhooks(session);
+        this.logger.log(`Token refreshed successfully for page ${session.pageId}`);
+      } catch (error) {
+        this.logger.error(`Token refresh failed: ${error.message}`);
+        throw new BadRequestException(`Token refresh failed: ${error.message}`);
+      }
+    }
+
     const updated = await this.sessionRepository.save(session);
 
     await this.auditService.log({
@@ -610,6 +636,9 @@ export class FacebookService {
       agent: session.agent ? { id: session.agent.id, name: session.agent.name } : undefined,
       replyDelay: session.config?.replyDelay,
       keywordsFilter: session.config?.keywordsFilter,
+      tokenExpiresAt: session.tokenExpiresAt,
+      tokenType: session.metadata?.tokenType,
+      isTokenValid: session.isTokenValid,
       createdAt: session.createdAt,
       updatedAt: session.updatedAt,
     };

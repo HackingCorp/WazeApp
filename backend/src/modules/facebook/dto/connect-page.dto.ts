@@ -51,6 +51,11 @@ export class ConnectPageDto {
 }
 
 export class UpdatePageSessionDto {
+  @ApiProperty({ description: "New Facebook Access Token to refresh expired token", required: false })
+  @IsString()
+  @IsOptional()
+  pageAccessToken?: string;
+
   @ApiProperty({ description: "Session name", required: false })
   @IsString()
   @IsOptional()
@@ -142,6 +147,15 @@ export class FacebookPageSessionResponseDto {
 
   @ApiProperty({ required: false })
   keywordsFilter?: string[];
+
+  @ApiProperty({ required: false })
+  tokenExpiresAt?: Date;
+
+  @ApiProperty({ required: false })
+  tokenType?: string;
+
+  @ApiProperty()
+  isTokenValid: boolean;
 
   @ApiProperty()
   createdAt: Date;

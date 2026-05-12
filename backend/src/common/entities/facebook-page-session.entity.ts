@@ -177,11 +177,10 @@ export class FacebookPageSession extends BaseEntity {
 
   @ApiProperty({ description: "Is access token valid" })
   get isTokenValid(): boolean {
-    return !!(
-      this.pageAccessToken &&
-      this.tokenExpiresAt &&
-      this.tokenExpiresAt > new Date()
-    );
+    if (!this.pageAccessToken) return false;
+    // Permanent tokens have no expiry (tokenExpiresAt is null)
+    if (!this.tokenExpiresAt) return true;
+    return this.tokenExpiresAt > new Date();
   }
 
   @ApiProperty({ description: "Should retry connection" })

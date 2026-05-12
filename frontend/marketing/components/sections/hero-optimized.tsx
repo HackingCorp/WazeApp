@@ -4,6 +4,7 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { ArrowRight, MessageCircle, Clock, Globe, Zap } from "lucide-react"
 import { useTranslations } from "@/lib/hooks/use-translations"
+import posthog from "posthog-js"
 
 export function HeroSection() {
   const { t, isHydrated } = useTranslations()
@@ -28,7 +29,7 @@ export function HeroSection() {
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 mb-12 min-h-[100px] sm:min-h-[44px]">
-              <Link href="/register">
+              <Link href="/register" onClick={() => posthog.capture('cta_clicked', { button: 'get_started', location: 'hero' })}>
                 <Button size="lg" className="w-full sm:w-auto">
                   {t("heroConnectButton")}
                   <ArrowRight className="ml-2 h-4 w-4" />
@@ -38,7 +39,10 @@ export function HeroSection() {
                 size="lg"
                 variant="outline"
                 className="w-full sm:w-auto"
-                onClick={() => (window as any).__openDemoChat?.()}
+                onClick={() => {
+                  posthog.capture('cta_clicked', { button: 'try_demo', location: 'hero' });
+                  (window as any).__openDemoChat?.();
+                }}
               >
                 <MessageCircle className="mr-2 h-4 w-4" />
                 {t("heroTryDemo")}

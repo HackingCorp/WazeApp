@@ -5,8 +5,8 @@ import { usePathname } from 'next/navigation';
 import posthog from 'posthog-js';
 import { useAuth } from '@/providers/AuthProvider';
 
-const POSTHOG_KEY = process.env.NEXT_PUBLIC_POSTHOG_KEY;
-const POSTHOG_HOST = process.env.NEXT_PUBLIC_POSTHOG_HOST;
+const POSTHOG_KEY = process.env.NEXT_PUBLIC_POSTHOG_KEY || 'phc_FS1rcFnkSDo3ePdmtCwEkwR8s2iR39n13MNjDEC0C8X';
+const POSTHOG_HOST = process.env.NEXT_PUBLIC_POSTHOG_HOST || 'https://eu.i.posthog.com';
 
 export function PostHogProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();

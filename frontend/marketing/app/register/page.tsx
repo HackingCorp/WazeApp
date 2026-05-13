@@ -261,6 +261,15 @@ function RegisterPageContent() {
           posthog.capture('register_success', { plan: formData.selectedPlan, paymentMethod: formData.paymentMethod });
         }
 
+        // Fire Facebook Pixel CompleteRegistration on actual registration success
+        if (typeof window.fbq === 'function') {
+          window.fbq('track', 'CompleteRegistration', {
+            content_name: formData.selectedPlan,
+            currency: 'USD',
+            value: plans.find(p => p.id === formData.selectedPlan)?.priceMonthlyUSD || 0,
+          });
+        }
+
         // If Stripe checkout URL returned, redirect to Stripe Checkout first
         if (response.data?.stripeCheckoutUrl) {
           window.location.href = response.data.stripeCheckoutUrl

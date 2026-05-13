@@ -5,7 +5,7 @@ import { useEffect } from "react"
 export default function DashboardRedirect() {
   useEffect(() => {
     // Redirection vers le dashboard principal
-    const dashboardUrl = process.env.NEXT_PUBLIC_DASHBOARD_URL || 'http://localhost:3101'
+    const dashboardUrl = process.env.NEXT_PUBLIC_DASHBOARD_URL || 'https://app.wazeapp.ai'
     window.location.href = dashboardUrl
   }, [])
 
@@ -20,7 +20,7 @@ export default function DashboardRedirect() {
         <div className="mt-6 space-y-2">
           <div>
             <a 
-              href={process.env.NEXT_PUBLIC_DASHBOARD_URL || 'http://localhost:3101'} 
+              href={process.env.NEXT_PUBLIC_DASHBOARD_URL || 'https://app.wazeapp.ai'} 
               className="inline-block px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
             >
               Go to Dashboard

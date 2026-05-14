@@ -2,6 +2,7 @@ import { MigrationInterface, QueryRunner } from "typeorm";
 
 export class AddPerformanceIndexes1784000000002 implements MigrationInterface {
   name = "AddPerformanceIndexes1784000000002";
+  transaction = false as const;
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     // Partial index on externalMessageId for WhatsApp dedup lookups

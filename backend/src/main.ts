@@ -14,9 +14,12 @@ import {
   TransformInterceptor,
 } from "./common/interceptors";
 import { BaileysService } from "./modules/whatsapp/baileys.service";
+import { RedisIoAdapter } from "./common/adapters/redis-io.adapter";
 
 async function bootstrap() {
   const isProduction = process.env.NODE_ENV === "production";
+  const workerId = process.env.WORKER_ID || "0";
+  const clusterWorkers = parseInt(process.env.CLUSTER_WORKERS || "1", 10);
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     rawBody: true, // Required for Stripe webhook signature verification
     logger: isProduction
@@ -72,6 +75,14 @@ async function bootstrap() {
     exposedHeaders: ["X-Total-Count", "X-Page", "X-Limit"],
     maxAge: 3600, // Cache preflight for 1 hour
   });
+
+  // Socket.io Redis adapter for cluster mode
+  if (clusterWorkers > 1) {
+    const redisIoAdapter = new RedisIoAdapter(app, configService);
+    await redisIoAdapter.connectToRedis();
+    app.useWebSocketAdapter(redisIoAdapter);
+    logger.log(`Worker ${workerId}: Socket.io Redis adapter enabled`);
+  }
 
   // Response compression
   app.use(compression());
@@ -178,26 +189,33 @@ async function bootstrap() {
     });
   }
 
-  // Setup graceful shutdown
-  const baileysService = app.get(BaileysService);
-  
+  // Setup graceful shutdown — only worker 0 manages WhatsApp sessions
+  const isSessionOwner = workerId === "0";
+  const baileysService = isSessionOwner ? app.get(BaileysService) : null;
+
+  if (!isSessionOwner) {
+    logger.log(`Worker ${workerId}: Skipping WhatsApp session management (handled by worker 0)`);
+  }
+
   // Handle graceful shutdown
   const gracefulShutdown = async (signal: string) => {
-    logger.log(`🛑 Received ${signal}. Starting graceful shutdown...`);
-    
+    logger.log(`Received ${signal}. Starting graceful shutdown...`);
+
     try {
-      // Cleanup WhatsApp sessions
-      logger.log("🧹 Cleaning up WhatsApp sessions...");
-      await baileysService.cleanup();
-      
+      // Cleanup WhatsApp sessions (only on session owner)
+      if (baileysService) {
+        logger.log("Cleaning up WhatsApp sessions...");
+        await baileysService.cleanup();
+      }
+
       // Close the application
-      logger.log("👋 Closing application...");
+      logger.log("Closing application...");
       await app.close();
-      
-      logger.log("✅ Graceful shutdown completed");
+
+      logger.log("Graceful shutdown completed");
       process.exit(0);
     } catch (error) {
-      logger.error("❌ Error during graceful shutdown:", error);
+      logger.error("Error during graceful shutdown:", error);
       process.exit(1);
     }
   };
@@ -212,15 +230,17 @@ async function bootstrap() {
   await app.listen(port, host);
 
   logger.log(
-    `🚀 Application is running on: http://localhost:${port}/${apiPrefix}`,
+    `Application running on http://localhost:${port}/${apiPrefix} (worker ${workerId})`,
   );
   if (!isProduction) {
     logger.log(
-      `📖 Swagger documentation: http://localhost:${port}/${apiPrefix}/docs`,
+      `Swagger documentation: http://localhost:${port}/${apiPrefix}/docs`,
     );
   }
-  logger.log(`🏥 Health check: http://localhost:${port}/${apiPrefix}/health`);
-  logger.log(`🔄 WhatsApp sessions will auto-restore on startup`);
+  logger.log(`Health check: http://localhost:${port}/${apiPrefix}/health`);
+  if (isSessionOwner) {
+    logger.log(`WhatsApp sessions will auto-restore on startup (worker ${workerId})`);
+  }
 }
 
 bootstrap().catch((err) => {

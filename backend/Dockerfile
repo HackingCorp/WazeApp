@@ -67,8 +67,9 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=90s --retries=3 \
 
 ENV NODE_ENV=production
 ENV PORT=3100
+ENV NODE_OPTIONS="--max-old-space-size=1536"
 
 EXPOSE 3100
 
 ENTRYPOINT ["dumb-init", "--"]
-CMD ["node", "dist/main.js"]
+CMD ["node", "dist/cluster.js"]

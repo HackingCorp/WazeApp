@@ -92,6 +92,36 @@ services:
       retries: 3
       start_period: 60s
 
+  pgbouncer:
+    image: edoburu/pgbouncer:1.22.0
+    container_name: wazeapp_pgbouncer
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-wazeapp}:${POSTGRES_PASSWORD:-wazeapp_dev_password}@postgres:5432/${POSTGRES_DB:-wazeapp}
+      POOL_MODE: transaction
+      DEFAULT_POOL_SIZE: 20
+      MAX_CLIENT_CONN: 200
+      MAX_DB_CONNECTIONS: 15
+    depends_on:
+      postgres:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: '0.25'
+        reservations:
+          memory: 32M
+          cpus: '0.05'
+    networks:
+      - wazeapp_network
+    healthcheck:
+      test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-p", "6432"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
   backend:
     build:
       context: ./backend
@@ -105,7 +135,7 @@ services:
       - 8.8.4.4
       - 1.1.1.1
     depends_on:
-      postgres:
+      pgbouncer:
         condition: service_healthy
       redis:
         condition: service_healthy
@@ -126,9 +156,11 @@ services:
       - "traefik.http.services.backend.loadbalancer.server.port=3100"
     environment:
       NODE_ENV: production
-      DATABASE_URL: postgresql://${POSTGRES_USER:-wazeapp}:${POSTGRES_PASSWORD:-wazeapp_dev_password}@postgres:5432/${POSTGRES_DB:-wazeapp}
-      DATABASE_HOST: postgres
-      DATABASE_PORT: 5432
+      DATABASE_URL: postgresql://${POSTGRES_USER:-wazeapp}:${POSTGRES_PASSWORD:-wazeapp_dev_password}@pgbouncer:6432/${POSTGRES_DB:-wazeapp}
+      DATABASE_HOST: pgbouncer
+      DATABASE_PORT: 6432
+      DATABASE_DIRECT_HOST: postgres
+      DATABASE_DIRECT_PORT: 5432
       DATABASE_NAME: ${POSTGRES_DB:-wazeapp}
       DATABASE_USERNAME: ${POSTGRES_USER:-wazeapp}
       DATABASE_PASSWORD: ${POSTGRES_PASSWORD:-wazeapp_dev_password}

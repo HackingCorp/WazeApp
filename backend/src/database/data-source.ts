@@ -15,8 +15,8 @@ const isProduction = configService.get("NODE_ENV") === "production";
 // connection semantics that PgBouncer's transaction pooling doesn't support.
 const AppDataSource = new DataSource({
   type: "postgres",
-  host: configService.get("DATABASE_DIRECT_HOST", configService.get("DATABASE_HOST", "localhost")),
-  port: +configService.get("DATABASE_DIRECT_PORT", configService.get("DATABASE_PORT", 5432)),
+  host: configService.get("DATABASE_DIRECT_HOST") || configService.get("DATABASE_HOST", "localhost"),
+  port: +(configService.get("DATABASE_DIRECT_PORT") || configService.get("DATABASE_PORT", 5432)),
   username: configService.get("DATABASE_USERNAME", "wazeapp"),
   password: configService.get("DATABASE_PASSWORD", "wazeapp123"),
   database: configService.get("DATABASE_NAME", "wazeapp"),

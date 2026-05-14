@@ -4,7 +4,7 @@ import { InjectQueue } from "@nestjs/bull";
 import { Queue } from "bull";
 import { DataSource } from "typeorm";
 
-interface QueueMetrics {
+export interface QueueMetrics {
   waiting: number;
   active: number;
   completed: number;

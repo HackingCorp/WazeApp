@@ -8,6 +8,7 @@ import {
   DiskHealthIndicator,
 } from "@nestjs/terminus";
 import { Public } from "@/common/decorators/public.decorator";
+import { MetricsService } from "./metrics.service";
 
 @ApiTags("Health")
 @Controller("health")
@@ -17,6 +18,7 @@ export class HealthController {
     private db: TypeOrmHealthIndicator,
     private memory: MemoryHealthIndicator,
     private disk: DiskHealthIndicator,
+    private metricsService: MetricsService,
   ) {}
 
   @Get()
@@ -54,5 +56,13 @@ export class HealthController {
   @ApiResponse({ status: 200, description: "Service is alive" })
   live() {
     return { status: "alive", timestamp: new Date().toISOString() };
+  }
+
+  @Get("metrics")
+  @Public()
+  @ApiOperation({ summary: "Application metrics" })
+  @ApiResponse({ status: 200, description: "Returns process, DB, and queue metrics" })
+  metrics() {
+    return this.metricsService.collectMetrics();
   }
 }

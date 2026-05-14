@@ -19,10 +19,13 @@ export enum MessageStatus {
 
 @Entity("agent_messages")
 @Index("IDX_MSG_CONV", ["conversationId"])
-@Index("IDX_MSG_ROLE", ["role"])
 @Index("IDX_MSG_TIMESTAMP", ["createdAt"])
 @Index("IDX_MSG_CONV_DATE", ["conversationId", "createdAt"])
 @Index("IDX_MSG_CONV_STATUS", ["conversationId", "status"])
+// Additional performance indexes managed by migration 1784000000002:
+// IDX_MSG_EXTERNAL_ID (partial, WHERE NOT NULL) - WhatsApp dedup
+// IDX_MSG_CONV_SEQ (conversationId, sequenceNumber DESC) - latest messages
+// IDX_MSG_CONV_ROLE_DATE (conversationId, role, createdAt DESC) - AI context
 export class AgentMessage extends BaseEntity {
   @ApiProperty({ description: "Message content" })
   @Column({ type: "text" })

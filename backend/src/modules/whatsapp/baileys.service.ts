@@ -805,11 +805,12 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
           this.logger.log(`🔑 myAppStateKeyId present: ${hasAppStateKeyId}`);
           if (!hasAppStateKeyId) {
             this.logger.warn(
-              `❌ CRITICAL: myAppStateKeyId is NOT set - history sync will be SKIPPED by Baileys!`,
+              `CRITICAL: myAppStateKeyId is NOT set for session ${sessionId} - history sync will be SKIPPED by Baileys`,
             );
-            this.logger.warn(
-              `📋 This is likely why no history sync events are received.`,
-            );
+            this.eventEmitter.emit("whatsapp.session.no-history-sync", {
+              sessionId,
+              reason: "myAppStateKeyId not set - catch-up messages may be missed",
+            });
           } else {
             this.logger.log(
               `✅ myAppStateKeyId is set - history sync should work`,

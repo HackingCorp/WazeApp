@@ -62,6 +62,7 @@ interface BufferedMessage {
 export class WhatsAppAIResponderService {
   private readonly logger = new Logger(WhatsAppAIResponderService.name);
   private readonly processingMessages = new Set<string>();
+  private static readonly MAX_PROCESSING_SET_SIZE = 5000;
 
   // Message batching: buffer messages per conversation for grouping
   private readonly messageBuffer = new Map<string, BufferedMessage[]>();
@@ -73,6 +74,25 @@ export class WhatsAppAIResponderService {
 
   // Redis client for dedup operations (survives process restarts, shared across instances)
   private readonly redisClient: Redis;
+
+  /**
+   * Add a message ID to the processing set with size eviction.
+   * If the set exceeds MAX_PROCESSING_SET_SIZE, the oldest entries are evicted.
+   */
+  private trackProcessingMessage(messageId: string): void {
+    if (this.processingMessages.size >= WhatsAppAIResponderService.MAX_PROCESSING_SET_SIZE) {
+      // Evict oldest 20% entries (Set iteration order = insertion order)
+      const evictCount = Math.floor(WhatsAppAIResponderService.MAX_PROCESSING_SET_SIZE * 0.2);
+      let removed = 0;
+      for (const id of this.processingMessages) {
+        if (removed >= evictCount) break;
+        this.processingMessages.delete(id);
+        removed++;
+      }
+      this.logger.warn(`Evicted ${removed} stale entries from processingMessages (size was ${this.processingMessages.size + removed})`);
+    }
+    this.processingMessages.add(messageId);
+  }
 
   // Détection de langue améliorée avec mots-clés uniques et pondération
   private detectLanguage(text: string): string {
@@ -441,7 +461,7 @@ export class WhatsAppAIResponderService {
       : message.key?.remoteJid;
 
     // Skip if no message ID, no fromNumber, or if we're already processing this message
-    if (!messageId || !fromNumber || this.processingMessages.has(messageId)) {
+    if (!messageId || !fromNumber || this.processingMessages.has(messageId) || this.processingMessages.has(`catchup-${messageId}`)) {
       return;
     }
 
@@ -450,8 +470,8 @@ export class WhatsAppAIResponderService {
       return;
     }
 
-    // Mark message as being processed
-    this.processingMessages.add(messageId);
+    // Mark message as being processed (with eviction if set is full)
+    this.trackProcessingMessage(messageId);
 
     try {
       // Extract message details and analyze media quickly
@@ -531,11 +551,11 @@ export class WhatsAppAIResponderService {
       return;
     }
 
-    this.processingMessages.add(messageId);
-    this.processingMessages.add(`catchup-${messageId}`);
+    this.trackProcessingMessage(messageId);
+    this.trackProcessingMessage(`catchup-${messageId}`);
 
     try {
-      this.logger.log(`🔄 Processing catch-up message ${messageId} for session ${sessionId}`);
+      this.logger.log(`Processing catch-up message ${messageId} for session ${sessionId}`);
 
       // Get full session with all relations if not already loaded
       let fullSession = session;

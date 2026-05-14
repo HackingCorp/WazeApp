@@ -3,6 +3,8 @@ import { InjectQueue } from '@nestjs/bull';
 import { Queue, Job } from 'bull';
 import { OnEvent } from '@nestjs/event-emitter';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import { ConfigService } from '@nestjs/config';
+import Redis from 'ioredis';
 
 export interface PendingMessage {
   id: string;
@@ -21,18 +23,49 @@ export interface PendingMessage {
   metadata?: Record<string, any>;
 }
 
+/**
+ * Redis lock TTL for session catch-up processing.
+ * Prevents multiple instances/workers from processing the same session.
+ */
+const LOCK_TTL_SECONDS = 120;
+const LOCK_PREFIX = 'lock:pending-catchup:';
+
 @Injectable()
 export class PendingMessageQueueService {
   private readonly logger = new Logger(PendingMessageQueueService.name);
-
-  // Track sessions being processed to avoid duplicates
-  private processingSession = new Set<string>();
+  private readonly redis: Redis;
 
   constructor(
     @InjectQueue('pending-messages')
     private pendingMessageQueue: Queue<PendingMessage>,
     private eventEmitter: EventEmitter2,
-  ) {}
+    private configService: ConfigService,
+  ) {
+    this.redis = new Redis({
+      host: this.configService.get('REDIS_HOST', 'localhost'),
+      port: this.configService.get('REDIS_PORT', 6379),
+      password: this.configService.get('REDIS_PASSWORD'),
+    });
+  }
+
+  /**
+   * Acquire a distributed lock for session catch-up processing.
+   * Returns true if lock was acquired, false if another instance holds it.
+   */
+  private async acquireLock(sessionId: string): Promise<boolean> {
+    const key = `${LOCK_PREFIX}${sessionId}`;
+    // SET NX EX is atomic — only one caller can acquire
+    const result = await this.redis.set(key, Date.now().toString(), 'EX', LOCK_TTL_SECONDS, 'NX');
+    return result === 'OK';
+  }
+
+  /**
+   * Release the distributed lock for a session.
+   */
+  private async releaseLock(sessionId: string): Promise<void> {
+    const key = `${LOCK_PREFIX}${sessionId}`;
+    await this.redis.del(key);
+  }
 
   /**
    * Queue a message for retry when session reconnects
@@ -76,7 +109,7 @@ export class PendingMessageQueueService {
         delay: 10000, // 10 seconds base delay between retries
       },
       removeOnComplete: 200,
-      removeOnFail: 100,
+      removeOnFail: 1000,
       jobId: messageId,
     });
 
@@ -85,7 +118,7 @@ export class PendingMessageQueueService {
     const position = sessionJobs.length;
 
     this.logger.log(
-      `📥 Queued ${data.source} message ${messageId} for session ${data.sessionId} ` +
+      `Queued ${data.source} message ${messageId} for session ${data.sessionId} ` +
       `(to: ${data.to}). Queue position: ${position}`,
     );
 
@@ -146,22 +179,22 @@ export class PendingMessageQueueService {
   }
 
   /**
-   * Handle session reconnect - process queued messages
+   * Handle session reconnect - process queued messages.
+   * Uses Redis distributed lock to prevent duplicate processing across instances.
    */
   @OnEvent('whatsapp.session.ready')
   async handleSessionReady(payload: { sessionId: string; phoneNumber?: string }) {
     const { sessionId } = payload;
 
-    // Prevent duplicate processing
-    if (this.processingSession.has(sessionId)) {
-      this.logger.debug(`Session ${sessionId} already being processed, skipping`);
+    // Acquire distributed lock (replaces in-memory Set)
+    const lockAcquired = await this.acquireLock(sessionId);
+    if (!lockAcquired) {
+      this.logger.debug(`Session ${sessionId} catch-up already locked by another instance, skipping`);
       return;
     }
 
-    this.processingSession.add(sessionId);
-
     try {
-      this.logger.log(`🔄 Session ${sessionId} reconnected - checking pending messages queue`);
+      this.logger.log(`Session ${sessionId} reconnected - checking pending messages queue`);
 
       // Recover failed jobs for this session first
       await this.recoverFailedJobs(sessionId);
@@ -174,7 +207,7 @@ export class PendingMessageQueueService {
         return;
       }
 
-      this.logger.log(`📬 Found ${pendingJobs.length} pending messages for session ${sessionId}`);
+      this.logger.log(`Found ${pendingJobs.length} pending messages for session ${sessionId}`);
 
       // Sort by creation date (oldest first)
       pendingJobs.sort((a, b) =>
@@ -190,13 +223,10 @@ export class PendingMessageQueueService {
           const jobState = await job.getState();
           if (jobState === 'active' || jobState === 'completed') {
             this.logger.debug(
-              `⏭️ Skipping job ${job.id} - already ${jobState} (to: ${job.data.to})`,
+              `Skipping job ${job.id} - already ${jobState} (to: ${job.data.to})`,
             );
             continue;
           }
-
-          // Move to ready state with staggered delay
-          const delay = scheduledCount * 3000; // 3 seconds between each message
 
           // Use job ID to ensure we don't create duplicates
           const newJobId = `reconnect-${job.data.id}`;
@@ -205,15 +235,24 @@ export class PendingMessageQueueService {
           const existingReconnectJob = await this.pendingMessageQueue.getJob(newJobId);
           if (existingReconnectJob) {
             this.logger.debug(
-              `⏭️ Reconnect job ${newJobId} already exists - skipping duplicate`,
+              `Reconnect job ${newJobId} already exists - skipping duplicate`,
             );
-            // Remove the original job to prevent it from being processed again
+            // Remove the original job safely
             await job.remove().catch(() => {});
             continue;
           }
 
-          // Remove original job first
-          await job.remove();
+          // Remove original job first, catch error if already claimed
+          try {
+            await job.remove();
+          } catch {
+            // Job was already claimed/removed by another processor - skip
+            this.logger.debug(`Job ${job.id} already removed by another processor`);
+            continue;
+          }
+
+          // Move to ready state with staggered delay
+          const delay = scheduledCount * 3000; // 3 seconds between each message
 
           // Add with new job ID to prevent duplicates
           await this.pendingMessageQueue.add('send-pending', {
@@ -230,7 +269,7 @@ export class PendingMessageQueueService {
 
           scheduledCount++;
           this.logger.debug(
-            `📤 Scheduled pending message ${job.data.id} for sending in ${delay}ms ` +
+            `Scheduled pending message ${job.data.id} for sending in ${delay}ms ` +
             `(source: ${job.data.source}, to: ${job.data.to})`,
           );
         } catch (error) {
@@ -239,13 +278,13 @@ export class PendingMessageQueueService {
       }
 
       this.logger.log(
-        `✅ Scheduled ${scheduledCount}/${pendingJobs.length} pending messages for session ${sessionId}`,
+        `Scheduled ${scheduledCount}/${pendingJobs.length} pending messages for session ${sessionId}`,
       );
     } finally {
-      // Remove from processing set after a cooldown
+      // Release lock after processing (with a short delay for safety)
       setTimeout(() => {
-        this.processingSession.delete(sessionId);
-      }, 60000); // 1 minute cooldown
+        this.releaseLock(sessionId).catch(() => {});
+      }, 5000);
     }
   }
 
@@ -271,7 +310,7 @@ export class PendingMessageQueueService {
       if (sessionFailedJobs.length === 0) return 0;
 
       this.logger.log(
-        `🔧 Found ${sessionFailedJobs.length} failed jobs for session ${sessionId} - recovering...`,
+        `Found ${sessionFailedJobs.length} failed jobs for session ${sessionId} - recovering...`,
       );
 
       let recovered = 0;
@@ -279,8 +318,13 @@ export class PendingMessageQueueService {
         try {
           const recoveredJobId = `recovered-${job.data.id}-${Date.now()}`;
 
-          // Remove the failed job
-          await job.remove();
+          // Remove the failed job safely
+          try {
+            await job.remove();
+          } catch {
+            // Already removed by another processor
+            continue;
+          }
 
           // Re-queue with fresh attempts and staggered delay
           await this.pendingMessageQueue.add('send-pending', {
@@ -307,7 +351,7 @@ export class PendingMessageQueueService {
 
       if (recovered > 0) {
         this.logger.log(
-          `✅ Recovered ${recovered}/${sessionFailedJobs.length} failed jobs for session ${sessionId}`,
+          `Recovered ${recovered}/${sessionFailedJobs.length} failed jobs for session ${sessionId}`,
         );
       }
 
@@ -334,7 +378,7 @@ export class PendingMessageQueueService {
       }
     }
 
-    this.logger.log(`🗑️ Cleared ${cleared} pending messages for session ${sessionId}`);
+    this.logger.log(`Cleared ${cleared} pending messages for session ${sessionId}`);
     return cleared;
   }
 
@@ -354,7 +398,7 @@ export class PendingMessageQueueService {
       }
     }
 
-    this.logger.log(`🗑️ Cleared ${cleared} pending ${source} messages`);
+    this.logger.log(`Cleared ${cleared} pending ${source} messages`);
     return cleared;
   }
 }

@@ -5,6 +5,7 @@ import { OnEvent, EventEmitter2 } from "@nestjs/event-emitter";
 import { ConfigService } from "@nestjs/config";
 import { InjectQueue } from "@nestjs/bull";
 import { Queue } from "bull";
+import Redis from "ioredis";
 import {
   WhatsAppSession,
   AgentConversation,
@@ -21,12 +22,17 @@ export interface CatchUpMessageJob {
   messageContent: string;
 }
 
+/**
+ * Redis lock TTL for catch-up processing (2 minutes).
+ * Prevents multiple instances from running catch-up for the same session.
+ */
+const LOCK_TTL_SECONDS = 120;
+const LOCK_PREFIX = "lock:catchup:";
+
 @Injectable()
 export class UnansweredMessageService {
   private readonly logger = new Logger(UnansweredMessageService.name);
-
-  // Track sessions currently being processed to prevent parallel catch-up
-  private readonly processingSessionsMap = new Map<string, Date>();
+  private readonly redis: Redis;
 
   // Cooldown period after catch-up completion (1 minute)
   private readonly CATCHUP_COOLDOWN_MS = 60000;
@@ -43,7 +49,29 @@ export class UnansweredMessageService {
     private configService: ConfigService,
     private eventEmitter: EventEmitter2,
   ) {
+    this.redis = new Redis({
+      host: this.configService.get("REDIS_HOST", "localhost"),
+      port: this.configService.get("REDIS_PORT", 6379),
+      password: this.configService.get("REDIS_PASSWORD"),
+    });
     this.logger.log("UnansweredMessageService initialized");
+  }
+
+  /**
+   * Acquire a distributed lock for session catch-up processing.
+   */
+  private async acquireLock(sessionId: string): Promise<boolean> {
+    const key = `${LOCK_PREFIX}${sessionId}`;
+    const result = await this.redis.set(key, Date.now().toString(), "EX", LOCK_TTL_SECONDS, "NX");
+    return result === "OK";
+  }
+
+  /**
+   * Release the distributed lock for a session.
+   */
+  private async releaseLock(sessionId: string): Promise<void> {
+    const key = `${LOCK_PREFIX}${sessionId}`;
+    await this.redis.del(key);
   }
 
   /**
@@ -65,23 +93,18 @@ export class UnansweredMessageService {
   }
 
   /**
-   * Main catch-up processing logic
+   * Main catch-up processing logic.
+   * Uses Redis distributed lock to prevent duplicate processing across instances.
    */
   private async processCatchUp(sessionId: string): Promise<void> {
-    // Check if session is already being processed
-    const lastProcessed = this.processingSessionsMap.get(sessionId);
-    if (lastProcessed) {
-      const timeSinceLastProcess = Date.now() - lastProcessed.getTime();
-      if (timeSinceLastProcess < this.CATCHUP_COOLDOWN_MS) {
-        this.logger.log(
-          `Skipping catch-up for session ${sessionId} - cooldown active (${Math.round((this.CATCHUP_COOLDOWN_MS - timeSinceLastProcess) / 1000)}s remaining)`,
-        );
-        return;
-      }
+    // Acquire distributed lock (replaces in-memory Map + cooldown)
+    const lockAcquired = await this.acquireLock(sessionId);
+    if (!lockAcquired) {
+      this.logger.log(
+        `Skipping catch-up for session ${sessionId} - locked by another instance or cooldown active`,
+      );
+      return;
     }
-
-    // Mark session as being processed
-    this.processingSessionsMap.set(sessionId, new Date());
 
     try {
       this.logger.log(`Starting catch-up process for session ${sessionId}`);
@@ -110,9 +133,9 @@ export class UnansweredMessageService {
       }
 
       // Get configuration - reduced defaults to prevent message flooding
-      const timeWindowHours = this.configService.get<number>("CATCHUP_TIME_WINDOW_HOURS", 24); // Reduced from 72 to 24 hours
+      const timeWindowHours = this.configService.get<number>("CATCHUP_TIME_WINDOW_HOURS", 24);
       const delayMs = this.configService.get<number>("CATCHUP_DELAY_MS", 3000);
-      const maxMessagesPerConversation = this.configService.get<number>("MAX_CATCHUP_MESSAGES_PER_CONVERSATION", 1); // Only respond to LAST message per conversation
+      const maxMessagesPerConversation = this.configService.get<number>("MAX_CATCHUP_MESSAGES_PER_CONVERSATION", 1);
 
       // Calculate cutoff time
       const cutoffTime = new Date();
@@ -207,6 +230,7 @@ export class UnansweredMessageService {
     } catch (error) {
       this.logger.error(`Error during catch-up process for session ${sessionId}: ${error.message}`, error.stack);
     }
+    // Lock expires via Redis TTL — acts as cooldown automatically
   }
 
   /**
@@ -319,10 +343,9 @@ export class UnansweredMessageService {
   }
 
   /**
-   * Clear the processing map for a session (called after catch-up completion)
+   * Clear the processing lock for a session (called after catch-up completion)
    */
   clearProcessingSession(sessionId: string): void {
-    // Don't delete - just update timestamp for cooldown
-    this.processingSessionsMap.set(sessionId, new Date());
+    this.releaseLock(sessionId).catch(() => {});
   }
 }

@@ -78,15 +78,15 @@ import { AppointmentsModule } from "../appointments/appointments.module";
     BullModule.registerQueue({
       name: "message-catchup",
       defaultJobOptions: {
-        removeOnComplete: 100,
-        removeOnFail: 50,
+        removeOnComplete: 200,
+        removeOnFail: 500,
       },
     }),
     BullModule.registerQueue({
       name: "pending-messages",
       defaultJobOptions: {
         removeOnComplete: 200,
-        removeOnFail: 100,
+        removeOnFail: 1000,
       },
     }),
   ],

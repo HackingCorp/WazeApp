@@ -13,12 +13,6 @@ export class AddTextSearchAndStatsIndexes1784000000004
        ON "document_chunks" USING gin ("content" gin_trgm_ops)`,
     );
 
-    // Index for broadcast message stats aggregation (campaignId + status)
-    await queryRunner.query(
-      `CREATE INDEX IF NOT EXISTS "IDX_BROADCAST_MSG_CAMPAIGN_STATUS"
-       ON "broadcast_messages" ("campaignId", "status")`,
-    );
-
     // Index for conversation stats aggregation by agentId
     await queryRunner.query(
       `CREATE INDEX IF NOT EXISTS "IDX_CONV_AGENT_ID"
@@ -35,9 +29,6 @@ export class AddTextSearchAndStatsIndexes1784000000004
   public async down(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`DROP INDEX IF EXISTS "IDX_MSG_CONV_CREATED"`);
     await queryRunner.query(`DROP INDEX IF EXISTS "IDX_CONV_AGENT_ID"`);
-    await queryRunner.query(
-      `DROP INDEX IF EXISTS "IDX_BROADCAST_MSG_CAMPAIGN_STATUS"`,
-    );
     await queryRunner.query(`DROP INDEX IF EXISTS "IDX_CHUNK_CONTENT_TRGM"`);
   }
 }

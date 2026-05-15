@@ -297,7 +297,7 @@ export class AiAgentService {
   async findOne(organizationId: string, id: string): Promise<AiAgent> {
     const agent = await this.agentRepository.findOne({
       where: { id, organizationId },
-      relations: ["creator", "knowledgeBases", "catalogs", "conversations", "whatsappSessions", "facebookPageSessions"],
+      relations: ["creator", "knowledgeBases", "catalogs", "whatsappSessions", "facebookPageSessions"],
     });
 
     if (!agent) {
@@ -321,7 +321,7 @@ export class AiAgentService {
           { id, organizationId },
           { id, createdBy: userId, organizationId: IsNull() }
         ],
-        relations: ["creator", "knowledgeBases", "catalogs", "conversations", "whatsappSessions", "facebookPageSessions"],
+        relations: ["creator", "knowledgeBases", "catalogs", "whatsappSessions", "facebookPageSessions"],
       });
     } else {
       // User without organization - find only agents they created
@@ -329,7 +329,7 @@ export class AiAgentService {
         where: [
           { id, createdBy: userId },
         ],
-        relations: ["creator", "knowledgeBases", "catalogs", "conversations", "whatsappSessions", "facebookPageSessions"],
+        relations: ["creator", "knowledgeBases", "catalogs", "whatsappSessions", "facebookPageSessions"],
       });
     }
 
@@ -1565,19 +1565,25 @@ CRITICAL: If you cannot ACTUALLY solve the problem with information from your kn
       .take(limit)
       .getMany();
 
-    // Load latest message for each conversation
-    const conversationsWithMessages: Array<AgentConversation & { latestMessage?: AgentMessage }> = [];
-
-    for (const conv of conversations) {
-      const latestMessage = await this.messageRepository.findOne({
-        where: { conversationId: conv.id },
-        order: { createdAt: "DESC" },
-      });
-
-      conversationsWithMessages.push(
-        Object.assign(conv, { latestMessage })
+    // Batch load latest message per conversation using DISTINCT ON
+    const convIds = conversations.map(c => c.id);
+    const lastMessagesMap = new Map<string, AgentMessage>();
+    if (convIds.length > 0) {
+      const lastMessages: AgentMessage[] = await this.messageRepository.query(
+        `SELECT DISTINCT ON ("conversationId") *
+         FROM agent_messages
+         WHERE "conversationId" = ANY($1)
+         ORDER BY "conversationId", "createdAt" DESC`,
+        [convIds],
       );
+      for (const msg of lastMessages) {
+        lastMessagesMap.set(msg.conversationId, msg);
+      }
     }
+
+    const conversationsWithMessages = conversations.map(conv =>
+      Object.assign(conv, { latestMessage: lastMessagesMap.get(conv.id) })
+    );
 
     return {
       data: conversationsWithMessages,

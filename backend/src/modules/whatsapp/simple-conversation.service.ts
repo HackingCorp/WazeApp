@@ -1337,15 +1337,18 @@ export class SimpleConversationService implements OnModuleDestroy {
         take: 500,
       });
 
-      // Batch query: get last message per conversation
+      // Batch query: get last message per conversation using DISTINCT ON (fast)
       const convIds = persistedConversations.map(c => c.id);
       const lastMessagesMap = new Map<string, AgentMessage>();
       if (convIds.length > 0) {
         const lastMessages = await this.messageRepository
-          .createQueryBuilder('m')
-          .where('m.conversationId IN (:...convIds)', { convIds })
-          .andWhere('m.id = (SELECT m2.id FROM agent_messages m2 WHERE m2."conversationId" = m."conversationId" ORDER BY m2."createdAt" DESC LIMIT 1)')
-          .getMany();
+          .query(
+            `SELECT DISTINCT ON ("conversationId") *
+             FROM agent_messages
+             WHERE "conversationId" = ANY($1)
+             ORDER BY "conversationId", "createdAt" DESC`,
+            [convIds],
+          );
         for (const msg of lastMessages) {
           lastMessagesMap.set(msg.conversationId, msg);
         }

@@ -65,17 +65,19 @@ export class AnalyticsService {
       }
 
 
-      // Get AI Agents
+      // Get AI Agents (limit to prevent unbounded load)
       const agents = await this.agentRepository.find({
         where: agentWhereConditions,
-        relations: ['organization']
+        relations: ['organization'],
+        take: 500,
       });
 
-      // Get WhatsApp Sessions
+      // Get WhatsApp Sessions (limit to prevent unbounded load)
       const sessions = await this.sessionRepository.find({
         where: sessionWhereConditions,
         relations: ['agent', 'user'],
-        order: { updatedAt: 'DESC' }
+        order: { updatedAt: 'DESC' },
+        take: 500,
       });
       
       // Get agent IDs and session IDs for querying

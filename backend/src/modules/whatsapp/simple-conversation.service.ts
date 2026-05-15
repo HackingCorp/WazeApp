@@ -1176,20 +1176,21 @@ export class SimpleConversationService implements OnModuleDestroy {
         messageMap.set(msg.id, msg);
       });
 
+      // Build content-based dedup set from existing DB messages (O(n) lookup)
+      const contentKeys = new Set<string>();
+      for (const msg of messageMap.values()) {
+        // Round timestamp to nearest second for fuzzy matching
+        const tsKey = Math.round(msg.timestamp.getTime() / 1000);
+        contentKeys.add(`${msg.sender}|${msg.content}|${tsKey}`);
+      }
+
       // Add memory messages only if they don't exist in database
       memoryMessages.forEach((memMsg) => {
         if (!messageMap.has(memMsg.id)) {
-          // Also check for content-based duplicates (in case of ID mismatches)
-          const isDuplicate = Array.from(messageMap.values()).some(
-            (existingMsg) =>
-              existingMsg.content === memMsg.content &&
-              existingMsg.sender === memMsg.sender &&
-              Math.abs(
-                existingMsg.timestamp.getTime() - memMsg.timestamp.getTime(),
-              ) < 1000, // Within 1 second
-          );
-
-          if (!isDuplicate) {
+          const tsKey = Math.round(memMsg.timestamp.getTime() / 1000);
+          const key = `${memMsg.sender}|${memMsg.content}|${tsKey}`;
+          if (!contentKeys.has(key)) {
+            contentKeys.add(key);
             messageMap.set(memMsg.id, memMsg);
           }
         }

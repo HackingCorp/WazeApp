@@ -12,6 +12,7 @@ import {
 @Injectable()
 export class BroadcastDeliveryService {
   private readonly logger = new Logger(BroadcastDeliveryService.name);
+  private statsDebounceTimers = new Map<string, NodeJS.Timeout>();
 
   constructor(
     @InjectRepository(BroadcastMessage)
@@ -80,9 +81,9 @@ export class BroadcastDeliveryService {
       }
       await this.messageRepository.save(broadcastMessage);
 
-      // Update campaign stats
+      // Debounce campaign stats update (batch within 3 seconds)
       if (broadcastMessage.campaign) {
-        await this.updateCampaignStats(broadcastMessage.campaign.id);
+        this.debouncedUpdateCampaignStats(broadcastMessage.campaign.id);
       }
 
       // Emit Socket.io event for real-time UI updates
@@ -103,6 +104,20 @@ export class BroadcastDeliveryService {
         error,
       );
     }
+  }
+
+  private debouncedUpdateCampaignStats(campaignId: string): void {
+    const existing = this.statsDebounceTimers.get(campaignId);
+    if (existing) clearTimeout(existing);
+    this.statsDebounceTimers.set(
+      campaignId,
+      setTimeout(() => {
+        this.statsDebounceTimers.delete(campaignId);
+        this.updateCampaignStats(campaignId).catch(err =>
+          this.logger.error(`Failed to update campaign stats: ${err.message}`),
+        );
+      }, 3000),
+    );
   }
 
   private async updateCampaignStats(campaignId: string): Promise<void> {

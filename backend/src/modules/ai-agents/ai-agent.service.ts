@@ -223,10 +223,15 @@ export class AiAgentService {
       .take(query.limit)
       .getMany();
 
-    // Enrich agents with real-time statistics
-    const enrichedData = await Promise.all(
-      data.map(async (agent) => {
-        const stats = await this.calculateAgentStats(agent.id);
+    // Batch load stats for all agents in a single query
+    const agentIds = data.map(a => a.id);
+    const batchStats = agentIds.length > 0
+      ? await this.calculateBatchAgentStats(agentIds)
+      : new Map();
+
+    const enrichedData = data.map(agent => {
+      const stats = batchStats.get(agent.id);
+      if (stats) {
         agent.metrics = {
           ...agent.metrics,
           totalConversations: stats.totalConversations,
@@ -235,9 +240,9 @@ export class AiAgentService {
           satisfactionScore: stats.satisfactionScore,
           lastActive: stats.lastActive,
         };
-        return agent;
-      }),
-    );
+      }
+      return agent;
+    });
 
     return { data: enrichedData, total };
   }
@@ -292,6 +297,77 @@ export class AiAgentService {
       satisfactionScore: parseFloat(satisfactionStats?.avgSatisfaction) || 0,
       lastActive: messageStats?.lastActive ? new Date(messageStats.lastActive) : null,
     };
+  }
+
+  /**
+   * Batch calculate stats for multiple agents in 2 queries instead of 4*N
+   */
+  private async calculateBatchAgentStats(agentIds: string[]): Promise<
+    Map<string, {
+      totalConversations: number;
+      totalMessages: number;
+      averageResponseTime: number;
+      satisfactionScore: number;
+      lastActive: Date | null;
+    }>
+  > {
+    const result = new Map<string, any>();
+    for (const id of agentIds) {
+      result.set(id, {
+        totalConversations: 0,
+        totalMessages: 0,
+        averageResponseTime: 0,
+        satisfactionScore: 0,
+        lastActive: null,
+      });
+    }
+
+    // Single query for conversation stats (count, avg response time, avg satisfaction)
+    const convStats: any[] = await this.conversationRepository
+      .createQueryBuilder("conv")
+      .select("conv.agentId", "agentId")
+      .addSelect("COUNT(*)", "totalConversations")
+      .addSelect(
+        "AVG(CASE WHEN (conv.metrics->>'averageResponseTime')::numeric > 0 THEN (conv.metrics->>'averageResponseTime')::numeric END)",
+        "avgResponseTime",
+      )
+      .addSelect(
+        "AVG(CASE WHEN conv.metrics->>'satisfactionScore' IS NOT NULL THEN (conv.metrics->>'satisfactionScore')::numeric END)",
+        "avgSatisfaction",
+      )
+      .where("conv.agentId IN (:...agentIds)", { agentIds })
+      .groupBy("conv.agentId")
+      .getRawMany();
+
+    for (const row of convStats) {
+      const entry = result.get(row.agentId);
+      if (entry) {
+        entry.totalConversations = parseInt(row.totalConversations) || 0;
+        entry.averageResponseTime = parseFloat(row.avgResponseTime) || 0;
+        entry.satisfactionScore = parseFloat(row.avgSatisfaction) || 0;
+      }
+    }
+
+    // Single query for message stats (count + last active)
+    const msgStats: any[] = await this.messageRepository
+      .createQueryBuilder("msg")
+      .leftJoin("msg.conversation", "conv")
+      .select("conv.agentId", "agentId")
+      .addSelect("COUNT(msg.id)", "totalMessages")
+      .addSelect("MAX(msg.createdAt)", "lastActive")
+      .where("conv.agentId IN (:...agentIds)", { agentIds })
+      .groupBy("conv.agentId")
+      .getRawMany();
+
+    for (const row of msgStats) {
+      const entry = result.get(row.agentId);
+      if (entry) {
+        entry.totalMessages = parseInt(row.totalMessages) || 0;
+        entry.lastActive = row.lastActive ? new Date(row.lastActive) : null;
+      }
+    }
+
+    return result;
   }
 
   async findOne(organizationId: string, id: string): Promise<AiAgent> {

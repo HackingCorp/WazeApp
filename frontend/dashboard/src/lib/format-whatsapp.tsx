@@ -2,6 +2,7 @@ import React from 'react';
 
 // Parse WhatsApp-style formatting: **bold**, *italic*, ~~strike~~, `code`, ```code blocks```
 export function formatWhatsAppText(text: string): React.ReactNode[] {
+  if (!text) return [];
   const nodes: React.ReactNode[] = [];
   // Split by code blocks first (```...```)
   const codeBlockParts = text.split(/(```[\s\S]*?```)/g);

@@ -45,6 +45,7 @@ import { MediaController } from "./controllers/media.controller";
 import { LlmProviderController } from "./controllers/llm-provider.controller";
 import { VectorDatabaseController } from "./controllers/vector-database.controller";
 import { MarketingChatController } from "./controllers/marketing-chat.controller";
+import { SupportChatController } from "./controllers/support-chat.controller";
 
 // Processors
 import {
@@ -214,6 +215,7 @@ import { ConversationGateway } from "./gateways/conversation.gateway";
     LlmProviderController,
     VectorDatabaseController,
     MarketingChatController,
+    SupportChatController,
   ],
 
   providers: [

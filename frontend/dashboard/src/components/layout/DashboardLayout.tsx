@@ -8,6 +8,7 @@ import { MobileMenu } from './MobileMenu';
 import { useAuth } from '@/providers/AuthProvider';
 // import { useI18n } from '@/providers/I18nProvider';
 import { Loader2 } from 'lucide-react';
+import { SupportChatWidget } from '@/components/support/SupportChatWidget';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -131,6 +132,9 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           onClick={() => setSidebarOpen(false)}
         />
       )}
+
+      {/* Support Chat Widget */}
+      <SupportChatWidget />
     </div>
   );
 }

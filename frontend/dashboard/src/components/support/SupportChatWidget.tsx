@@ -1,0 +1,351 @@
+'use client';
+
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { X, Send, RotateCcw, MessageCircle, Headphones } from 'lucide-react';
+import { format } from 'date-fns';
+import { motion, AnimatePresence } from 'framer-motion';
+import clsx from 'clsx';
+import { api } from '@/lib/api';
+import { useAuth } from '@/providers/AuthProvider';
+import { useI18n } from '@/providers/I18nProvider';
+import { formatWhatsAppText } from '@/lib/format-whatsapp';
+
+interface ChatMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: Date;
+}
+
+const WELCOME_MESSAGES: Record<string, string> = {
+  fr: "Bonjour ! Je suis l'assistant support WazeApp. Comment puis-je vous aider aujourd'hui ?",
+  en: "Hello! I'm the WazeApp support assistant. How can I help you today?",
+  es: "Hola! Soy el asistente de soporte de WazeApp. Como puedo ayudarte hoy?",
+  de: 'Hallo! Ich bin der WazeApp Support-Assistent. Wie kann ich Ihnen heute helfen?',
+  it: "Ciao! Sono l'assistente supporto WazeApp. Come posso aiutarti oggi?",
+  pt: 'Ola! Sou o assistente de suporte WazeApp. Como posso ajuda-lo hoje?',
+};
+
+export function SupportChatWidget() {
+  const { user } = useAuth();
+  const { locale } = useI18n();
+  const [isOpen, setIsOpen] = useState(false);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [inputValue, setInputValue] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [hasUnread, setHasUnread] = useState(false);
+
+  const messagesEndRef = useRef<HTMLDivElement>(null!);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  // Don't render if not authenticated
+  if (!user) return null;
+
+  const welcomeMessage = WELCOME_MESSAGES[locale] || WELCOME_MESSAGES.en;
+
+  // Initialize welcome message on first open
+  const handleOpen = () => {
+    setIsOpen(true);
+    setHasUnread(false);
+    if (messages.length === 0) {
+      setMessages([
+        {
+          id: 'welcome',
+          role: 'assistant',
+          content: welcomeMessage,
+          timestamp: new Date(),
+        },
+      ]);
+    }
+  };
+
+  const handleReset = () => {
+    setMessages([
+      {
+        id: 'welcome',
+        role: 'assistant',
+        content: welcomeMessage,
+        timestamp: new Date(),
+      },
+    ]);
+    setInputValue('');
+    setIsLoading(false);
+  };
+
+  const handleSend = async () => {
+    const trimmed = inputValue.trim();
+    if (!trimmed || isLoading) return;
+
+    const userMessage: ChatMessage = {
+      id: `user-${Date.now()}`,
+      role: 'user',
+      content: trimmed,
+      timestamp: new Date(),
+    };
+
+    setMessages((prev) => [...prev, userMessage]);
+    setInputValue('');
+    setIsLoading(true);
+
+    if (inputRef.current) {
+      inputRef.current.style.height = 'auto';
+    }
+
+    // Build conversation history (exclude welcome message)
+    const conversationHistory = messages
+      .filter((m) => m.id !== 'welcome')
+      .map((m) => ({ role: m.role, content: m.content }));
+
+    try {
+      const response = await api.supportChat({
+        message: trimmed,
+        language: locale,
+        conversationHistory,
+      });
+
+      if (response.success && response.data) {
+        const assistantMessage: ChatMessage = {
+          id: `assistant-${Date.now()}`,
+          role: 'assistant',
+          content: response.data.response,
+          timestamp: new Date(),
+        };
+        setMessages((prev) => [...prev, assistantMessage]);
+      } else {
+        throw new Error('Invalid response');
+      }
+    } catch {
+      const fallback =
+        locale === 'fr'
+          ? "Desole, une erreur est survenue. Veuillez reessayer."
+          : 'Sorry, an error occurred. Please try again.';
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `error-${Date.now()}`,
+          role: 'assistant',
+          content: fallback,
+          timestamp: new Date(),
+        },
+      ]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  };
+
+  const formatTime = (date: Date) => format(date, 'HH:mm');
+
+  return (
+    <>
+      {/* Chat Panel */}
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+            className="fixed bottom-20 right-6 z-50 w-[calc(100vw-2rem)] sm:w-[400px]"
+          >
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl h-[500px] sm:h-[560px] flex flex-col overflow-hidden border border-gray-200 dark:border-gray-700">
+              {/* Header */}
+              <div className="flex items-center justify-between px-4 py-3 bg-emerald-600 dark:bg-emerald-700 flex-shrink-0">
+                <div className="flex items-center gap-3">
+                  <div className="relative">
+                    <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
+                      <Headphones className="w-5 h-5 text-white" />
+                    </div>
+                    <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-400 border-2 border-emerald-600 dark:border-emerald-700 rounded-full" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-semibold text-white">Support WazeApp</h3>
+                    <p className="text-xs text-emerald-100">
+                      {locale === 'fr' ? 'En ligne' : 'Online'}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={handleReset}
+                    className="p-2 hover:bg-white/10 rounded-full transition-colors"
+                    title={locale === 'fr' ? 'Reinitialiser' : 'Reset'}
+                  >
+                    <RotateCcw className="w-4 h-4 text-white" />
+                  </button>
+                  <button
+                    onClick={() => setIsOpen(false)}
+                    className="p-2 hover:bg-white/10 rounded-full transition-colors"
+                    title={locale === 'fr' ? 'Fermer' : 'Close'}
+                  >
+                    <X className="w-5 h-5 text-white" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Messages Area */}
+              <div
+                className="flex-1 overflow-y-auto px-4 py-3 space-y-1 bg-[#e5ddd5] dark:bg-gray-900"
+                style={{
+                  backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23c4b9a8' fill-opacity='0.15'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+                }}
+              >
+                <MessagesRenderer
+                  messages={messages}
+                  isLoading={isLoading}
+                  formatTime={formatTime}
+                  messagesEndRef={messagesEndRef}
+                />
+              </div>
+
+              {/* Input Area */}
+              <div className="px-3 py-2 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 flex-shrink-0">
+                <div className="flex items-end gap-2">
+                  <div className="flex-1 relative">
+                    <textarea
+                      ref={inputRef}
+                      value={inputValue}
+                      onChange={(e) => setInputValue(e.target.value)}
+                      onKeyDown={handleKeyDown}
+                      onInput={(e) => {
+                        const target = e.target as HTMLTextAreaElement;
+                        target.style.height = 'auto';
+                        target.style.height = `${Math.min(target.scrollHeight, 120)}px`;
+                      }}
+                      placeholder={
+                        locale === 'fr' ? 'Posez votre question...' : 'Ask your question...'
+                      }
+                      className="w-full resize-none px-4 py-2.5 bg-gray-100 dark:bg-gray-700 border-0 rounded-2xl text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm max-h-[120px]"
+                      rows={1}
+                      style={{ minHeight: '42px' }}
+                      disabled={isLoading}
+                    />
+                  </div>
+                  <button
+                    onClick={handleSend}
+                    disabled={!inputValue.trim() || isLoading}
+                    className={clsx(
+                      'p-2.5 rounded-full transition-colors shadow-lg flex-shrink-0',
+                      inputValue.trim() && !isLoading
+                        ? 'bg-emerald-500 hover:bg-emerald-600 text-white shadow-emerald-500/30'
+                        : 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed shadow-none'
+                    )}
+                    aria-label="Send"
+                  >
+                    <Send className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Floating Bubble */}
+      <motion.button
+        onClick={() => (isOpen ? setIsOpen(false) : handleOpen())}
+        className="fixed bottom-6 right-6 z-50 w-14 h-14 bg-emerald-500 hover:bg-emerald-600 text-white rounded-full shadow-lg shadow-emerald-500/30 flex items-center justify-center transition-colors"
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.95 }}
+        aria-label="Support chat"
+      >
+        {isOpen ? (
+          <X className="w-6 h-6" />
+        ) : (
+          <>
+            <MessageCircle className="w-6 h-6" />
+            {hasUnread && (
+              <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full border-2 border-white" />
+            )}
+          </>
+        )}
+      </motion.button>
+    </>
+  );
+}
+
+// Extracted to a separate component for auto-scroll effect
+function MessagesRenderer({
+  messages,
+  isLoading,
+  formatTime,
+  messagesEndRef,
+}: {
+  messages: ChatMessage[];
+  isLoading: boolean;
+  formatTime: (date: Date) => string;
+  messagesEndRef: React.RefObject<HTMLDivElement>;
+}) {
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, isLoading, messagesEndRef]);
+
+  // Focus input after loading completes
+  useEffect(() => {
+    if (!isLoading) {
+      // Parent handles focus via inputRef
+    }
+  }, [isLoading]);
+
+  return (
+    <>
+      {messages.map((message) => {
+        const isUser = message.role === 'user';
+        return (
+          <div key={message.id} className={clsx('flex mb-1', isUser ? 'justify-end' : 'justify-start')}>
+            <div
+              className={clsx(
+                'relative max-w-[80%] px-3 py-2 shadow-sm rounded-2xl',
+                isUser
+                  ? 'bg-emerald-500 dark:bg-emerald-600 text-white rounded-br-md'
+                  : 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-bl-md'
+              )}
+            >
+              <div className="whitespace-pre-wrap break-words text-sm">
+                {formatWhatsAppText(message.content)}
+              </div>
+              <div
+                className={clsx(
+                  'flex items-center justify-end gap-1 mt-1 text-[10px]',
+                  isUser ? 'text-white/70' : 'text-gray-500 dark:text-gray-400'
+                )}
+              >
+                <span>{formatTime(message.timestamp)}</span>
+              </div>
+            </div>
+          </div>
+        );
+      })}
+
+      {/* Typing indicator */}
+      {isLoading && (
+        <div className="flex justify-start mb-1">
+          <div className="bg-white dark:bg-gray-700 px-4 py-3 rounded-2xl rounded-bl-md shadow-sm">
+            <div className="flex gap-1">
+              <div
+                className="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full animate-bounce"
+                style={{ animationDelay: '0ms' }}
+              />
+              <div
+                className="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full animate-bounce"
+                style={{ animationDelay: '150ms' }}
+              />
+              <div
+                className="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full animate-bounce"
+                style={{ animationDelay: '300ms' }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div ref={messagesEndRef} />
+    </>
+  );
+}

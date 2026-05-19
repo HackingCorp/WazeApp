@@ -1790,6 +1790,18 @@ class ApiClient {
       method: 'POST',
     });
   }
+
+  // Support Chat
+  async supportChat(data: {
+    message: string;
+    language?: string;
+    conversationHistory?: { role: 'user' | 'assistant'; content: string }[];
+  }): Promise<{ success: boolean; data: { response: string; timestamp: string; responseTime: number } }> {
+    return this.request('/support-chat', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
 }
 
 export const api = new ApiClient(API_BASE_URL);

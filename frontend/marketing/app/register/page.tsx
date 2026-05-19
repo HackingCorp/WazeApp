@@ -276,8 +276,25 @@ function RegisterPageContent() {
           return
         }
 
-        // Otherwise redirect to verify-email (Mobile Money / default flow)
-        router.push(`/verify-email?plan=${formData.selectedPlan.toLowerCase()}`)
+        // Auto-login: redirect to dashboard with cross-domain auth code
+        // Email verification happens in background — user can start using the app immediately
+        if (response.data?.accessToken) {
+          const dashboardUrl = process.env.NEXT_PUBLIC_DASHBOARD_URL || 'https://app.wazeapp.ai'
+          try {
+            const codeResponse = await api.createRedirectCode(response.data.accessToken)
+            if (codeResponse.success && codeResponse.data?.code) {
+              window.location.href = `${dashboardUrl}?code=${encodeURIComponent(codeResponse.data.code)}`
+              return
+            }
+          } catch {
+            // Fallback: redirect to dashboard login
+          }
+          window.location.href = `${process.env.NEXT_PUBLIC_DASHBOARD_URL || 'https://app.wazeapp.ai'}/login`
+          return
+        }
+
+        // Fallback for responses without tokens
+        router.push(`/verify-email?email=${encodeURIComponent(formData.email)}&plan=${formData.selectedPlan.toLowerCase()}`)
       } else {
         setError(response.error || "Échec de l'inscription. Veuillez réessayer.")
       }

@@ -2,15 +2,16 @@
 
 import { useState, useEffect, Suspense } from "react"
 import Link from "next/link"
-import { useSearchParams, useRouter } from "next/navigation"
+import { useSearchParams } from "next/navigation"
 
 import { Button } from "@/components/ui/button"
-import { Mail, CheckCircle, AlertCircle, ArrowLeft } from "lucide-react"
+import { Mail, CheckCircle, AlertCircle, ArrowLeft, ExternalLink } from "lucide-react"
 import { api } from "@/lib/api"
+import { useTranslations } from "@/lib/hooks/use-translations"
 
 function VerifyEmailContent() {
   const searchParams = useSearchParams()
-  const router = useRouter()
+  const { t } = useTranslations()
   const [isLoading, setIsLoading] = useState(false)
   const [isResendLoading, setIsResendLoading] = useState(false)
   const [message, setMessage] = useState("")
@@ -19,6 +20,15 @@ function VerifyEmailContent() {
   const [email, setEmail] = useState("")
 
   const token = searchParams.get('token')
+  const emailParam = searchParams.get('email')
+  const dashboardUrl = process.env.NEXT_PUBLIC_DASHBOARD_URL || 'https://app.wazeapp.ai'
+
+  // Pre-fill email from query param
+  useEffect(() => {
+    if (emailParam) {
+      setEmail(decodeURIComponent(emailParam))
+    }
+  }, [emailParam])
 
   useEffect(() => {
     if (token) {
@@ -32,20 +42,20 @@ function VerifyEmailContent() {
 
     try {
       const response = await api.verifyEmail(verifyToken)
-      
+
       if (response.success) {
         setIsVerified(true)
-        setMessage("Your email has been successfully verified! You can now sign in.")
-        
-        // Redirect to login after 3 seconds
+        setMessage(t('verifyEmailSuccess'))
+
+        // Redirect to dashboard after 3 seconds
         setTimeout(() => {
-          router.push("/login")
+          window.location.href = dashboardUrl
         }, 3000)
       } else {
-        setError(response.error || "Email verification failed. The token may be invalid or expired.")
+        setError(response.error || t('verifyEmailFailed'))
       }
     } catch (err) {
-      setError("Network error. Please try again.")
+      setError(t('verifyEmailNetworkError'))
       console.error("Email verification error:", err)
     } finally {
       setIsLoading(false)
@@ -54,7 +64,7 @@ function VerifyEmailContent() {
 
   const resendVerification = async () => {
     if (!email) {
-      setError("Please enter your email address")
+      setError(t('verifyEmailEnterEmail'))
       return
     }
 
@@ -64,14 +74,14 @@ function VerifyEmailContent() {
 
     try {
       const response = await api.resendVerificationEmail(email)
-      
+
       if (response.success) {
-        setMessage("Verification email sent! Please check your inbox.")
+        setMessage(t('verifyEmailResendSuccess'))
       } else {
-        setError(response.error || "Failed to send verification email. Please try again.")
+        setError(response.error || t('verifyEmailResendFailed'))
       }
     } catch (err) {
-      setError("Network error. Please try again.")
+      setError(t('verifyEmailNetworkError'))
       console.error("Resend verification error:", err)
     } finally {
       setIsResendLoading(false)
@@ -87,7 +97,7 @@ function VerifyEmailContent() {
             className="inline-flex items-center text-sm text-muted-foreground hover:text-primary mb-6"
           >
             <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to login
+            {t('verifyEmailBackToLogin')}
           </Link>
 
           <div className="text-center mb-8">
@@ -98,14 +108,14 @@ function VerifyEmailContent() {
                 <Mail className="h-8 w-8 text-blue-500" />
               )}
             </div>
-            
+
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-              {isVerified ? "Email Verified!" : "Verify your email"}
+              {isVerified ? t('verifyEmailVerified') : t('verifyEmailTitle')}
             </h1>
-            
+
             {!token && !isVerified && (
               <p className="text-muted-foreground">
-                We sent you a verification email. Please check your inbox and click the verification link.
+                {t('verifyEmailDescription')}
               </p>
             )}
           </div>
@@ -113,7 +123,7 @@ function VerifyEmailContent() {
           {isLoading && (
             <div className="text-center mb-6">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-              <p className="text-sm text-muted-foreground">Verifying your email...</p>
+              <p className="text-sm text-muted-foreground">{t('verifyEmailVerifying')}</p>
             </div>
           )}
 
@@ -138,26 +148,47 @@ function VerifyEmailContent() {
           {isVerified && (
             <div className="text-center">
               <p className="text-sm text-muted-foreground mb-4">
-                Redirecting to login page in 3 seconds...
+                {t('verifyEmailRedirecting')}
               </p>
-              <Link href="/login">
+              <a href={dashboardUrl}>
                 <Button className="w-full">
-                  Continue to Login
+                  {t('verifyEmailContinueLogin')}
                 </Button>
-              </Link>
+              </a>
             </div>
           )}
 
           {!isVerified && !isLoading && (
             <div className="space-y-4">
-              <p className="text-sm text-muted-foreground text-center">
-                Didn't receive the email? Check your spam folder or resend it.
+              {/* Go to Dashboard button — skip verification */}
+              <a href={dashboardUrl}>
+                <Button className="w-full" size="lg">
+                  <ExternalLink className="h-4 w-4 mr-2" />
+                  {t('verifyEmailGoToDashboard')}
+                </Button>
+              </a>
+
+              <p className="text-xs text-muted-foreground text-center">
+                {t('verifyEmailSkipNote')}
               </p>
-              
+
+              <div className="relative my-4">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-gray-200 dark:border-gray-700" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-white dark:bg-gray-800 px-2 text-muted-foreground">ou</span>
+                </div>
+              </div>
+
+              <p className="text-sm text-muted-foreground text-center">
+                {t('verifyEmailDidntReceive')}
+              </p>
+
               <div className="space-y-4">
                 <div>
                   <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Email address
+                    {t('verifyEmailAddressLabel')}
                   </label>
                   <div className="relative">
                     <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
@@ -167,24 +198,24 @@ function VerifyEmailContent() {
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:border-gray-600"
-                      placeholder="your@example.com"
+                      placeholder={t('loginEmailPlaceholder')}
                     />
                   </div>
                 </div>
-                
-                <Button 
-                  onClick={resendVerification} 
+
+                <Button
+                  onClick={resendVerification}
                   disabled={isResendLoading}
-                  variant="outline" 
+                  variant="outline"
                   className="w-full"
                 >
                   {isResendLoading ? (
                     <>
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div>
-                      Sending...
+                      {t('verifyEmailResendSending')}
                     </>
                   ) : (
-                    "Resend verification email"
+                    t('verifyEmailResendButton')
                   )}
                 </Button>
               </div>
@@ -193,9 +224,9 @@ function VerifyEmailContent() {
 
           <div className="mt-6 text-center">
             <p className="text-sm text-gray-600 dark:text-gray-400">
-              Already verified?{" "}
+              {t('verifyEmailAlreadyVerified')}{" "}
               <Link href="/login" className="text-primary hover:underline">
-                Sign in
+                {t('verifyEmailSignIn')}
               </Link>
             </p>
           </div>

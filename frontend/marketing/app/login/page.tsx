@@ -2,13 +2,13 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Mail, Lock, Eye, EyeOff, ArrowLeft, AlertCircle } from "lucide-react"
 import { api } from "@/lib/api"
+import { useTranslations } from "@/lib/hooks/use-translations"
 
 export default function LoginPage() {
-  const router = useRouter()
+  const { t } = useTranslations()
   const [showPassword, setShowPassword] = useState(false)
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -24,7 +24,7 @@ export default function LoginPage() {
       const emailClean = (email || '').trim().toLowerCase()
       const passwordClean = (password || '').trim()
       const response = await api.login({ email: emailClean, password: passwordClean })
-      
+
       if (response.success && response.data) {
         // Authentication successful
         const { user, accessToken, refreshToken } = response.data
@@ -45,14 +45,14 @@ export default function LoginPage() {
         }
         return
       } else {
-        const msg = response.error || "Invalid email or password"
-        setError(/401|Unauthorized/i.test(msg) ? "Invalid email or password" : msg)
+        const msg = response.error || t('loginInvalidCredentials')
+        setError(/401|Unauthorized/i.test(msg) ? t('loginInvalidCredentials') : msg)
       }
     } catch (err) {
       console.error("Authentication failed:", err)
-      setError("Unable to connect to authentication server. Please try again.")
+      setError(t('loginNetworkError'))
     }
-    
+
     setIsLoading(false)
   }
 
@@ -66,15 +66,15 @@ export default function LoginPage() {
             className="inline-flex items-center text-sm text-muted-foreground hover:text-primary mb-6"
           >
             <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to home
+            {t('loginBackToHome')}
           </Link>
 
           <div className="text-center mb-8">
             <div className="inline-flex items-center justify-center h-12 w-12 rounded-lg bg-whatsapp mb-4">
               <span className="text-white font-bold text-xl">W</span>
             </div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Welcome back</h1>
-            <p className="text-muted-foreground mt-2">Sign in to your WazeApp account</p>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('loginWelcomeBack')}</h1>
+            <p className="text-muted-foreground mt-2">{t('loginSubtitle')}</p>
           </div>
 
           {error && (
@@ -89,7 +89,7 @@ export default function LoginPage() {
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Email address
+                {t('loginEmailLabel')}
               </label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
@@ -99,7 +99,7 @@ export default function LoginPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:border-gray-600"
-                  placeholder="you@example.com"
+                  placeholder={t('loginEmailPlaceholder')}
                   required
                 />
               </div>
@@ -107,7 +107,7 @@ export default function LoginPage() {
 
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Password
+                {t('loginPasswordLabel')}
               </label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
@@ -133,10 +133,10 @@ export default function LoginPage() {
             <div className="flex items-center justify-between">
               <label className="flex items-center">
                 <input type="checkbox" className="rounded border-gray-300 text-primary focus:ring-primary" />
-                <span className="ml-2 text-sm text-gray-600 dark:text-gray-400">Remember me</span>
+                <span className="ml-2 text-sm text-gray-600 dark:text-gray-400">{t('loginRememberMe')}</span>
               </label>
               <Link href="/forgot-password" className="text-sm text-primary hover:underline">
-                Forgot password?
+                {t('loginForgotPassword')}
               </Link>
             </div>
 
@@ -144,19 +144,19 @@ export default function LoginPage() {
               {isLoading ? (
                 <>
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  Signing in...
+                  {t('loginSigningIn')}
                 </>
               ) : (
-                "Sign in"
+                t('loginSignIn')
               )}
             </Button>
           </form>
 
           <div className="mt-6 text-center">
             <p className="text-sm text-gray-600 dark:text-gray-400">
-              Don&apos;t have an account?{" "}
+              {t('loginNoAccount')}{" "}
               <Link href="/register" className="text-primary hover:underline">
-                Sign up for free
+                {t('loginSignUpFree')}
               </Link>
             </p>
           </div>

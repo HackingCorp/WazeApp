@@ -38,15 +38,6 @@ class SupportChatRequestDto {
   conversationHistory?: ConversationHistoryItem[];
 }
 
-interface SupportChatResponse {
-  success: boolean;
-  data: {
-    response: string;
-    timestamp: string;
-    responseTime: number;
-  };
-}
-
 @ApiTags('Support')
 @Controller('support-chat')
 export class SupportChatController {
@@ -56,7 +47,7 @@ export class SupportChatController {
 
   @Post()
   @Throttle({ default: { limit: 20, ttl: 60000 } })
-  async chat(@Body() dto: SupportChatRequestDto): Promise<SupportChatResponse> {
+  async chat(@Body() dto: SupportChatRequestDto) {
     const startTime = Date.now();
 
     try {
@@ -84,15 +75,10 @@ export class SupportChatController {
         organizationId: null,
       });
 
-      const responseTime = Date.now() - startTime;
-
       return {
-        success: true,
-        data: {
-          response: this.stripMarkdown(response.content),
-          timestamp: new Date().toISOString(),
-          responseTime,
-        },
+        response: this.stripMarkdown(response.content),
+        timestamp: new Date().toISOString(),
+        responseTime: Date.now() - startTime,
       };
     } catch (error) {
       this.logger.error(`Support chat error: ${error.message}`);
@@ -104,12 +90,9 @@ export class SupportChatController {
           : 'Sorry, I encountered a technical issue. Please try again in a moment or contact support@wazeapp.ai.';
 
       return {
-        success: true,
-        data: {
-          response: fallback,
-          timestamp: new Date().toISOString(),
-          responseTime: Date.now() - startTime,
-        },
+        response: fallback,
+        timestamp: new Date().toISOString(),
+        responseTime: Date.now() - startTime,
       };
     }
   }

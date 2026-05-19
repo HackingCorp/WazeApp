@@ -67,7 +67,7 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=90s --retries=3 \
 
 ENV NODE_ENV=production
 ENV PORT=3100
-ENV NODE_OPTIONS="--max-old-space-size=2048"
+ENV NODE_OPTIONS="--max-old-space-size=4096"
 
 EXPOSE 3100
 

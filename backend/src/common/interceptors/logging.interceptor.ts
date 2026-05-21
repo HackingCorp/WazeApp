@@ -3,6 +3,8 @@ import {
   NestInterceptor,
   ExecutionContext,
   CallHandler,
+  HttpException,
+  HttpStatus,
   Logger,
 } from "@nestjs/common";
 import { Observable } from "rxjs";
@@ -53,11 +55,16 @@ export class LoggingInterceptor implements NestInterceptor {
         },
         error: (error) => {
           const duration = Date.now() - now;
-          this.logger.error(
-            `${method} ${sanitizedUrl} - ${ip} - ${userAgent} - ${duration}ms - ERROR: ${error.message}${
-              userId ? ` - User: ${userId}` : ""
-            }`,
-          );
+          const statusCode = error instanceof HttpException ? error.getStatus() : 500;
+          const logMsg = `${method} ${sanitizedUrl} - ${ip} - ${userAgent} - ${duration}ms - ${statusCode}: ${error.message}${
+            userId ? ` - User: ${userId}` : ""
+          }`;
+
+          if (statusCode === HttpStatus.TOO_MANY_REQUESTS) {
+            this.logger.warn(logMsg);
+          } else {
+            this.logger.error(logMsg);
+          }
         },
       }),
     );

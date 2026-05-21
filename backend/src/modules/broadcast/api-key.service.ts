@@ -341,13 +341,10 @@ export class ApiKeyService {
     const dayKey = `ratelimit:apikey:${keyHash}:day`;
 
     try {
-      // Check per-minute rate limit
-      const minuteCount = await this.redis.incr(minuteKey);
-      if (minuteCount === 1) {
-        await this.redis.expire(minuteKey, 60);
-      }
-
-      if (minuteCount > rateLimitPerMinute) {
+      // Check current count before incrementing to avoid inflating the counter
+      // when the client is already rate-limited (allows faster recovery)
+      const currentMinuteCount = await this.redis.get(minuteKey);
+      if (currentMinuteCount && parseInt(currentMinuteCount, 10) >= rateLimitPerMinute) {
         const minuteTtl = await this.redis.ttl(minuteKey);
         return {
           allowed: false,
@@ -356,21 +353,25 @@ export class ApiKeyService {
         };
       }
 
-      // Check per-day rate limit
-      const dayCount = await this.redis.incr(dayKey);
-      if (dayCount === 1) {
-        await this.redis.expire(dayKey, 86400);
-      }
-
-      if (dayCount > rateLimitPerDay) {
-        // Rollback the minute counter since the request is denied
-        await this.redis.decr(minuteKey);
+      const currentDayCount = await this.redis.get(dayKey);
+      if (currentDayCount && parseInt(currentDayCount, 10) >= rateLimitPerDay) {
         const dayTtl = await this.redis.ttl(dayKey);
         return {
           allowed: false,
           retryAfter: dayTtl > 0 ? dayTtl : 86400,
           message: `Daily rate limit exceeded (${rateLimitPerDay}/day). Try again in ${dayTtl > 0 ? Math.ceil(dayTtl / 60) : 1440} minutes.`,
         };
+      }
+
+      // Only increment counters for allowed requests
+      const minuteCount = await this.redis.incr(minuteKey);
+      if (minuteCount === 1) {
+        await this.redis.expire(minuteKey, 60);
+      }
+
+      const dayCount = await this.redis.incr(dayKey);
+      if (dayCount === 1) {
+        await this.redis.expire(dayKey, 86400);
       }
 
       return { allowed: true };

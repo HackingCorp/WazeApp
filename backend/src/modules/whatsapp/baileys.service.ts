@@ -285,8 +285,8 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
         try {
           this.logger.log(`🔍 Checking chat ${chat.id} for images to download`);
 
-          // Get recent messages from this chat
-          const messages = await sock.fetchMessagesFromWA(chat.id, 50); // Last 50 messages
+          // In Baileys v7, fetchMessagesFromWA was removed. Messages come via events.
+          const messages: any[] = [];
 
           if (messages && messages.length > 0) {
             for (const message of messages) {
@@ -1980,14 +1980,10 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
         `Syncing chat: ${chatName} (${isGroup ? "group" : "individual"})`,
       );
 
-      // Get all available messages from chat history
-      // Use a large number to fetch as many messages as possible
-      // Baileys will return whatever is available up to this limit
-      this.logger.log(`📥 Fetching messages for chat ${chatName} (${chatId})`);
-      const messages = await sock.fetchMessagesFromWA(chatId, 10000);
-      this.logger.log(
-        `📊 Retrieved ${messages?.length || 0} messages for ${chatName}`,
-      );
+      // In Baileys v7, message history is delivered via messaging-history.set events,
+      // not via manual fetch. processHistoricalMessages() handles those events.
+      // syncSingleChat only handles chat metadata registration.
+      const messages: any[] = [];
 
       if (messages && messages.length > 0) {
         this.logger.log(

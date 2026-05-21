@@ -98,25 +98,47 @@ export class UnansweredMessageProcessor {
       }
 
       // 6. Emit catch-up message event for AI responder to handle
-      this.logger.log(`Emitting catch-up message event for message ${messageId}`);
+      // Use acknowledge callback pattern to wait for AI response before marking as processed
+      const allMessages = job.data.allMessages || [{ id: messageId, content: messageContent, createdAt: new Date().toISOString() }];
 
-      this.eventEmitter.emit("whatsapp.catchup.message", {
-        sessionId,
-        conversationId,
-        messageId,
-        agentId: agentId || session.agentId,
-        clientPhoneNumber: clientPhoneNumber || message.conversation?.clientPhoneNumber,
-        messageContent: messageContent || message.content,
-        session,
-        conversation: message.conversation,
-        originalMessage: message,
-        isCatchUp: true,
+      this.logger.log(`Emitting catch-up message event for conversation ${conversationId} (${allMessages.length} messages)`);
+
+      const aiSuccess = await new Promise<boolean>((resolve) => {
+        // Timeout after 2 minutes — don't block the queue forever
+        const timeout = setTimeout(() => {
+          this.logger.warn(`Catch-up acknowledge timeout for conversation ${conversationId} — treating as failure`);
+          resolve(false);
+        }, 120_000);
+
+        this.eventEmitter.emit("whatsapp.catchup.message", {
+          sessionId,
+          conversationId,
+          messageId,
+          agentId: agentId || session.agentId,
+          clientPhoneNumber: clientPhoneNumber || message.conversation?.clientPhoneNumber,
+          messageContent: messageContent || message.content,
+          allMessages,
+          session,
+          conversation: message.conversation,
+          originalMessage: message,
+          isCatchUp: true,
+          acknowledge: (success: boolean) => {
+            clearTimeout(timeout);
+            resolve(success);
+          },
+        });
       });
 
-      // 7. Mark message as processed
-      await this.unansweredMessageService.markMessageAsProcessed(messageId);
-
-      this.logger.log(`Catch-up completed for message ${messageId}`);
+      if (aiSuccess) {
+        // Mark ALL messages in this conversation as processed after successful AI response
+        for (const msg of allMessages) {
+          await this.unansweredMessageService.markMessageAsProcessed(msg.id);
+        }
+        this.logger.log(`Catch-up completed for conversation ${conversationId} — ${allMessages.length} messages marked processed`);
+      } else {
+        this.logger.warn(`Catch-up AI response failed for conversation ${conversationId} — messages NOT marked processed (will retry)`);
+        throw new Error(`AI response failed for catch-up conversation ${conversationId}`);
+      }
 
     } catch (error) {
       this.logger.error(`Error processing catch-up message ${messageId}: ${error.message}`, error.stack);
@@ -163,10 +185,13 @@ export class UnansweredMessageProcessor {
       `Catch-up job ${job.id} failed for message ${job.data.messageId}: ${error.message}`,
     );
 
-    // After max retries, mark as processed to prevent infinite retries
+    // After max retries, mark all messages as processed to prevent infinite retries
     if (job.attemptsMade >= (job.opts.attempts || 3)) {
-      this.logger.warn(`Max retries reached for message ${job.data.messageId} - marking as processed`);
-      await this.unansweredMessageService.markMessageAsProcessed(job.data.messageId);
+      const allMessages = job.data.allMessages || [{ id: job.data.messageId, content: '', createdAt: '' }];
+      this.logger.warn(`Max retries reached for conversation ${job.data.conversationId} - marking ${allMessages.length} messages as processed`);
+      for (const msg of allMessages) {
+        await this.unansweredMessageService.markMessageAsProcessed(msg.id);
+      }
     }
   }
 }

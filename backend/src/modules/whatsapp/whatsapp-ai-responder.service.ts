@@ -537,17 +537,20 @@ export class WhatsAppAIResponderService {
     agentId: string;
     clientPhoneNumber: string;
     messageContent: string;
+    allMessages?: Array<{ id: string; content: string; createdAt: string }>;
     session: WhatsAppSession;
     conversation: AgentConversation;
     originalMessage: AgentMessage;
     isCatchUp: boolean;
+    acknowledge?: (success: boolean) => void;
   }) {
-    const { sessionId, conversationId, messageId, clientPhoneNumber, messageContent, session } = event;
+    const { sessionId, conversationId, messageId, clientPhoneNumber, session, allMessages, acknowledge } = event;
 
     // Check both the raw messageId AND the catch-up key to prevent duplicates
     // with the real-time handler (which uses raw messageId)
     if (this.processingMessages.has(messageId) || this.processingMessages.has(`catchup-${messageId}`)) {
       this.logger.debug(`Catch-up message ${messageId} already being processed (dedup)`);
+      acknowledge?.(false);
       return;
     }
 
@@ -555,7 +558,7 @@ export class WhatsAppAIResponderService {
     this.trackProcessingMessage(`catchup-${messageId}`);
 
     try {
-      this.logger.log(`Processing catch-up message ${messageId} for session ${sessionId}`);
+      this.logger.log(`Processing catch-up for conversation ${conversationId} (${allMessages?.length || 1} messages) session ${sessionId}`);
 
       // Get full session with all relations if not already loaded
       let fullSession = session;
@@ -574,20 +577,23 @@ export class WhatsAppAIResponderService {
 
         if (!fullSession) {
           this.logger.warn(`Session not found: ${sessionId}`);
+          acknowledge?.(false);
           return;
         }
       }
 
       // Check if AI responses are enabled
       if (fullSession.aiResponsesEnabled === false) {
-        this.logger.log(`🔇 AI responses disabled for session ${fullSession.id} - skipping catch-up`);
+        this.logger.log(`AI responses disabled for session ${fullSession.id} - skipping catch-up`);
+        acknowledge?.(true); // Don't retry — intentionally skipped
         return;
       }
 
       // Get the agent from session
       const agent = fullSession.agent;
       if (!agent) {
-        this.logger.error(`❌ No agent linked to session ${sessionId} - cannot process catch-up`);
+        this.logger.error(`No agent linked to session ${sessionId} - cannot process catch-up`);
+        acknowledge?.(false);
         return;
       }
 
@@ -600,6 +606,7 @@ export class WhatsAppAIResponderService {
         }
       } catch (quotaError) {
         this.logger.warn(`Message quota exceeded during catch-up: ${quotaError.message}`);
+        acknowledge?.(true); // Don't retry — quota won't magically increase
         return;
       }
 
@@ -609,57 +616,78 @@ export class WhatsAppAIResponderService {
       });
 
       if (!conversation) {
-        // Create conversation if it doesn't exist
         conversation = await this.getOrCreateConversation(clientPhoneNumber, fullSession, agent);
       }
 
       // Check if conversation is under human control
       if (conversation.isHumanControlled) {
-        this.logger.log(`👤 Conversation ${conversation.id} is under human control - skipping catch-up AI response`);
+        this.logger.log(`Conversation ${conversation.id} is under human control - skipping catch-up AI response`);
+        acknowledge?.(true); // Don't retry
         return;
       }
 
-      // Check for escalation keywords (same logic as main message handler)
+      // Combine all messages into a single context string (sorted ASC by date)
+      const messages = allMessages && allMessages.length > 0
+        ? [...allMessages]
+        : [{ id: messageId, content: event.messageContent, createdAt: new Date().toISOString() }];
+
+      // Sort chronologically (should already be sorted, but ensure)
+      messages.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+
+      let combinedContent: string;
+      if (messages.length === 1) {
+        combinedContent = messages[0].content;
+      } else {
+        // Combine messages for full context
+        combinedContent = messages
+          .map(m => m.content)
+          .join("\n\n");
+      }
+
+      // Check for escalation keywords across ALL messages
       const escalationConfig = agent.escalationConfig || {};
       const escalationEnabled = escalationConfig.enabled !== false;
       if (escalationEnabled) {
         const keywords = escalationConfig.keywords?.length
           ? escalationConfig.keywords
           : ['parler à un humain', 'agent humain', 'responsable', 'talk to human', 'real person', 'human agent', 'speak to someone'];
-        const lowerMessage = messageContent.toLowerCase();
-        const matchedKeyword = keywords.find(kw => lowerMessage.includes(kw.toLowerCase()));
+        const lowerCombined = combinedContent.toLowerCase();
+        const matchedKeyword = keywords.find(kw => lowerCombined.includes(kw.toLowerCase()));
         if (matchedKeyword) {
-          this.logger.log(`🚨 Escalation keyword in catch-up: "${matchedKeyword}" in conversation ${conversation.id}`);
-          // Check if escalation feature is available on current plan
+          this.logger.log(`Escalation keyword in catch-up: "${matchedKeyword}" in conversation ${conversation.id}`);
           if (agent.organizationId) {
             const escalationAccess = await this.quotaEnforcementService.checkFeatureAccess(agent.organizationId, 'escalation');
             if (!escalationAccess.enabled) {
-              this.logger.log(`⛔ Escalation blocked — ${escalationAccess.requiredPlan} plan required`);
-              return; // Skip escalation, let AI continue
+              this.logger.log(`Escalation blocked — ${escalationAccess.requiredPlan} plan required`);
+              acknowledge?.(true);
+              return;
             }
           }
           await this.escalateConversation(conversation, agent, fullSession, clientPhoneNumber, `Keyword detected: ${matchedKeyword}`);
+          acknowledge?.(true);
           return;
         }
       }
 
-      this.logger.log(`🤖 Generating catch-up AI response for message: ${messageId}`);
+      this.logger.log(`Generating catch-up AI response for conversation ${conversationId} (${messages.length} messages combined)`);
 
-      // Generate and send AI response
+      // Generate and send AI response with combined context
       await this.generateAndSendResponse(
         conversation,
         agent,
         fullSession,
         clientPhoneNumber,
-        messageContent,
+        combinedContent,
         null, // No media analysis for catch-up messages
         null, // No reply context
       );
 
-      this.logger.log(`✅ Catch-up response sent for message ${messageId}`);
+      this.logger.log(`Catch-up response sent for conversation ${conversationId} (${messages.length} messages)`);
+      acknowledge?.(true);
 
     } catch (error) {
-      this.logger.error(`❌ Error processing catch-up message ${messageId}: ${error.message}`, error.stack);
+      this.logger.error(`Error processing catch-up for conversation ${conversationId}: ${error.message}`, error.stack);
+      acknowledge?.(false);
     } finally {
       // Delayed cleanup to prevent race with real-time handler
       setTimeout(() => {

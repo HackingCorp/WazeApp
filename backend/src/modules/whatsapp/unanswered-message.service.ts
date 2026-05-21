@@ -1,7 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository, MoreThan } from "typeorm";
-import { OnEvent, EventEmitter2 } from "@nestjs/event-emitter";
+import { Repository } from "typeorm";
+import { OnEvent } from "@nestjs/event-emitter";
 import { ConfigService } from "@nestjs/config";
 import { InjectQueue } from "@nestjs/bull";
 import { Queue } from "bull";
@@ -11,7 +11,6 @@ import {
   AgentConversation,
   AgentMessage,
 } from "@/common/entities";
-import { ConversationStatus, MessageRole } from "@/common/enums";
 
 export interface CatchUpMessageJob {
   sessionId: string;
@@ -20,6 +19,11 @@ export interface CatchUpMessageJob {
   agentId: string;
   clientPhoneNumber: string;
   messageContent: string;
+  allMessages: Array<{
+    id: string;
+    content: string;
+    createdAt: string;
+  }>;
 }
 
 /**
@@ -47,7 +51,6 @@ export class UnansweredMessageService {
     @InjectQueue("message-catchup")
     private catchUpQueue: Queue<CatchUpMessageJob>,
     private configService: ConfigService,
-    private eventEmitter: EventEmitter2,
   ) {
     this.redis = new Redis({
       host: this.configService.get("REDIS_HOST", "localhost"),
@@ -80,15 +83,6 @@ export class UnansweredMessageService {
   @OnEvent("whatsapp.session.ready")
   async handleSessionReady(event: { sessionId: string; status: string }) {
     this.logger.log(`Session ready event received for session ${event.sessionId}`);
-    await this.processCatchUp(event.sessionId);
-  }
-
-  /**
-   * Handle successful reconnection event
-   */
-  @OnEvent("whatsapp.reconnect.success")
-  async handleReconnectSuccess(event: { sessionId: string; attempt: number }) {
-    this.logger.log(`Reconnect success event received for session ${event.sessionId} (attempt ${event.attempt})`);
     await this.processCatchUp(event.sessionId);
   }
 
@@ -132,10 +126,9 @@ export class UnansweredMessageService {
         return;
       }
 
-      // Get configuration - reduced defaults to prevent message flooding
+      // Get configuration
       const timeWindowHours = this.configService.get<number>("CATCHUP_TIME_WINDOW_HOURS", 24);
       const delayMs = this.configService.get<number>("CATCHUP_DELAY_MS", 3000);
-      const maxMessagesPerConversation = this.configService.get<number>("MAX_CATCHUP_MESSAGES_PER_CONVERSATION", 1);
 
       // Calculate cutoff time
       const cutoffTime = new Date();
@@ -155,8 +148,7 @@ export class UnansweredMessageService {
 
       this.logger.log(`Found ${unansweredMessages.length} unanswered messages for session ${sessionId}`);
 
-      // GROUP messages by conversation and only respond to the LAST message per conversation
-      // This prevents flooding the client with multiple AI responses
+      // GROUP all messages by conversation — we send the full context to the AI
       const messagesByConversation = new Map<string, AgentMessage[]>();
       for (const msg of unansweredMessages) {
         const convId = msg.conversationId;
@@ -166,36 +158,29 @@ export class UnansweredMessageService {
         messagesByConversation.get(convId)!.push(msg);
       }
 
-      // Take only the last N messages per conversation (default: 1)
-      const messagesToProcess: AgentMessage[] = [];
+      // Queue one job per conversation with ALL messages as combined context
+      let jobIndex = 0;
       for (const [convId, messages] of messagesByConversation) {
-        // Sort by createdAt DESC to get most recent first
-        messages.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-        // Take only the last N messages
-        const toProcess = messages.slice(0, maxMessagesPerConversation);
-        messagesToProcess.push(...toProcess);
+        // Sort by createdAt ASC so context reads chronologically
+        messages.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 
-        // Mark other messages as processed to prevent future catch-up
-        for (let i = maxMessagesPerConversation; i < messages.length; i++) {
-          await this.markMessageAsProcessed(messages[i].id);
-        }
+        const lastMessage = messages[messages.length - 1];
+        const allMessages = messages.map(m => ({
+          id: m.id,
+          content: m.content,
+          createdAt: new Date(m.createdAt).toISOString(),
+        }));
 
-        this.logger.log(`Conversation ${convId}: ${messages.length} unanswered messages, will respond to ${toProcess.length}`);
-      }
+        this.logger.log(`Conversation ${convId}: will process ${messages.length} messages (combined context)`);
 
-      this.logger.log(`Will process ${messagesToProcess.length} messages (1 per conversation) out of ${unansweredMessages.length} total`);
-
-      // Queue messages with progressive delays
-      for (let i = 0; i < messagesToProcess.length; i++) {
-        const msg = messagesToProcess[i];
-        const delay = i * delayMs;
-
-        const jobId = `catchup-${sessionId}-${msg.id}`;
+        const delay = jobIndex * delayMs;
+        const jobId = `catchup-${sessionId}-${convId}`;
 
         // Check if job already exists to prevent duplicates
         const existingJob = await this.catchUpQueue.getJob(jobId);
         if (existingJob) {
           this.logger.debug(`Job ${jobId} already exists - skipping`);
+          jobIndex++;
           continue;
         }
 
@@ -203,11 +188,12 @@ export class UnansweredMessageService {
           "process-catchup-message",
           {
             sessionId: sessionId,
-            conversationId: msg.conversationId,
-            messageId: msg.id,
-            agentId: msg.conversation?.agentId || session.agentId,
-            clientPhoneNumber: msg.conversation?.clientPhoneNumber || "",
-            messageContent: msg.content,
+            conversationId: convId,
+            messageId: lastMessage.id,
+            agentId: lastMessage.conversation?.agentId || session.agentId,
+            clientPhoneNumber: lastMessage.conversation?.clientPhoneNumber || "",
+            messageContent: lastMessage.content,
+            allMessages,
           },
           {
             jobId,
@@ -222,15 +208,17 @@ export class UnansweredMessageService {
           },
         );
 
-        this.logger.debug(`Queued catch-up message ${msg.id} with delay ${delay}ms`);
+        this.logger.debug(`Queued catch-up for conversation ${convId} (${messages.length} messages) with delay ${delay}ms`);
+        jobIndex++;
       }
 
-      this.logger.log(`Queued ${messagesToProcess.length} catch-up messages for session ${sessionId} (grouped from ${unansweredMessages.length} total)`);
+      this.logger.log(`Queued ${messagesByConversation.size} catch-up jobs for session ${sessionId} (${unansweredMessages.length} total messages)`);
 
     } catch (error) {
       this.logger.error(`Error during catch-up process for session ${sessionId}: ${error.message}`, error.stack);
+    } finally {
+      await this.releaseLock(sessionId);
     }
-    // Lock expires via Redis TTL — acts as cooldown automatically
   }
 
   /**
@@ -242,11 +230,11 @@ export class UnansweredMessageService {
     cutoffTime: Date,
     maxMessages: number,
   ): Promise<AgentMessage[]> {
-    // SAFETY: Only catch-up messages that are at least 5 minutes old
+    // SAFETY: Only catch-up messages that are at least 2 minutes old
     // This prevents catching up messages that were just handled by the real-time AI responder
     // (which saves responses in its own conversation record)
     const minAgeTime = new Date();
-    minAgeTime.setMinutes(minAgeTime.getMinutes() - 5);
+    minAgeTime.setMinutes(minAgeTime.getMinutes() - 2);
 
     // Use the earlier of cutoffTime and minAgeTime as the upper bound
     const effectiveMaxTime = minAgeTime;
@@ -293,7 +281,7 @@ export class UnansweredMessageService {
       [sessionId, cutoffTime.toISOString(), maxMessages, effectiveMaxTime.toISOString()],
     );
 
-    this.logger.log(`Raw SQL found ${rawResults.length} unanswered messages for session ${sessionId} (min age: 5 min)`);
+    this.logger.log(`Raw SQL found ${rawResults.length} unanswered messages for session ${sessionId} (min age: 2 min)`);
 
     // Map raw results to message objects with conversation info
     const messages: AgentMessage[] = rawResults.map((raw: any) => {
@@ -343,7 +331,7 @@ export class UnansweredMessageService {
   }
 
   /**
-   * Clear the processing lock for a session (called after catch-up completion)
+   * Clear the processing lock for a session (called externally if needed)
    */
   clearProcessingSession(sessionId: string): void {
     this.releaseLock(sessionId).catch(() => {});

@@ -193,12 +193,13 @@ export class ExternalApiController {
     @Headers('x-api-key') apiKey: string,
     @Ip() clientIp: string,
   ) {
-    const { sessionId, keyHash, rateLimitPerMinute, rateLimitPerDay } = await this.apiKeyService.validateApiKey(
+    const { sessionId } = await this.apiKeyService.validateApiKey(
       apiKey,
       ApiKeyPermission.SEND_MESSAGE,
       clientIp,
     );
-    await this.enforceRateLimit(keyHash, rateLimitPerMinute, rateLimitPerDay);
+    // Read-only status check — exempt from per-key rate limit
+    // (global ThrottlerGuard still applies at 300/min per IP)
 
     // Each API key is linked to exactly one session
     const session = await this.sessionRepository.findOne({
@@ -593,12 +594,12 @@ export class ExternalApiController {
     @Headers('x-api-key') apiKey: string,
     @Ip() clientIp: string,
   ) {
-    const { sessionId, keyHash, rateLimitPerMinute, rateLimitPerDay } = await this.apiKeyService.validateApiKey(
+    const { sessionId } = await this.apiKeyService.validateApiKey(
       apiKey,
       ApiKeyPermission.SEND_MESSAGE,
       clientIp,
     );
-    await this.enforceRateLimit(keyHash, rateLimitPerMinute, rateLimitPerDay);
+    // Read-only stats check — exempt from per-key rate limit
 
     const stats = await this.pendingMessageQueueService.getQueueStats();
     const sessionPending = stats.bySession[sessionId] || 0;
@@ -930,9 +931,9 @@ export class ExternalApiController {
     @Headers('x-api-key') apiKey: string,
     @Ip() clientIp: string,
   ) {
-    const { organizationId, sessionId, permissions, keyHash, rateLimitPerMinute, rateLimitPerDay } =
+    const { organizationId, sessionId, permissions } =
       await this.apiKeyService.validateApiKey(apiKey, undefined, clientIp);
-    await this.enforceRateLimit(keyHash, rateLimitPerMinute, rateLimitPerDay);
+    // Read-only health check — exempt from per-key rate limit
 
     return {
       status: 'healthy',

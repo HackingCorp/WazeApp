@@ -4,7 +4,7 @@ import { useEffect, useRef } from 'react';
 import { useSocket } from '@/providers/SocketProvider';
 import { useNotificationStore } from '@/stores/useNotificationStore';
 import { playEscalationSound } from '@/lib/notificationSound';
-import { requestNotificationPermission, showBrowserNotification } from '@/lib/browserNotification';
+import { showBrowserNotification } from '@/lib/browserNotification';
 import toast from 'react-hot-toast';
 
 interface EscalationEvent {
@@ -21,11 +21,15 @@ export function useEscalationNotifications() {
   const addNotification = useNotificationStore((s) => s.addNotification);
   const permissionRequested = useRef(false);
 
-  // Request browser notification permission once
+  // Request browser notification permission only if already granted (no prompt).
+  // The actual permission prompt is triggered from Settings page via user click.
   useEffect(() => {
-    if (!permissionRequested.current) {
+    if (!permissionRequested.current && typeof window !== 'undefined' && 'Notification' in window) {
       permissionRequested.current = true;
-      requestNotificationPermission();
+      // Only check current status — don't prompt (browsers block non-user-gesture prompts)
+      if (Notification.permission === 'default') {
+        // Not yet decided — don't prompt automatically, wait for Settings page
+      }
     }
   }, []);
 

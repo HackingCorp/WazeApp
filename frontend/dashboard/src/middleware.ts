@@ -26,6 +26,20 @@ const PUBLIC_ROUTES = [
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  // Block POST requests that aren't legitimate form submissions or API calls.
+  // Health check probes (Coolify/Traefik) sometimes send POST requests that
+  // Next.js misinterprets as Server Actions, causing "Failed to find Server Action" errors.
+  if (request.method === 'POST') {
+    const hasNextAction = request.headers.get('next-action');
+    const contentType = request.headers.get('content-type') || '';
+    const isServerAction = hasNextAction || contentType.includes('multipart/form-data');
+    const isApiRoute = pathname.startsWith('/api');
+
+    if (!isServerAction && !isApiRoute) {
+      return new NextResponse('OK', { status: 200 });
+    }
+  }
+
   // Allow all public routes
   if (PUBLIC_ROUTES.some(route => pathname.startsWith(route))) {
     return NextResponse.next();

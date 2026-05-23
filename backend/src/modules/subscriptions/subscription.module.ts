@@ -23,6 +23,7 @@ import { PlanService } from "./plan.service";
 import { MessageCreditsService } from "./message-credits.service";
 import { TrialService } from "./trial.service";
 import { SubscriptionExpiryService } from "./subscription-expiry.service";
+import { EngagementNotificationService } from "./engagement-notification.service";
 import { SubscriptionController } from "./subscription.controller";
 import { BillingController } from "./billing.controller";
 import { PlanController } from "./plan.controller";
@@ -50,7 +51,7 @@ import { EmailModule } from "../email/email.module";
     EmailModule,
   ],
   controllers: [SubscriptionController, BillingController, PlanController, MessageCreditsController],
-  providers: [QuotaEnforcementService, QuotaAlertService, InvoiceService, PlanService, MessageCreditsService, TrialService, SubscriptionExpiryService],
-  exports: [QuotaEnforcementService, QuotaAlertService, InvoiceService, PlanService, MessageCreditsService, TrialService, SubscriptionExpiryService],
+  providers: [QuotaEnforcementService, QuotaAlertService, InvoiceService, PlanService, MessageCreditsService, TrialService, SubscriptionExpiryService, EngagementNotificationService],
+  exports: [QuotaEnforcementService, QuotaAlertService, InvoiceService, PlanService, MessageCreditsService, TrialService, SubscriptionExpiryService, EngagementNotificationService],
 })
 export class SubscriptionModule {}

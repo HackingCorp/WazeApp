@@ -1410,4 +1410,618 @@ ${this.buttonHtml('Payer maintenant', billingUrl)}
       `,
     });
   }
+
+  // ============= ENGAGEMENT EMAILS =============
+
+  /**
+   * Onboarding: User never logged in
+   */
+  async sendOnboardingNeverLoggedInEmail(email: string, firstName: string): Promise<void> {
+    if (!this.transporter) {
+      this.logger.warn(`⚠️ SMTP not configured, skipping onboarding email to ${email}`);
+      return;
+    }
+
+    const dashboardUrl = this.getDashboardUrl();
+    const html = this.baseTemplate({
+      title: 'Votre assistant WhatsApp vous attend',
+      preheader: 'Connectez-vous pour configurer votre premier agent IA',
+      content: `
+<h1 style="margin:0 0 16px 0;font-size:22px;font-weight:700;color:#111827;">Votre assistant WhatsApp vous attend</h1>
+<p style="margin:0 0 16px 0;font-size:15px;color:#6b7280;line-height:1.6;">
+Bonjour <strong style="color:#111827;">${firstName}</strong>,
+</p>
+<p style="margin:0 0 16px 0;font-size:15px;color:#6b7280;line-height:1.6;">
+Vous avez créé votre compte mais n'avez pas encore exploré votre tableau de bord. Connectez-vous pour configurer votre premier agent IA et commencer à automatiser vos conversations WhatsApp.
+</p>
+${this.alertBoxHtml('Un agent IA peut répondre à vos clients 24h/24, même quand vous dormez.', 'info')}
+<p style="margin:16px 0 8px 0;font-size:15px;font-weight:600;color:#111827;">Prêt à commencer ?</p>
+<table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 16px 0;">
+<tr><td style="padding:6px 0;font-size:14px;color:#6b7280;line-height:1.5;">✓ Configuration en 2 minutes</td></tr>
+<tr><td style="padding:6px 0;font-size:14px;color:#6b7280;line-height:1.5;">✓ Aucune compétence technique requise</td></tr>
+<tr><td style="padding:6px 0;font-size:14px;color:#6b7280;line-height:1.5;">✓ Essai gratuit inclus</td></tr>
+</table>
+${this.buttonHtml('Accéder au tableau de bord', dashboardUrl)}
+      `,
+    });
+
+    try {
+      await this.transporter.sendMail({
+        from: `"${this.getFromName()}" <${this.getFromAddress()}>`,
+        to: email,
+        subject: 'Votre assistant WhatsApp vous attend - WazeApp',
+        html,
+        text: `Bonjour ${firstName},\n\nVous avez créé votre compte mais n'avez pas encore exploré votre tableau de bord. Connectez-vous pour configurer votre premier agent IA.\n\n${dashboardUrl}\n\nL'équipe WazeApp`,
+      });
+
+      this.logger.log(`✅ Onboarding (never logged in) email sent to ${email}`);
+    } catch (error) {
+      this.logger.error(`❌ Failed to send onboarding email to ${email}: ${error.message}`);
+    }
+  }
+
+  /**
+   * Onboarding: User logged in but no agent created
+   */
+  async sendOnboardingNoAgentEmail(email: string, firstName: string): Promise<void> {
+    if (!this.transporter) {
+      this.logger.warn(`⚠️ SMTP not configured, skipping onboarding email to ${email}`);
+      return;
+    }
+
+    const agentsUrl = `${this.getDashboardUrl()}/dashboard/agents`;
+    const html = this.baseTemplate({
+      title: 'Créez votre premier agent IA',
+      preheader: 'Un agent peut répondre automatiquement à vos clients sur WhatsApp',
+      content: `
+<h1 style="margin:0 0 16px 0;font-size:22px;font-weight:700;color:#111827;">Créez votre premier agent IA en 2 minutes</h1>
+<p style="margin:0 0 16px 0;font-size:15px;color:#6b7280;line-height:1.6;">
+Bonjour <strong style="color:#111827;">${firstName}</strong>,
+</p>
+<p style="margin:0 0 16px 0;font-size:15px;color:#6b7280;line-height:1.6;">
+Vous êtes connecté mais n'avez pas encore créé d'agent IA. Un agent peut répondre automatiquement à vos clients sur WhatsApp 24h/24, 7j/7.
+</p>
+${this.alertBoxHtml('Les entreprises qui automatisent leurs réponses WhatsApp gagnent en moyenne 15 heures par semaine.', 'success')}
+<p style="margin:16px 0 8px 0;font-size:15px;font-weight:600;color:#111827;">Que peut faire un agent IA ?</p>
+<table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 16px 0;">
+<tr><td style="padding:6px 0;font-size:14px;color:#6b7280;line-height:1.5;">💬 Répondre aux questions fréquentes</td></tr>
+<tr><td style="padding:6px 0;font-size:14px;color:#6b7280;line-height:1.5;">📋 Qualifier les demandes clients</td></tr>
+<tr><td style="padding:6px 0;font-size:14px;color:#6b7280;line-height:1.5;">🕐 Disponible 24h/24 sans pause</td></tr>
+<tr><td style="padding:6px 0;font-size:14px;color:#6b7280;line-height:1.5;">🌍 Multilingue automatiquement</td></tr>
+</table>
+${this.buttonHtml('Créer mon agent', agentsUrl)}
+      `,
+    });
+
+    try {
+      await this.transporter.sendMail({
+        from: `"${this.getFromName()}" <${this.getFromAddress()}>`,
+        to: email,
+        subject: 'Créez votre premier agent IA en 2 minutes - WazeApp',
+        html,
+        text: `Bonjour ${firstName},\n\nVous êtes connecté mais n'avez pas encore créé d'agent IA. Un agent peut répondre automatiquement à vos clients sur WhatsApp 24h/24.\n\n${agentsUrl}\n\nL'équipe WazeApp`,
+      });
+
+      this.logger.log(`✅ Onboarding (no agent) email sent to ${email}`);
+    } catch (error) {
+      this.logger.error(`❌ Failed to send onboarding email to ${email}: ${error.message}`);
+    }
+  }
+
+  /**
+   * Onboarding: Agent created but no WhatsApp session
+   */
+  async sendOnboardingNoSessionEmail(email: string, firstName: string, agentName: string): Promise<void> {
+    if (!this.transporter) {
+      this.logger.warn(`⚠️ SMTP not configured, skipping onboarding email to ${email}`);
+      return;
+    }
+
+    const whatsappUrl = `${this.getDashboardUrl()}/dashboard/whatsapp`;
+    const html = this.baseTemplate({
+      title: 'Connectez WhatsApp pour activer votre agent',
+      preheader: 'Scannez le QR code pour activer votre agent',
+      content: `
+<h1 style="margin:0 0 16px 0;font-size:22px;font-weight:700;color:#111827;">Connectez WhatsApp pour activer votre agent</h1>
+<p style="margin:0 0 16px 0;font-size:15px;color:#6b7280;line-height:1.6;">
+Bonjour <strong style="color:#111827;">${firstName}</strong>,
+</p>
+<p style="margin:0 0 16px 0;font-size:15px;color:#6b7280;line-height:1.6;">
+Votre agent <strong style="color:#111827;">'${agentName}'</strong> est prêt mais n'est pas encore connecté à WhatsApp. Scannez le QR code pour l'activer et commencer à recevoir des messages.
+</p>
+${this.alertBoxHtml('Vous pouvez utiliser WhatsApp Business ou un numéro WhatsApp personnel pour tester.', 'info')}
+<p style="margin:16px 0 8px 0;font-size:15px;font-weight:600;color:#111827;">Comment connecter WhatsApp :</p>
+<table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 16px 0;">
+<tr><td style="padding:6px 0;font-size:14px;color:#6b7280;line-height:1.5;">1. Ouvrez WhatsApp sur votre téléphone</td></tr>
+<tr><td style="padding:6px 0;font-size:14px;color:#6b7280;line-height:1.5;">2. Allez dans Paramètres → Appareils connectés</td></tr>
+<tr><td style="padding:6px 0;font-size:14px;color:#6b7280;line-height:1.5;">3. Scannez le QR code affiché sur votre dashboard</td></tr>
+<tr><td style="padding:6px 0;font-size:14px;color:#6b7280;line-height:1.5;">4. Votre agent est activé !</td></tr>
+</table>
+${this.buttonHtml('Connecter WhatsApp', whatsappUrl)}
+      `,
+    });
+
+    try {
+      await this.transporter.sendMail({
+        from: `"${this.getFromName()}" <${this.getFromAddress()}>`,
+        to: email,
+        subject: 'Connectez WhatsApp pour activer votre agent - WazeApp',
+        html,
+        text: `Bonjour ${firstName},\n\nVotre agent '${agentName}' est prêt mais n'est pas encore connecté à WhatsApp. Scannez le QR code pour l'activer.\n\n${whatsappUrl}\n\nL'équipe WazeApp`,
+      });
+
+      this.logger.log(`✅ Onboarding (no session) email sent to ${email}`);
+    } catch (error) {
+      this.logger.error(`❌ Failed to send onboarding email to ${email}: ${error.message}`);
+    }
+  }
+
+  /**
+   * Onboarding: WhatsApp connected but no messages received
+   */
+  async sendOnboardingNoMessagesEmail(email: string, firstName: string): Promise<void> {
+    if (!this.transporter) {
+      this.logger.warn(`⚠️ SMTP not configured, skipping onboarding email to ${email}`);
+      return;
+    }
+
+    const conversationsUrl = `${this.getDashboardUrl()}/dashboard/conversations`;
+    const html = this.baseTemplate({
+      title: 'Testez votre agent',
+      preheader: 'Envoyez un message test pour voir comment il répond',
+      content: `
+<h1 style="margin:0 0 16px 0;font-size:22px;font-weight:700;color:#111827;">Testez votre agent : envoyez-lui un message</h1>
+<p style="margin:0 0 16px 0;font-size:15px;color:#6b7280;line-height:1.6;">
+Bonjour <strong style="color:#111827;">${firstName}</strong>,
+</p>
+<p style="margin:0 0 16px 0;font-size:15px;color:#6b7280;line-height:1.6;">
+Votre agent est connecté à WhatsApp mais n'a reçu aucun message. Envoyez un message test pour voir comment il répond et vérifier que tout fonctionne correctement.
+</p>
+${this.alertBoxHtml('Astuce : Envoyez-vous un message depuis un autre téléphone ou demandez à un collègue de tester.', 'info')}
+<p style="margin:16px 0 8px 0;font-size:15px;font-weight:600;color:#111827;">Messages à tester :</p>
+<table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 16px 0;">
+<tr><td style="padding:6px 0;font-size:14px;color:#6b7280;line-height:1.5;">• "Bonjour, quels sont vos horaires ?"</td></tr>
+<tr><td style="padding:6px 0;font-size:14px;color:#6b7280;line-height:1.5;">• "Je voudrais des informations sur vos services"</td></tr>
+<tr><td style="padding:6px 0;font-size:14px;color:#6b7280;line-height:1.5;">• "Comment puis-je commander ?"</td></tr>
+</table>
+${this.buttonHtml('Voir mes conversations', conversationsUrl)}
+      `,
+    });
+
+    try {
+      await this.transporter.sendMail({
+        from: `"${this.getFromName()}" <${this.getFromAddress()}>`,
+        to: email,
+        subject: 'Testez votre agent : envoyez-lui un message - WazeApp',
+        html,
+        text: `Bonjour ${firstName},\n\nVotre agent est connecté à WhatsApp mais n'a reçu aucun message. Envoyez un message test pour voir comment il répond.\n\n${conversationsUrl}\n\nL'équipe WazeApp`,
+      });
+
+      this.logger.log(`✅ Onboarding (no messages) email sent to ${email}`);
+    } catch (error) {
+      this.logger.error(`❌ Failed to send onboarding email to ${email}: ${error.message}`);
+    }
+  }
+
+  /**
+   * Onboarding: Agent working but no knowledge base
+   */
+  async sendOnboardingNoKnowledgeBaseEmail(email: string, firstName: string): Promise<void> {
+    if (!this.transporter) {
+      this.logger.warn(`⚠️ SMTP not configured, skipping onboarding email to ${email}`);
+      return;
+    }
+
+    const knowledgeBaseUrl = `${this.getDashboardUrl()}/dashboard/knowledge-base`;
+    const html = this.baseTemplate({
+      title: 'Rendez votre agent plus intelligent',
+      preheader: 'Ajoutez vos documents pour des réponses plus précises',
+      content: `
+<h1 style="margin:0 0 16px 0;font-size:22px;font-weight:700;color:#111827;">Rendez votre agent plus intelligent</h1>
+<p style="margin:0 0 16px 0;font-size:15px;color:#6b7280;line-height:1.6;">
+Bonjour <strong style="color:#111827;">${firstName}</strong>,
+</p>
+<p style="margin:0 0 16px 0;font-size:15px;color:#6b7280;line-height:1.6;">
+Votre agent fonctionne mais n'a pas de base de connaissances. Ajoutez vos documents (PDF, FAQ, catalogue) pour des réponses plus précises et personnalisées à vos clients.
+</p>
+${this.alertBoxHtml('Les agents avec une base de connaissances répondent avec 85% de précision en plus.', 'success')}
+<p style="margin:16px 0 8px 0;font-size:15px;font-weight:600;color:#111827;">Documents recommandés :</p>
+<table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 16px 0;">
+<tr><td style="padding:6px 0;font-size:14px;color:#6b7280;line-height:1.5;">📄 FAQ et questions fréquentes</td></tr>
+<tr><td style="padding:6px 0;font-size:14px;color:#6b7280;line-height:1.5;">📋 Catalogue de produits/services</td></tr>
+<tr><td style="padding:6px 0;font-size:14px;color:#6b7280;line-height:1.5;">📖 Documentation technique</td></tr>
+<tr><td style="padding:6px 0;font-size:14px;color:#6b7280;line-height:1.5;">📝 Conditions générales de vente</td></tr>
+</table>
+${this.buttonHtml('Ajouter des documents', knowledgeBaseUrl)}
+      `,
+    });
+
+    try {
+      await this.transporter.sendMail({
+        from: `"${this.getFromName()}" <${this.getFromAddress()}>`,
+        to: email,
+        subject: 'Rendez votre agent plus intelligent - WazeApp',
+        html,
+        text: `Bonjour ${firstName},\n\nVotre agent fonctionne mais n'a pas de base de connaissances. Ajoutez vos documents (PDF, FAQ, catalogue) pour des réponses plus précises.\n\n${knowledgeBaseUrl}\n\nL'équipe WazeApp`,
+      });
+
+      this.logger.log(`✅ Onboarding (no knowledge base) email sent to ${email}`);
+    } catch (error) {
+      this.logger.error(`❌ Failed to send onboarding email to ${email}: ${error.message}`);
+    }
+  }
+
+  /**
+   * Re-engagement: User inactive for 7 days with activity
+   */
+  async sendReEngagementInactive7DaysEmail(
+    email: string,
+    firstName: string,
+    stats: { messagesHandled: number; conversationsCount: number },
+  ): Promise<void> {
+    if (!this.transporter) {
+      this.logger.warn(`⚠️ SMTP not configured, skipping re-engagement email to ${email}`);
+      return;
+    }
+
+    const conversationsUrl = `${this.getDashboardUrl()}/dashboard/conversations`;
+    const html = this.baseTemplate({
+      title: 'Vos clients vous ont écrit',
+      preheader: `${stats.messagesHandled} messages traités pendant votre absence`,
+      content: `
+<h1 style="margin:0 0 16px 0;font-size:22px;font-weight:700;color:#111827;">Vos clients vous ont écrit</h1>
+<p style="margin:0 0 16px 0;font-size:15px;color:#6b7280;line-height:1.6;">
+Bonjour <strong style="color:#111827;">${firstName}</strong>,
+</p>
+<p style="margin:0 0 16px 0;font-size:15px;color:#6b7280;line-height:1.6;">
+Pendant votre absence, votre agent a traité <strong style="color:#111827;">${stats.messagesHandled} messages</strong> dans <strong style="color:#111827;">${stats.conversationsCount} conversations</strong>. Reprenez le contrôle de vos conversations et consultez les échanges.
+</p>
+${this.infoBoxHtml([
+  { label: 'Messages traités', value: stats.messagesHandled.toString(), valueColor: '#059669' },
+  { label: 'Conversations', value: stats.conversationsCount.toString(), valueColor: '#059669' },
+])}
+<p style="margin:16px 0 16px 0;font-size:15px;color:#6b7280;line-height:1.6;">
+Votre agent a continué à répondre automatiquement pendant votre absence. Consultez l'historique pour voir ce qui s'est passé.
+</p>
+${this.buttonHtml('Voir mes conversations', conversationsUrl)}
+      `,
+    });
+
+    try {
+      await this.transporter.sendMail({
+        from: `"${this.getFromName()}" <${this.getFromAddress()}>`,
+        to: email,
+        subject: 'Vos clients vous ont écrit — WazeApp',
+        html,
+        text: `Bonjour ${firstName},\n\nPendant votre absence, votre agent a traité ${stats.messagesHandled} messages dans ${stats.conversationsCount} conversations. Reprenez le contrôle de vos conversations.\n\n${conversationsUrl}\n\nL'équipe WazeApp`,
+      });
+
+      this.logger.log(`✅ Re-engagement (7 days) email sent to ${email}`);
+    } catch (error) {
+      this.logger.error(`❌ Failed to send re-engagement email to ${email}: ${error.message}`);
+    }
+  }
+
+  /**
+   * Re-engagement: User inactive for 30 days
+   */
+  async sendReEngagementInactive30DaysEmail(email: string, firstName: string): Promise<void> {
+    if (!this.transporter) {
+      this.logger.warn(`⚠️ SMTP not configured, skipping re-engagement email to ${email}`);
+      return;
+    }
+
+    const dashboardUrl = this.getDashboardUrl();
+    const html = this.baseTemplate({
+      title: 'Votre agent est en pause',
+      preheader: 'Cela fait 30 jours que vous ne vous êtes pas connecté',
+      content: `
+<h1 style="margin:0 0 16px 0;font-size:22px;font-weight:700;color:#111827;">Votre agent est en pause</h1>
+<p style="margin:0 0 16px 0;font-size:15px;color:#6b7280;line-height:1.6;">
+Bonjour <strong style="color:#111827;">${firstName}</strong>,
+</p>
+<p style="margin:0 0 16px 0;font-size:15px;color:#6b7280;line-height:1.6;">
+Cela fait 30 jours que vous ne vous êtes pas connecté. Votre agent WhatsApp attend vos instructions pour continuer à servir vos clients.
+</p>
+${this.alertBoxHtml('Vos conversations et configurations sont toujours sauvegardées. Reconnectez-vous pour reprendre là où vous vous êtes arrêté.', 'info')}
+<p style="margin:16px 0 8px 0;font-size:15px;font-weight:600;color:#111827;">Nouveautés pendant votre absence :</p>
+<table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 16px 0;">
+<tr><td style="padding:6px 0;font-size:14px;color:#6b7280;line-height:1.5;">✨ Nouveaux modèles IA plus performants</td></tr>
+<tr><td style="padding:6px 0;font-size:14px;color:#6b7280;line-height:1.5;">📊 Tableaux de bord analytics améliorés</td></tr>
+<tr><td style="padding:6px 0;font-size:14px;color:#6b7280;line-height:1.5;">🚀 Réponses plus rapides et précises</td></tr>
+</table>
+${this.buttonHtml('Réactiver mon agent', dashboardUrl)}
+      `,
+    });
+
+    try {
+      await this.transporter.sendMail({
+        from: `"${this.getFromName()}" <${this.getFromAddress()}>`,
+        to: email,
+        subject: 'Votre agent est en pause — WazeApp',
+        html,
+        text: `Bonjour ${firstName},\n\nCela fait 30 jours que vous ne vous êtes pas connecté. Votre agent WhatsApp attend vos instructions.\n\n${dashboardUrl}\n\nL'équipe WazeApp`,
+      });
+
+      this.logger.log(`✅ Re-engagement (30 days) email sent to ${email}`);
+    } catch (error) {
+      this.logger.error(`❌ Failed to send re-engagement email to ${email}: ${error.message}`);
+    }
+  }
+
+  /**
+   * Re-engagement: WhatsApp session disconnected
+   */
+  async sendReEngagementSessionDisconnectedEmail(
+    email: string,
+    firstName: string,
+    daysSinceDisconnect: number,
+  ): Promise<void> {
+    if (!this.transporter) {
+      this.logger.warn(`⚠️ SMTP not configured, skipping re-engagement email to ${email}`);
+      return;
+    }
+
+    const whatsappUrl = `${this.getDashboardUrl()}/dashboard/whatsapp`;
+    const html = this.baseTemplate({
+      title: 'WhatsApp déconnecté',
+      preheader: `Votre session WhatsApp est déconnectée depuis ${daysSinceDisconnect} jours`,
+      accentColor: '#ef4444',
+      content: `
+<h1 style="margin:0 0 16px 0;font-size:22px;font-weight:700;color:#111827;">WhatsApp déconnecté depuis ${daysSinceDisconnect} jours</h1>
+<p style="margin:0 0 16px 0;font-size:15px;color:#6b7280;line-height:1.6;">
+Bonjour <strong style="color:#111827;">${firstName}</strong>,
+</p>
+<p style="margin:0 0 16px 0;font-size:15px;color:#6b7280;line-height:1.6;">
+Votre session WhatsApp est déconnectée depuis <strong style="color:#ef4444;">${daysSinceDisconnect} jours</strong>. Vos clients n'obtiennent plus de réponse automatique.
+</p>
+${this.alertBoxHtml('Sans reconnexion, vos clients ne recevront aucune réponse et pourraient se tourner vers la concurrence.', 'error')}
+<p style="margin:16px 0 8px 0;font-size:15px;font-weight:600;color:#111827;">Pourquoi WhatsApp se déconnecte ?</p>
+<table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 16px 0;">
+<tr><td style="padding:6px 0;font-size:14px;color:#6b7280;line-height:1.5;">• Déconnexion manuelle sur votre téléphone</td></tr>
+<tr><td style="padding:6px 0;font-size:14px;color:#6b7280;line-height:1.5;">• Mise à jour de l'application WhatsApp</td></tr>
+<tr><td style="padding:6px 0;font-size:14px;color:#6b7280;line-height:1.5;">• Changement de téléphone</td></tr>
+</table>
+<p style="margin:0 0 16px 0;font-size:15px;color:#6b7280;line-height:1.6;">
+La reconnexion ne prend que 30 secondes. Scannez simplement le QR code à nouveau.
+</p>
+${this.buttonHtml('Reconnecter WhatsApp', whatsappUrl, '#ef4444')}
+      `,
+    });
+
+    try {
+      await this.transporter.sendMail({
+        from: `"${this.getFromName()}" <${this.getFromAddress()}>`,
+        to: email,
+        subject: `WhatsApp déconnecté depuis ${daysSinceDisconnect} jours — WazeApp`,
+        html,
+        text: `Bonjour ${firstName},\n\nVotre session WhatsApp est déconnectée depuis ${daysSinceDisconnect} jours. Vos clients n'obtiennent plus de réponse automatique.\n\n${whatsappUrl}\n\nL'équipe WazeApp`,
+      });
+
+      this.logger.log(`✅ Re-engagement (session disconnected) email sent to ${email}`);
+    } catch (error) {
+      this.logger.error(`❌ Failed to send re-engagement email to ${email}: ${error.message}`);
+    }
+  }
+
+  /**
+   * Conversion: Trial midpoint active user
+   */
+  async sendTrialMidpointActiveEmail(
+    email: string,
+    firstName: string,
+    stats: { messagesHandled: number; daysRemaining: number },
+  ): Promise<void> {
+    if (!this.transporter) {
+      this.logger.warn(`⚠️ SMTP not configured, skipping trial midpoint email to ${email}`);
+      return;
+    }
+
+    const billingUrl = `${this.getDashboardUrl()}/dashboard/billing`;
+    const html = this.baseTemplate({
+      title: 'Votre agent est performant',
+      preheader: `Déjà ${stats.messagesHandled} messages traités`,
+      content: `
+<h1 style="margin:0 0 16px 0;font-size:22px;font-weight:700;color:#111827;">Déjà ${stats.messagesHandled} messages traités</h1>
+<p style="margin:0 0 16px 0;font-size:15px;color:#6b7280;line-height:1.6;">
+Bonjour <strong style="color:#111827;">${firstName}</strong>,
+</p>
+<p style="margin:0 0 16px 0;font-size:15px;color:#6b7280;line-height:1.6;">
+Votre agent est performant ! Il a déjà traité <strong style="color:#059669;">${stats.messagesHandled} messages</strong>. Il vous reste <strong style="color:#111827;">${stats.daysRemaining} jours d'essai</strong>.
+</p>
+${this.alertBoxHtml('Passez au plan payant pour ne pas perdre votre historique de conversations et continuer à servir vos clients.', 'warning')}
+${this.infoBoxHtml([
+  { label: 'Messages traités', value: stats.messagesHandled.toString(), valueColor: '#059669' },
+  { label: 'Jours d\'essai restants', value: stats.daysRemaining.toString(), valueColor: '#ef4444' },
+])}
+<p style="margin:16px 0 8px 0;font-size:15px;font-weight:600;color:#111827;">Avantages du plan payant :</p>
+<table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 16px 0;">
+<tr><td style="padding:6px 0;font-size:14px;color:#6b7280;line-height:1.5;">✓ Historique de conversations illimité</td></tr>
+<tr><td style="padding:6px 0;font-size:14px;color:#6b7280;line-height:1.5;">✓ Quota de messages étendu</td></tr>
+<tr><td style="padding:6px 0;font-size:14px;color:#6b7280;line-height:1.5;">✓ Support prioritaire</td></tr>
+<tr><td style="padding:6px 0;font-size:14px;color:#6b7280;line-height:1.5;">✓ Analytics avancés</td></tr>
+</table>
+${this.buttonHtml('Voir les plans', billingUrl)}
+      `,
+    });
+
+    try {
+      await this.transporter.sendMail({
+        from: `"${this.getFromName()}" <${this.getFromAddress()}>`,
+        to: email,
+        subject: `Déjà ${stats.messagesHandled} messages traités — WazeApp`,
+        html,
+        text: `Bonjour ${firstName},\n\nVotre agent est performant ! Il a traité ${stats.messagesHandled} messages. Il vous reste ${stats.daysRemaining} jours d'essai. Passez au plan payant pour ne pas perdre votre historique.\n\n${billingUrl}\n\nL'équipe WazeApp`,
+      });
+
+      this.logger.log(`✅ Trial midpoint (active) email sent to ${email}`);
+    } catch (error) {
+      this.logger.error(`❌ Failed to send trial midpoint email to ${email}: ${error.message}`);
+    }
+  }
+
+  /**
+   * Conversion: Trial midpoint inactive user
+   */
+  async sendTrialMidpointInactiveEmail(
+    email: string,
+    firstName: string,
+    daysRemaining: number,
+  ): Promise<void> {
+    if (!this.transporter) {
+      this.logger.warn(`⚠️ SMTP not configured, skipping trial midpoint email to ${email}`);
+      return;
+    }
+
+    const dashboardUrl = this.getDashboardUrl();
+    const html = this.baseTemplate({
+      title: 'Il vous reste des jours d\'essai',
+      preheader: `Profitez de vos ${daysRemaining} jours d'essai restants`,
+      content: `
+<h1 style="margin:0 0 16px 0;font-size:22px;font-weight:700;color:#111827;">Il vous reste ${daysRemaining} jours d'essai</h1>
+<p style="margin:0 0 16px 0;font-size:15px;color:#6b7280;line-height:1.6;">
+Bonjour <strong style="color:#111827;">${firstName}</strong>,
+</p>
+<p style="margin:0 0 16px 0;font-size:15px;color:#6b7280;line-height:1.6;">
+Vous n'avez pas encore utilisé votre essai. Il vous reste <strong style="color:#111827;">${daysRemaining} jours</strong> pour tester toutes les fonctionnalités de WazeApp.
+</p>
+${this.alertBoxHtml('Besoin d\'aide pour démarrer ? Notre guide vous accompagne pas à pas.', 'info')}
+<p style="margin:16px 0 8px 0;font-size:15px;font-weight:600;color:#111827;">Ce que vous pouvez faire maintenant :</p>
+<table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 16px 0;">
+<tr><td style="padding:6px 0;font-size:14px;color:#6b7280;line-height:1.5;">1. Créer un agent IA en 2 minutes</td></tr>
+<tr><td style="padding:6px 0;font-size:14px;color:#6b7280;line-height:1.5;">2. Connecter WhatsApp (scan QR code)</td></tr>
+<tr><td style="padding:6px 0;font-size:14px;color:#6b7280;line-height:1.5;">3. Ajouter vos documents de connaissance</td></tr>
+<tr><td style="padding:6px 0;font-size:14px;color:#6b7280;line-height:1.5;">4. Tester avec un premier message</td></tr>
+</table>
+<p style="margin:0 0 16px 0;font-size:15px;color:#6b7280;line-height:1.6;">
+Notre équipe support est disponible pour vous aider à <a href="mailto:support@wazeapp.ai" style="color:#059669;text-decoration:none;">support@wazeapp.ai</a>
+</p>
+${this.buttonHtml('Commencer maintenant', dashboardUrl)}
+      `,
+    });
+
+    try {
+      await this.transporter.sendMail({
+        from: `"${this.getFromName()}" <${this.getFromAddress()}>`,
+        to: email,
+        subject: `Il vous reste ${daysRemaining} jours d'essai — WazeApp`,
+        html,
+        text: `Bonjour ${firstName},\n\nVous n'avez pas encore utilisé votre essai. Il vous reste ${daysRemaining} jours. Besoin d'aide pour démarrer ? Notre guide vous accompagne pas à pas.\n\n${dashboardUrl}\n\nL'équipe WazeApp`,
+      });
+
+      this.logger.log(`✅ Trial midpoint (inactive) email sent to ${email}`);
+    } catch (error) {
+      this.logger.error(`❌ Failed to send trial midpoint email to ${email}: ${error.message}`);
+    }
+  }
+
+  /**
+   * Success: First message celebration
+   */
+  async sendFirstMessageCelebrationEmail(
+    email: string,
+    firstName: string,
+    agentName: string,
+  ): Promise<void> {
+    if (!this.transporter) {
+      this.logger.warn(`⚠️ SMTP not configured, skipping celebration email to ${email}`);
+      return;
+    }
+
+    const conversationsUrl = `${this.getDashboardUrl()}/dashboard/conversations`;
+    const html = this.baseTemplate({
+      title: 'Premier message traité !',
+      preheader: 'Votre agent a répondu à son premier client',
+      accentColor: '#22c55e',
+      content: `
+<h1 style="margin:0 0 16px 0;font-size:22px;font-weight:700;color:#111827;">Votre agent a répondu à son premier client !</h1>
+<p style="margin:0 0 16px 0;font-size:15px;color:#6b7280;line-height:1.6;">
+Bonjour <strong style="color:#111827;">${firstName}</strong>,
+</p>
+<p style="margin:0 0 16px 0;font-size:15px;color:#6b7280;line-height:1.6;">
+Félicitations ! Votre agent <strong style="color:#22c55e;">'${agentName}'</strong> vient de traiter sa première conversation client automatiquement. C'est le début de l'automatisation de vos conversations WhatsApp.
+</p>
+${this.alertBoxHtml('Votre agent continue maintenant à répondre 24h/24 à tous vos clients, même quand vous dormez.', 'success')}
+<p style="margin:16px 0 8px 0;font-size:15px;font-weight:600;color:#111827;">Prochaines étapes :</p>
+<table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 16px 0;">
+<tr><td style="padding:6px 0;font-size:14px;color:#6b7280;line-height:1.5;">📊 Consultez l'historique de la conversation</td></tr>
+<tr><td style="padding:6px 0;font-size:14px;color:#6b7280;line-height:1.5;">📚 Enrichissez la base de connaissances</td></tr>
+<tr><td style="padding:6px 0;font-size:14px;color:#6b7280;line-height:1.5;">⚙️ Ajustez les paramètres de votre agent</td></tr>
+<tr><td style="padding:6px 0;font-size:14px;color:#6b7280;line-height:1.5;">📈 Suivez les statistiques en temps réel</td></tr>
+</table>
+${this.buttonHtml('Voir la conversation', conversationsUrl, '#22c55e')}
+      `,
+    });
+
+    try {
+      await this.transporter.sendMail({
+        from: `"${this.getFromName()}" <${this.getFromAddress()}>`,
+        to: email,
+        subject: 'Votre agent a répondu à son premier client ! — WazeApp',
+        html,
+        text: `Bonjour ${firstName},\n\nFélicitations ! Votre agent '${agentName}' vient de traiter sa première conversation client automatiquement.\n\n${conversationsUrl}\n\nL'équipe WazeApp`,
+      });
+
+      this.logger.log(`✅ First message celebration email sent to ${email}`);
+    } catch (error) {
+      this.logger.error(`❌ Failed to send celebration email to ${email}: ${error.message}`);
+    }
+  }
+
+  /**
+   * Success: Milestone achievement
+   */
+  async sendMilestoneEmail(
+    email: string,
+    firstName: string,
+    messageCount: number,
+  ): Promise<void> {
+    if (!this.transporter) {
+      this.logger.warn(`⚠️ SMTP not configured, skipping milestone email to ${email}`);
+      return;
+    }
+
+    const analyticsUrl = `${this.getDashboardUrl()}/dashboard/analytics`;
+    const html = this.baseTemplate({
+      title: 'Nouveau palier atteint !',
+      preheader: `${messageCount} messages traités par votre agent`,
+      accentColor: '#22c55e',
+      content: `
+<h1 style="margin:0 0 16px 0;font-size:22px;font-weight:700;color:#111827;">${messageCount} messages traités par votre agent</h1>
+<p style="margin:0 0 16px 0;font-size:15px;color:#6b7280;line-height:1.6;">
+Bonjour <strong style="color:#111827;">${firstName}</strong>,
+</p>
+<p style="margin:0 0 16px 0;font-size:15px;color:#6b7280;line-height:1.6;">
+Bravo ! Votre agent a traité <strong style="color:#22c55e;">${messageCount} messages</strong>. Consultez vos statistiques pour voir l'impact sur votre activité.
+</p>
+${this.alertBoxHtml('En moyenne, chaque conversation automatisée vous fait gagner 5 minutes. Vous avez déjà économisé des heures de travail !', 'success')}
+<div style="text-align:center;background-color:#f0fdf4;border:2px solid #22c55e;border-radius:12px;padding:32px;margin:24px 0;">
+<div style="font-size:48px;font-weight:700;color:#22c55e;margin-bottom:8px;">${messageCount}</div>
+<div style="font-size:16px;color:#059669;font-weight:600;">Messages traités automatiquement</div>
+</div>
+<p style="margin:16px 0 8px 0;font-size:15px;font-weight:600;color:#111827;">Continuez sur votre lancée :</p>
+<table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 16px 0;">
+<tr><td style="padding:6px 0;font-size:14px;color:#6b7280;line-height:1.5;">📊 Analysez vos performances détaillées</td></tr>
+<tr><td style="padding:6px 0;font-size:14px;color:#6b7280;line-height:1.5;">💬 Identifiez les questions les plus fréquentes</td></tr>
+<tr><td style="padding:6px 0;font-size:14px;color:#6b7280;line-height:1.5;">📈 Optimisez vos taux de réponse</td></tr>
+<tr><td style="padding:6px 0;font-size:14px;color:#6b7280;line-height:1.5;">🎯 Affinez votre base de connaissances</td></tr>
+</table>
+${this.buttonHtml('Voir mes statistiques', analyticsUrl, '#22c55e')}
+      `,
+    });
+
+    try {
+      await this.transporter.sendMail({
+        from: `"${this.getFromName()}" <${this.getFromAddress()}>`,
+        to: email,
+        subject: `${messageCount} messages traités par votre agent — WazeApp`,
+        html,
+        text: `Bonjour ${firstName},\n\nBravo ! Votre agent a traité ${messageCount} messages. Consultez vos statistiques pour voir l'impact sur votre activité.\n\n${analyticsUrl}\n\nL'équipe WazeApp`,
+      });
+
+      this.logger.log(`✅ Milestone email (${messageCount} messages) sent to ${email}`);
+    } catch (error) {
+      this.logger.error(`❌ Failed to send milestone email to ${email}: ${error.message}`);
+    }
+  }
 }

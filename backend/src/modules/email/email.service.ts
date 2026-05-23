@@ -721,31 +721,49 @@ export class EmailService {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
 <title>${title}</title>
-${preheader ? `<span style="display:none;font-size:1px;color:#f9fafb;max-height:0;overflow:hidden;mso-hide:all;">${preheader}</span>` : ''}
+${preheader ? `<span style="display:none;font-size:1px;color:#f0fdf4;max-height:0;overflow:hidden;mso-hide:all;">${preheader}&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;</span>` : ''}
 </head>
-<body style="margin:0;padding:0;background-color:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;">
-<table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f9fafb;padding:32px 16px;">
+<body style="margin:0;padding:0;background-color:#f0fdf4;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;-webkit-font-smoothing:antialiased;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f0fdf4;padding:40px 16px;">
 <tr><td align="center">
-<table width="600" cellpadding="0" cellspacing="0" style="background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.1);border-top:4px solid ${accentColor};">
-<!-- Header -->
-<tr><td style="padding:32px 40px 24px 40px;">
-<table width="100%" cellpadding="0" cellspacing="0"><tr>
-<td><span style="font-size:22px;font-weight:700;color:${accentColor};letter-spacing:-0.5px;">WazeApp</span></td>
+<!-- Main Card -->
+<table width="600" cellpadding="0" cellspacing="0" style="background-color:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+<!-- Header with logo -->
+<tr><td style="background:linear-gradient(135deg, #059669 0%, #10b981 50%, #34d399 100%);padding:28px 40px;" align="center">
+<table cellpadding="0" cellspacing="0"><tr>
+<td style="vertical-align:middle;">
+<div style="display:inline-block;width:36px;height:36px;background-color:rgba(255,255,255,0.2);border-radius:10px;text-align:center;line-height:36px;">
+<span style="color:#ffffff;font-size:20px;font-weight:800;">W</span>
+</div>
+</td>
+<td style="vertical-align:middle;padding-left:10px;">
+<span style="font-size:22px;font-weight:700;color:#ffffff;letter-spacing:-0.3px;">WazeApp</span>
+</td>
 </tr></table>
 </td></tr>
+<!-- Accent bar -->
+<tr><td style="height:3px;background:linear-gradient(90deg, ${accentColor}, ${accentColor}88, ${accentColor}44);"></td></tr>
 <!-- Content -->
-<tr><td style="padding:0 40px 40px 40px;">
+<tr><td style="padding:36px 40px 40px 40px;">
 ${content}
 </td></tr>
 <!-- Footer -->
-<tr><td style="padding:24px 40px;border-top:1px solid #e5e7eb;">
-<p style="margin:0;font-size:13px;color:#9ca3af;line-height:1.5;">
-&copy; ${new Date().getFullYear()} WazeApp. ${t(lang, 'footer_rights')}.<br>
-<a href="https://wazeapp.ai" style="color:#059669;text-decoration:none;">wazeapp.ai</a>
-&nbsp;&middot;&nbsp;
-<a href="mailto:support@wazeapp.ai" style="color:#059669;text-decoration:none;">support@wazeapp.ai</a>
+<tr><td style="padding:0 40px;">
+<table width="100%" cellpadding="0" cellspacing="0"><tr><td style="border-top:1px solid #e5e7eb;"></td></tr></table>
+</td></tr>
+<tr><td style="padding:24px 40px 28px 40px;" align="center">
+<p style="margin:0 0 8px 0;font-size:13px;color:#9ca3af;line-height:1.6;">
+&copy; ${new Date().getFullYear()} WazeApp &mdash; ${t(lang, 'footer_rights')}.
 </p>
+<table cellpadding="0" cellspacing="0"><tr>
+<td style="padding:0 8px;"><a href="https://wazeapp.ai" style="color:#059669;text-decoration:none;font-size:13px;font-weight:500;">wazeapp.ai</a></td>
+<td style="color:#d1d5db;font-size:13px;">&bull;</td>
+<td style="padding:0 8px;"><a href="mailto:support@wazeapp.ai" style="color:#059669;text-decoration:none;font-size:13px;font-weight:500;">Support</a></td>
+<td style="color:#d1d5db;font-size:13px;">&bull;</td>
+<td style="padding:0 8px;"><a href="https://app.wazeapp.ai" style="color:#059669;text-decoration:none;font-size:13px;font-weight:500;">Dashboard</a></td>
+</tr></table>
 </td></tr>
 </table>
 </td></tr>
@@ -756,40 +774,44 @@ ${content}
 
   private buttonHtml(text: string, url: string, color: string = '#059669'): string {
     return `<div style="text-align:center;margin:32px 0;">
-<a href="${url}" style="display:inline-block;background-color:${color};color:#ffffff;text-decoration:none;padding:14px 32px;border-radius:8px;font-weight:600;font-size:15px;line-height:1;">${text}</a>
+<a href="${url}" style="display:inline-block;background-color:${color};color:#ffffff;text-decoration:none;padding:16px 40px;border-radius:10px;font-weight:600;font-size:15px;line-height:1;box-shadow:0 4px 14px ${color}44;letter-spacing:0.2px;" target="_blank">${text}</a>
 </div>`;
   }
 
   private infoBoxHtml(rows: Array<{label: string; value: string; valueColor?: string}>): string {
     const rowsHtml = rows.map((r, i) => {
-      const border = i < rows.length - 1 ? 'border-bottom:1px solid #f3f4f6;' : '';
+      const border = i < rows.length - 1 ? 'border-bottom:1px solid #f0fdf4;' : '';
       return `<tr>
-<td style="padding:10px 0;color:#6b7280;font-size:14px;${border}">${r.label}</td>
-<td style="padding:10px 0;text-align:right;font-weight:600;color:${r.valueColor || '#111827'};font-size:14px;${border}">${r.value}</td>
+<td style="padding:12px 16px;color:#6b7280;font-size:14px;${border}">${r.label}</td>
+<td style="padding:12px 16px;text-align:right;font-weight:700;color:${r.valueColor || '#111827'};font-size:14px;${border}">${r.value}</td>
 </tr>`;
     }).join('');
-    return `<div style="background-color:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:20px;margin:24px 0;">
+    return `<div style="background-color:#f9fafb;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;margin:24px 0;">
 <table width="100%" cellpadding="0" cellspacing="0">${rowsHtml}</table>
 </div>`;
   }
 
   private alertBoxHtml(text: string, type: 'warning' | 'error' | 'success' | 'info' = 'warning'): string {
     const colors = {
-      warning: { bg: '#fffbeb', border: '#f59e0b', text: '#92400e' },
-      error: { bg: '#fef2f2', border: '#ef4444', text: '#991b1b' },
-      success: { bg: '#ecfdf5', border: '#059669', text: '#065f46' },
-      info: { bg: '#eff6ff', border: '#3b82f6', text: '#1e40af' },
+      warning: { bg: '#fffbeb', border: '#f59e0b', text: '#92400e', icon: '\u26A0\uFE0F' },
+      error: { bg: '#fef2f2', border: '#ef4444', text: '#991b1b', icon: '\u274C' },
+      success: { bg: '#ecfdf5', border: '#059669', text: '#065f46', icon: '\u2705' },
+      info: { bg: '#eff6ff', border: '#3b82f6', text: '#1e40af', icon: '\u2139\uFE0F' },
     };
     const c = colors[type];
-    return `<div style="background-color:${c.bg};border-left:4px solid ${c.border};padding:16px 20px;margin:24px 0;border-radius:0 8px 8px 0;">
-<p style="margin:0;color:${c.text};font-size:14px;line-height:1.5;">${text}</p>
+    return `<div style="background-color:${c.bg};border-left:4px solid ${c.border};padding:16px 20px;margin:24px 0;border-radius:0 10px 10px 0;">
+<table cellpadding="0" cellspacing="0" width="100%"><tr>
+<td style="width:28px;vertical-align:top;padding-top:1px;font-size:16px;">${c.icon}</td>
+<td style="vertical-align:top;"><p style="margin:0;color:${c.text};font-size:14px;line-height:1.6;">${text}</p></td>
+</tr></table>
 </div>`;
   }
 
   private linkTextHtml(text: string, url: string): string {
-    return `<p style="margin:16px 0 0 0;font-size:13px;color:#9ca3af;line-height:1.5;">
-${text}<br><a href="${url}" style="color:#059669;word-break:break-all;font-size:12px;">${url}</a>
-</p>`;
+    return `<div style="margin:16px 0 0 0;padding:12px 16px;background-color:#f9fafb;border-radius:8px;border:1px solid #e5e7eb;">
+<p style="margin:0 0 4px 0;font-size:12px;color:#9ca3af;line-height:1.4;">${text}</p>
+<a href="${url}" style="color:#059669;word-break:break-all;font-size:12px;line-height:1.4;text-decoration:none;">${url}</a>
+</div>`;
   }
 
   // ============= EMAIL TEMPLATES =============

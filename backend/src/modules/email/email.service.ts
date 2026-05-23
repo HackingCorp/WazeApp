@@ -17,7 +17,8 @@ export class EmailService {
     const smtpPort = this.configService.get<number>('SMTP_PORT', 587);
     const smtpUser = this.configService.get<string>('SMTP_USER');
     const smtpPass = this.configService.get<string>('SMTP_PASS');
-    const smtpSecure = this.configService.get<boolean>('SMTP_SECURE', false);
+    const smtpSecureRaw = this.configService.get<string>('SMTP_SECURE', 'false');
+    const smtpSecure = smtpSecureRaw === 'true' || smtpSecureRaw === '1';
 
     if (!smtpHost) {
       this.logger.warn('SMTP_HOST not configured. Email sending will be disabled. Set SMTP_HOST, SMTP_USER, and SMTP_PASS environment variables to enable emails.');

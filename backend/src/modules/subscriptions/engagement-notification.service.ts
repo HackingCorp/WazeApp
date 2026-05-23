@@ -166,6 +166,7 @@ export class EngagementNotificationService {
         await this.emailService.sendOnboardingNeverLoggedInEmail(
           user.email,
           user.firstName || user.email.split('@')[0],
+          user.language || 'fr',
         );
 
         await this.markNotificationSent(subscription, 'onboarding_never_logged_in');
@@ -226,6 +227,7 @@ export class EngagementNotificationService {
         await this.emailService.sendOnboardingNoAgentEmail(
           user.email,
           user.firstName || user.email.split('@')[0],
+          user.language || 'fr',
         );
 
         await this.markNotificationSent(subscription, 'onboarding_no_agent');
@@ -278,6 +280,7 @@ export class EngagementNotificationService {
           owner.email,
           owner.firstName || owner.email.split('@')[0],
           agent.name,
+          owner.language || 'fr',
         );
 
         await this.markNotificationSent(subscription, 'onboarding_no_session');
@@ -331,6 +334,7 @@ export class EngagementNotificationService {
         await this.emailService.sendOnboardingNoMessagesEmail(
           owner.email,
           owner.firstName || owner.email.split('@')[0],
+          owner.language || 'fr',
         );
 
         await this.markNotificationSent(subscription, 'onboarding_no_messages');
@@ -379,6 +383,7 @@ export class EngagementNotificationService {
         await this.emailService.sendOnboardingNoKnowledgeBaseEmail(
           owner.email,
           owner.firstName || owner.email.split('@')[0],
+          owner.language || 'fr',
         );
 
         await this.markNotificationSent(subscription, 'onboarding_no_knowledge_base');
@@ -453,6 +458,7 @@ export class EngagementNotificationService {
             messagesHandled: totalMessages,
             conversationsCount: totalConversations,
           },
+          user.language || 'fr',
         );
 
         await this.markNotificationSent(subscription, 're_engagement_inactive_7_days');
@@ -493,6 +499,7 @@ export class EngagementNotificationService {
         await this.emailService.sendReEngagementInactive30DaysEmail(
           user.email,
           user.firstName || user.email.split('@')[0],
+          user.language || 'fr',
         );
 
         await this.markNotificationSent(subscription, 're_engagement_inactive_30_days');
@@ -552,6 +559,7 @@ export class EngagementNotificationService {
           owner.email,
           owner.firstName || owner.email.split('@')[0],
           daysSinceDisconnect,
+          owner.language || 'fr',
         );
 
         await this.markNotificationSent(subscription, notificationKey);
@@ -618,6 +626,7 @@ export class EngagementNotificationService {
             messagesHandled: messageCount,
             daysRemaining,
           },
+          owner.language || 'fr',
         );
 
         await this.markNotificationSent(subscription, 'trial_midpoint_active');
@@ -679,6 +688,7 @@ export class EngagementNotificationService {
           owner.email,
           owner.firstName || owner.email.split('@')[0],
           daysRemaining,
+          owner.language || 'fr',
         );
 
         await this.markNotificationSent(subscription, 'trial_midpoint_inactive');
@@ -734,6 +744,7 @@ export class EngagementNotificationService {
           owner.email,
           owner.firstName || owner.email.split('@')[0],
           firstAgent?.name || 'Votre agent',
+          owner.language || 'fr',
         );
 
         await this.markNotificationSent(subscription, 'first_message_celebration');
@@ -798,6 +809,7 @@ export class EngagementNotificationService {
               owner.email,
               owner.firstName || owner.email.split('@')[0],
               milestone,
+              owner.language || 'fr',
             );
 
             await this.markNotificationSent(subscription, notificationKey);

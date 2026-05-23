@@ -185,13 +185,17 @@ export class StripeService {
       }
     }
 
-    // Only offer trial for brand-new users who have NEVER had any subscription
+    // Only offer trial for brand-new users who have NEVER had any completed subscription
     let trialDays = 0;
-    const existingSubscriptionCount = await this.subscriptionRepository.count({
+    const existingSubscriptions = await this.subscriptionRepository.find({
       where: organizationId
         ? { organizationId }
         : { userId: params.userId },
     });
+    // Exclude subscriptions with pending Stripe checkout (they haven't committed to payment yet)
+    const existingSubscriptionCount = existingSubscriptions.filter(
+      s => !(s.metadata?.stripeCheckoutPending === true),
+    ).length;
 
     if (existingSubscriptionCount === 0) {
       trialDays = this.planService.getTrialDays(params.planCode.toLowerCase());
@@ -449,7 +453,42 @@ export class StripeService {
         };
       }
 
+      // Start the trial now that checkout is confirmed (trialEndsAt was null until now)
+      if (!result.subscription.trialEndsAt && stripeSubscriptionId) {
+        try {
+          const stripe = this.ensureStripe();
+          const stripeSubObj = await stripe.subscriptions.retrieve(stripeSubscriptionId);
+          if (stripeSubObj.trial_end) {
+            result.subscription.trialEndsAt = new Date(stripeSubObj.trial_end * 1000);
+          } else {
+            // Fallback: calculate from plan trial days
+            const trialDaysForPlan = this.planService.getTrialDays(planCode.toLowerCase());
+            if (trialDaysForPlan > 0) {
+              const trialEnd = new Date();
+              trialEnd.setDate(trialEnd.getDate() + trialDaysForPlan);
+              result.subscription.trialEndsAt = trialEnd;
+            }
+          }
+        } catch (err) {
+          this.logger.warn(`Failed to retrieve Stripe subscription trial_end: ${err.message}`);
+          // Fallback: calculate from plan trial days
+          const trialDaysForPlan = this.planService.getTrialDays(planCode.toLowerCase());
+          if (trialDaysForPlan > 0) {
+            const trialEnd = new Date();
+            trialEnd.setDate(trialEnd.getDate() + trialDaysForPlan);
+            result.subscription.trialEndsAt = trialEnd;
+          }
+        }
+      }
+
       await this.subscriptionRepository.save(result.subscription);
+
+      // Invalidate quota caches so FREE limits are replaced with real plan limits
+      if (organizationId) {
+        await this.quotaEnforcementService.clearOrganizationCaches(organizationId);
+      } else if (userId) {
+        await this.quotaEnforcementService.clearUserCaches(userId);
+      }
 
       // Handle renewal: cancel old Stripe subscription if this was a renewal checkout
       if (organizationId) {
@@ -475,7 +514,42 @@ export class StripeService {
           ...existingSub.metadata,
           stripeCheckoutPending: false,
         };
+
+        // Start the trial now that checkout is confirmed
+        if (!existingSub.trialEndsAt && stripeSubscriptionId) {
+          try {
+            const stripe = this.ensureStripe();
+            const stripeSubObj = await stripe.subscriptions.retrieve(stripeSubscriptionId);
+            if (stripeSubObj.trial_end) {
+              existingSub.trialEndsAt = new Date(stripeSubObj.trial_end * 1000);
+            } else {
+              const trialDaysForPlan = this.planService.getTrialDays(planCode.toLowerCase());
+              if (trialDaysForPlan > 0) {
+                const trialEnd = new Date();
+                trialEnd.setDate(trialEnd.getDate() + trialDaysForPlan);
+                existingSub.trialEndsAt = trialEnd;
+              }
+            }
+          } catch (err) {
+            this.logger.warn(`Failed to retrieve Stripe subscription trial_end: ${err.message}`);
+            const trialDaysForPlan = this.planService.getTrialDays(planCode.toLowerCase());
+            if (trialDaysForPlan > 0) {
+              const trialEnd = new Date();
+              trialEnd.setDate(trialEnd.getDate() + trialDaysForPlan);
+              existingSub.trialEndsAt = trialEnd;
+            }
+          }
+        }
+
         await this.subscriptionRepository.save(existingSub);
+
+        // Invalidate quota caches
+        if (organizationId) {
+          await this.quotaEnforcementService.clearOrganizationCaches(organizationId);
+        } else if (userId) {
+          await this.quotaEnforcementService.clearUserCaches(userId);
+        }
+
         this.logger.log(
           `Stripe checkout completed (registration flow): ${planCode} plan for ${organizationId || userId}`,
         );

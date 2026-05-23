@@ -1054,6 +1054,13 @@ export class QuotaEnforcementService {
       await this.subscriptionRepository.save(activeSubscription);
     }
 
+    // Block access if Stripe checkout is not completed (in-memory only, not persisted)
+    if (activeSubscription.metadata?.stripeCheckoutPending === true) {
+      this.logger.debug(`Stripe checkout pending for org ${organizationId}, applying FREE limits`);
+      activeSubscription.limits = this.planService.getPlanLimits('free');
+      activeSubscription.features = this.planService.getPlanFeatures('free');
+    }
+
     // Cache the result
     await this.cacheManager.set(cacheKey, activeSubscription, this.SUBSCRIPTION_CACHE_TTL);
 
@@ -1219,6 +1226,13 @@ export class QuotaEnforcementService {
         activeSubscription.features = currentFeatures;
         await this.subscriptionRepository.save(activeSubscription);
       }
+    }
+
+    // Block access if Stripe checkout is not completed (in-memory only, not persisted)
+    if (activeSubscription.metadata?.stripeCheckoutPending === true) {
+      this.logger.debug(`Stripe checkout pending for user ${userId}, applying FREE limits`);
+      activeSubscription.limits = this.planService.getPlanLimits('free');
+      activeSubscription.features = this.planService.getPlanFeatures('free');
     }
 
     // Cache the result

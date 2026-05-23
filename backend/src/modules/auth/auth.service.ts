@@ -125,8 +125,11 @@ export class AuthService {
     if (trialDays > 0 && selectedPlan !== 'FREE') {
       // Create a trialing subscription with the selected paid plan
       const now = new Date();
-      const trialEndsAt = new Date(now);
-      trialEndsAt.setDate(trialEndsAt.getDate() + trialDays);
+      // For Stripe payments, don't start the trial yet — it begins after checkout completion
+      const trialEndsAt = isStripePayment ? null : new Date(now);
+      if (trialEndsAt) {
+        trialEndsAt.setDate(trialEndsAt.getDate() + trialDays);
+      }
 
       subscriptionData = {
         userId: user.id.toString(),

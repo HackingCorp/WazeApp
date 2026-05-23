@@ -162,6 +162,52 @@ export class TrialService {
   }
 
   /**
+   * Cron: Clean up abandoned Stripe checkouts.
+   * Subscriptions with stripeCheckoutPending=true and no trialEndsAt (new behavior)
+   * will never be caught by expireUnpaidTrials. This cron deactivates them after 7 days.
+   */
+  @Cron('0 3 * * *')
+  async cleanupAbandonedCheckouts(): Promise<void> {
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - 7);
+
+    const abandoned = await this.subscriptionRepository
+      .createQueryBuilder('sub')
+      .where('sub.status = :status', { status: SubscriptionStatus.TRIALING })
+      .andWhere("sub.metadata->>'stripeCheckoutPending' = 'true'")
+      .andWhere('sub."stripeSubscriptionId" IS NULL')
+      .andWhere('sub."createdAt" <= :cutoff', { cutoff: cutoffDate })
+      .getMany();
+
+    for (const subscription of abandoned) {
+      subscription.status = SubscriptionStatus.INACTIVE;
+      subscription.metadata = {
+        ...subscription.metadata,
+        abandonedCheckout: {
+          detectedAt: new Date().toISOString(),
+          reason: 'stripe_checkout_never_completed',
+        },
+      };
+      await this.subscriptionRepository.save(subscription);
+
+      const user = await this.getSubscriptionUser(subscription);
+      if (user) {
+        await this.emailService.sendTrialExpiredEmail(
+          user.email,
+          user.firstName || user.email.split('@')[0],
+          { planName: subscription.plan },
+        ).catch(() => {});
+      }
+
+      this.logger.log(`Abandoned checkout cleaned up: ${subscription.id}`);
+    }
+
+    if (abandoned.length > 0) {
+      this.logger.log(`Cleaned up ${abandoned.length} abandoned Stripe checkout(s)`);
+    }
+  }
+
+  /**
    * Get the user associated with a subscription (via userId or organization owner)
    */
   private async getSubscriptionUser(subscription: Subscription): Promise<User | null> {

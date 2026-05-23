@@ -99,6 +99,11 @@ export default function WhatsAppPage() {
   const [pairingCode, setPairingCode] = useState<string | null>(null);
   const [pairingLoading, setPairingLoading] = useState(false);
 
+  // Session settings modal state
+  const [settingsSession, setSettingsSession] = useState<WhatsAppSession | null>(null);
+  const [settingsForm, setSettingsForm] = useState({ name: '', webhookUrl: '', autoReconnect: true });
+  const [settingsSaving, setSettingsSaving] = useState(false);
+
   // Country codes list
   const countryCodes = [
     { code: '+237', country: 'Cameroun', flag: '🇨🇲' },
@@ -677,6 +682,44 @@ export default function WhatsAppPage() {
         console.error('Error toggling AI responses:', error);
       }
       toast.error('Erreur lors de la modification des réponses IA', { id: 'toggle-ai' });
+    }
+  };
+
+  const openSessionSettings = (session: WhatsAppSession) => {
+    setSettingsForm({
+      name: session.name,
+      webhookUrl: (session as any).webhookUrl || '',
+      autoReconnect: session.autoReconnect !== false,
+    });
+    setSettingsSession(session);
+  };
+
+  const saveSessionSettings = async () => {
+    if (!settingsSession) return;
+    setSettingsSaving(true);
+    try {
+      const payload: any = {
+        name: settingsForm.name.trim(),
+        autoReconnect: settingsForm.autoReconnect,
+      };
+      if (settingsForm.webhookUrl.trim()) {
+        payload.webhookUrl = settingsForm.webhookUrl.trim();
+      }
+      const response = await api.put(`/whatsapp/sessions/${settingsSession.id}`, payload);
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to update session');
+      }
+      setSessions(prev => prev.map(s =>
+        s.id === settingsSession.id
+          ? { ...s, name: payload.name, autoReconnect: payload.autoReconnect }
+          : s
+      ));
+      toast.success('Paramètres enregistrés');
+      setSettingsSession(null);
+    } catch (error: any) {
+      toast.error(error.message || 'Erreur lors de la sauvegarde');
+    } finally {
+      setSettingsSaving(false);
     }
   };
 
@@ -1314,7 +1357,11 @@ export default function WhatsAppPage() {
                   </button>
                 )}
 
-                <button className="bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 py-2 px-4 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors text-sm font-medium">
+                <button
+                  onClick={() => openSessionSettings(session)}
+                  className="bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 py-2 px-4 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors text-sm font-medium"
+                  title="Paramètres de la session"
+                >
                   <Settings className="w-4 h-4" />
                 </button>
               </div>
@@ -1322,6 +1369,134 @@ export default function WhatsAppPage() {
           ))}
         </div>
       )}
+
+      {/* Modal paramètres session */}
+      <AnimatePresence>
+        {settingsSession && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            onClick={() => setSettingsSession(null)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-md"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+                <div className="flex items-center space-x-3">
+                  <div className="p-2 bg-gray-100 dark:bg-gray-700 rounded-lg">
+                    <Settings className="w-5 h-5 text-gray-600 dark:text-gray-300" />
+                  </div>
+                  <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                    Paramètres de la session
+                  </h2>
+                </div>
+                <button
+                  onClick={() => setSettingsSession(null)}
+                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                >
+                  <span className="text-xl">&times;</span>
+                </button>
+              </div>
+
+              <div className="p-6 space-y-5">
+                {/* Nom de la session */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                    Nom de la session
+                  </label>
+                  <input
+                    type="text"
+                    value={settingsForm.name}
+                    onChange={e => setSettingsForm(f => ({ ...f, name: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm"
+                    placeholder="Ex: Support Client"
+                    maxLength={50}
+                  />
+                </div>
+
+                {/* Webhook URL */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                    Webhook URL <span className="text-gray-400 font-normal">(optionnel)</span>
+                  </label>
+                  <input
+                    type="url"
+                    value={settingsForm.webhookUrl}
+                    onChange={e => setSettingsForm(f => ({ ...f, webhookUrl: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm"
+                    placeholder="https://example.com/webhook"
+                  />
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    Recevez les événements de cette session sur votre serveur.
+                  </p>
+                </div>
+
+                {/* Auto-reconnect */}
+                <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                  <div>
+                    <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Reconnexion automatique
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                      Se reconnecter automatiquement en cas de déconnexion.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setSettingsForm(f => ({ ...f, autoReconnect: !f.autoReconnect }))}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 ${
+                      settingsForm.autoReconnect ? 'bg-green-600' : 'bg-gray-300 dark:bg-gray-600'
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        settingsForm.autoReconnect ? 'translate-x-6' : 'translate-x-1'
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                {/* Infos session */}
+                <div className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg space-y-2">
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    <span className="font-medium text-gray-700 dark:text-gray-300">ID :</span> <span className="font-mono">{settingsSession.id.slice(0, 8)}...</span>
+                  </p>
+                  {settingsSession.phoneNumber && (
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      <span className="font-medium text-gray-700 dark:text-gray-300">Téléphone :</span> {settingsSession.phoneNumber}
+                    </p>
+                  )}
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    <span className="font-medium text-gray-700 dark:text-gray-300">Créée le :</span> {new Date(settingsSession.createdAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end space-x-3 p-6 border-t border-gray-200 dark:border-gray-700">
+                <button
+                  onClick={() => setSettingsSession(null)}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                >
+                  Annuler
+                </button>
+                <button
+                  onClick={saveSessionSettings}
+                  disabled={settingsSaving || !settingsForm.name.trim()}
+                  className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+                >
+                  {settingsSaving && <RefreshCw className="w-4 h-4 animate-spin" />}
+                  <span>{settingsSaving ? 'Enregistrement...' : 'Enregistrer'}</span>
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Modal d'assignation d'agent */}
       {showAssignAgentModal && (newlyConnectedSession || selectedSessionForAgent) && (

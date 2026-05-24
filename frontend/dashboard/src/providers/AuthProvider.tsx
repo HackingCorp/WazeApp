@@ -25,6 +25,7 @@ interface User {
   };
   avatar?: string;
   onboardingStep?: number | null;
+  subscriptionActive?: boolean;
   preferences: {
     theme: string;
     language: string;
@@ -171,6 +172,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           organizationId: userData.currentOrganizationId || null,
           organization: planInfo.organization,
           onboardingStep: userData.onboardingStep ?? null,
+          subscriptionActive: userData.subscriptionActive ?? false,
           preferences: {
             theme: 'system',
             language: 'en',
@@ -224,6 +226,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                   organizationId: userData.currentOrganizationId || null,
                   organization: planInfo.organization,
                   onboardingStep: userData.onboardingStep ?? null,
+          subscriptionActive: userData.subscriptionActive ?? false,
                   preferences: {
                     theme: 'system',
                     language: 'en',

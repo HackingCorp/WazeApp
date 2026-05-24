@@ -673,11 +673,21 @@ export class AuthService {
       currentOrganizationId = primaryMembership.organization.id;
     }
 
+    // Check if user has a Stripe-backed subscription (completed checkout)
+    const subscription = await this.subscriptionRepository.findOne({
+      where: currentOrganizationId
+        ? { organizationId: currentOrganizationId }
+        : { userId },
+      order: { createdAt: 'DESC' },
+    });
+    const subscriptionActive = !!(subscription?.stripeSubscriptionId);
+
     return {
       user: {
         ...user,
         currentOrganizationId,
         currentOrganization,
+        subscriptionActive,
       },
       organizations: memberships.map((m) => ({
         id: m.organization.id,

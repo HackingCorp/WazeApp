@@ -861,17 +861,6 @@ function OnboardingContent() {
                   <ArrowLeft className="w-4 h-4 mr-2" />
                   Retour
                 </button>
-                <button
-                  onClick={handleContinueFree}
-                  className="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors underline"
-                >
-                  {(() => {
-                    const maxTrial = Math.max(...plans.map(p => p.trialDays || 0), 0);
-                    return maxTrial > 0
-                      ? `Continuer avec l'essai gratuit (${maxTrial} jours)`
-                      : "Continuer avec l'essai gratuit";
-                  })()}
-                </button>
               </div>
             </div>
           )}

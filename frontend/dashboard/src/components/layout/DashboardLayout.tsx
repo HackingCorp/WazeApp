@@ -1,14 +1,15 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { MobileMenu } from './MobileMenu';
 import { useAuth } from '@/providers/AuthProvider';
+import { api } from '@/lib/api';
 // import { useI18n } from '@/providers/I18nProvider';
-import { Loader2, ArrowRight } from 'lucide-react';
+import { Loader2, ArrowRight, Sparkles, X } from 'lucide-react';
 import { SupportChatWidget } from '@/components/support/SupportChatWidget';
 
 interface DashboardLayoutProps {
@@ -21,6 +22,37 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const { user, isLoading } = useAuth();
   // const { t } = useI18n();
   const pathname = usePathname();
+
+  // Onboarding banner state
+  const [showOnboardingBanner, setShowOnboardingBanner] = useState(false);
+  const [bannerDismissed, setBannerDismissed] = useState(false);
+  const [hasAgents, setHasAgents] = useState<boolean | null>(null);
+
+  // Check if user needs onboarding (no agents created yet)
+  useEffect(() => {
+    if (!user || pathname?.startsWith('/onboarding')) return;
+
+    // If dismissed this session, don't check again
+    if (bannerDismissed) return;
+
+    // If onboardingStep is set, always show banner
+    if (user.onboardingStep != null) {
+      setShowOnboardingBanner(true);
+      return;
+    }
+
+    // Check if user has any agents — if not, show setup banner
+    api.get('/agents').then((res: any) => {
+      if (res.success) {
+        const agents = res.data?.data || res.data || [];
+        const count = Array.isArray(agents) ? agents.length : 0;
+        setHasAgents(count > 0);
+        if (count === 0) {
+          setShowOnboardingBanner(true);
+        }
+      }
+    }).catch(() => {});
+  }, [user, pathname, bannerDismissed]);
 
   // Show loading screen while authenticating
   if (isLoading) {
@@ -107,18 +139,31 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         )}
 
         {/* Onboarding banner */}
-        {user?.onboardingStep != null && (
-          <div className="bg-green-600 text-white px-4 py-2.5 flex items-center justify-between">
-            <p className="text-sm font-medium">
-              Terminez la configuration de votre agent — Quelques minutes suffisent
-            </p>
-            <Link
-              href={`/onboarding?step=${user.onboardingStep}`}
-              className="flex items-center text-sm font-medium bg-white/20 hover:bg-white/30 px-3 py-1 rounded-lg transition-colors"
-            >
-              Reprendre
-              <ArrowRight className="w-3 h-3 ml-1" />
-            </Link>
+        {showOnboardingBanner && !bannerDismissed && (
+          <div className="bg-gradient-to-r from-green-600 to-emerald-600 text-white px-4 py-2.5 flex items-center justify-between">
+            <div className="flex items-center">
+              <Sparkles className="w-4 h-4 mr-2 flex-shrink-0" />
+              <p className="text-sm font-medium">
+                {user?.onboardingStep != null
+                  ? 'Terminez la configuration de votre agent — Quelques minutes suffisent'
+                  : 'Creez votre premier agent IA pour commencer a automatiser vos conversations WhatsApp'}
+              </p>
+            </div>
+            <div className="flex items-center gap-2 ml-4 flex-shrink-0">
+              <Link
+                href={user?.onboardingStep != null ? `/onboarding?step=${user.onboardingStep}` : '/onboarding?step=1'}
+                className="flex items-center text-sm font-medium bg-white/20 hover:bg-white/30 px-3 py-1.5 rounded-lg transition-colors"
+              >
+                {user?.onboardingStep != null ? 'Reprendre' : 'Commencer'}
+                <ArrowRight className="w-3 h-3 ml-1" />
+              </Link>
+              <button
+                onClick={() => setBannerDismissed(true)}
+                className="p-1 hover:bg-white/20 rounded transition-colors"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
         )}
 

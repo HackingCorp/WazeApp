@@ -252,32 +252,17 @@ function OnboardingContent() {
     }
   }, [isTyping]);
 
-  // Init chat when entering step 2 — send first AI message
+  // Init chat when entering step 2 — show instant greeting
   useEffect(() => {
     if (currentStep === 2 && chatMessages.length === 0) {
       const tpl = templates.find((t) => t.id === selectedTemplate);
-      const initMessage = `L'utilisateur vient de choisir le template "${tpl?.name || 'Agent vierge'}". Presente-toi brievement et pose la premiere question.`;
-      setIsTyping(true);
-      api
-        .onboardingChat({
-          message: initMessage,
-          conversationHistory: [],
-          templateId: selectedTemplate || undefined,
-        })
-        .then((res) => {
-          if (res.success && res.data) {
-            setChatMessages([{ role: 'assistant', content: res.data.response }]);
-          }
-        })
-        .catch(() => {
-          setChatMessages([
-            {
-              role: 'assistant',
-              content: 'Bonjour ! Je vais vous aider a configurer votre agent. Comment s\'appelle votre entreprise ?',
-            },
-          ]);
-        })
-        .finally(() => setIsTyping(false));
+      const tplName = tpl?.name || 'votre agent';
+      setChatMessages([
+        {
+          role: 'assistant',
+          content: `Bonjour ! Je vais vous aider a configurer votre agent "${tplName}". Comment s'appelle votre entreprise ou commerce ?`,
+        },
+      ]);
     }
   }, [currentStep]);
 
@@ -292,7 +277,7 @@ function OnboardingContent() {
     setIsTyping(true);
 
     try {
-      // Build conversation history (exclude the system-generated init message)
+      // Build conversation history for context
       const history = updatedMessages.map((m) => ({
         role: m.role as 'user' | 'assistant',
         content: m.content,
@@ -300,11 +285,11 @@ function OnboardingContent() {
 
       const res = await api.onboardingChat({
         message: text,
-        conversationHistory: history.slice(0, -1), // history without current message (API adds it)
+        conversationHistory: history.slice(0, -1),
         templateId: selectedTemplate || undefined,
       });
 
-      if (res.success && res.data) {
+      if (res.success && res.data?.response) {
         setChatMessages((prev) => [
           ...prev,
           { role: 'assistant', content: res.data!.response },
@@ -318,6 +303,15 @@ function OnboardingContent() {
           setAgentTone(res.data.extractedConfig.agentTone || 'professional');
           setWelcomeMessage(res.data.extractedConfig.welcomeMessage || '');
         }
+      } else {
+        // API returned success:false or missing data
+        setChatMessages((prev) => [
+          ...prev,
+          {
+            role: 'assistant',
+            content: 'Desole, je rencontre un probleme technique. Pouvez-vous reessayer ?',
+          },
+        ]);
       }
     } catch {
       setChatMessages((prev) => [

@@ -17,7 +17,14 @@ import {
   Smartphone,
   PartyPopper,
   BookOpen,
+  Bot,
+  CalendarCheck,
+  Headset,
+  ShoppingBag,
+  BadgeDollarSign,
+  Crosshair,
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 
 // ─── Types ───────────────────────────────────────────────────────
 interface AgentTemplate {
@@ -46,6 +53,16 @@ interface PlanData {
   displayOrder: number;
   isActive: boolean;
 }
+
+// ─── Icon map for templates ──────────────────────────────────────
+const TEMPLATE_ICONS: Record<string, LucideIcon> = {
+  'bot': Bot,
+  'calendar-check': CalendarCheck,
+  'headset': Headset,
+  'shopping-bag': ShoppingBag,
+  'badge-dollar-sign': BadgeDollarSign,
+  'crosshair': Crosshair,
+};
 
 // ─── Step definitions ────────────────────────────────────────────
 const STEPS = [
@@ -434,7 +451,18 @@ function OnboardingContent() {
                           <Check className="h-5 w-5 text-green-500" />
                         </div>
                       )}
-                      <span className="text-2xl">{tpl.icon}</span>
+                      {(() => {
+                        const IconComp = TEMPLATE_ICONS[tpl.icon];
+                        return IconComp ? (
+                          <div className="w-10 h-10 rounded-lg bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                            <IconComp className="w-5 h-5 text-green-600 dark:text-green-400" />
+                          </div>
+                        ) : (
+                          <div className="w-10 h-10 rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
+                            <Bot className="w-5 h-5 text-gray-500" />
+                          </div>
+                        );
+                      })()}
                       <h3 className="font-semibold text-gray-900 dark:text-white mt-2">
                         {tpl.name}
                       </h3>

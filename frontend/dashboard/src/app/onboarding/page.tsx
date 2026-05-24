@@ -79,10 +79,11 @@ function OnboardingContent() {
   const searchParams = useSearchParams();
   const { user, refreshAuth } = useAuth();
 
-  // Current step
+  // Current step — block step 4+ if no active Stripe subscription
   const initialStep = parseInt(searchParams?.get('step') || '1', 10);
+  const clampedStep = initialStep >= 1 && initialStep <= 5 ? initialStep : 1;
   const [currentStep, setCurrentStep] = useState(
-    initialStep >= 1 && initialStep <= 5 ? initialStep : 1,
+    clampedStep >= 4 && !user?.subscriptionActive ? 3 : clampedStep,
   );
 
   // Step 1 state
@@ -132,9 +133,17 @@ function OnboardingContent() {
   useEffect(() => {
     const payment = searchParams?.get('payment');
     if (payment === 'success' && currentStep === 3) {
-      // Stripe checkout completed — move to step 4
+      // Stripe checkout completed — refresh auth then move to step 4
       toast.success('Paiement configure avec succes !');
-      goToStep(4);
+      refreshAuth().then(() => {
+        // Force step 4 directly (subscription is now active after refresh)
+        setCurrentStep(4);
+        const u = new URL(window.location.href);
+        u.searchParams.set('step', '4');
+        u.searchParams.delete('payment');
+        window.history.replaceState(null, '', u.toString());
+        api.updateOnboardingStep(4).catch(() => {});
+      });
     }
     if (payment === 'cancelled' && currentStep === 3) {
       toast.error('Paiement annule. Vous pouvez reessayer.');
@@ -212,6 +221,11 @@ function OnboardingContent() {
   // ─── Persist step to backend ──────────────────────────────────
   const goToStep = useCallback(
     async (step: number) => {
+      // Block step 4+ if subscription not active
+      if (step >= 4 && !user?.subscriptionActive) {
+        toast.error('Veuillez d\'abord activer votre abonnement.');
+        return;
+      }
       setCurrentStep(step);
       // Update URL
       const url = new URL(window.location.href);
@@ -225,7 +239,7 @@ function OnboardingContent() {
         // Non-blocking
       }
     },
-    [],
+    [user?.subscriptionActive],
   );
 
   // ─── Skip / "Plus tard" ───────────────────────────────────────
@@ -407,6 +421,9 @@ function OnboardingContent() {
   const handleConnectWhatsApp = async () => {
     setConnectingWhatsapp(true);
     try {
+      // Ensure fresh auth before making WhatsApp calls
+      await refreshAuth();
+
       // Create session
       const sessionRes = await api.createWhatsAppSession({ name: 'WhatsApp Principal' });
       if (!sessionRes.success) {

@@ -525,36 +525,51 @@ export class EngagementNotificationService {
       relations: ['agent', 'agent.organization'],
     });
 
-    let count = 0;
+    // Group disconnected sessions by organization to send ONE email per user
+    const orgSessions = new Map<string, typeof disconnectedSessions>();
     for (const session of disconnectedSessions) {
+      if (!session.agent) continue;
+
+      // Check if there's a replacement connected session for the same agent
+      const replacementCount = await this.whatsAppSessionRepository.count({
+        where: {
+          agentId: session.agentId,
+          status: WhatsAppSessionStatus.CONNECTED,
+        },
+      });
+      if (replacementCount > 0) continue;
+
+      const orgId = session.agent.organizationId;
+      if (!orgSessions.has(orgId)) {
+        orgSessions.set(orgId, []);
+      }
+      orgSessions.get(orgId)!.push(session);
+    }
+
+    let count = 0;
+    for (const [orgId, sessions] of orgSessions) {
       try {
-        if (!session.agent) continue;
-
-        // Check if there's a replacement connected session for the same agent
-        const replacementCount = await this.whatsAppSessionRepository.count({
-          where: {
-            agentId: session.agentId,
-            status: WhatsAppSessionStatus.CONNECTED,
-          },
-        });
-
-        if (replacementCount > 0) continue;
-
-        // Get org owner
-        const owner = await this.getOrgOwner(session.agent.organizationId);
+        const owner = await this.getOrgOwner(orgId);
         if (!owner) continue;
 
-        const subscription = await this.getOrgSubscription(session.agent.organizationId);
+        const subscription = await this.getOrgSubscription(orgId);
         if (!subscription) continue;
 
-        const notificationKey = `session_disconnected_${session.id}`;
+        // Use a single weekly key per org (resets every 7 days)
+        const weekNumber = Math.floor(Date.now() / (7 * 24 * 60 * 60 * 1000));
+        const notificationKey = `session_disconnected_org_${orgId}_w${weekNumber}`;
         if (this.wasNotificationSent(subscription, notificationKey)) {
           continue;
         }
 
-        const daysSinceDisconnect = Math.ceil(
-          (Date.now() - new Date(session.updatedAt).getTime()) / (1000 * 60 * 60 * 24),
+        // Use the oldest disconnection date
+        const oldestDisconnect = sessions.reduce((oldest, s) =>
+          new Date(s.updatedAt) < new Date(oldest.updatedAt) ? s : oldest
         );
+        const daysSinceDisconnect = Math.ceil(
+          (Date.now() - new Date(oldestDisconnect.updatedAt).getTime()) / (1000 * 60 * 60 * 24),
+        );
+
         await this.emailService.sendReEngagementSessionDisconnectedEmail(
           owner.email,
           owner.firstName || owner.email.split('@')[0],
@@ -563,10 +578,10 @@ export class EngagementNotificationService {
         );
 
         await this.markNotificationSent(subscription, notificationKey);
-        this.logger.log(`Sent session_disconnected notification to ${owner.email}`);
+        this.logger.log(`Sent session_disconnected notification to ${owner.email} (${sessions.length} session(s))`);
         count++;
       } catch (error) {
-        this.logger.error(`Failed to send session_disconnected notification for session ${session.id}: ${error.message}`);
+        this.logger.error(`Failed to send session_disconnected notification for org ${orgId}: ${error.message}`);
       }
     }
 

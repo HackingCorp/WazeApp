@@ -1042,6 +1042,26 @@ function OnboardingContent() {
   );
 }
 
+function AuthGate() {
+  const { user, isLoading } = useAuth();
+
+  useEffect(() => {
+    if (!isLoading && !user) {
+      window.location.href = '/login';
+    }
+  }, [isLoading, user]);
+
+  if (isLoading || !user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-green-600" />
+      </div>
+    );
+  }
+
+  return <OnboardingContent />;
+}
+
 export default function OnboardingPage() {
   return (
     <Suspense
@@ -1051,7 +1071,7 @@ export default function OnboardingPage() {
         </div>
       }
     >
-      <OnboardingContent />
+      <AuthGate />
     </Suspense>
   );
 }

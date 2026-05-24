@@ -185,19 +185,21 @@ export class StripeService {
       }
     }
 
-    // Only offer trial for brand-new users who have NEVER had any completed subscription
+    // Only offer trial for users who have never had a Stripe-backed subscription
     let trialDays = 0;
     const existingSubscriptions = await this.subscriptionRepository.find({
       where: organizationId
         ? { organizationId }
         : { userId: params.userId },
     });
-    // Exclude subscriptions with pending Stripe checkout (they haven't committed to payment yet)
-    const existingSubscriptionCount = existingSubscriptions.filter(
-      s => !(s.metadata?.stripeCheckoutPending === true),
+    // Exclude subscriptions that are:
+    // - pending Stripe checkout (haven't committed to payment yet)
+    // - internal trials without Stripe subscription (created at registration, no payment yet)
+    const paidSubscriptionCount = existingSubscriptions.filter(
+      s => !(s.metadata?.stripeCheckoutPending === true) && s.stripeSubscriptionId,
     ).length;
 
-    if (existingSubscriptionCount === 0) {
+    if (paidSubscriptionCount === 0) {
       trialDays = this.planService.getTrialDays(params.planCode.toLowerCase());
     }
 

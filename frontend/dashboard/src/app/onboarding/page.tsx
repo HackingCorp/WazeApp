@@ -24,7 +24,6 @@ import {
   BadgeDollarSign,
   Crosshair,
   Send,
-  MessageCircle,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -91,23 +90,27 @@ function OnboardingContent() {
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
   const [templatesLoading, setTemplatesLoading] = useState(true);
 
-  // Step 2 state — chat-based configuration
+  // Step 2 state — AI chat-based configuration
   const [agentName, setAgentName] = useState('');
   const [agentTone, setAgentTone] = useState('professional');
   const [welcomeMessage, setWelcomeMessage] = useState('');
   const [businessDescription, setBusinessDescription] = useState('');
   const [createdAgentId, setCreatedAgentId] = useState<string | null>(null);
 
-  // Chat flow state
+  // Chat state
   interface ChatMessage {
     role: 'assistant' | 'user';
     content: string;
-    options?: { label: string; value: string }[];
   }
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState('');
-  const [chatPhase, setChatPhase] = useState(0); // 0=init, 1=name, 2=description, 3=tone, 4=welcome, 5=confirm
   const [isTyping, setIsTyping] = useState(false);
+  const [extractedConfig, setExtractedConfig] = useState<{
+    agentName: string;
+    businessDescription: string;
+    agentTone: string;
+    welcomeMessage: string;
+  } | null>(null);
   const chatEndRef = useRef<HTMLDivElement | null>(null);
   const chatInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -235,135 +238,104 @@ function OnboardingContent() {
     router.push('/dashboard');
   };
 
-  // ─── Step 2: Chat-based agent configuration ────────────────────
+  // ─── Step 2: AI chat-based agent configuration ─────────────────
 
   // Scroll chat to bottom
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatMessages, isTyping]);
 
-  // Focus input after AI message
+  // Focus input
   useEffect(() => {
-    if (!isTyping && chatPhase > 0 && chatPhase < 5) {
+    if (!isTyping) {
       setTimeout(() => chatInputRef.current?.focus(), 100);
     }
-  }, [isTyping, chatPhase]);
+  }, [isTyping]);
 
-  // Init chat when entering step 2
+  // Init chat when entering step 2 — send first AI message
   useEffect(() => {
     if (currentStep === 2 && chatMessages.length === 0) {
       const tpl = templates.find((t) => t.id === selectedTemplate);
-      const tplName = tpl?.name || 'votre agent';
-      addBotMessage(
-        `Bonjour ! Je vais vous aider a configurer votre agent "${tplName}". Comment s'appelle votre entreprise ou commerce ?`,
-      );
-      setChatPhase(1);
+      const initMessage = `L'utilisateur vient de choisir le template "${tpl?.name || 'Agent vierge'}". Presente-toi brievement et pose la premiere question.`;
+      setIsTyping(true);
+      api
+        .onboardingChat({
+          message: initMessage,
+          conversationHistory: [],
+          templateId: selectedTemplate || undefined,
+        })
+        .then((res) => {
+          if (res.success && res.data) {
+            setChatMessages([{ role: 'assistant', content: res.data.response }]);
+          }
+        })
+        .catch(() => {
+          setChatMessages([
+            {
+              role: 'assistant',
+              content: 'Bonjour ! Je vais vous aider a configurer votre agent. Comment s\'appelle votre entreprise ?',
+            },
+          ]);
+        })
+        .finally(() => setIsTyping(false));
     }
   }, [currentStep]);
 
-  const addBotMessage = (content: string, options?: { label: string; value: string }[]) => {
-    setIsTyping(true);
-    setTimeout(() => {
-      setChatMessages((prev) => [...prev, { role: 'assistant', content, options }]);
-      setIsTyping(false);
-    }, 600);
-  };
+  const handleChatSend = async () => {
+    const text = chatInput.trim();
+    if (!text || isTyping) return;
 
-  const handleChatSend = (value?: string) => {
-    const text = value || chatInput.trim();
-    if (!text) return;
-
-    // Add user message
-    setChatMessages((prev) => [...prev, { role: 'user', content: text }]);
+    const userMsg: ChatMessage = { role: 'user', content: text };
+    const updatedMessages = [...chatMessages, userMsg];
+    setChatMessages(updatedMessages);
     setChatInput('');
+    setIsTyping(true);
 
-    switch (chatPhase) {
-      case 1: // User answered business name
-        setAgentName(text);
-        setChatPhase(2);
-        addBotMessage(
-          `"${text}", c'est note ! Decrivez votre activite en quelques mots pour que l'agent puisse bien repondre a vos clients.`,
-        );
-        break;
+    try {
+      // Build conversation history (exclude the system-generated init message)
+      const history = updatedMessages.map((m) => ({
+        role: m.role as 'user' | 'assistant',
+        content: m.content,
+      }));
 
-      case 2: // User answered business description
-        setBusinessDescription(text);
-        setChatPhase(3);
-        addBotMessage(
-          'Comment souhaitez-vous que votre agent communique avec vos clients ?',
-          [
-            { label: 'Professionnel', value: 'professional' },
-            { label: 'Amical', value: 'friendly' },
-            { label: 'Empathique', value: 'empathetic' },
-            { label: 'Decontracte', value: 'casual' },
-          ],
-        );
-        break;
+      const res = await api.onboardingChat({
+        message: text,
+        conversationHistory: history.slice(0, -1), // history without current message (API adds it)
+        templateId: selectedTemplate || undefined,
+      });
 
-      case 3: { // User selected tone
-        const toneMap: Record<string, string> = {
-          'Professionnel': 'professional',
-          'Amical': 'friendly',
-          'Empathique': 'empathetic',
-          'Decontracte': 'casual',
-        };
-        const toneValue = toneMap[text] || text;
-        setAgentTone(toneValue);
-        setChatPhase(4);
-        const tpl3 = templates.find((t) => t.id === selectedTemplate);
-        const defaultWelcome = tpl3?.welcomeMessage || 'Bonjour ! Comment puis-je vous aider ?';
-        setWelcomeMessage(defaultWelcome);
-        addBotMessage(
-          `Quel message d'accueil souhaitez-vous afficher quand un client vous contacte sur WhatsApp ?\n\nSuggestion : "${defaultWelcome}"`,
-        );
-        break;
-      }
+      if (res.success && res.data) {
+        setChatMessages((prev) => [
+          ...prev,
+          { role: 'assistant', content: res.data!.response },
+        ]);
 
-      case 4: // User answered welcome message
-        setWelcomeMessage(text);
-        setChatPhase(5);
-        const toneLabelMap: Record<string, string> = {
-          professional: 'Professionnel',
-          friendly: 'Amical',
-          empathetic: 'Empathique',
-          casual: 'Decontracte',
-        };
-        addBotMessage(
-          `Votre agent est pret a etre cree !\n\n• Nom : ${agentName}\n• Activite : ${businessDescription}\n• Ton : ${toneLabelMap[agentTone] || agentTone}\n• Accueil : "${text}"\n\nOn lance la creation ?`,
-          [
-            { label: 'Creer mon agent', value: 'confirm' },
-            { label: 'Recommencer', value: 'restart' },
-          ],
-        );
-        break;
-
-      case 5: // Confirm or restart
-        if (text === 'restart') {
-          setChatMessages([]);
-          setChatPhase(0);
-          setAgentName('');
-          setBusinessDescription('');
-          setAgentTone('professional');
-          setWelcomeMessage('');
-          // Re-trigger init
-          setTimeout(() => {
-            const tpl = templates.find((t) => t.id === selectedTemplate);
-            const tplName = tpl?.name || 'votre agent';
-            addBotMessage(
-              `Bonjour ! Je vais vous aider a configurer votre agent "${tplName}". Comment s'appelle votre entreprise ou commerce ?`,
-            );
-            setChatPhase(1);
-          }, 100);
-        } else {
-          handleCreateAgent();
+        // Check if AI extracted the full config
+        if (res.data.extractedConfig) {
+          setExtractedConfig(res.data.extractedConfig);
+          setAgentName(res.data.extractedConfig.agentName || '');
+          setBusinessDescription(res.data.extractedConfig.businessDescription || '');
+          setAgentTone(res.data.extractedConfig.agentTone || 'professional');
+          setWelcomeMessage(res.data.extractedConfig.welcomeMessage || '');
         }
-        break;
+      }
+    } catch {
+      setChatMessages((prev) => [
+        ...prev,
+        {
+          role: 'assistant',
+          content: 'Desole, une erreur est survenue. Pouvez-vous reessayer ?',
+        },
+      ]);
+    } finally {
+      setIsTyping(false);
     }
   };
 
   // ─── Step 2: Create agent ─────────────────────────────────────
   const handleCreateAgent = async () => {
-    if (!agentName.trim()) {
+    const name = agentName.trim();
+    if (!name) {
       toast.error('Le nom de l\'agent est requis');
       return;
     }
@@ -372,8 +344,8 @@ function OnboardingContent() {
     try {
       const tpl = templates.find((t) => t.id === selectedTemplate);
       const payload: any = {
-        name: agentName.trim(),
-        tone: agentTone,
+        name,
+        tone: agentTone || tpl?.tone || 'professional',
         welcomeMessage: welcomeMessage || tpl?.welcomeMessage || 'Bonjour ! Comment puis-je vous aider ?',
         fallbackMessage: tpl?.fallbackMessage || 'Desole, je n\'ai pas compris. Pouvez-vous reformuler ?',
         systemPrompt: tpl?.systemPrompt || '',
@@ -399,6 +371,15 @@ function OnboardingContent() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleResetChat = () => {
+    setChatMessages([]);
+    setExtractedConfig(null);
+    setAgentName('');
+    setBusinessDescription('');
+    setAgentTone('professional');
+    setWelcomeMessage('');
   };
 
   // ─── Step 3: Select plan ──────────────────────────────────────
@@ -633,7 +614,7 @@ function OnboardingContent() {
             </div>
           )}
 
-          {/* ── Step 2: Chat-based Agent Configuration ── */}
+          {/* ── Step 2: AI Chat Agent Configuration ── */}
           {currentStep === 2 && (
             <div className="animate-fade-in">
               <div className="text-center mb-4">
@@ -641,7 +622,7 @@ function OnboardingContent() {
                   Configurez votre agent
                 </h1>
                 <p className="text-gray-500 dark:text-gray-400 mt-1 text-sm">
-                  Repondez aux questions pour personnaliser votre assistant
+                  Discutez avec l'IA pour personnaliser votre assistant
                 </p>
               </div>
 
@@ -671,20 +652,6 @@ function OnboardingContent() {
                           }`}
                         >
                           {msg.content}
-                          {/* Option buttons */}
-                          {msg.options && msg.role === 'assistant' && i === chatMessages.length - 1 && !isTyping && (
-                            <div className="flex flex-wrap gap-2 mt-3">
-                              {msg.options.map((opt) => (
-                                <button
-                                  key={opt.value}
-                                  onClick={() => handleChatSend(opt.value === 'confirm' || opt.value === 'restart' ? opt.value : opt.label)}
-                                  className="px-3 py-1.5 text-xs font-medium rounded-full border border-green-500 text-green-700 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/30 transition-colors"
-                                >
-                                  {opt.label}
-                                </button>
-                              ))}
-                            </div>
-                          )}
                         </div>
                       </div>
                     ))}
@@ -702,22 +669,12 @@ function OnboardingContent() {
                       </div>
                     )}
 
-                    {/* Saving indicator */}
-                    {saving && (
-                      <div className="flex justify-start">
-                        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-4 py-2.5 rounded-2xl rounded-bl-md shadow-sm flex items-center text-sm text-gray-600 dark:text-gray-400">
-                          <Loader2 className="w-4 h-4 animate-spin mr-2 text-green-600" />
-                          Creation de l'agent en cours...
-                        </div>
-                      </div>
-                    )}
-
                     <div ref={chatEndRef} />
                   </div>
 
                   {/* Input area */}
                   <div className="px-3 py-3 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
-                    {chatPhase > 0 && chatPhase < 5 && chatPhase !== 3 ? (
+                    {!extractedConfig ? (
                       <form
                         onSubmit={(e) => {
                           e.preventDefault();
@@ -744,18 +701,76 @@ function OnboardingContent() {
                       </form>
                     ) : (
                       <div className="text-center text-xs text-gray-400 py-1">
-                        {chatPhase === 3 ? 'Choisissez une option ci-dessus' : chatPhase === 5 ? 'Confirmez la creation ci-dessus' : ''}
+                        Configuration prete — confirmez ci-dessous
                       </div>
                     )}
                   </div>
                 </div>
 
+                {/* Extracted config confirmation card */}
+                {extractedConfig && (
+                  <div className="mt-4 bg-white dark:bg-gray-800 border-2 border-green-500 rounded-xl p-5 shadow-sm">
+                    <div className="flex items-center mb-3">
+                      <Check className="w-5 h-5 text-green-500 mr-2" />
+                      <h3 className="font-semibold text-gray-900 dark:text-white text-sm">
+                        Configuration de votre agent
+                      </h3>
+                    </div>
+                    <div className="space-y-2 text-sm mb-4">
+                      <div className="flex justify-between">
+                        <span className="text-gray-500 dark:text-gray-400">Nom</span>
+                        <span className="font-medium text-gray-900 dark:text-white">{extractedConfig.agentName}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-500 dark:text-gray-400">Activite</span>
+                        <span className="font-medium text-gray-900 dark:text-white max-w-[60%] text-right">{extractedConfig.businessDescription}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-500 dark:text-gray-400">Ton</span>
+                        <span className="font-medium text-gray-900 dark:text-white">
+                          {{ professional: 'Professionnel', friendly: 'Amical', empathetic: 'Empathique', casual: 'Decontracte' }[extractedConfig.agentTone] || extractedConfig.agentTone}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-gray-500 dark:text-gray-400 block mb-1">Message d'accueil</span>
+                        <span className="font-medium text-gray-900 dark:text-white text-xs bg-gray-50 dark:bg-gray-700 rounded-lg p-2 block">
+                          "{extractedConfig.welcomeMessage}"
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex gap-3">
+                      <button
+                        onClick={handleResetChat}
+                        className="flex items-center px-4 py-2 text-sm text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                      >
+                        Recommencer
+                      </button>
+                      <button
+                        onClick={handleCreateAgent}
+                        disabled={saving}
+                        className="flex-1 flex items-center justify-center px-4 py-2 text-sm font-medium bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
+                      >
+                        {saving ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                            Creation...
+                          </>
+                        ) : (
+                          <>
+                            Creer mon agent
+                            <ArrowRight className="w-4 h-4 ml-2" />
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
                 {/* Back button */}
                 <div className="flex justify-start mt-4">
                   <button
                     onClick={() => {
-                      setChatMessages([]);
-                      setChatPhase(0);
+                      handleResetChat();
                       goToStep(1);
                     }}
                     className="flex items-center px-4 py-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"

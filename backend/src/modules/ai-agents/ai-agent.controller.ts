@@ -92,6 +92,22 @@ export class AiAgentController {
     return this.aiAgentService.getTemplates();
   }
 
+  @Post("onboarding-chat")
+  @ApiOperation({ summary: "Chat with AI to configure agent during onboarding" })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: "Chat response returned",
+  })
+  async onboardingChat(
+    @Body() body: { message: string; conversationHistory?: { role: 'user' | 'assistant'; content: string }[]; templateId?: string },
+  ) {
+    return this.aiAgentService.onboardingChat(
+      body.message,
+      body.conversationHistory || [],
+      body.templateId,
+    );
+  }
+
   @Get("stats")
   @ApiOperation({ summary: "Get AI agent statistics" })
   @ApiResponse({

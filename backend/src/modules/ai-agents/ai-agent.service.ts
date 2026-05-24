@@ -170,6 +170,99 @@ export class AiAgentService {
     ];
   }
 
+  async onboardingChat(
+    message: string,
+    conversationHistory: { role: 'user' | 'assistant'; content: string }[],
+    templateId?: string,
+  ): Promise<{ response: string; extractedConfig: any | null }> {
+    const template = templateId
+      ? this.getTemplates().find((t) => t.id === templateId)
+      : null;
+
+    const templateContext = template
+      ? `L'utilisateur a choisi le template "${template.name}" (${template.description}). Ton par defaut: ${template.tone}. Message d'accueil suggere: "${template.welcomeMessage}".`
+      : '';
+
+    const systemPrompt = `Tu es un assistant de configuration WazeApp. Tu aides l'utilisateur a creer son agent IA WhatsApp en posant des questions naturelles et conversationnelles.
+
+${templateContext}
+
+Tu dois collecter ces informations au fil de la conversation :
+1. Le nom de l'agent ou de l'entreprise (agentName)
+2. Une description de l'activite/business (businessDescription)
+3. Le ton de communication souhaite : professional, friendly, empathetic ou casual (agentTone)
+4. Le message d'accueil que les clients verront sur WhatsApp (welcomeMessage)
+
+Regles :
+- Pose UNE question a la fois, de maniere naturelle et chaleureuse.
+- Commence par demander le nom de l'entreprise et ce qu'elle fait.
+- Quand tu as assez d'informations sur l'activite, suggere un ton adapte et demande confirmation.
+- Propose un message d'accueil personnalise base sur les infos recues et demande si ca convient.
+- Quand tu as TOUTES les 4 informations confirmees, ajoute a la FIN de ton message un bloc JSON sur une nouvelle ligne dans ce format exact :
+---AGENT_CONFIG---
+{"agentName":"...","businessDescription":"...","agentTone":"...","welcomeMessage":"..."}
+---END_CONFIG---
+- Le bloc JSON doit contenir les vraies valeurs extraites de la conversation.
+- Ne montre JAMAIS le JSON a l'utilisateur dans le texte visible. Le bloc est un marqueur technique.
+- Reponds TOUJOURS en francais.
+- Sois concis (2-3 phrases max par message).
+- Si l'utilisateur dit "oui" ou confirme, ne prends pas ca comme une valeur litterale. Comprends le contexte.`;
+
+    const messages: { role: 'system' | 'user' | 'assistant'; content: string }[] = [
+      { role: 'system', content: systemPrompt },
+    ];
+
+    if (conversationHistory?.length) {
+      const recentHistory = conversationHistory.slice(-20);
+      for (const msg of recentHistory) {
+        messages.push({ role: msg.role, content: msg.content });
+      }
+    }
+
+    messages.push({ role: 'user', content: message });
+
+    try {
+      const result = await this.llmRouter.generateResponse({
+        messages,
+        temperature: 0.6,
+        maxTokens: 600,
+        organizationId: null,
+      });
+
+      let responseText = result.content;
+      let extractedConfig: any = null;
+
+      // Extract config JSON if present
+      const configMatch = responseText.match(/---AGENT_CONFIG---\s*(\{[\s\S]*?\})\s*---END_CONFIG---/);
+      if (configMatch) {
+        try {
+          extractedConfig = JSON.parse(configMatch[1]);
+        } catch {
+          this.logger.warn('Failed to parse extracted agent config JSON');
+        }
+        // Remove the config block from the visible response
+        responseText = responseText.replace(/---AGENT_CONFIG---[\s\S]*?---END_CONFIG---/, '').trim();
+      }
+
+      // Strip markdown
+      responseText = responseText
+        .replace(/\*\*([^*]+)\*\*/g, '$1')
+        .replace(/\*([^*]+)\*/g, '$1')
+        .replace(/__([^_]+)__/g, '$1')
+        .replace(/`([^`]+)`/g, '$1')
+        .replace(/#{1,6}\s/g, '')
+        .trim();
+
+      return { response: responseText, extractedConfig };
+    } catch (error) {
+      this.logger.error(`Onboarding chat error: ${error.message}`);
+      return {
+        response: 'Desole, je rencontre un probleme technique. Pouvez-vous reessayer ?',
+        extractedConfig: null,
+      };
+    }
+  }
+
   async create(
     organizationId: string | null,
     userId: string,

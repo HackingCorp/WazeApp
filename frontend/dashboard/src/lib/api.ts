@@ -1796,6 +1796,17 @@ class ApiClient {
     return this.request('/agents/templates');
   }
 
+  async onboardingChat(data: {
+    message: string;
+    conversationHistory?: { role: 'user' | 'assistant'; content: string }[];
+    templateId?: string;
+  }): Promise<{ success: boolean; data?: { response: string; extractedConfig: any | null } }> {
+    return this.request('/agents/onboarding-chat', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
   async updateOnboardingStep(step: number | null) {
     return this.request('/auth/onboarding-step', {
       method: 'PATCH',

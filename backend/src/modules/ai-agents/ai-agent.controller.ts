@@ -82,6 +82,16 @@ export class AiAgentController {
     return this.aiAgentService.findAll(organizationId, userId, query);
   }
 
+  @Get("templates")
+  @ApiOperation({ summary: "Get agent templates for onboarding" })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: "Agent templates retrieved successfully",
+  })
+  async getTemplates() {
+    return this.aiAgentService.getTemplates();
+  }
+
   @Get("stats")
   @ApiOperation({ summary: "Get AI agent statistics" })
   @ApiResponse({

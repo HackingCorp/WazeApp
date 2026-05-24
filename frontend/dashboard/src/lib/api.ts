@@ -1791,6 +1791,18 @@ class ApiClient {
     });
   }
 
+  // Onboarding
+  async getAgentTemplates() {
+    return this.request('/agents/templates');
+  }
+
+  async updateOnboardingStep(step: number | null) {
+    return this.request('/auth/onboarding-step', {
+      method: 'PATCH',
+      body: JSON.stringify({ step }),
+    });
+  }
+
   // Support Chat
   async supportChat(data: {
     message: string;

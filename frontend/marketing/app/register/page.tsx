@@ -1,8 +1,8 @@
 "use client"
 
-import { useState, useEffect, Suspense } from "react"
+import { useState, Suspense } from "react"
 import Link from "next/link"
-import { useRouter, useSearchParams } from "next/navigation"
+import { useRouter } from "next/navigation"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -11,237 +11,73 @@ import {
   Eye,
   EyeOff,
   ArrowLeft,
-  ArrowRight,
   User,
   AlertCircle,
   Building,
   CheckCircle,
-  Check,
-  X,
-  Sparkles,
-  CreditCard
 } from "lucide-react"
 import { api } from "@/lib/api"
 import posthog from "posthog-js"
-import { PhoneInput } from "@/components/ui/phone-input"
-
-// Plan type from API
-interface PlanData {
-  id: string
-  code: string
-  name: string
-  description: string
-  priceMonthlyUSD: number
-  trialDays: number
-  maxAgents: number
-  maxWhatsAppMessages: number
-  displayOrder: number
-  isActive: boolean
-}
-
-function formatMessages(count: number): string {
-  if (count === -1) return "Messages illimités"
-  return `${count.toLocaleString('fr-FR')} messages/mois`
-}
-
-const MOBILE_MONEY_COUNTRIES = ['CM'];
 
 function RegisterPageContent() {
   const router = useRouter()
-  const searchParams = useSearchParams()
-  const [currentStep, setCurrentStep] = useState(1)
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
-  const [plans, setPlans] = useState<PlanData[]>([])
-  const [plansLoading, setPlansLoading] = useState(true)
-  const [detectedCountry, setDetectedCountry] = useState<string | null>(null)
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
-    phone: "",
     email: "",
     password: "",
-    confirmPassword: "",
     organizationName: "",
     acceptTerms: false,
-    selectedPlan: "STANDARD",
-    paymentMethod: "" as 'stripe' | 'mobile_money' | '',
   })
 
-  // Show Mobile Money only for confirmed eligible countries
-  const showMobileMoney = detectedCountry ? MOBILE_MONEY_COUNTRIES.includes(detectedCountry) : false
-
-  // Detect country via IP on mount
-  useEffect(() => {
-    async function detectCountry() {
-      try {
-        const response = await api.detectCountry()
-        if (response.success && response.data?.countryCode) {
-          setDetectedCountry(response.data.countryCode)
-        }
-      } catch {
-        // Fallback: try navigator.language
-        try {
-          const lang = navigator.language || ''
-          const parts = lang.split('-')
-          if (parts.length >= 2) {
-            setDetectedCountry(parts[1].toUpperCase())
-          }
-        } catch {
-          // Detection failed - keep null (shows all options)
-        }
-      }
-    }
-    detectCountry()
-  }, [])
-
-  // Load plans from API
-  useEffect(() => {
-    async function fetchPlans() {
-      try {
-        const response = await api.getPlans()
-        if (response.success && response.data) {
-          const activePlans = response.data
-            .filter((p: any) => p.isActive && p.code !== 'free')
-            .sort((a: any, b: any) => a.displayOrder - b.displayOrder)
-            .map((p: any) => ({
-              id: p.code.toUpperCase(),
-              code: p.code,
-              name: p.name,
-              description: p.description,
-              priceMonthlyUSD: p.priceMonthlyUSD,
-              trialDays: p.trialDays || 0,
-              maxAgents: p.maxAgents,
-              maxWhatsAppMessages: p.maxWhatsAppMessages,
-              displayOrder: p.displayOrder,
-              isActive: p.isActive,
-            }))
-          setPlans(activePlans)
-          if (activePlans.length > 0 && !activePlans.find((p: PlanData) => p.id === formData.selectedPlan)) {
-            setFormData(prev => ({ ...prev, selectedPlan: activePlans[0].id }))
-          }
-        }
-      } catch (err) {
-        // Silently fail - plans will be empty and user sees loading state
-      } finally {
-        setPlansLoading(false)
-      }
-    }
-    fetchPlans()
-  }, [])
-
-  // Reset payment method if Mobile Money not available
-  useEffect(() => {
-    if (!showMobileMoney && formData.paymentMethod === 'mobile_money') {
-      setFormData(prev => ({ ...prev, paymentMethod: 'stripe' }))
-    }
-    if (!showMobileMoney && !formData.paymentMethod) {
-      setFormData(prev => ({ ...prev, paymentMethod: 'stripe' }))
-    }
-  }, [showMobileMoney])
-
-  // Check for plan parameter in URL
-  useEffect(() => {
-    const planParam = searchParams?.get('plan')
-    const paymentParam = searchParams?.get('payment')
-    if (planParam && plans.find(p => p.id === planParam.toUpperCase())) {
-      setFormData(prev => ({ ...prev, selectedPlan: planParam.toUpperCase() }))
-    }
-    if (paymentParam === 'cancelled') {
-      setError("Paiement annulé. Vous pouvez réessayer ou choisir une autre méthode de paiement.")
-    }
-  }, [searchParams, plans])
-
-  const steps = [
-    { id: 1, title: "Forfait", description: "Choisissez votre forfait" },
-    { id: 2, title: "Informations", description: "Parlez-nous de vous" },
-    { id: 3, title: "Compte", description: "Créez votre compte" },
-    { id: 4, title: "Organisation", description: "Configurez votre espace" },
-  ]
-
-  const validateStep = (step: number): boolean => {
+  const validate = (): boolean => {
     setError("")
 
-    switch (step) {
-      case 1:
-        if (!formData.paymentMethod) {
-          setError("Veuillez choisir une méthode de paiement")
-          return false
-        }
-        return true
-
-      case 2:
-        if (!formData.firstName.trim()) {
-          setError("Le prénom est requis")
-          return false
-        }
-        if (!formData.lastName.trim()) {
-          setError("Le nom est requis")
-          return false
-        }
-        return true
-
-      case 3:
-        if (!formData.email.trim()) {
-          setError("L'email est requis")
-          return false
-        }
-        if (!formData.password) {
-          setError("Le mot de passe est requis")
-          return false
-        }
-        if (formData.password.length < 8) {
-          setError("Le mot de passe doit contenir au moins 8 caractères")
-          return false
-        }
-        const passwordRegex = /((?=.*\d)|(?=.*\W+))(?![.\n])(?=.*[A-Z])(?=.*[a-z]).*$/;
-        if (!passwordRegex.test(formData.password)) {
-          setError("Le mot de passe doit contenir majuscule, minuscule et chiffre/caractère spécial")
-          return false
-        }
-        if (formData.password !== formData.confirmPassword) {
-          setError("Les mots de passe ne correspondent pas")
-          return false
-        }
-        return true
-
-      case 4:
-        if (!formData.acceptTerms) {
-          setError("Vous devez accepter les conditions d'utilisation")
-          return false
-        }
-        return true
-
-      default:
-        return true
+    if (!formData.firstName.trim()) {
+      setError("Le prenom est requis")
+      return false
     }
-  }
-
-  const handleNext = () => {
-    if (validateStep(currentStep)) {
-      if (posthog.__loaded) {
-        posthog.capture('register_step_completed', { step: currentStep });
-      }
-      setCurrentStep(prev => Math.min(prev + 1, 4))
+    if (!formData.lastName.trim()) {
+      setError("Le nom est requis")
+      return false
     }
-  }
-
-  const handlePrev = () => {
-    setError("")
-    setCurrentStep(prev => Math.max(prev - 1, 1))
+    if (!formData.email.trim()) {
+      setError("L'email est requis")
+      return false
+    }
+    if (!formData.password) {
+      setError("Le mot de passe est requis")
+      return false
+    }
+    if (formData.password.length < 8) {
+      setError("Le mot de passe doit contenir au moins 8 caracteres")
+      return false
+    }
+    const passwordRegex = /((?=.*\d)|(?=.*\W+))(?![.\n])(?=.*[A-Z])(?=.*[a-z]).*$/
+    if (!passwordRegex.test(formData.password)) {
+      setError("Le mot de passe doit contenir majuscule, minuscule et chiffre/caractere special")
+      return false
+    }
+    if (!formData.acceptTerms) {
+      setError("Vous devez accepter les conditions d'utilisation")
+      return false
+    }
+    return true
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!validateStep(4)) return
+    if (!validate()) return
 
     setIsLoading(true)
 
     try {
       if (posthog.__loaded) {
-        posthog.capture('register_submitted', { plan: formData.selectedPlan });
+        posthog.capture('register_submitted', { plan: 'STANDARD' })
       }
 
       const response = await api.register({
@@ -249,35 +85,24 @@ function RegisterPageContent() {
         lastName: formData.lastName.trim(),
         email: formData.email.trim(),
         password: formData.password,
-        phone: formData.phone.trim() || undefined,
         organizationName: formData.organizationName.trim() || undefined,
-        plan: formData.selectedPlan,
-        paymentMethod: formData.paymentMethod || undefined,
-        country: detectedCountry || undefined,
       })
 
       if (response.success) {
         if (posthog.__loaded) {
-          posthog.capture('register_success', { plan: formData.selectedPlan, paymentMethod: formData.paymentMethod });
+          posthog.capture('register_success', { plan: 'STANDARD' })
         }
 
-        // Fire Facebook Pixel CompleteRegistration on actual registration success
+        // Fire Facebook Pixel CompleteRegistration
         if (typeof window.fbq === 'function') {
           window.fbq('track', 'CompleteRegistration', {
-            content_name: formData.selectedPlan,
+            content_name: 'STANDARD',
             currency: 'USD',
-            value: plans.find(p => p.id === formData.selectedPlan)?.priceMonthlyUSD || 0,
-          });
-        }
-
-        // If Stripe checkout URL returned, redirect to Stripe Checkout first
-        if (response.data?.stripeCheckoutUrl) {
-          window.location.href = response.data.stripeCheckoutUrl
-          return
+            value: 0,
+          })
         }
 
         // Auto-login: redirect to dashboard with cross-domain auth code
-        // Email verification happens in background — user can start using the app immediately
         if (response.data?.accessToken) {
           const dashboardUrl = process.env.NEXT_PUBLIC_DASHBOARD_URL || 'https://app.wazeapp.ai'
           try {
@@ -294,140 +119,55 @@ function RegisterPageContent() {
         }
 
         // Fallback for responses without tokens
-        router.push(`/verify-email?email=${encodeURIComponent(formData.email)}&plan=${formData.selectedPlan.toLowerCase()}`)
+        router.push(`/verify-email?email=${encodeURIComponent(formData.email)}`)
       } else {
-        setError(response.error || "Échec de l'inscription. Veuillez réessayer.")
+        setError(response.error || "Echec de l'inscription. Veuillez reessayer.")
       }
     } catch (err) {
-      setError("Erreur réseau. Veuillez réessayer.")
+      setError("Erreur reseau. Veuillez reessayer.")
       console.error("Registration error:", err)
     } finally {
       setIsLoading(false)
     }
   }
 
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
+      <div className="animate-fade-in-up w-full max-w-md">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8">
+          <Link
+            href="/"
+            className="inline-flex items-center text-sm text-muted-foreground hover:text-primary mb-6"
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Retour a l'accueil
+          </Link>
 
-  const renderStepContent = () => {
-    switch (currentStep) {
-      case 1:
-        return (
-          <div className="animate-fade-in-up space-y-4">
-            <p className="text-sm text-center text-muted-foreground mb-4">
-              Sélectionnez le forfait qui correspond à vos besoins
-            </p>
-            {plansLoading ? (
-              <div className="flex justify-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-                {plans.map((plan) => (
-                  <button
-                    key={plan.id}
-                    type="button"
-                    onClick={() => setFormData({ ...formData, selectedPlan: plan.id })}
-                    className={`relative p-6 rounded-xl border-2 text-left transition-all ${
-                      formData.selectedPlan === plan.id
-                        ? "border-primary bg-primary/5 dark:bg-primary/10"
-                        : "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600"
-                    }`}
-                  >
-                    {plan.code === 'pro' && (
-                      <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                        <span className="bg-primary text-white text-xs px-3 py-1 rounded-full flex items-center whitespace-nowrap">
-                          <Sparkles className="h-3 w-3 mr-1" />
-                          Populaire
-                        </span>
-                      </div>
-                    )}
-                    {formData.selectedPlan === plan.id && (
-                      <div className="absolute top-3 right-3">
-                        <CheckCircle className="h-5 w-5 text-primary" />
-                      </div>
-                    )}
-                    <div>
-                      <h4 className="font-bold text-base text-gray-900 dark:text-white">{plan.name}</h4>
-                      <p className="text-xs text-muted-foreground mt-1">{plan.description}</p>
-                      <p className="text-2xl font-bold text-gray-900 dark:text-white mt-3">
-                        ${plan.priceMonthlyUSD}<span className="text-sm font-normal text-muted-foreground">/mois</span>
-                      </p>
-                      {plan.trialDays > 0 && (
-                        <span className="inline-block mt-2 text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 px-2 py-1 rounded-full">
-                          {plan.trialDays} jours d'essai gratuit
-                        </span>
-                      )}
-                      <ul className="mt-3 space-y-2">
-                        <li className="flex items-center text-sm text-gray-600 dark:text-gray-400">
-                          <Check className="h-4 w-4 text-green-500 mr-2 flex-shrink-0" />
-                          {plan.maxAgents} Agent{plan.maxAgents > 1 ? 's' : ''} WhatsApp
-                        </li>
-                        <li className="flex items-center text-sm text-gray-600 dark:text-gray-400">
-                          <Check className="h-4 w-4 text-green-500 mr-2 flex-shrink-0" />
-                          {formatMessages(plan.maxWhatsAppMessages)}
-                        </li>
-                      </ul>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {/* Payment method selection */}
-            <div className="mt-6">
-              <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-                Méthode de paiement
-              </p>
-              <div className={`grid ${showMobileMoney ? 'grid-cols-2' : 'grid-cols-1'} gap-3`}>
-                <button
-                  type="button"
-                  onClick={() => setFormData({ ...formData, paymentMethod: 'stripe' })}
-                  className={`flex items-center p-3 rounded-xl border-2 text-left transition-all ${
-                    formData.paymentMethod === 'stripe'
-                      ? "border-primary bg-primary/5 dark:bg-primary/10"
-                      : "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600"
-                  }`}
-                >
-                  <CreditCard className="h-5 w-5 text-gray-600 dark:text-gray-400 mr-3 flex-shrink-0" />
-                  <div>
-                    <p className="text-sm font-medium text-gray-900 dark:text-white">Carte bancaire</p>
-                    <p className="text-xs text-muted-foreground">Visa, MC, PayPal</p>
-                  </div>
-                </button>
-                {showMobileMoney && (
-                  <button
-                    type="button"
-                    onClick={() => setFormData({ ...formData, paymentMethod: 'mobile_money' })}
-                    className={`flex items-center p-3 rounded-xl border-2 text-left transition-all ${
-                      formData.paymentMethod === 'mobile_money'
-                        ? "border-primary bg-primary/5 dark:bg-primary/10"
-                        : "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600"
-                    }`}
-                  >
-                    <svg className="h-5 w-5 text-gray-600 dark:text-gray-400 mr-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                    </svg>
-                    <div>
-                      <p className="text-sm font-medium text-gray-900 dark:text-white">Mobile Money</p>
-                      <p className="text-xs text-muted-foreground">MTN, Orange</p>
-                    </div>
-                  </button>
-                )}
-              </div>
+          <div className="text-center mb-8">
+            <div className="inline-flex items-center justify-center h-12 w-12 rounded-lg bg-whatsapp mb-4">
+              <span className="text-white font-bold text-xl">W</span>
             </div>
-
-            <p className="text-xs text-center text-muted-foreground">
-              Vous pourrez modifier votre forfait à tout moment
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Creer votre compte</h1>
+            <p className="text-muted-foreground mt-2">
+              Commencez gratuitement et configurez votre premier agent IA
             </p>
           </div>
-        )
 
-      case 2:
-        return (
-          <div className="animate-fade-in-up space-y-6">
+          {error && (
+            <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+              <div className="flex items-center">
+                <AlertCircle className="h-4 w-4 text-red-500 mr-2 flex-shrink-0" />
+                <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
+              </div>
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {/* First name + Last name */}
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label htmlFor="firstName" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Prénom *
+                <label htmlFor="firstName" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Prenom *
                 </label>
                 <div className="relative">
                   <User className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
@@ -442,9 +182,8 @@ function RegisterPageContent() {
                   />
                 </div>
               </div>
-
               <div>
-                <label htmlFor="lastName" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <label htmlFor="lastName" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Nom *
                 </label>
                 <div className="relative">
@@ -462,25 +201,9 @@ function RegisterPageContent() {
               </div>
             </div>
 
+            {/* Email */}
             <div>
-              <label htmlFor="phone" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Numéro de téléphone (optionnel)
-              </label>
-              <PhoneInput
-                value={formData.phone}
-                onChange={(value) => setFormData({ ...formData, phone: value })}
-                onCountryChange={(code) => setDetectedCountry(code)}
-                placeholder="6 12 34 56 78"
-              />
-            </div>
-          </div>
-        )
-
-      case 3:
-        return (
-          <div className="animate-fade-in-up space-y-6">
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Adresse email *
               </label>
               <div className="relative">
@@ -497,8 +220,9 @@ function RegisterPageContent() {
               </div>
             </div>
 
+            {/* Password */}
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Mot de passe *
               </label>
               <div className="relative">
@@ -509,7 +233,7 @@ function RegisterPageContent() {
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                   className="w-full pl-10 pr-12 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:border-gray-600"
-                  placeholder="••••••••"
+                  placeholder="Min. 8 caracteres"
                   required
                 />
                 <button
@@ -520,35 +244,13 @@ function RegisterPageContent() {
                   {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                 </button>
               </div>
-              <p className="mt-1 text-xs text-gray-500">Min. 8 caractères avec majuscule, minuscule et chiffre/caractère spécial</p>
+              <p className="mt-1 text-xs text-gray-500">Majuscule, minuscule et chiffre/caractere special requis</p>
             </div>
 
+            {/* Organization */}
             <div>
-              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Confirmer le mot de passe *
-              </label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-                <input
-                  id="confirmPassword"
-                  type={showPassword ? "text" : "password"}
-                  value={formData.confirmPassword}
-                  onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                  className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:border-gray-600"
-                  placeholder="••••••••"
-                  required
-                />
-              </div>
-            </div>
-          </div>
-        )
-
-      case 4:
-        return (
-          <div className="animate-fade-in-up space-y-6">
-            <div>
-              <label htmlFor="organizationName" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Nom de l'organisation (optionnel)
+              <label htmlFor="organizationName" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Nom de l'entreprise <span className="text-gray-400 font-normal">(optionnel)</span>
               </label>
               <div className="relative">
                 <Building className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
@@ -561,9 +263,9 @@ function RegisterPageContent() {
                   placeholder="Nom de votre entreprise"
                 />
               </div>
-              <p className="mt-1 text-xs text-gray-500">Laissez vide pour créer un compte personnel</p>
             </div>
 
+            {/* Terms */}
             <div>
               <label className="flex items-start">
                 <input
@@ -580,167 +282,76 @@ function RegisterPageContent() {
                   </Link>{" "}
                   et la{" "}
                   <Link href="/privacy" className="text-primary hover:underline" target="_blank">
-                    Politique de confidentialité
+                    Politique de confidentialite
                   </Link>
                 </span>
               </label>
             </div>
 
-            {/* Summary of selected plan */}
-            <div className="bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-lg p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Forfait sélectionné</p>
-                  <p className="text-lg font-bold text-gray-900 dark:text-white">
-                    {plans.find(p => p.id === formData.selectedPlan)?.name}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {formData.paymentMethod === 'stripe' ? 'Carte bancaire' : 'Mobile Money'}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="text-lg font-bold text-primary">
-                    ${plans.find(p => p.id === formData.selectedPlan)?.priceMonthlyUSD}/mois
-                  </p>
-                  <p className="text-xs text-green-600 dark:text-green-400">
-                    {plans.find(p => p.id === formData.selectedPlan)?.trialDays} jours gratuits
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
-              <div className="flex items-center">
-                <CheckCircle className="h-5 w-5 text-green-500 mr-3" />
-                <div>
-                  <p className="text-sm font-medium text-green-700 dark:text-green-300">Prêt à commencer !</p>
-                  <p className="text-xs text-green-600 dark:text-green-400 mt-1">
-                    {formData.paymentMethod === 'stripe'
-                      ? "Vous serez redirigé vers Stripe pour configurer votre méthode de paiement. Aucun prélèvement pendant la période d'essai."
-                      : "Vous recevrez un email de vérification après l'inscription."
-                    }
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        )
-
-      default:
-        return null
-    }
-  }
-
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
-      <div className={`animate-fade-in-up w-full ${currentStep === 1 ? 'max-w-3xl' : 'max-w-md'}`}>
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8">
-          <Link
-            href="/"
-            className="inline-flex items-center text-sm text-muted-foreground hover:text-primary mb-6"
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Retour à l'accueil
-          </Link>
-
-          <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center h-12 w-12 rounded-lg bg-whatsapp mb-4">
-              <span className="text-white font-bold text-xl">W</span>
-            </div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Créer votre compte</h1>
-            <p className="text-muted-foreground mt-2">
-              {steps[currentStep - 1].description}
-            </p>
-          </div>
-
-          {/* Progress Steps */}
-          <div className="flex justify-between mb-8">
-            {steps.map((step, index) => (
-              <div key={step.id} className="flex items-center">
-                <div className={`
-                  flex items-center justify-center w-7 h-7 rounded-full text-xs font-medium
-                  ${currentStep > step.id
-                    ? 'bg-green-500 text-white'
-                    : currentStep === step.id
-                    ? 'bg-primary text-white'
-                    : 'bg-gray-200 dark:bg-gray-600 text-gray-500 dark:text-gray-400'
-                  }
-                `}>
-                  {currentStep > step.id ? (
-                    <CheckCircle className="w-4 h-4" />
-                  ) : (
-                    step.id
-                  )}
-                </div>
-                {index < steps.length - 1 && (
-                  <div className={`w-8 sm:w-16 h-1 mx-1 ${
-                    currentStep > step.id ? 'bg-green-500' : 'bg-gray-200 dark:bg-gray-600'
-                  }`} />
-                )}
-              </div>
-            ))}
-          </div>
-
-          {error && (
-            <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-              <div className="flex items-center">
-                <AlertCircle className="h-4 w-4 text-red-500 mr-2" />
-                <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
-              </div>
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit}>
-            <>
-              {renderStepContent()}
-            </>
-
-            <div className="flex justify-between mt-8">
-              {currentStep > 1 ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handlePrev}
-                  className="flex items-center"
-                >
-                  <ArrowLeft className="w-4 h-4 mr-2" />
-                  Précédent
-                </Button>
+            {/* Submit */}
+            <Button type="submit" disabled={isLoading} className="w-full flex items-center justify-center">
+              {isLoading ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Creation en cours...
+                </>
               ) : (
-                <div /> // Spacer
+                <>
+                  Creer mon compte gratuit
+                  <CheckCircle className="w-4 h-4 ml-2" />
+                </>
               )}
-
-              {currentStep < 4 ? (
-                <Button
-                  type="button"
-                  onClick={handleNext}
-                  className="flex items-center"
-                >
-                  Suivant
-                  <ArrowRight className="w-4 h-4 ml-2" />
-                </Button>
-              ) : (
-                <Button type="submit" disabled={isLoading} className="flex items-center">
-                  {isLoading ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                      Création en cours...
-                    </>
-                  ) : (
-                    <>
-                      Créer mon compte
-                      <CheckCircle className="w-4 h-4 ml-2" />
-                    </>
-                  )}
-                </Button>
-              )}
-            </div>
+            </Button>
           </form>
 
+          {/* OAuth buttons */}
+          <div className="mt-6">
+            <div className="relative mb-4">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-gray-300 dark:border-gray-600"></div>
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="px-2 bg-white dark:bg-gray-800 text-gray-500">ou</span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-3">
+              <a
+                href={api.getGoogleAuthUrl()}
+                className="flex items-center justify-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+              >
+                <svg className="w-5 h-5" viewBox="0 0 24 24">
+                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/>
+                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                </svg>
+              </a>
+              <a
+                href={api.getMicrosoftAuthUrl()}
+                className="flex items-center justify-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+              >
+                <svg className="w-5 h-5" viewBox="0 0 24 24">
+                  <path fill="#F25022" d="M1 1h10v10H1z"/>
+                  <path fill="#00A4EF" d="M1 13h10v10H1z"/>
+                  <path fill="#7FBA00" d="M13 1h10v10H13z"/>
+                  <path fill="#FFB900" d="M13 13h10v10H13z"/>
+                </svg>
+              </a>
+              <a
+                href={api.getFacebookAuthUrl()}
+                className="flex items-center justify-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+              >
+                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="#1877F2">
+                  <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                </svg>
+              </a>
+            </div>
+          </div>
 
           <div className="mt-6 text-center">
             <p className="text-sm text-gray-600 dark:text-gray-400">
-              Vous avez déjà un compte ?{" "}
+              Vous avez deja un compte ?{" "}
               <Link href="/login" className="text-primary hover:underline">
                 Se connecter
               </Link>

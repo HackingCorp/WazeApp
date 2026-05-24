@@ -170,6 +170,12 @@ export class AuthResponseDto {
   stripeCheckoutUrl?: string;
 }
 
+export class UpdateOnboardingStepDto {
+  @ApiProperty({ description: "Onboarding step (1-5) or null to mark as complete", nullable: true })
+  @IsOptional()
+  step: number | null;
+}
+
 export class OAuthCallbackDto {
   @ApiPropertyOptional({ description: "OAuth authorization code" })
   @IsOptional()

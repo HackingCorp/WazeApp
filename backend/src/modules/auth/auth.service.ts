@@ -77,7 +77,7 @@ export class AuthService {
     // Create email verification token
     const emailVerificationToken = randomBytes(32).toString("hex");
 
-    // Create user
+    // Create user with onboarding step 1 (start of guided onboarding)
     const user = this.userRepository.create({
       email: dto.email,
       password: dto.password,
@@ -87,6 +87,7 @@ export class AuthService {
       country: dto.country,
       emailVerificationToken,
       emailVerified: false,
+      onboardingStep: 1,
     });
 
     await this.userRepository.save(user);
@@ -114,22 +115,16 @@ export class AuthService {
       await this.organizationMemberRepository.save(membership);
     }
 
-    // Create subscription with trial for new users
-    // Default to STANDARD trial if no plan specified (Free plan no longer offered to new users)
+    // Create subscription with trial — payment setup happens during onboarding (step 3)
     const selectedPlan = dto.plan?.toUpperCase() || 'STANDARD';
     const planCode = selectedPlan.toLowerCase();
     const trialDays = this.planService.getTrialDays(planCode);
-    const isStripePayment = dto.paymentMethod === 'stripe' && selectedPlan !== 'FREE';
 
     let subscriptionData: Partial<Subscription>;
     if (trialDays > 0 && selectedPlan !== 'FREE') {
-      // Create a trialing subscription with the selected paid plan
       const now = new Date();
-      // For Stripe payments, don't start the trial yet — it begins after checkout completion
-      const trialEndsAt = isStripePayment ? null : new Date(now);
-      if (trialEndsAt) {
-        trialEndsAt.setDate(trialEndsAt.getDate() + trialDays);
-      }
+      const trialEndsAt = new Date(now);
+      trialEndsAt.setDate(trialEndsAt.getDate() + trialDays);
 
       subscriptionData = {
         userId: user.id.toString(),
@@ -143,49 +138,27 @@ export class AuthService {
         metadata: {
           trialStartedAt: now.toISOString(),
           trialDays,
-          ...(isStripePayment ? { stripeCheckoutPending: true } : {}),
         },
       };
     } else {
-      // Legacy: create FREE subscription (for explicit FREE selection)
       subscriptionData = {
         userId: user.id.toString(),
         organizationId: organization?.id,
-        plan: SubscriptionPlan.FREE,
+        plan: planCode as SubscriptionPlan,
         startsAt: new Date(),
-        limits: this.planService.getPlanLimits('free'),
-        features: this.planService.getPlanFeatures('free'),
+        limits: this.planService.getPlanLimits(planCode),
+        features: this.planService.getPlanFeatures(planCode),
       };
     }
 
     const subscription = this.subscriptionRepository.create(subscriptionData);
     await this.subscriptionRepository.save(subscription);
 
-    // For Stripe payments, skip local trial invoice (Stripe handles trials natively via trial_period_days)
-    // For Mobile Money or no payment method, start trial normally (creates invoice + sends welcome email)
-    if (!isStripePayment && trialDays > 0 && selectedPlan !== 'FREE') {
+    // Start trial normally (creates invoice + sends welcome email)
+    if (trialDays > 0 && selectedPlan !== 'FREE') {
       this.trialService.startTrial(subscription).catch(err => {
         // Log but don't fail registration
       });
-    }
-
-    // Create Stripe Checkout session if Stripe payment method selected
-    let stripeCheckoutUrl: string | undefined;
-    if (isStripePayment) {
-      try {
-        const marketingUrl = this.configService.get('FRONTEND_URL') || 'https://wazeapp.ai';
-        const checkoutSession = await this.stripeService.createCheckoutSession({
-          userId: user.id,
-          organizationId: organization?.id,
-          planCode: selectedPlan,
-          billingPeriod: 'monthly',
-          successUrl: `${marketingUrl}/verify-email?plan=${planCode}&payment=stripe`,
-          cancelUrl: `${marketingUrl}/register?plan=${planCode}&payment=cancelled`,
-        });
-        stripeCheckoutUrl = checkoutSession.url;
-      } catch (err) {
-        // Log but don't fail registration - user can complete checkout later from billing page
-      }
     }
 
     // Send verification email
@@ -228,7 +201,6 @@ export class AuthService {
         emailVerified: user.emailVerified,
         twoFactorEnabled: user.twoFactorEnabled,
       },
-      ...(stripeCheckoutUrl ? { stripeCheckoutUrl } : {}),
     };
   }
 
@@ -669,6 +641,7 @@ export class AuthService {
         "lastName",
         "emailVerified",
         "twoFactorEnabled",
+        "onboardingStep",
         "createdAt",
         "updatedAt",
       ],
@@ -713,6 +686,13 @@ export class AuthService {
         createdAt: m.createdAt,
       })),
     };
+  }
+
+  async updateOnboardingStep(userId: string, step: number | null): Promise<void> {
+    if (step !== null && (step < 1 || step > 5)) {
+      throw new BadRequestException("Step must be between 1 and 5, or null to complete");
+    }
+    await this.userRepository.update(userId, { onboardingStep: step });
   }
 
   async updateProfile(userId: string, updateData: any) {

@@ -24,6 +24,7 @@ interface User {
     };
   };
   avatar?: string;
+  onboardingStep?: number | null;
   preferences: {
     theme: string;
     language: string;
@@ -169,6 +170,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           role: userData.role || userData.currentOrganization?.role || 'member',
           organizationId: userData.currentOrganizationId || null,
           organization: planInfo.organization,
+          onboardingStep: userData.onboardingStep ?? null,
           preferences: {
             theme: 'system',
             language: 'en',
@@ -181,8 +183,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           },
         });
 
+        // Redirect to onboarding if step is set (new users)
+        if (userData.onboardingStep != null && !window.location.pathname.includes('/onboarding')) {
+          router.push(`/onboarding?step=${userData.onboardingStep}`);
+        }
         // Redirect to billing if Stripe checkout is pending
-        if (planInfo.stripeCheckoutPending && !window.location.pathname.includes('/billing')) {
+        else if (planInfo.stripeCheckoutPending && !window.location.pathname.includes('/billing')) {
           router.push('/billing?setup=stripe');
         }
 
@@ -217,6 +223,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                   role: userData.role || userData.currentOrganization?.role || 'member',
                   organizationId: userData.currentOrganizationId || null,
                   organization: planInfo.organization,
+                  onboardingStep: userData.onboardingStep ?? null,
                   preferences: {
                     theme: 'system',
                     language: 'en',
@@ -225,8 +232,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                   },
                 });
 
+                // Redirect to onboarding if step is set (new users)
+                if (userData.onboardingStep != null && !window.location.pathname.includes('/onboarding')) {
+                  router.push(`/onboarding?step=${userData.onboardingStep}`);
+                }
                 // Redirect to billing if Stripe checkout is pending
-                if (planInfo.stripeCheckoutPending && !window.location.pathname.includes('/billing')) {
+                else if (planInfo.stripeCheckoutPending && !window.location.pathname.includes('/billing')) {
                   router.push('/billing?setup=stripe');
                 }
 
@@ -281,6 +292,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         role: userData.role || userData.currentOrganization?.role || 'member',
         organizationId: userData.currentOrganizationId || null,
         organization: planInfo.organization,
+        onboardingStep: userData.onboardingStep ?? null,
         preferences: {
           theme: 'system',
           language: 'en',
@@ -296,8 +308,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       analytics.track('login_success', { userId: userData.id });
       toast.success(`Welcome back, ${userData.firstName}!`);
 
+      // Redirect to onboarding if step is set
+      if (userData.onboardingStep != null) {
+        router.push(`/onboarding?step=${userData.onboardingStep}`);
+      }
       // Redirect to billing if Stripe checkout is pending
-      if (planInfo.stripeCheckoutPending) {
+      else if (planInfo.stripeCheckoutPending) {
         router.push('/billing?setup=stripe');
       } else {
         router.push('/dashboard');

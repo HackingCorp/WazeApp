@@ -113,6 +113,10 @@ export class User extends BaseEntity {
   @Column({ nullable: true, default: null })
   refreshTokenHash?: string;
 
+  @ApiProperty({ description: "Onboarding step (1-5, null = completed)", required: false })
+  @Column({ type: 'smallint', nullable: true, default: null })
+  onboardingStep?: number | null;
+
   // Relationships
   @OneToMany(() => Organization, (organization) => organization.owner)
   ownedOrganizations: Organization[];

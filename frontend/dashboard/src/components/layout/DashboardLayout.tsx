@@ -2,12 +2,13 @@
 
 import React, { useState } from 'react';
 import { usePathname } from 'next/navigation';
+import Link from 'next/link';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { MobileMenu } from './MobileMenu';
 import { useAuth } from '@/providers/AuthProvider';
 // import { useI18n } from '@/providers/I18nProvider';
-import { Loader2 } from 'lucide-react';
+import { Loader2, ArrowRight } from 'lucide-react';
 import { SupportChatWidget } from '@/components/support/SupportChatWidget';
 
 interface DashboardLayoutProps {
@@ -103,6 +104,22 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             onMobileMenuToggle={() => setSidebarOpen(true)}
             sidebarCollapsed={sidebarCollapsed}
           />
+        )}
+
+        {/* Onboarding banner */}
+        {user?.onboardingStep != null && (
+          <div className="bg-green-600 text-white px-4 py-2.5 flex items-center justify-between">
+            <p className="text-sm font-medium">
+              Terminez la configuration de votre agent — Quelques minutes suffisent
+            </p>
+            <Link
+              href={`/onboarding?step=${user.onboardingStep}`}
+              className="flex items-center text-sm font-medium bg-white/20 hover:bg-white/30 px-3 py-1 rounded-lg transition-colors"
+            >
+              Reprendre
+              <ArrowRight className="w-3 h-3 ml-1" />
+            </Link>
+          </div>
         )}
 
         {/* Main content */}

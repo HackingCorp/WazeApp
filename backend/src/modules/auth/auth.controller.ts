@@ -152,6 +152,18 @@ export class AuthController {
     return { message: "Verification email sent" };
   }
 
+  @UseGuards(JwtAuthGuard)
+  @Patch("onboarding-step")
+  @ApiOperation({ summary: "Update onboarding step" })
+  @ApiResponse({ status: 200, description: "Onboarding step updated" })
+  async updateOnboardingStep(
+    @CurrentUser() user: any,
+    @Body() body: { step: number | null },
+  ) {
+    await this.authService.updateOnboardingStep(user.userId, body.step);
+    return { message: "OK" };
+  }
+
   // Profile endpoints
   @UseGuards(JwtAuthGuard)
   @Get("profile")

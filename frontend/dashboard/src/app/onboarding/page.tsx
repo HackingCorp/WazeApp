@@ -343,8 +343,7 @@ function OnboardingContent() {
         welcomeMessage: welcomeMessage || tpl?.welcomeMessage || 'Bonjour ! Comment puis-je vous aider ?',
         fallbackMessage: tpl?.fallbackMessage || 'Desole, je n\'ai pas compris. Pouvez-vous reformuler ?',
         systemPrompt: tpl?.systemPrompt || '',
-        language: 'fr',
-        status: 'active',
+        primaryLanguage: 'fr',
       };
 
       if (businessDescription.trim()) {

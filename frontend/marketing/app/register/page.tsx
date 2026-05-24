@@ -11,6 +11,7 @@ import {
   Eye,
   EyeOff,
   ArrowLeft,
+  ArrowRight,
   User,
   AlertCircle,
   Building,
@@ -21,6 +22,7 @@ import posthog from "posthog-js"
 
 function RegisterPageContent() {
   const router = useRouter()
+  const [currentStep, setCurrentStep] = useState(1)
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
@@ -33,9 +35,8 @@ function RegisterPageContent() {
     acceptTerms: false,
   })
 
-  const validate = (): boolean => {
+  const validateStep1 = (): boolean => {
     setError("")
-
     if (!formData.firstName.trim()) {
       setError("Le prenom est requis")
       return false
@@ -61,6 +62,11 @@ function RegisterPageContent() {
       setError("Le mot de passe doit contenir majuscule, minuscule et chiffre/caractere special")
       return false
     }
+    return true
+  }
+
+  const validateStep2 = (): boolean => {
+    setError("")
     if (!formData.acceptTerms) {
       setError("Vous devez accepter les conditions d'utilisation")
       return false
@@ -68,10 +74,16 @@ function RegisterPageContent() {
     return true
   }
 
+  const handleNext = () => {
+    if (validateStep1()) {
+      setCurrentStep(2)
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!validate()) return
+    if (!validateStep2()) return
 
     setIsLoading(true)
 
@@ -149,8 +161,25 @@ function RegisterPageContent() {
             </div>
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Creer votre compte</h1>
             <p className="text-muted-foreground mt-2">
-              Commencez gratuitement et configurez votre premier agent IA
+              {currentStep === 1
+                ? "Commencez gratuitement et configurez votre premier agent IA"
+                : "Derniere etape avant de commencer"}
             </p>
+          </div>
+
+          {/* Step indicator */}
+          <div className="flex items-center justify-center mb-6">
+            <div className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium ${
+              currentStep >= 1 ? 'bg-green-500 text-white' : 'bg-gray-200 dark:bg-gray-600 text-gray-500'
+            }`}>
+              {currentStep > 1 ? <CheckCircle className="w-4 h-4" /> : '1'}
+            </div>
+            <div className={`w-12 h-1 mx-2 ${currentStep > 1 ? 'bg-green-500' : 'bg-gray-200 dark:bg-gray-600'}`} />
+            <div className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium ${
+              currentStep >= 2 ? 'bg-green-500 text-white' : 'bg-gray-200 dark:bg-gray-600 text-gray-500'
+            }`}>
+              2
+            </div>
           </div>
 
           {error && (
@@ -162,147 +191,179 @@ function RegisterPageContent() {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {/* First name + Last name */}
-            <div className="grid grid-cols-2 gap-4">
+          {/* Step 1: Identity + Credentials */}
+          {currentStep === 1 && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="firstName" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Prenom *
+                  </label>
+                  <div className="relative">
+                    <User className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                    <input
+                      id="firstName"
+                      type="text"
+                      value={formData.firstName}
+                      onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                      className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:border-gray-600"
+                      placeholder="Jean"
+                      required
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label htmlFor="lastName" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Nom *
+                  </label>
+                  <div className="relative">
+                    <User className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                    <input
+                      id="lastName"
+                      type="text"
+                      value={formData.lastName}
+                      onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                      className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:border-gray-600"
+                      placeholder="Dupont"
+                      required
+                    />
+                  </div>
+                </div>
+              </div>
+
               <div>
-                <label htmlFor="firstName" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Prenom *
+                <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Adresse email *
                 </label>
                 <div className="relative">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
                   <input
-                    id="firstName"
-                    type="text"
-                    value={formData.firstName}
-                    onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                    id="email"
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                     className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:border-gray-600"
-                    placeholder="Jean"
+                    placeholder="vous@exemple.com"
                     required
                   />
                 </div>
               </div>
+
               <div>
-                <label htmlFor="lastName" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Nom *
+                <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Mot de passe *
                 </label>
                 <div className="relative">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
                   <input
-                    id="lastName"
-                    type="text"
-                    value={formData.lastName}
-                    onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-                    className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:border-gray-600"
-                    placeholder="Dupont"
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    value={formData.password}
+                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                    className="w-full pl-10 pr-12 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:border-gray-600"
+                    placeholder="Min. 8 caracteres"
                     required
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                  </button>
+                </div>
+                <p className="mt-1 text-xs text-gray-500">Majuscule, minuscule et chiffre/caractere special requis</p>
+              </div>
+
+              <Button type="button" onClick={handleNext} className="w-full flex items-center justify-center">
+                Suivant
+                <ArrowRight className="w-4 h-4 ml-2" />
+              </Button>
+            </div>
+          )}
+
+          {/* Step 2: Organization + Terms + Submit */}
+          {currentStep === 2 && (
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label htmlFor="organizationName" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Nom de l'entreprise <span className="text-gray-400 font-normal">(optionnel)</span>
+                </label>
+                <div className="relative">
+                  <Building className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                  <input
+                    id="organizationName"
+                    type="text"
+                    value={formData.organizationName}
+                    onChange={(e) => setFormData({ ...formData, organizationName: e.target.value })}
+                    className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:border-gray-600"
+                    placeholder="Nom de votre entreprise"
+                  />
+                </div>
+                <p className="mt-1 text-xs text-gray-500">Laissez vide pour un compte personnel</p>
+              </div>
+
+              <div>
+                <label className="flex items-start">
+                  <input
+                    type="checkbox"
+                    checked={formData.acceptTerms}
+                    onChange={(e) => setFormData({ ...formData, acceptTerms: e.target.checked })}
+                    className="mt-1 rounded border-gray-300 text-primary focus:ring-primary"
+                    required
+                  />
+                  <span className="ml-3 text-sm text-gray-600 dark:text-gray-400">
+                    J'accepte les{" "}
+                    <Link href="/terms" className="text-primary hover:underline" target="_blank">
+                      Conditions d'utilisation
+                    </Link>{" "}
+                    et la{" "}
+                    <Link href="/privacy" className="text-primary hover:underline" target="_blank">
+                      Politique de confidentialite
+                    </Link>
+                  </span>
+                </label>
+              </div>
+
+              {/* Summary */}
+              <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
+                <div className="flex items-start">
+                  <CheckCircle className="h-5 w-5 text-green-500 mr-3 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium text-green-700 dark:text-green-300">Inscription gratuite</p>
+                    <p className="text-xs text-green-600 dark:text-green-400 mt-1">
+                      Essai gratuit inclus. Aucun paiement requis maintenant.
+                    </p>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* Email */}
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Adresse email *
-              </label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-                <input
-                  id="email"
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:border-gray-600"
-                  placeholder="vous@exemple.com"
-                  required
-                />
-              </div>
-            </div>
-
-            {/* Password */}
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Mot de passe *
-              </label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-                <input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  className="w-full pl-10 pr-12 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:border-gray-600"
-                  placeholder="Min. 8 caracteres"
-                  required
-                />
-                <button
+              <div className="flex gap-3">
+                <Button
                   type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  variant="outline"
+                  onClick={() => { setError(""); setCurrentStep(1) }}
+                  className="flex items-center"
                 >
-                  {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                </button>
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Retour
+                </Button>
+                <Button type="submit" disabled={isLoading} className="flex-1 flex items-center justify-center">
+                  {isLoading ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Creation en cours...
+                    </>
+                  ) : (
+                    <>
+                      Creer mon compte
+                      <CheckCircle className="w-4 h-4 ml-2" />
+                    </>
+                  )}
+                </Button>
               </div>
-              <p className="mt-1 text-xs text-gray-500">Majuscule, minuscule et chiffre/caractere special requis</p>
-            </div>
-
-            {/* Organization */}
-            <div>
-              <label htmlFor="organizationName" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Nom de l'entreprise <span className="text-gray-400 font-normal">(optionnel)</span>
-              </label>
-              <div className="relative">
-                <Building className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-                <input
-                  id="organizationName"
-                  type="text"
-                  value={formData.organizationName}
-                  onChange={(e) => setFormData({ ...formData, organizationName: e.target.value })}
-                  className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:border-gray-600"
-                  placeholder="Nom de votre entreprise"
-                />
-              </div>
-            </div>
-
-            {/* Terms */}
-            <div>
-              <label className="flex items-start">
-                <input
-                  type="checkbox"
-                  checked={formData.acceptTerms}
-                  onChange={(e) => setFormData({ ...formData, acceptTerms: e.target.checked })}
-                  className="mt-1 rounded border-gray-300 text-primary focus:ring-primary"
-                  required
-                />
-                <span className="ml-3 text-sm text-gray-600 dark:text-gray-400">
-                  J'accepte les{" "}
-                  <Link href="/terms" className="text-primary hover:underline" target="_blank">
-                    Conditions d'utilisation
-                  </Link>{" "}
-                  et la{" "}
-                  <Link href="/privacy" className="text-primary hover:underline" target="_blank">
-                    Politique de confidentialite
-                  </Link>
-                </span>
-              </label>
-            </div>
-
-            {/* Submit */}
-            <Button type="submit" disabled={isLoading} className="w-full flex items-center justify-center">
-              {isLoading ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  Creation en cours...
-                </>
-              ) : (
-                <>
-                  Creer mon compte gratuit
-                  <CheckCircle className="w-4 h-4 ml-2" />
-                </>
-              )}
-            </Button>
-          </form>
+            </form>
+          )}
 
           <div className="mt-6 text-center">
             <p className="text-sm text-gray-600 dark:text-gray-400">

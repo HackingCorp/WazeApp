@@ -1047,7 +1047,8 @@ function AuthGate() {
 
   useEffect(() => {
     if (!isLoading && !user) {
-      window.location.href = '/login';
+      const currentPath = window.location.pathname + window.location.search;
+      window.location.href = `/login?redirect=${encodeURIComponent(currentPath)}`;
     }
   }, [isLoading, user]);
 

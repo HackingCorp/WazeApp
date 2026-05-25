@@ -75,7 +75,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   // Don't redirect if we have a token parameter or are still loading
   if (!user && !hasTokenParam) {
     if (typeof window !== 'undefined') {
-      window.location.href = '/login';
+      const currentPath = window.location.pathname + window.location.search;
+      window.location.href = `/login?redirect=${encodeURIComponent(currentPath)}`;
     }
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-green-50 to-white dark:from-green-950/20 dark:to-gray-900">

@@ -311,6 +311,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       analytics.track('login_success', { userId: userData.id });
       toast.success(`Welcome back, ${userData.firstName}!`);
 
+      // Check for redirect URL (set when session expired)
+      const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+      const redirectUrl = urlParams?.get('redirect');
+
       // Redirect to onboarding if step is set
       if (userData.onboardingStep != null) {
         router.push(`/onboarding?step=${userData.onboardingStep}`);
@@ -318,6 +322,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Redirect to billing if Stripe checkout is pending
       else if (planInfo.stripeCheckoutPending) {
         router.push('/billing?setup=stripe');
+      }
+      // Redirect to saved URL if available (session expired redirect)
+      else if (redirectUrl && redirectUrl.startsWith('/')) {
+        router.push(redirectUrl);
       } else {
         router.push('/dashboard');
       }
@@ -405,8 +413,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       localStorage.setItem('auth-token', accessToken);
       api.setToken(accessToken);
     } catch (error) {
-      // If refresh fails, logout user
-      logout();
+      // If refresh fails, redirect to login with current path
+      setUser(null);
+      setToken(null);
+      localStorage.removeItem('auth-token');
+      localStorage.removeItem('refresh-token');
+      api.setToken(null);
+      const currentPath = typeof window !== 'undefined' ? window.location.pathname + window.location.search : '';
+      if (currentPath && currentPath !== '/login') {
+        window.location.href = `/login?redirect=${encodeURIComponent(currentPath)}`;
+      } else {
+        window.location.href = '/login';
+      }
       throw error;
     }
   }, []);

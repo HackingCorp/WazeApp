@@ -224,7 +224,10 @@ export default function BillingPage() {
     }
   }, [activeTab]);
 
-  const currentPlan = user?.organization?.plan?.toLowerCase() || (user as any)?.subscription?.plan?.toLowerCase() || 'free';
+  // If Stripe checkout not completed, treat as free plan (internal trial doesn't count)
+  const currentPlan = !user?.subscriptionActive
+    ? 'free'
+    : user?.organization?.plan?.toLowerCase() || (user as any)?.subscription?.plan?.toLowerCase() || 'free';
   const billingCycle = 'monthly';
   const subscriptionStatus = (user?.organization as any)?.subscription?.status?.toLowerCase() || (user as any)?.subscription?.status?.toLowerCase() || '';
   const trialEndsAt = (user?.organization as any)?.subscription?.trialEndsAt || (user as any)?.subscription?.trialEndsAt || undefined;
@@ -427,7 +430,7 @@ export default function BillingPage() {
               <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
                 <div className="text-sm text-gray-500 dark:text-gray-400 mb-1">{t('billing.currentPlan')}</div>
                 <div className="text-2xl font-bold text-gray-900 dark:text-white capitalize">
-                  {summary.currentPlan}
+                  {!user?.subscriptionActive ? 'Free' : summary.currentPlan}
                 </div>
               </div>
               <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">

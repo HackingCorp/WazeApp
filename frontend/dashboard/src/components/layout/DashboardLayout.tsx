@@ -107,8 +107,9 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const isFullWidthPage = pathname === '/conversations';
 
   // Pages accessible without active subscription
-  const freePages = ['/dashboard', '/billing', '/profile', '/settings', '/help', '/onboarding'];
-  const isPageLocked = user && !user.subscriptionActive && !freePages.some(p => pathname === p || pathname?.startsWith(p + '/'));
+  // Note: '/dashboard' is exact match only — '/dashboard/whatsapp' etc. must be locked
+  const freePages = ['/billing', '/profile', '/settings', '/help', '/onboarding'];
+  const isPageLocked = user && !user.subscriptionActive && pathname !== '/dashboard' && !freePages.some(p => pathname === p || pathname?.startsWith(p + '/'));
 
   return (
     <div className={`h-screen flex overflow-hidden relative ${isFullWidthPage ? 'bg-white dark:bg-gray-900' : 'bg-gradient-to-b from-green-50 to-white dark:from-green-950/20 dark:to-gray-900'}`}>

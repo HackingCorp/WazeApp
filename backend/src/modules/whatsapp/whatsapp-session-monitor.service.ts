@@ -182,14 +182,16 @@ export class WhatsAppSessionMonitorService {
 
   /**
    * Send disconnection alert email to organization admins/owners
+   * Falls back to the session's direct user if no organization is set.
    */
   async sendDisconnectionAlert(session: WhatsAppSession): Promise<void> {
     this.logger.log(`🔔 Preparing disconnection alert for session ${session.id} (${session.phoneNumber})`);
     this.logger.log(`   Organization ID: ${session.organizationId}`);
+    this.logger.log(`   User ID: ${session.userId}`);
     this.logger.log(`   Session name: ${session.name}`);
 
     try {
-      const recipients = await this.getSessionRecipients(session.organizationId);
+      const recipients = await this.getSessionRecipients(session.organizationId, session.userId);
 
       this.logger.log(`   Found ${recipients.length} recipient(s) for notification`);
 
@@ -228,7 +230,7 @@ export class WhatsAppSessionMonitorService {
     disconnectedAt: Date | null,
   ): Promise<void> {
     try {
-      const recipients = await this.getSessionRecipients(session.organizationId);
+      const recipients = await this.getSessionRecipients(session.organizationId, session.userId);
 
       if (recipients.length === 0) {
         return;
@@ -260,45 +262,55 @@ export class WhatsAppSessionMonitorService {
   }
 
   /**
-   * Get organization admins/owners to notify
+   * Get users to notify about session status changes.
+   * 1. If organizationId is set → notify org admins/owners
+   * 2. If no org (or no org members found) → fallback to the session's direct userId
    */
-  private async getSessionRecipients(organizationId: string): Promise<User[]> {
-    this.logger.log(`🔍 Looking for recipients for organizationId: ${organizationId}`);
+  private async getSessionRecipients(organizationId: string | null | undefined, userId?: string): Promise<User[]> {
+    this.logger.log(`🔍 Looking for recipients — organizationId: ${organizationId || 'none'}, userId: ${userId || 'none'}`);
 
     try {
-      // Get admin and owner members of the organization
-      const members = await this.orgMemberRepository.find({
-        where: {
-          organizationId,
-          role: In([UserRole.OWNER, UserRole.ADMIN]),
-        },
-        relations: ['user'],
-      });
+      // Try organization members first (only if organizationId is actually set)
+      if (organizationId) {
+        const members = await this.orgMemberRepository.find({
+          where: {
+            organizationId,
+            role: In([UserRole.OWNER, UserRole.ADMIN]),
+          },
+          relations: ['user'],
+        });
 
-      this.logger.log(`   Found ${members.length} admin/owner members`);
-      members.forEach((m, i) => {
-        this.logger.log(`   Member ${i + 1}: role=${m.role}, userId=${m.userId}, email=${m.user?.email || 'N/A'}`);
-      });
+        const users = members
+          .map(m => m.user)
+          .filter(u => u && u.email);
 
-      const users = members
-        .map(m => m.user)
-        .filter(u => u && u.email);
+        if (users.length > 0) {
+          this.logger.log(`   Found ${users.length} org admin/owner recipient(s)`);
+          return users;
+        }
 
-      // If no admins/owners, get any user from the organization
-      if (users.length === 0) {
-        this.logger.log(`   No admin/owner found, looking for any member...`);
+        // Fallback: any member of the organization
         const anyMember = await this.orgMemberRepository.findOne({
           where: { organizationId },
           relations: ['user'],
         });
-        this.logger.log(`   Any member found: ${anyMember ? `userId=${anyMember.userId}, email=${anyMember.user?.email}` : 'No'}`);
         if (anyMember?.user?.email) {
+          this.logger.log(`   No admin/owner, using org member: ${anyMember.user.email}`);
           return [anyMember.user];
         }
       }
 
-      this.logger.log(`   Returning ${users.length} user(s) as recipients`);
-      return users;
+      // No org or no org members found → use the session's direct userId
+      if (userId) {
+        const user = await this.userRepository.findOne({ where: { id: userId } });
+        if (user?.email) {
+          this.logger.log(`   Using session owner: ${user.email}`);
+          return [user];
+        }
+      }
+
+      this.logger.warn(`   No recipients found for organizationId=${organizationId}, userId=${userId}`);
+      return [];
 
     } catch (error) {
       this.logger.error(`Error getting session recipients: ${error.message}`, error.stack);

@@ -376,6 +376,13 @@ export class WhatsAppSessionMonitorService {
     this.logger.warn(`🔐 Session ${sessionId} requires QR code - credentials expired/lost`);
 
     try {
+      // Check cache FIRST — if alert was already sent, skip everything
+      const existingCache = this.sessionStatusCache.get(sessionId);
+      if (existingCache?.disconnectAlertSent) {
+        this.logger.debug(`Skipping QR alert for session ${sessionId} - already sent`);
+        return;
+      }
+
       const session = await this.sessionRepository.findOne({
         where: { id: sessionId },
         relations: ['organization'],
@@ -386,45 +393,36 @@ export class WhatsAppSessionMonitorService {
         return;
       }
 
-      // Get or create cache entry
-      let cache = this.sessionStatusCache.get(sessionId);
+      // Create cache if needed, but never overwrite an existing one
+      const cache: SessionStatusCache = existingCache || {
+        sessionId,
+        lastStatus: 'disconnected',
+        lastChecked: new Date(),
+        disconnectAlertSent: false,
+        reconnectAlertSent: false,
+        disconnectedAt: new Date(),
+        reconnectAttempts: 0,
+        firstDisconnectAt: new Date(),
+      };
 
-      if (!cache) {
-        cache = {
-          sessionId,
-          lastStatus: 'disconnected',
-          lastChecked: new Date(),
-          disconnectAlertSent: false,
-          reconnectAlertSent: false,
-          disconnectedAt: new Date(),
-          reconnectAttempts: 0,
-          firstDisconnectAt: new Date(),
-        };
-      }
+      this.logger.log(`📧 Sending disconnection alert for session ${sessionId} (QR code required)`);
 
-      // Send alert if not already sent
-      if (!cache.disconnectAlertSent) {
-        this.logger.log(`📧 Sending disconnection alert for session ${sessionId} (QR code required)`);
+      cache.lastStatus = 'disconnected';
+      cache.disconnectedAt = cache.disconnectedAt || new Date();
 
-        cache.lastStatus = 'disconnected';
-        cache.disconnectedAt = new Date();
+      await this.sendDisconnectionAlert(session);
+      cache.disconnectAlertSent = true;
+      cache.reconnectAlertSent = false;
 
-        await this.sendDisconnectionAlert(session);
-        cache.disconnectAlertSent = true;
-        cache.reconnectAlertSent = false;
+      this.sessionStatusCache.set(sessionId, cache);
 
-        this.sessionStatusCache.set(sessionId, cache);
+      // Update session status in database
+      await this.sessionRepository.update(sessionId, {
+        status: WhatsAppSessionStatus.DISCONNECTED,
+        isActive: false,
+      });
 
-        // Update session status in database
-        await this.sessionRepository.update(sessionId, {
-          status: WhatsAppSessionStatus.DISCONNECTED,
-          isActive: false,
-        });
-
-        this.logger.log(`✅ Session ${sessionId} marked as disconnected and alert sent`);
-      } else {
-        this.logger.log(`Skipping alert for session ${sessionId} - already sent`);
-      }
+      this.logger.log(`✅ Session ${sessionId} marked as disconnected and alert sent`);
 
     } catch (error) {
       this.logger.error(`Error handling QR code needed for session ${sessionId}: ${error.message}`);
@@ -557,10 +555,9 @@ export class WhatsAppSessionMonitorService {
           this.logger.log(`Skipping alert for session ${sessionId} - already sent or not previously connected`);
         }
 
-        // Clean up cache for permanent disconnects to avoid stale entries
-        if (cleanupCacheAfter) {
-          this.sessionStatusCache.delete(sessionId);
-        }
+        // For permanent disconnects, keep the cache so disconnectAlertSent persists
+        // (prevents re-sending alerts on every reconnect attempt that asks for QR)
+        // Cache will be cleaned up naturally when session reconnects (open event)
 
       } catch (error) {
         this.logger.error(`Error handling connection update for session ${sessionId}: ${error.message}`);

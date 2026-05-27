@@ -897,8 +897,16 @@ function OnboardingContent() {
               <div className="max-w-md mx-auto">
                 {!sessionId && !whatsappConnected && (
                   <div className="text-center">
-                    <div className="w-48 h-48 mx-auto bg-gray-100 dark:bg-gray-800 rounded-2xl flex items-center justify-center mb-6">
-                      <Smartphone className="w-16 h-16 text-gray-400" />
+                    <div className="w-64 mx-auto border-2 border-dashed border-green-300 dark:border-green-700 rounded-2xl p-8 mb-6 bg-green-50/50 dark:bg-green-900/10">
+                      <div className="w-14 h-14 mx-auto bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mb-4">
+                        <Smartphone className="w-7 h-7 text-green-600" />
+                      </div>
+                      <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Pret a connecter
+                      </p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        Un QR code apparaitra ici pour lier votre WhatsApp
+                      </p>
                     </div>
                     <button
                       onClick={handleConnectWhatsApp}
@@ -911,7 +919,7 @@ function OnboardingContent() {
                           Connexion en cours...
                         </>
                       ) : (
-                        'Connecter WhatsApp'
+                        'Generer le QR code'
                       )}
                     </button>
                   </div>

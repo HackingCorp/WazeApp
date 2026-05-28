@@ -379,7 +379,7 @@ export class WhatsAppSessionMonitorService {
       // Check cache FIRST — if alert was already sent, skip everything
       const existingCache = this.sessionStatusCache.get(sessionId);
       if (existingCache?.disconnectAlertSent) {
-        this.logger.debug(`Skipping QR alert for session ${sessionId} - already sent`);
+        this.logger.debug(`Skipping QR alert for session ${sessionId} - already sent (cache)`);
         return;
       }
 
@@ -390,6 +390,24 @@ export class WhatsAppSessionMonitorService {
 
       if (!session) {
         this.logger.warn(`Session ${sessionId} not found in database`);
+        return;
+      }
+
+      // Check DB flag — survives container restarts (cache is in-memory only)
+      const metadata = (session as any).metadata || {};
+      if (metadata.disconnectAlertSentAt) {
+        this.logger.debug(`Skipping QR alert for session ${sessionId} - already sent (DB flag at ${metadata.disconnectAlertSentAt})`);
+        // Restore cache from DB state
+        this.sessionStatusCache.set(sessionId, {
+          sessionId,
+          lastStatus: 'disconnected',
+          lastChecked: new Date(),
+          disconnectAlertSent: true,
+          reconnectAlertSent: false,
+          disconnectedAt: new Date(metadata.disconnectAlertSentAt),
+          reconnectAttempts: 0,
+          firstDisconnectAt: new Date(metadata.disconnectAlertSentAt),
+        });
         return;
       }
 
@@ -416,10 +434,11 @@ export class WhatsAppSessionMonitorService {
 
       this.sessionStatusCache.set(sessionId, cache);
 
-      // Update session status in database
+      // Persist alert flag in DB so it survives container restarts
       await this.sessionRepository.update(sessionId, {
         status: WhatsAppSessionStatus.DISCONNECTED,
         isActive: false,
+        metadata: { ...metadata, disconnectAlertSentAt: new Date().toISOString() },
       });
 
       this.logger.log(`✅ Session ${sessionId} marked as disconnected and alert sent`);
@@ -606,10 +625,13 @@ export class WhatsAppSessionMonitorService {
           });
         }
 
-        // Update session status in database
+        // Update session status in database and clear disconnect alert flag
+        const existingMetadata = (session as any).metadata || {};
+        const { disconnectAlertSentAt, ...cleanMetadata } = existingMetadata;
         await this.sessionRepository.update(sessionId, {
           status: WhatsAppSessionStatus.CONNECTED,
           lastSeenAt: new Date(),
+          metadata: Object.keys(cleanMetadata).length > 0 ? cleanMetadata : null,
         });
 
       } catch (error) {

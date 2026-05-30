@@ -167,6 +167,26 @@ export class AiAgent extends BaseEntity {
   @Column({ default: false })
   appointmentsEnabled: boolean;
 
+  @ApiProperty({ description: "External API tool configurations" })
+  @Column({ type: "jsonb", default: [] })
+  apiTools: Array<{
+    name: string;
+    description: string;
+    url: string;
+    method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+    headers?: Record<string, string>;
+    timeout?: number;
+    parameters: {
+      type: 'object';
+      properties: Record<string, {
+        type: string;
+        description: string;
+        enum?: string[];
+      }>;
+      required?: string[];
+    };
+  }>;
+
   // Relationships
   @ApiProperty({ description: "Organization" })
   @ManyToOne(() => Organization, { onDelete: "CASCADE" })

@@ -44,6 +44,7 @@ import { OrderTagParserService } from "../orders/services/order-tag-parser.servi
 import { AppointmentTagParserService } from "../appointments/services/appointment-tag-parser.service";
 import { AvailabilityService } from "../appointments/services/availability.service";
 import { EmailService } from "../email/email.service";
+import { ToolExecutionService, ToolCallRecord } from "../tool-calling/tool-execution.service";
 
 interface WhatsAppMessageEvent {
   sessionId: string;
@@ -294,6 +295,7 @@ export class WhatsAppAIResponderService {
     private orderTagParserService: OrderTagParserService,
     private appointmentTagParserService: AppointmentTagParserService,
     private availabilityService: AvailabilityService,
+    private toolExecutionService: ToolExecutionService,
   ) {
     this.logger.log('WhatsAppAIResponderService initialized');
     this.redisClient = new Redis({
@@ -2286,17 +2288,45 @@ EXEMPLES DE CONTEXTE:
       }
 
       // FIX 3: Use agent's configured LLM parameters with proper fallbacks
-      const response = await this.llmRouterService.generateResponse({
-        messages: enhancedMessages,
+      const llmParams = {
         temperature: agent.config?.temperature ?? 0.7,
         maxTokens: agent.config?.maxTokens ?? 2000,
         topP: agent.config?.topP ?? 0.9,
         frequencyPenalty: agent.config?.frequencyPenalty ?? 0,
         presencePenalty: agent.config?.presencePenalty ?? 0,
-        organizationId: agent.organizationId,
-        agentId: agent.id,
-        priority: "high", // Higher priority for better response quality
-      });
+      };
+
+      const hasTools = agent.ecommerceEnabled || agent.appointmentsEnabled || ((agent as any).apiTools?.length > 0);
+      let response: any;
+      let toolCalls: ToolCallRecord[] = [];
+
+      if (hasTools) {
+        const toolContext = {
+          organizationId: agent.organizationId,
+          agentId: agent.id,
+          conversationId: conversation.id,
+          clientPhoneNumber: fromNumber,
+        };
+        const result = await this.toolExecutionService.executeWithTools(
+          enhancedMessages,
+          agent,
+          toolContext,
+          llmParams,
+        );
+        response = result.finalResponse;
+        toolCalls = result.toolCalls;
+        if (toolCalls.length > 0) {
+          this.logger.log(`🔧 Tool calls executed: ${toolCalls.map(t => t.name).join(', ')}`);
+        }
+      } else {
+        response = await this.llmRouterService.generateResponse({
+          messages: enhancedMessages,
+          ...llmParams,
+          organizationId: agent.organizationId,
+          agentId: agent.id,
+          priority: "high",
+        });
+      }
 
       // Check for [ESCALATE] or [ESCALADE] tag in AI response (supports both EN and FR)
       if (response.content && /\[ESCALAT[EE]\]/i.test(response.content)) {
@@ -2383,8 +2413,9 @@ EXEMPLES DE CONTEXTE:
         sequenceNumber: nextSequence,
         metadata: {
           modelUsed: response.model,
-          tokenCount: response.usage.totalTokens,
+          tokenCount: response.usage?.totalTokens,
           processingTime: Date.now() - Date.now(), // Will be calculated properly
+          ...(toolCalls?.length > 0 && { toolCalls: toolCalls.map(t => ({ name: t.name, durationMs: t.durationMs })) }),
         },
       });
 

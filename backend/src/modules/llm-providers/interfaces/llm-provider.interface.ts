@@ -1,7 +1,8 @@
 export interface LLMRequest {
   messages: Array<{
-    role: "system" | "user" | "assistant";
+    role: "system" | "user" | "assistant" | "function";
     content: string;
+    name?: string;
   }>;
   maxTokens?: number;
   temperature?: number;

@@ -43,6 +43,7 @@ import { VectorSearchModule } from "../vector-search/vector-search.module";
 import { EcommerceModule } from "../ecommerce/ecommerce.module";
 import { OrdersModule } from "../orders/orders.module";
 import { AppointmentsModule } from "../appointments/appointments.module";
+import { ToolCallingModule } from "../tool-calling/tool-calling.module";
 
 @Module({
   imports: [
@@ -74,6 +75,7 @@ import { AppointmentsModule } from "../appointments/appointments.module";
     EcommerceModule,
     OrdersModule,
     AppointmentsModule,
+    ToolCallingModule,
     EmailModule,
     BullModule.registerQueue({
       name: "message-catchup",

@@ -45,6 +45,74 @@ export class EscalationConfigDto {
   notificationEmails?: string[];
 }
 
+export class ApiToolParameterPropertyDto {
+  @ApiProperty({ description: "Parameter type (string, number, boolean, array)" })
+  @IsString()
+  type: string;
+
+  @ApiProperty({ description: "Parameter description" })
+  @IsString()
+  description: string;
+
+  @ApiPropertyOptional({ description: "Enum values for restricted choices", type: [String] })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  enum?: string[];
+}
+
+export class ApiToolParametersDto {
+  @ApiProperty({ description: "Always 'object'", default: 'object' })
+  @IsIn(['object'])
+  type: 'object' = 'object';
+
+  @ApiProperty({ description: "Parameter properties" })
+  @IsObject()
+  properties: Record<string, ApiToolParameterPropertyDto>;
+
+  @ApiPropertyOptional({ description: "Required parameter names", type: [String] })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  required?: string[];
+}
+
+export class ExternalApiToolDto {
+  @ApiProperty({ description: "Tool name (alphanumeric and underscores only)" })
+  @IsString()
+  name: string;
+
+  @ApiProperty({ description: "Tool description for the AI" })
+  @IsString()
+  description: string;
+
+  @ApiProperty({ description: "API endpoint URL" })
+  @IsString()
+  url: string;
+
+  @ApiProperty({ description: "HTTP method", enum: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'] })
+  @IsIn(['GET', 'POST', 'PUT', 'PATCH', 'DELETE'])
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+
+  @ApiPropertyOptional({ description: "HTTP headers (key-value pairs)" })
+  @IsOptional()
+  @IsObject()
+  headers?: Record<string, string>;
+
+  @ApiPropertyOptional({ description: "Request timeout in ms (max 30000)", minimum: 1000, maximum: 30000, default: 10000 })
+  @IsOptional()
+  @IsNumber()
+  @Min(1000)
+  @Max(30000)
+  timeout?: number;
+
+  @ApiProperty({ description: "Tool parameters schema" })
+  @IsObject()
+  @ValidateNested()
+  @Type(() => ApiToolParametersDto)
+  parameters: ApiToolParametersDto;
+}
+
 export class AgentConfigDto {
   @ApiPropertyOptional({ description: "Temperature for LLM (0-2)", minimum: 0, maximum: 2, default: 0.7 })
   @IsOptional()
@@ -205,6 +273,13 @@ export class CreateAiAgentDto {
   @IsArray()
   @IsString({ each: true })
   catalogIds?: string[];
+
+  @ApiPropertyOptional({ description: "External API tool configurations", type: [ExternalApiToolDto] })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ExternalApiToolDto)
+  apiTools?: ExternalApiToolDto[];
 }
 
 export class UpdateAiAgentDto {
@@ -317,6 +392,18 @@ export class UpdateAiAgentDto {
   @IsOptional()
   @IsBoolean()
   ecommerceEnabled?: boolean;
+
+  @ApiPropertyOptional({ description: "Enable appointment booking" })
+  @IsOptional()
+  @IsBoolean()
+  appointmentsEnabled?: boolean;
+
+  @ApiPropertyOptional({ description: "External API tool configurations", type: [ExternalApiToolDto] })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ExternalApiToolDto)
+  apiTools?: ExternalApiToolDto[];
 }
 
 export class AgentQueryDto {

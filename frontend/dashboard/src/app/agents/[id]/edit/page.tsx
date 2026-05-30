@@ -28,6 +28,7 @@ import {
   RotateCcw,
   AlertTriangle,
   Share2,
+  Wrench,
   CheckCircle2,
   XCircle,
   Circle,
@@ -35,6 +36,7 @@ import {
 import { api } from '@/lib/api';
 import { useI18n } from '@/providers/I18nProvider';
 import { AgentTestModal } from '@/components/agents/AgentTestModal';
+import ToolConfigPanel from '@/components/agents/ToolConfigPanel';
 import toast from 'react-hot-toast';
 import clsx from 'clsx';
 
@@ -125,7 +127,21 @@ interface AgentFormData {
     signOffStyle?: string;
   };
   ecommerceEnabled?: boolean;
+  appointmentsEnabled?: boolean;
   catalogIds?: string[];
+  apiTools?: Array<{
+    name: string;
+    description: string;
+    url: string;
+    method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+    headers?: Record<string, string>;
+    timeout?: number;
+    parameters: {
+      type: 'object';
+      properties: Record<string, { type: string; description: string; enum?: string[] }>;
+      required?: string[];
+    };
+  }>;
   escalationConfig?: {
     enabled?: boolean;
     keywords?: string[];
@@ -261,6 +277,8 @@ export default function EditAgentPage() {
               signOffStyle: agentData.config?.signOffStyle ?? 'none',
             },
             ecommerceEnabled: agentData.ecommerceEnabled ?? false,
+            appointmentsEnabled: agentData.appointmentsEnabled ?? false,
+            apiTools: agentData.apiTools ?? [],
             catalogIds: agentData.catalogs?.map((c: any) => c.id) || [],
             escalationConfig: {
               enabled: agentData.escalationConfig?.enabled ?? false,
@@ -477,6 +495,7 @@ export default function EditAgentPage() {
     { id: 'basic', name: 'Informations de base', icon: Bot },
     { id: 'knowledge', name: 'Base de connaissances', icon: Database },
     { id: 'channels', name: 'Canaux connectés', icon: Share2 },
+    { id: 'tools', name: 'Outils & APIs', icon: Wrench },
     { id: 'advanced', name: 'Paramètres avancés', icon: Settings },
     { id: 'escalation', name: 'Escalade', icon: AlertTriangle },
   ];
@@ -841,6 +860,17 @@ export default function EditAgentPage() {
               )}
             </div>
           </div>
+        );
+
+      case 'tools':
+        return (
+          <ToolConfigPanel
+            ecommerceEnabled={formData.ecommerceEnabled ?? false}
+            appointmentsEnabled={formData.appointmentsEnabled ?? false}
+            apiTools={formData.apiTools ?? []}
+            hasCatalogs={(formData.catalogIds?.length ?? 0) > 0}
+            onUpdate={(updates) => updateFormData(updates)}
+          />
         );
 
       case 'advanced':

@@ -138,6 +138,7 @@ export class OpenAIProvider extends BaseLLMProvider {
       messages: request.messages.map((msg) => ({
         role: msg.role,
         content: msg.content,
+        ...(msg.name && { name: msg.name }),
       })),
       max_tokens: request.maxTokens || this.config.maxTokens || 2000,
       temperature: request.temperature ?? this.config.temperature ?? 0.7,

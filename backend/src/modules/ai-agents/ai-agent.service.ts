@@ -40,6 +40,7 @@ import { LLMRouterService } from "../llm-providers/llm-router.service";
 import { VectorSearchService } from "../vector-search/vector-search.service";
 import { ProductSearchService } from "../ecommerce/services/product-search.service";
 import { OrderTagParserService } from "../orders/services/order-tag-parser.service";
+import { ToolExecutionService } from "../tool-calling/tool-execution.service";
 
 @Injectable()
 export class AiAgentService {
@@ -85,6 +86,8 @@ export class AiAgentService {
     private readonly productSearchService: ProductSearchService,
 
     private readonly orderTagParserService: OrderTagParserService,
+
+    private readonly toolExecutionService: ToolExecutionService,
   ) {}
 
   getTemplates() {
@@ -1307,21 +1310,41 @@ CRITICAL: If you cannot ACTUALLY solve the problem with information from your kn
 
     messages.push({ role: "user", content: testDto.message });
 
-    // Call LLM to get actual response
+    // Call LLM to get actual response (with tool calling if available)
     let response: string;
     let tokensUsed = 0;
 
     try {
-      const llmResponse = await this.llmRouter.generateResponse({
-        messages,
-        organizationId: effectiveOrgId,
-        agentId,
+      const hasTools = agent.ecommerceEnabled || agent.appointmentsEnabled || ((agent as any).apiTools?.length > 0);
+      const llmParams = {
         temperature: agent.config?.temperature || 0.7,
         maxTokens: agent.config?.maxTokens || 2000,
-      });
+      };
 
-      response = llmResponse.content;
-      tokensUsed = llmResponse.usage?.totalTokens || 0;
+      if (hasTools) {
+        const toolContext = {
+          organizationId: effectiveOrgId,
+          agentId,
+          clientPhoneNumber: testDto.context?.userProfile?.phone,
+        };
+        const result = await this.toolExecutionService.executeWithTools(
+          messages as any,
+          agent,
+          toolContext,
+          llmParams,
+        );
+        response = result.finalResponse.content;
+        tokensUsed = result.totalTokensUsed;
+      } else {
+        const llmResponse = await this.llmRouter.generateResponse({
+          messages,
+          organizationId: effectiveOrgId,
+          agentId,
+          ...llmParams,
+        });
+        response = llmResponse.content;
+        tokensUsed = llmResponse.usage?.totalTokens || 0;
+      }
     } catch (error) {
       this.logger.error(`Agent test LLM error: ${error.message}`);
       throw new BadRequestException(

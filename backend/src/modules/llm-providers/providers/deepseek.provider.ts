@@ -222,12 +222,23 @@ export class DeepSeekProvider extends BaseLLMProvider {
       stream: request.stream || false,
     };
 
-    // Only include functions/function_call if defined (DeepSeek rejects undefined/null)
-    if (request.functions) {
-      payload.functions = request.functions;
-    }
-    if (request.functionCall) {
-      payload.function_call = request.functionCall;
+    // Use modern 'tools' format (DeepSeek API is OpenAI-compatible)
+    if (request.functions?.length) {
+      payload.tools = request.functions.map(fn => ({
+        type: 'function',
+        function: {
+          name: fn.name,
+          description: fn.description,
+          parameters: fn.parameters,
+        },
+      }));
+      if (request.functionCall === 'none') {
+        payload.tool_choice = 'none';
+      } else if (request.functionCall === 'auto' || !request.functionCall) {
+        payload.tool_choice = 'auto';
+      } else if (typeof request.functionCall === 'object' && request.functionCall.name) {
+        payload.tool_choice = { type: 'function', function: { name: request.functionCall.name } };
+      }
     }
 
     return payload;
@@ -247,10 +258,10 @@ export class DeepSeekProvider extends BaseLLMProvider {
       },
       model: apiResponse.model,
       created: apiResponse.created,
-      functionCall: choice?.message?.function_call
+      functionCall: choice?.message?.tool_calls?.[0]?.function
         ? {
-            name: choice.message.function_call.name,
-            arguments: choice.message.function_call.arguments,
+            name: choice.message.tool_calls[0].function.name,
+            arguments: choice.message.tool_calls[0].function.arguments,
           }
         : undefined,
       metadata: {
@@ -269,10 +280,10 @@ export class DeepSeekProvider extends BaseLLMProvider {
       id: apiResponse.id,
       delta: {
         content: delta.content,
-        functionCall: delta.function_call
+        functionCall: delta.tool_calls?.[0]?.function
           ? {
-              name: delta.function_call.name,
-              arguments: delta.function_call.arguments,
+              name: delta.tool_calls[0].function.name,
+              arguments: delta.tool_calls[0].function.arguments,
             }
           : undefined,
       },
@@ -298,6 +309,7 @@ export class DeepSeekProvider extends BaseLLMProvider {
       case "length":
         return "length";
       case "function_call":
+      case "tool_calls":
         return "function_call";
       case "content_filter":
         return "content_filter";

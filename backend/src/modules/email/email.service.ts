@@ -2051,4 +2051,221 @@ ${this.buttonHtml(t(lang, 'milestone_button'), analyticsUrl, '#22c55e')}
       this.logger.error(`❌ Failed to send milestone email to ${email}: ${error.message}`);
     }
   }
+
+  /**
+   * Paid customer without WhatsApp connected (weekly reminder)
+   */
+  async sendPaidNoWhatsAppEmail(email: string, firstName: string, planName: string, lang: string = 'fr'): Promise<void> {
+    if (!this.transporter) {
+      this.logger.warn(`⚠️ SMTP not configured, skipping paid_no_whatsapp email to ${email}`);
+      return;
+    }
+
+    const whatsappUrl = `${this.getDashboardUrl()}/dashboard/whatsapp`;
+    const html = this.baseTemplate({
+      title: t(lang, 'paid_no_whatsapp_title'),
+      preheader: t(lang, 'paid_no_whatsapp_preheader', { planName }),
+      lang,
+      accentColor: '#f59e0b',
+      content: `
+<h1 style="margin:0 0 16px 0;font-size:22px;font-weight:700;color:#111827;">${t(lang, 'paid_no_whatsapp_title')}</h1>
+<p style="margin:0 0 16px 0;font-size:15px;color:#6b7280;line-height:1.6;">
+${t(lang, 'paid_no_whatsapp_greeting', { firstName })},
+</p>
+<p style="margin:0 0 16px 0;font-size:15px;color:#6b7280;line-height:1.6;">
+${t(lang, 'paid_no_whatsapp_body', { planName })}
+</p>
+${this.alertBoxHtml(t(lang, 'paid_no_whatsapp_alert'), 'warning')}
+<p style="margin:16px 0 8px 0;font-size:15px;font-weight:600;color:#111827;">${t(lang, 'paid_no_whatsapp_ready')}</p>
+<table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 16px 0;">
+<tr><td style="padding:6px 0;font-size:14px;color:#6b7280;line-height:1.5;">${t(lang, 'paid_no_whatsapp_benefit_1')}</td></tr>
+<tr><td style="padding:6px 0;font-size:14px;color:#6b7280;line-height:1.5;">${t(lang, 'paid_no_whatsapp_benefit_2')}</td></tr>
+<tr><td style="padding:6px 0;font-size:14px;color:#6b7280;line-height:1.5;">${t(lang, 'paid_no_whatsapp_benefit_3')}</td></tr>
+</table>
+${this.buttonHtml(t(lang, 'paid_no_whatsapp_button'), whatsappUrl, '#f59e0b')}
+      `,
+    });
+
+    try {
+      await this.transporter.sendMail({
+        from: `"${this.getFromName()}" <${this.getFromAddress()}>`,
+        to: email,
+        subject: t(lang, 'paid_no_whatsapp_subject', { planName }),
+        html,
+        text: t(lang, 'paid_no_whatsapp_text', { planName }) + `\n\n${whatsappUrl}\n\n${lang === 'fr' ? "L'équipe WazeApp" : 'The WazeApp Team'}`,
+      });
+
+      this.logger.log(`✅ Paid no WhatsApp email sent to ${email}`);
+    } catch (error) {
+      this.logger.error(`❌ Failed to send paid_no_whatsapp email to ${email}: ${error.message}`);
+    }
+  }
+
+  /**
+   * Paid customer without AI agent created (one-time)
+   */
+  async sendPaidNoAgentEmail(email: string, firstName: string, planName: string, lang: string = 'fr'): Promise<void> {
+    if (!this.transporter) {
+      this.logger.warn(`⚠️ SMTP not configured, skipping paid_no_agent email to ${email}`);
+      return;
+    }
+
+    const agentsUrl = `${this.getDashboardUrl()}/dashboard/agents`;
+    const html = this.baseTemplate({
+      title: t(lang, 'paid_no_agent_title'),
+      preheader: t(lang, 'paid_no_agent_preheader', { planName }),
+      lang,
+      accentColor: '#f59e0b',
+      content: `
+<h1 style="margin:0 0 16px 0;font-size:22px;font-weight:700;color:#111827;">${t(lang, 'paid_no_agent_title')}</h1>
+<p style="margin:0 0 16px 0;font-size:15px;color:#6b7280;line-height:1.6;">
+${t(lang, 'paid_no_agent_greeting', { firstName })},
+</p>
+<p style="margin:0 0 16px 0;font-size:15px;color:#6b7280;line-height:1.6;">
+${t(lang, 'paid_no_agent_body', { planName })}
+</p>
+${this.alertBoxHtml(t(lang, 'paid_no_agent_alert'), 'success')}
+<p style="margin:16px 0 8px 0;font-size:15px;font-weight:600;color:#111827;">${t(lang, 'paid_no_agent_ready')}</p>
+<table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 16px 0;">
+<tr><td style="padding:6px 0;font-size:14px;color:#6b7280;line-height:1.5;">${t(lang, 'paid_no_agent_benefit_1')}</td></tr>
+<tr><td style="padding:6px 0;font-size:14px;color:#6b7280;line-height:1.5;">${t(lang, 'paid_no_agent_benefit_2')}</td></tr>
+<tr><td style="padding:6px 0;font-size:14px;color:#6b7280;line-height:1.5;">${t(lang, 'paid_no_agent_benefit_3')}</td></tr>
+<tr><td style="padding:6px 0;font-size:14px;color:#6b7280;line-height:1.5;">${t(lang, 'paid_no_agent_benefit_4')}</td></tr>
+</table>
+${this.buttonHtml(t(lang, 'paid_no_agent_button'), agentsUrl)}
+      `,
+    });
+
+    try {
+      await this.transporter.sendMail({
+        from: `"${this.getFromName()}" <${this.getFromAddress()}>`,
+        to: email,
+        subject: t(lang, 'paid_no_agent_subject'),
+        html,
+        text: t(lang, 'paid_no_agent_text', { planName }) + `\n\n${agentsUrl}\n\n${lang === 'fr' ? "L'équipe WazeApp" : 'The WazeApp Team'}`,
+      });
+
+      this.logger.log(`✅ Paid no agent email sent to ${email}`);
+    } catch (error) {
+      this.logger.error(`❌ Failed to send paid_no_agent email to ${email}: ${error.message}`);
+    }
+  }
+
+  /**
+   * Welcome email after trial -> paid conversion
+   */
+  async sendWelcomeAfterPaymentEmail(
+    email: string,
+    firstName: string,
+    planName: string,
+    nextSteps: { hasAgent: boolean; hasWhatsApp: boolean; hasKb: boolean },
+    lang: string = 'fr',
+  ): Promise<void> {
+    if (!this.transporter) {
+      this.logger.warn(`⚠️ SMTP not configured, skipping welcome_after_payment email to ${email}`);
+      return;
+    }
+
+    const dashboardUrl = this.getDashboardUrl();
+
+    const agentStep = nextSteps.hasAgent
+      ? t(lang, 'welcome_after_payment_step_agent_done')
+      : t(lang, 'welcome_after_payment_step_agent');
+    const whatsappStep = nextSteps.hasWhatsApp
+      ? t(lang, 'welcome_after_payment_step_whatsapp_done')
+      : t(lang, 'welcome_after_payment_step_whatsapp');
+    const kbStep = nextSteps.hasKb
+      ? t(lang, 'welcome_after_payment_step_kb_done')
+      : t(lang, 'welcome_after_payment_step_kb');
+
+    const html = this.baseTemplate({
+      title: t(lang, 'welcome_after_payment_title'),
+      preheader: t(lang, 'welcome_after_payment_preheader', { planName }),
+      lang,
+      accentColor: '#22c55e',
+      content: `
+<h1 style="margin:0 0 16px 0;font-size:22px;font-weight:700;color:#111827;">${t(lang, 'welcome_after_payment_title')}</h1>
+<p style="margin:0 0 16px 0;font-size:15px;color:#6b7280;line-height:1.6;">
+${t(lang, 'welcome_after_payment_greeting', { firstName })},
+</p>
+<p style="margin:0 0 16px 0;font-size:15px;color:#6b7280;line-height:1.6;">
+${t(lang, 'welcome_after_payment_body', { planName })}
+</p>
+<p style="margin:16px 0 8px 0;font-size:15px;font-weight:600;color:#111827;">${t(lang, 'welcome_after_payment_next_steps')}</p>
+<table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 16px 0;">
+<tr><td style="padding:6px 0;font-size:14px;color:#6b7280;line-height:1.5;">${agentStep}</td></tr>
+<tr><td style="padding:6px 0;font-size:14px;color:#6b7280;line-height:1.5;">${whatsappStep}</td></tr>
+<tr><td style="padding:6px 0;font-size:14px;color:#6b7280;line-height:1.5;">${kbStep}</td></tr>
+</table>
+${this.buttonHtml(t(lang, 'welcome_after_payment_button'), dashboardUrl, '#22c55e')}
+      `,
+    });
+
+    try {
+      await this.transporter.sendMail({
+        from: `"${this.getFromName()}" <${this.getFromAddress()}>`,
+        to: email,
+        subject: t(lang, 'welcome_after_payment_subject', { planName }),
+        html,
+        text: t(lang, 'welcome_after_payment_text', { planName }) + `\n\n${dashboardUrl}\n\n${lang === 'fr' ? "L'équipe WazeApp" : 'The WazeApp Team'}`,
+      });
+
+      this.logger.log(`✅ Welcome after payment email sent to ${email}`);
+    } catch (error) {
+      this.logger.error(`❌ Failed to send welcome_after_payment email to ${email}: ${error.message}`);
+    }
+  }
+
+  /**
+   * Retention email after cancellation
+   */
+  async sendCancellationRetentionEmail(email: string, firstName: string, previousPlan: string, lang: string = 'fr'): Promise<void> {
+    if (!this.transporter) {
+      this.logger.warn(`⚠️ SMTP not configured, skipping cancellation_retention email to ${email}`);
+      return;
+    }
+
+    const billingUrl = `${this.getDashboardUrl()}/billing`;
+    const html = this.baseTemplate({
+      title: t(lang, 'cancellation_retention_title'),
+      preheader: t(lang, 'cancellation_retention_preheader'),
+      lang,
+      accentColor: '#6b7280',
+      content: `
+<h1 style="margin:0 0 16px 0;font-size:22px;font-weight:700;color:#111827;">${t(lang, 'cancellation_retention_title')}</h1>
+<p style="margin:0 0 16px 0;font-size:15px;color:#6b7280;line-height:1.6;">
+${t(lang, 'cancellation_retention_greeting', { firstName })},
+</p>
+<p style="margin:0 0 16px 0;font-size:15px;color:#6b7280;line-height:1.6;">
+${t(lang, 'cancellation_retention_body', { planName: previousPlan })}
+</p>
+${this.alertBoxHtml(t(lang, 'cancellation_retention_alert'), 'info')}
+<p style="margin:16px 0 8px 0;font-size:15px;font-weight:600;color:#111827;">${t(lang, 'cancellation_retention_ready')}</p>
+<table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 16px 0;">
+<tr><td style="padding:6px 0;font-size:14px;color:#6b7280;line-height:1.5;">${t(lang, 'cancellation_retention_benefit_1')}</td></tr>
+<tr><td style="padding:6px 0;font-size:14px;color:#6b7280;line-height:1.5;">${t(lang, 'cancellation_retention_benefit_2')}</td></tr>
+<tr><td style="padding:6px 0;font-size:14px;color:#6b7280;line-height:1.5;">${t(lang, 'cancellation_retention_benefit_3')}</td></tr>
+<tr><td style="padding:6px 0;font-size:14px;color:#6b7280;line-height:1.5;">${t(lang, 'cancellation_retention_benefit_4')}</td></tr>
+</table>
+${this.buttonHtml(t(lang, 'cancellation_retention_button'), billingUrl, '#059669')}
+<p style="margin:16px 0 0 0;font-size:14px;color:#6b7280;line-height:1.6;text-align:center;">
+${t(lang, 'cancellation_retention_support')}
+</p>
+      `,
+    });
+
+    try {
+      await this.transporter.sendMail({
+        from: `"${this.getFromName()}" <${this.getFromAddress()}>`,
+        to: email,
+        subject: t(lang, 'cancellation_retention_subject'),
+        html,
+        text: t(lang, 'cancellation_retention_text', { planName: previousPlan }) + `\n\n${billingUrl}\n\n${lang === 'fr' ? "L'équipe WazeApp" : 'The WazeApp Team'}`,
+      });
+
+      this.logger.log(`✅ Cancellation retention email sent to ${email}`);
+    } catch (error) {
+      this.logger.error(`❌ Failed to send cancellation_retention email to ${email}: ${error.message}`);
+    }
+  }
 }

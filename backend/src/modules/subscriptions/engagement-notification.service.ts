@@ -14,6 +14,7 @@ import {
 } from '../../common/entities';
 import {
   SubscriptionStatus,
+  SubscriptionPlan,
   WhatsAppSessionStatus,
   UserRole,
 } from '../../common/enums';
@@ -136,6 +137,33 @@ export class EngagementNotificationService {
       this.logger.log(`Success celebration check complete: ${sentCount} notifications sent`);
     } catch (error) {
       this.logger.error(`Success celebration check failed: ${error.message}`, error.stack);
+    }
+  }
+
+  /**
+   * Paid customer follow-up notifications - runs daily at 9:30am
+   */
+  @Cron('30 9 * * *')
+  async checkPaidCustomerFollowUp(): Promise<void> {
+    this.logger.log('Starting paid customer follow-up check...');
+    let sentCount = 0;
+
+    try {
+      // a) Paid customers without WhatsApp connected (weekly)
+      sentCount += await this.checkPaidNoWhatsApp();
+
+      // b) Paid customers without AI agent (one-time)
+      sentCount += await this.checkPaidNoAgent();
+
+      // c) Welcome after trial -> paid conversion (one-time)
+      sentCount += await this.checkWelcomeAfterConversion();
+
+      // d) Retention after cancellation (one-time)
+      sentCount += await this.checkCancellationRetention();
+
+      this.logger.log(`Paid customer follow-up check complete: ${sentCount} notifications sent`);
+    } catch (error) {
+      this.logger.error(`Paid customer follow-up check failed: ${error.message}`, error.stack);
     }
   }
 
@@ -834,6 +862,211 @@ export class EngagementNotificationService {
         }
       } catch (error) {
         this.logger.error(`Failed to check milestones for subscription ${subscription.id}: ${error.message}`);
+      }
+    }
+
+    return count;
+  }
+
+  // ==================== PAID CUSTOMER FOLLOW-UP CHECKS ====================
+
+  private async checkPaidNoWhatsApp(): Promise<number> {
+    const paidSubscriptions = await this.subscriptionRepository.find({
+      where: {
+        status: SubscriptionStatus.ACTIVE,
+        stripeSubscriptionId: Not(IsNull()),
+        plan: In([SubscriptionPlan.STANDARD, SubscriptionPlan.PRO, SubscriptionPlan.ENTERPRISE]),
+      },
+    });
+
+    let count = 0;
+    for (const subscription of paidSubscriptions) {
+      try {
+        if (!subscription.organizationId) continue;
+
+        // Weekly dedup key
+        const weekNumber = Math.floor(Date.now() / (7 * 24 * 60 * 60 * 1000));
+        const notificationKey = `paid_no_whatsapp_w${weekNumber}`;
+        if (this.wasNotificationSent(subscription, notificationKey)) {
+          continue;
+        }
+
+        // Check if org has at least one connected WhatsApp session
+        const connectedCount = await this.whatsAppSessionRepository
+          .createQueryBuilder('session')
+          .innerJoin('session.agent', 'agent')
+          .where('agent.organizationId = :orgId', { orgId: subscription.organizationId })
+          .andWhere('session.status = :status', { status: WhatsAppSessionStatus.CONNECTED })
+          .getCount();
+
+        if (connectedCount > 0) continue;
+
+        const owner = await this.getOrgOwner(subscription.organizationId);
+        if (!owner) continue;
+
+        await this.emailService.sendPaidNoWhatsAppEmail(
+          owner.email,
+          owner.firstName || owner.email.split('@')[0],
+          subscription.plan,
+          owner.language || 'fr',
+        );
+
+        await this.markNotificationSent(subscription, notificationKey);
+        this.logger.log(`Sent paid_no_whatsapp notification to ${owner.email} (plan: ${subscription.plan})`);
+        count++;
+      } catch (error) {
+        this.logger.error(`Failed to send paid_no_whatsapp notification for subscription ${subscription.id}: ${error.message}`);
+      }
+    }
+
+    return count;
+  }
+
+  private async checkPaidNoAgent(): Promise<number> {
+    const paidSubscriptions = await this.subscriptionRepository.find({
+      where: {
+        status: SubscriptionStatus.ACTIVE,
+        stripeSubscriptionId: Not(IsNull()),
+        plan: In([SubscriptionPlan.STANDARD, SubscriptionPlan.PRO, SubscriptionPlan.ENTERPRISE]),
+      },
+    });
+
+    let count = 0;
+    for (const subscription of paidSubscriptions) {
+      try {
+        if (!subscription.organizationId) continue;
+
+        if (this.wasNotificationSent(subscription, 'paid_no_agent')) {
+          continue;
+        }
+
+        // Check if org has any agents
+        const agentCount = await this.aiAgentRepository.count({
+          where: { organizationId: subscription.organizationId },
+        });
+
+        if (agentCount > 0) continue;
+
+        const owner = await this.getOrgOwner(subscription.organizationId);
+        if (!owner) continue;
+
+        await this.emailService.sendPaidNoAgentEmail(
+          owner.email,
+          owner.firstName || owner.email.split('@')[0],
+          subscription.plan,
+          owner.language || 'fr',
+        );
+
+        await this.markNotificationSent(subscription, 'paid_no_agent');
+        this.logger.log(`Sent paid_no_agent notification to ${owner.email} (plan: ${subscription.plan})`);
+        count++;
+      } catch (error) {
+        this.logger.error(`Failed to send paid_no_agent notification for subscription ${subscription.id}: ${error.message}`);
+      }
+    }
+
+    return count;
+  }
+
+  private async checkWelcomeAfterConversion(): Promise<number> {
+    const activeSubscriptions = await this.subscriptionRepository.find({
+      where: {
+        status: SubscriptionStatus.ACTIVE,
+        stripeSubscriptionId: Not(IsNull()),
+      },
+    });
+
+    let count = 0;
+    for (const subscription of activeSubscriptions) {
+      try {
+        if (!subscription.organizationId) continue;
+
+        if (this.wasNotificationSent(subscription, 'welcome_after_payment')) {
+          continue;
+        }
+
+        const owner = await this.getOrgOwner(subscription.organizationId);
+        if (!owner) continue;
+
+        // Check what the user has set up
+        const agentCount = await this.aiAgentRepository.count({
+          where: { organizationId: subscription.organizationId },
+        });
+
+        const sessionCount = await this.whatsAppSessionRepository
+          .createQueryBuilder('session')
+          .innerJoin('session.agent', 'agent')
+          .where('agent.organizationId = :orgId', { orgId: subscription.organizationId })
+          .andWhere('session.status = :status', { status: WhatsAppSessionStatus.CONNECTED })
+          .getCount();
+
+        const kbCount = await this.knowledgeBaseRepository.count({
+          where: { organizationId: subscription.organizationId },
+        });
+
+        await this.emailService.sendWelcomeAfterPaymentEmail(
+          owner.email,
+          owner.firstName || owner.email.split('@')[0],
+          subscription.plan,
+          {
+            hasAgent: agentCount > 0,
+            hasWhatsApp: sessionCount > 0,
+            hasKb: kbCount > 0,
+          },
+          owner.language || 'fr',
+        );
+
+        await this.markNotificationSent(subscription, 'welcome_after_payment');
+        this.logger.log(`Sent welcome_after_payment notification to ${owner.email} (plan: ${subscription.plan})`);
+        count++;
+      } catch (error) {
+        this.logger.error(`Failed to send welcome_after_payment notification for subscription ${subscription.id}: ${error.message}`);
+      }
+    }
+
+    return count;
+  }
+
+  private async checkCancellationRetention(): Promise<number> {
+    const twoDaysAgo = new Date();
+    twoDaysAgo.setHours(twoDaysAgo.getHours() - 48);
+
+    const cancelledSubscriptions = await this.subscriptionRepository.find({
+      where: {
+        status: SubscriptionStatus.CANCELLED,
+        updatedAt: MoreThan(twoDaysAgo),
+      },
+    });
+
+    let count = 0;
+    for (const subscription of cancelledSubscriptions) {
+      try {
+        if (this.wasNotificationSent(subscription, 'cancellation_retention')) {
+          continue;
+        }
+
+        // Try org owner first, then direct user
+        let user: User | null = null;
+        if (subscription.organizationId) {
+          user = await this.getOrgOwner(subscription.organizationId);
+        }
+        if (!user && subscription.userId) {
+          user = await this.userRepository.findOne({ where: { id: subscription.userId } });
+        }
+        if (!user) continue;
+
+        await this.emailService.sendCancellationRetentionEmail(
+          user.email,
+          user.firstName || user.email.split('@')[0],
+          subscription.plan,
+          user.language || 'fr',
+        );
+
+        await this.markNotificationSent(subscription, 'cancellation_retention');
+        this.logger.log(`Sent cancellation_retention notification to ${user.email} (plan: ${subscription.plan})`);
+        count++;
+      } catch (error) {
+        this.logger.error(`Failed to send cancellation_retention notification for subscription ${subscription.id}: ${error.message}`);
       }
     }
 

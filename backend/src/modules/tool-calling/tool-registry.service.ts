@@ -1,10 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { ToolDefinition, ToolResult, ToolExecutionContext, ApiConnection } from './interfaces/tool.interface';
 import { InternalProductHandler } from './handlers/internal-product.handler';
 import { InternalOrderHandler } from './handlers/internal-order.handler';
 import { InternalAppointmentHandler } from './handlers/internal-appointment.handler';
 import { ExternalApiHandler } from './handlers/external-api.handler';
 import { AiAgent } from '@/common/entities';
+import { decrypt, isEncrypted } from '@/common/utils/crypto.util';
 
 @Injectable()
 export class ToolRegistryService {
@@ -15,7 +17,12 @@ export class ToolRegistryService {
     private readonly orderHandler: InternalOrderHandler,
     private readonly appointmentHandler: InternalAppointmentHandler,
     private readonly externalApiHandler: ExternalApiHandler,
+    private readonly configService: ConfigService,
   ) {}
+
+  private get encryptionKey(): string {
+    return this.configService.get<string>('TOOL_ENCRYPTION_KEY') || '';
+  }
 
   getToolDefinitions(agent: AiAgent, context: ToolExecutionContext): ToolDefinition[] {
     const tools: ToolDefinition[] = [];
@@ -85,7 +92,12 @@ export class ToolRegistryService {
         for (const connection of apiTools) {
           const tool = connection.tools?.find(t => t.name === name && t.enabled);
           if (tool) {
-            const result = await this.externalApiHandler.execute(connection, tool, args);
+            // Decrypt apiKey at execution time (agent may have been loaded without decryption)
+            const decryptedConnection = { ...connection };
+            if (decryptedConnection.apiKey && isEncrypted(decryptedConnection.apiKey)) {
+              decryptedConnection.apiKey = decrypt(decryptedConnection.apiKey, this.encryptionKey);
+            }
+            const result = await this.externalApiHandler.execute(decryptedConnection, tool, args);
             this.logger.log(`Tool ${name} executed in ${Date.now() - startTime}ms (external)`);
             return result;
           }

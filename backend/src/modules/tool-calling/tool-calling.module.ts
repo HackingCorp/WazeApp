@@ -10,6 +10,8 @@ import { InternalProductHandler } from './handlers/internal-product.handler';
 import { InternalOrderHandler } from './handlers/internal-order.handler';
 import { InternalAppointmentHandler } from './handlers/internal-appointment.handler';
 import { ExternalApiHandler } from './handlers/external-api.handler';
+import { OpenApiDiscoveryService } from './openapi-discovery.service';
+import { OpenApiDiscoveryController } from './openapi-discovery.controller';
 
 @Module({
   imports: [
@@ -19,6 +21,7 @@ import { ExternalApiHandler } from './handlers/external-api.handler';
     AppointmentsModule,
     LlmProvidersModule,
   ],
+  controllers: [OpenApiDiscoveryController],
   providers: [
     ToolRegistryService,
     ToolExecutionService,
@@ -26,6 +29,7 @@ import { ExternalApiHandler } from './handlers/external-api.handler';
     InternalOrderHandler,
     InternalAppointmentHandler,
     ExternalApiHandler,
+    OpenApiDiscoveryService,
   ],
   exports: [ToolExecutionService, ToolRegistryService],
 })

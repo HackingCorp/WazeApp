@@ -191,6 +191,7 @@ services:
       STRIPE_PUBLISHABLE_KEY: ${STRIPE_PUBLISHABLE_KEY:-}
       STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
       CLUSTER_WORKERS: ${CLUSTER_WORKERS:-1}
+      TOOL_ENCRYPTION_KEY: ${TOOL_ENCRYPTION_KEY:-}
     volumes:
       - ./backend/whatsapp-sessions:/app/whatsapp-sessions
       - ./backend/uploads:/app/uploads

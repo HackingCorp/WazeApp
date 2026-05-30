@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { ToolDefinition, ToolResult, ToolExecutionContext, ExternalApiToolConfig } from './interfaces/tool.interface';
+import { ToolDefinition, ToolResult, ToolExecutionContext, ApiConnection } from './interfaces/tool.interface';
 import { InternalProductHandler } from './handlers/internal-product.handler';
 import { InternalOrderHandler } from './handlers/internal-order.handler';
 import { InternalAppointmentHandler } from './handlers/internal-appointment.handler';
@@ -32,14 +32,19 @@ export class ToolRegistryService {
       tools.push(...this.appointmentHandler.getToolDefinitions(context));
     }
 
-    const apiTools = (agent as any).apiTools as ExternalApiToolConfig[] | undefined;
+    // External API tools from the new connection-based structure
+    const apiTools = agent.apiTools as ApiConnection[] | undefined;
     if (apiTools?.length) {
-      for (const tool of apiTools) {
-        tools.push({
-          name: tool.name,
-          description: tool.description,
-          parameters: tool.parameters,
-        });
+      for (const connection of apiTools) {
+        if (!connection.tools?.length) continue;
+        for (const tool of connection.tools) {
+          if (!tool.enabled) continue;
+          tools.push({
+            name: tool.name,
+            description: tool.description,
+            parameters: tool.parameters,
+          });
+        }
       }
     }
 
@@ -74,13 +79,17 @@ export class ToolRegistryService {
         return result;
       }
 
-      // Check external API tools
-      const apiTools = (agent as any).apiTools as ExternalApiToolConfig[] | undefined;
-      const externalTool = apiTools?.find(t => t.name === name);
-      if (externalTool) {
-        const result = await this.externalApiHandler.execute(externalTool, args);
-        this.logger.log(`Tool ${name} executed in ${Date.now() - startTime}ms (external)`);
-        return result;
+      // Check external API tools from connections
+      const apiTools = agent.apiTools as ApiConnection[] | undefined;
+      if (apiTools?.length) {
+        for (const connection of apiTools) {
+          const tool = connection.tools?.find(t => t.name === name && t.enabled);
+          if (tool) {
+            const result = await this.externalApiHandler.execute(connection, tool, args);
+            this.logger.log(`Tool ${name} executed in ${Date.now() - startTime}ms (external)`);
+            return result;
+          }
+        }
       }
 
       return { success: false, error: `Unknown tool: ${name}` };

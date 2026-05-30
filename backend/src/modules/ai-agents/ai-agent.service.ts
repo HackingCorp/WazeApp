@@ -7,8 +7,10 @@ import {
   Inject,
   forwardRef,
 } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository, In, IsNull } from "typeorm";
+import { encryptApiToolsCredentials, decryptApiToolsCredentials } from "../../common/utils/crypto.util";
 import {
   AiAgent,
   KnowledgeBase,
@@ -88,7 +90,13 @@ export class AiAgentService {
     private readonly orderTagParserService: OrderTagParserService,
 
     private readonly toolExecutionService: ToolExecutionService,
+
+    private readonly configService: ConfigService,
   ) {}
+
+  private get encryptionKey(): string {
+    return this.configService.get<string>('TOOL_ENCRYPTION_KEY') || '';
+  }
 
   getTemplates() {
     return [
@@ -288,6 +296,11 @@ Regles :
       );
     }
 
+    // Encrypt API keys before storage
+    if (createDto.apiTools?.length) {
+      createDto.apiTools = encryptApiToolsCredentials(createDto.apiTools, this.encryptionKey);
+    }
+
     const agent = this.agentRepository.create({
       ...createDto,
       organizationId: organizationId || undefined,
@@ -419,6 +432,10 @@ Regles :
           satisfactionScore: stats.satisfactionScore,
           lastActive: stats.lastActive,
         };
+      }
+      // Decrypt API keys for response
+      if (agent.apiTools?.length) {
+        agent.apiTools = decryptApiToolsCredentials(agent.apiTools, this.encryptionKey);
       }
       return agent;
     });
@@ -559,6 +576,10 @@ Regles :
       throw new NotFoundException("AI Agent not found");
     }
 
+    if (agent.apiTools?.length) {
+      agent.apiTools = decryptApiToolsCredentials(agent.apiTools, this.encryptionKey);
+    }
+
     return agent;
   }
 
@@ -570,7 +591,6 @@ Regles :
     let agent: AiAgent | null = null;
 
     if (organizationId) {
-      // User has organization - find agent in organization OR user-owned without organization
       agent = await this.agentRepository.findOne({
         where: [
           { id, organizationId },
@@ -579,7 +599,6 @@ Regles :
         relations: ["creator", "knowledgeBases", "catalogs", "whatsappSessions", "facebookPageSessions"],
       });
     } else {
-      // User without organization - find only agents they created
       agent = await this.agentRepository.findOne({
         where: [
           { id, createdBy: userId },
@@ -590,6 +609,10 @@ Regles :
 
     if (!agent) {
       throw new NotFoundException("AI Agent not found");
+    }
+
+    if (agent.apiTools?.length) {
+      agent.apiTools = decryptApiToolsCredentials(agent.apiTools, this.encryptionKey);
     }
 
     return agent;
@@ -635,6 +658,11 @@ Regles :
     // Deep merge config and strip deprecated properties from database
     if (updateDto.config) {
       updateDto.config = this.stripInvalidConfigKeys({ ...agent.config, ...updateDto.config });
+    }
+
+    // Encrypt API keys before storage
+    if (updateDto.apiTools?.length) {
+      updateDto.apiTools = encryptApiToolsCredentials(updateDto.apiTools, this.encryptionKey);
     }
 
     Object.assign(agent, updateDto);
@@ -723,6 +751,11 @@ Regles :
     // Deep merge config and strip deprecated properties from database
     if (updateDto.config) {
       updateDto.config = this.stripInvalidConfigKeys({ ...agent.config, ...updateDto.config });
+    }
+
+    // Encrypt API keys before storage
+    if (updateDto.apiTools?.length) {
+      updateDto.apiTools = encryptApiToolsCredentials(updateDto.apiTools, this.encryptionKey);
     }
 
     Object.assign(agent, updateDto);
@@ -1765,6 +1798,10 @@ CRITICAL: If you cannot ACTUALLY solve the problem with information from your kn
       maxResponseChars: sourceAgent.maxResponseChars,
       config: { ...sourceAgent.config },
       tags: [...(sourceAgent.tags || [])],
+      apiTools: sourceAgent.apiTools ? JSON.parse(JSON.stringify(sourceAgent.apiTools)) : [],
+      ecommerceEnabled: sourceAgent.ecommerceEnabled,
+      appointmentsEnabled: sourceAgent.appointmentsEnabled,
+      escalationConfig: sourceAgent.escalationConfig ? { ...sourceAgent.escalationConfig } : {},
       organizationId: organizationId || undefined,
       createdBy: userId,
       status: AgentStatus.INACTIVE, // Start as inactive

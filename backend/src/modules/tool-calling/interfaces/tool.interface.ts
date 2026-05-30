@@ -31,13 +31,20 @@ export interface ToolHandler {
   executeTool(name: string, args: Record<string, any>, context: ToolExecutionContext): Promise<ToolResult>;
 }
 
-export interface ExternalApiToolConfig {
+export interface ApiConnection {
+  apiKey?: string;
+  authType: 'bearer' | 'api-key-header' | 'query-param' | 'basic' | 'none';
+  authHeaderName?: string;
+  authQueryParam?: string;
+  baseUrl: string;
+  tools: DiscoveredTool[];
+}
+
+export interface DiscoveredTool {
   name: string;
   description: string;
-  url: string;
+  path: string;
   method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
-  headers?: Record<string, string>;
-  timeout?: number;
   parameters: {
     type: 'object';
     properties: Record<string, {
@@ -47,4 +54,5 @@ export interface ExternalApiToolConfig {
     }>;
     required?: string[];
   };
+  enabled: boolean;
 }

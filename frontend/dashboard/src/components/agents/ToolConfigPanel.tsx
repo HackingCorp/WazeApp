@@ -1,52 +1,57 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Plus, Trash2, ChevronDown, ChevronUp, Wrench, Globe, ShoppingCart, Calendar, Package } from 'lucide-react';
+import { Plus, Trash2, Wrench, Globe, ShoppingCart, Calendar, Package, Search, Loader2, CheckCircle, XCircle } from 'lucide-react';
+import { api } from '@/lib/api';
 
-interface ApiToolParam {
-  type: string;
-  description: string;
-  enum?: string[];
-}
-
-interface ExternalApiTool {
+interface DiscoveredTool {
   name: string;
   description: string;
-  url: string;
+  path: string;
   method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
-  headers?: Record<string, string>;
-  timeout?: number;
   parameters: {
     type: 'object';
-    properties: Record<string, ApiToolParam>;
+    properties: Record<string, { type: string; description: string; enum?: string[] }>;
     required?: string[];
   };
+  enabled: boolean;
+}
+
+interface ApiConnection {
+  apiKey?: string;
+  authType: 'bearer' | 'api-key-header' | 'query-param' | 'basic' | 'none';
+  authHeaderName?: string;
+  authQueryParam?: string;
+  baseUrl: string;
+  tools: DiscoveredTool[];
 }
 
 interface ToolConfigPanelProps {
   ecommerceEnabled: boolean;
   appointmentsEnabled: boolean;
-  apiTools: ExternalApiTool[];
+  apiTools: ApiConnection[];
   hasCatalogs: boolean;
   onUpdate: (updates: {
     ecommerceEnabled?: boolean;
     appointmentsEnabled?: boolean;
-    apiTools?: ExternalApiTool[];
+    apiTools?: ApiConnection[];
   }) => void;
 }
 
-const EMPTY_TOOL: ExternalApiTool = {
-  name: '',
-  description: '',
-  url: '',
-  method: 'GET',
-  headers: {},
-  timeout: 10000,
-  parameters: {
-    type: 'object',
-    properties: {},
-    required: [],
-  },
+const AUTH_TYPES = [
+  { value: 'bearer', label: 'Bearer Token' },
+  { value: 'api-key-header', label: 'API Key (Header)' },
+  { value: 'query-param', label: 'API Key (Query Param)' },
+  { value: 'basic', label: 'Basic Auth' },
+  { value: 'none', label: 'Aucune' },
+] as const;
+
+const METHOD_COLORS: Record<string, string> = {
+  GET: 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300',
+  POST: 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300',
+  PUT: 'bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300',
+  PATCH: 'bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300',
+  DELETE: 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300',
 };
 
 export default function ToolConfigPanel({
@@ -56,88 +61,66 @@ export default function ToolConfigPanel({
   hasCatalogs,
   onUpdate,
 }: ToolConfigPanelProps) {
-  const [expandedTool, setExpandedTool] = useState<number | null>(null);
-  const [newParamName, setNewParamName] = useState('');
+  const [discovering, setDiscovering] = useState<number | null>(null);
+  const [discoveryError, setDiscoveryError] = useState<string | null>(null);
 
-  const addTool = () => {
-    const toolName = `custom_tool_${apiTools.length + 1}`;
-    onUpdate({
-      apiTools: [...apiTools, { ...EMPTY_TOOL, name: toolName }],
-    });
-    setExpandedTool(apiTools.length);
+  const addConnection = () => {
+    const newConnection: ApiConnection = {
+      baseUrl: '',
+      apiKey: '',
+      authType: 'bearer',
+      tools: [],
+    };
+    onUpdate({ apiTools: [...apiTools, newConnection] });
   };
 
-  const removeTool = (index: number) => {
-    const updated = apiTools.filter((_, i) => i !== index);
-    onUpdate({ apiTools: updated });
-    if (expandedTool === index) setExpandedTool(null);
+  const removeConnection = (index: number) => {
+    onUpdate({ apiTools: apiTools.filter((_, i) => i !== index) });
   };
 
-  const updateTool = (index: number, updates: Partial<ExternalApiTool>) => {
-    const updated = apiTools.map((tool, i) =>
-      i === index ? { ...tool, ...updates } : tool
+  const updateConnection = (index: number, updates: Partial<ApiConnection>) => {
+    const updated = apiTools.map((conn, i) =>
+      i === index ? { ...conn, ...updates } : conn,
     );
     onUpdate({ apiTools: updated });
   };
 
-  const addParameter = (toolIndex: number) => {
-    if (!newParamName.trim()) return;
-    const tool = apiTools[toolIndex];
-    const updated = {
-      ...tool,
-      parameters: {
-        ...tool.parameters,
-        properties: {
-          ...tool.parameters.properties,
-          [newParamName.trim()]: { type: 'string', description: '' },
-        },
-      },
-    };
-    updateTool(toolIndex, updated);
-    setNewParamName('');
+  const toggleTool = (connIndex: number, toolIndex: number) => {
+    const conn = apiTools[connIndex];
+    const updatedTools = conn.tools.map((tool, i) =>
+      i === toolIndex ? { ...tool, enabled: !tool.enabled } : tool,
+    );
+    updateConnection(connIndex, { tools: updatedTools });
   };
 
-  const removeParameter = (toolIndex: number, paramName: string) => {
-    const tool = apiTools[toolIndex];
-    const { [paramName]: _, ...rest } = tool.parameters.properties;
-    updateTool(toolIndex, {
-      parameters: {
-        ...tool.parameters,
-        properties: rest,
-        required: (tool.parameters.required || []).filter(r => r !== paramName),
-      },
-    });
-  };
+  const discoverEndpoints = async (index: number) => {
+    const conn = apiTools[index];
+    if (!conn.baseUrl) {
+      setDiscoveryError('Veuillez entrer l\'URL de l\'API');
+      return;
+    }
 
-  const updateParameter = (toolIndex: number, paramName: string, updates: Partial<ApiToolParam>) => {
-    const tool = apiTools[toolIndex];
-    updateTool(toolIndex, {
-      parameters: {
-        ...tool.parameters,
-        properties: {
-          ...tool.parameters.properties,
-          [paramName]: { ...tool.parameters.properties[paramName], ...updates },
-        },
-      },
-    });
-  };
+    setDiscovering(index);
+    setDiscoveryError(null);
 
-  const toggleRequired = (toolIndex: number, paramName: string) => {
-    const tool = apiTools[toolIndex];
-    const required = tool.parameters.required || [];
-    const updated = required.includes(paramName)
-      ? required.filter(r => r !== paramName)
-      : [...required, paramName];
-    updateTool(toolIndex, {
-      parameters: { ...tool.parameters, required: updated },
-    });
-  };
+    try {
+      const response = await api.post('/tools/discover', {
+        baseUrl: conn.baseUrl,
+        apiKey: conn.apiKey || undefined,
+        authType: conn.authType,
+        authHeaderName: conn.authHeaderName || undefined,
+      });
 
-  const addHeader = (toolIndex: number) => {
-    const tool = apiTools[toolIndex];
-    updateTool(toolIndex, {
-      headers: { ...tool.headers, '': '' },
-    });
+      if (response.success && response.data?.tools) {
+        updateConnection(index, { tools: response.data.tools });
+      } else {
+        setDiscoveryError(response.error || 'Aucun endpoint trouve');
+      }
+    } catch (err: any) {
+      setDiscoveryError(err.message || 'Erreur lors de la decouverte');
+    } finally {
+      setDiscovering(null);
+    }
   };
 
   return (
@@ -225,7 +208,7 @@ export default function ToolConfigPanel({
         </div>
       </div>
 
-      {/* External API Tools Section */}
+      {/* External API Connections Section */}
       <div>
         <div className="flex items-center justify-between mb-4">
           <div>
@@ -234,252 +217,178 @@ export default function ToolConfigPanel({
               APIs externes
             </h3>
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-              Connectez des APIs tierces que l'agent pourra appeler pendant les conversations.
+              Connectez des APIs tierces — entrez l'URL et la cle, les endpoints sont decouverts automatiquement.
             </p>
           </div>
           <button
-            onClick={addTool}
+            onClick={addConnection}
             className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
           >
             <Plus className="w-4 h-4" />
-            Ajouter un outil
+            Connecter une API
           </button>
         </div>
+
+        {discoveryError && (
+          <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-sm text-red-700 dark:text-red-300">
+            {discoveryError}
+          </div>
+        )}
 
         {apiTools.length === 0 ? (
           <div className="text-center py-8 text-gray-400 dark:text-gray-500 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-lg">
             <Globe className="w-8 h-8 mx-auto mb-2 opacity-50" />
-            <p>Aucun outil API externe configure</p>
-            <p className="text-xs mt-1">Cliquez sur "Ajouter un outil" pour commencer</p>
+            <p>Aucune API externe connectee</p>
+            <p className="text-xs mt-1">Cliquez sur "Connecter une API" pour commencer</p>
           </div>
         ) : (
-          <div className="space-y-3">
-            {apiTools.map((tool, index) => (
+          <div className="space-y-4">
+            {apiTools.map((conn, connIndex) => (
               <div
-                key={index}
+                key={connIndex}
                 className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden"
               >
-                {/* Tool Header */}
-                <div
-                  className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 cursor-pointer"
-                  onClick={() => setExpandedTool(expandedTool === index ? null : index)}
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="px-2 py-1 text-xs font-mono font-bold rounded bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300">
-                      {tool.method}
+                {/* Connection Config */}
+                <div className="p-4 space-y-3 bg-gray-50 dark:bg-gray-800">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Connexion API #{connIndex + 1}
                     </span>
-                    <span className="font-medium text-gray-900 dark:text-white">
-                      {tool.name || 'Nouvel outil'}
-                    </span>
-                    {tool.description && (
-                      <span className="text-sm text-gray-500 dark:text-gray-400 truncate max-w-[300px]">
-                        - {tool.description}
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2">
                     <button
-                      onClick={(e) => { e.stopPropagation(); removeTool(index); }}
+                      onClick={() => removeConnection(connIndex)}
                       className="p-1 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
-                    {expandedTool === index ? (
-                      <ChevronUp className="w-4 h-4 text-gray-400" />
-                    ) : (
-                      <ChevronDown className="w-4 h-4 text-gray-400" />
-                    )}
                   </div>
-                </div>
 
-                {/* Tool Details (expanded) */}
-                {expandedTool === index && (
-                  <div className="p-4 space-y-4 border-t border-gray-200 dark:border-gray-700">
-                    {/* Name & Description */}
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                          Nom (identifiant)
-                        </label>
-                        <input
-                          type="text"
-                          value={tool.name}
-                          onChange={(e) => updateTool(index, { name: e.target.value.replace(/[^a-zA-Z0-9_]/g, '_') })}
-                          placeholder="get_weather"
-                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                          Description (pour l'IA)
-                        </label>
-                        <input
-                          type="text"
-                          value={tool.description}
-                          onChange={(e) => updateTool(index, { description: e.target.value })}
-                          placeholder="Obtenir la meteo d'une ville"
-                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
-                        />
-                      </div>
-                    </div>
+                  {/* Base URL */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      URL de l'API
+                    </label>
+                    <input
+                      type="text"
+                      value={conn.baseUrl}
+                      onChange={(e) => updateConnection(connIndex, { baseUrl: e.target.value })}
+                      placeholder="https://api.example.com"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-sm font-mono"
+                    />
+                  </div>
 
-                    {/* URL & Method */}
-                    <div className="grid grid-cols-4 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                          Methode
-                        </label>
-                        <select
-                          value={tool.method}
-                          onChange={(e) => updateTool(index, { method: e.target.value as any })}
-                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
-                        >
-                          <option value="GET">GET</option>
-                          <option value="POST">POST</option>
-                          <option value="PUT">PUT</option>
-                          <option value="PATCH">PATCH</option>
-                          <option value="DELETE">DELETE</option>
-                        </select>
-                      </div>
-                      <div className="col-span-3">
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                          URL de l'API
-                        </label>
-                        <input
-                          type="text"
-                          value={tool.url}
-                          onChange={(e) => updateTool(index, { url: e.target.value })}
-                          placeholder="https://api.example.com/endpoint"
-                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm font-mono"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Headers */}
+                  {/* API Key + Auth Type */}
+                  <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                          Headers
-                        </label>
-                        <button
-                          onClick={() => addHeader(index)}
-                          className="text-xs text-blue-600 hover:text-blue-700"
-                        >
-                          + Ajouter un header
-                        </button>
-                      </div>
-                      {tool.headers && Object.entries(tool.headers).map(([key, value], hIdx) => (
-                        <div key={hIdx} className="flex gap-2 mb-2">
-                          <input
-                            type="text"
-                            value={key}
-                            onChange={(e) => {
-                              const entries = Object.entries(tool.headers || {});
-                              entries[hIdx] = [e.target.value, value];
-                              updateTool(index, { headers: Object.fromEntries(entries) });
-                            }}
-                            placeholder="Authorization"
-                            className="flex-1 px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm font-mono"
-                          />
-                          <input
-                            type="text"
-                            value={value}
-                            onChange={(e) => {
-                              const entries = Object.entries(tool.headers || {});
-                              entries[hIdx] = [key, e.target.value];
-                              updateTool(index, { headers: Object.fromEntries(entries) });
-                            }}
-                            placeholder="Bearer token..."
-                            className="flex-1 px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm font-mono"
-                          />
-                          <button
-                            onClick={() => {
-                              const entries = Object.entries(tool.headers || {}).filter((_, i) => i !== hIdx);
-                              updateTool(index, { headers: Object.fromEntries(entries) });
-                            }}
-                            className="p-1.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* Parameters */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        Parametres
-                      </label>
-                      {Object.entries(tool.parameters.properties).map(([paramName, param]) => (
-                        <div key={paramName} className="flex items-start gap-2 mb-2 p-2 bg-gray-50 dark:bg-gray-800 rounded">
-                          <div className="flex-shrink-0 w-32">
-                            <span className="text-sm font-mono text-gray-900 dark:text-white">{paramName}</span>
-                            <div className="flex items-center gap-1 mt-1">
-                              <input
-                                type="checkbox"
-                                checked={(tool.parameters.required || []).includes(paramName)}
-                                onChange={() => toggleRequired(index, paramName)}
-                                className="rounded text-blue-600"
-                              />
-                              <span className="text-xs text-gray-500">Requis</span>
-                            </div>
-                          </div>
-                          <select
-                            value={param.type}
-                            onChange={(e) => updateParameter(index, paramName, { type: e.target.value })}
-                            className="w-24 px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-sm"
-                          >
-                            <option value="string">string</option>
-                            <option value="number">number</option>
-                            <option value="boolean">boolean</option>
-                          </select>
-                          <input
-                            type="text"
-                            value={param.description}
-                            onChange={(e) => updateParameter(index, paramName, { description: e.target.value })}
-                            placeholder="Description du parametre"
-                            className="flex-1 px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-sm"
-                          />
-                          <button
-                            onClick={() => removeParameter(index, paramName)}
-                            className="p-1 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded mt-1"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      ))}
-                      <div className="flex gap-2 mt-2">
-                        <input
-                          type="text"
-                          value={newParamName}
-                          onChange={(e) => setNewParamName(e.target.value.replace(/[^a-zA-Z0-9_]/g, '_'))}
-                          onKeyDown={(e) => e.key === 'Enter' && addParameter(index)}
-                          placeholder="nom_du_parametre"
-                          className="flex-1 px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-sm font-mono"
-                        />
-                        <button
-                          onClick={() => addParameter(index)}
-                          className="px-3 py-1.5 text-sm bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-300 dark:hover:bg-gray-600"
-                        >
-                          Ajouter
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Timeout */}
-                    <div className="w-48">
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Timeout (ms)
+                        Cle API
                       </label>
                       <input
-                        type="number"
-                        value={tool.timeout || 10000}
-                        onChange={(e) => updateTool(index, { timeout: Math.min(30000, Math.max(1000, Number(e.target.value))) })}
-                        min={1000}
-                        max={30000}
-                        step={1000}
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                        type="password"
+                        value={conn.apiKey || ''}
+                        onChange={(e) => updateConnection(connIndex, { apiKey: e.target.value })}
+                        placeholder="sk-xxxxxxxx..."
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-sm font-mono"
                       />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Authentification
+                      </label>
+                      <select
+                        value={conn.authType}
+                        onChange={(e) => updateConnection(connIndex, { authType: e.target.value as ApiConnection['authType'] })}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-sm"
+                      >
+                        {AUTH_TYPES.map((at) => (
+                          <option key={at.value} value={at.value}>{at.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Custom header name for api-key-header type */}
+                  {conn.authType === 'api-key-header' && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Nom du header
+                      </label>
+                      <input
+                        type="text"
+                        value={conn.authHeaderName || ''}
+                        onChange={(e) => updateConnection(connIndex, { authHeaderName: e.target.value })}
+                        placeholder="X-API-Key"
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-sm font-mono"
+                      />
+                    </div>
+                  )}
+
+                  {/* Custom query param name for query-param type */}
+                  {conn.authType === 'query-param' && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Nom du parametre
+                      </label>
+                      <input
+                        type="text"
+                        value={conn.authQueryParam || ''}
+                        onChange={(e) => updateConnection(connIndex, { authQueryParam: e.target.value })}
+                        placeholder="api_key"
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-sm font-mono"
+                      />
+                    </div>
+                  )}
+
+                  {/* Discover Button */}
+                  <button
+                    onClick={() => discoverEndpoints(connIndex)}
+                    disabled={discovering === connIndex || !conn.baseUrl}
+                    className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {discovering === connIndex ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Decouverte en cours...
+                      </>
+                    ) : (
+                      <>
+                        <Search className="w-4 h-4" />
+                        Decouvrir les endpoints
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                {/* Discovered Tools */}
+                {conn.tools.length > 0 && (
+                  <div className="border-t border-gray-200 dark:border-gray-700">
+                    <div className="p-3 bg-white dark:bg-gray-900">
+                      <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        {conn.tools.filter(t => t.enabled).length}/{conn.tools.length} endpoints actives
+                      </p>
+                      <div className="space-y-1">
+                        {conn.tools.map((tool, toolIndex) => (
+                          <label
+                            key={toolIndex}
+                            className="flex items-center gap-3 p-2 rounded hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={tool.enabled}
+                              onChange={() => toggleTool(connIndex, toolIndex)}
+                              className="rounded text-blue-600 focus:ring-blue-500"
+                            />
+                            <span className={`px-2 py-0.5 text-xs font-mono font-bold rounded ${METHOD_COLORS[tool.method] || 'bg-gray-100 text-gray-700'}`}>
+                              {tool.method}
+                            </span>
+                            <span className="text-sm font-mono text-gray-600 dark:text-gray-400">
+                              {tool.path}
+                            </span>
+                            <span className="text-sm text-gray-500 dark:text-gray-400 truncate">
+                              — {tool.description}
+                            </span>
+                          </label>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 )}

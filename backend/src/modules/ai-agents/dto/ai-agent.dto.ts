@@ -45,30 +45,14 @@ export class EscalationConfigDto {
   notificationEmails?: string[];
 }
 
-export class ApiToolParameterPropertyDto {
-  @ApiProperty({ description: "Parameter type (string, number, boolean, array)" })
-  @IsString()
-  type: string;
-
-  @ApiProperty({ description: "Parameter description" })
-  @IsString()
-  description: string;
-
-  @ApiPropertyOptional({ description: "Enum values for restricted choices", type: [String] })
-  @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  enum?: string[];
-}
-
-export class ApiToolParametersDto {
+export class DiscoveredToolParametersDto {
   @ApiProperty({ description: "Always 'object'", default: 'object' })
   @IsIn(['object'])
   type: 'object' = 'object';
 
   @ApiProperty({ description: "Parameter properties" })
   @IsObject()
-  properties: Record<string, ApiToolParameterPropertyDto>;
+  properties: Record<string, { type: string; description: string; enum?: string[] }>;
 
   @ApiPropertyOptional({ description: "Required parameter names", type: [String] })
   @IsOptional()
@@ -77,8 +61,8 @@ export class ApiToolParametersDto {
   required?: string[];
 }
 
-export class ExternalApiToolDto {
-  @ApiProperty({ description: "Tool name (alphanumeric and underscores only)" })
+export class DiscoveredToolDto {
+  @ApiProperty({ description: "Tool name (alphanumeric and underscores)" })
   @IsString()
   name: string;
 
@@ -86,31 +70,55 @@ export class ExternalApiToolDto {
   @IsString()
   description: string;
 
-  @ApiProperty({ description: "API endpoint URL" })
+  @ApiProperty({ description: "API path relative to base URL" })
   @IsString()
-  url: string;
+  path: string;
 
   @ApiProperty({ description: "HTTP method", enum: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'] })
   @IsIn(['GET', 'POST', 'PUT', 'PATCH', 'DELETE'])
   method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
-  @ApiPropertyOptional({ description: "HTTP headers (key-value pairs)" })
-  @IsOptional()
-  @IsObject()
-  headers?: Record<string, string>;
-
-  @ApiPropertyOptional({ description: "Request timeout in ms (max 30000)", minimum: 1000, maximum: 30000, default: 10000 })
-  @IsOptional()
-  @IsNumber()
-  @Min(1000)
-  @Max(30000)
-  timeout?: number;
-
   @ApiProperty({ description: "Tool parameters schema" })
   @IsObject()
   @ValidateNested()
-  @Type(() => ApiToolParametersDto)
-  parameters: ApiToolParametersDto;
+  @Type(() => DiscoveredToolParametersDto)
+  parameters: DiscoveredToolParametersDto;
+
+  @ApiProperty({ description: "Whether this tool is enabled", default: true })
+  @IsBoolean()
+  enabled: boolean;
+}
+
+export class ApiConnectionDto {
+  @ApiPropertyOptional({ description: "API key (will be encrypted at rest)" })
+  @IsOptional()
+  @IsString()
+  apiKey?: string;
+
+  @ApiProperty({ description: "Authentication type", enum: ['bearer', 'api-key-header', 'query-param', 'basic', 'none'] })
+  @IsIn(['bearer', 'api-key-header', 'query-param', 'basic', 'none'])
+  authType: 'bearer' | 'api-key-header' | 'query-param' | 'basic' | 'none';
+
+  @ApiPropertyOptional({ description: "Custom auth header name (for api-key-header type)", default: 'X-API-Key' })
+  @IsOptional()
+  @IsString()
+  authHeaderName?: string;
+
+  @ApiPropertyOptional({ description: "Custom query param name (for query-param type)", default: 'api_key' })
+  @IsOptional()
+  @IsString()
+  authQueryParam?: string;
+
+  @ApiProperty({ description: "Base URL of the API" })
+  @IsString()
+  baseUrl: string;
+
+  @ApiPropertyOptional({ description: "Discovered tools from OpenAPI spec", type: [DiscoveredToolDto] })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => DiscoveredToolDto)
+  tools?: DiscoveredToolDto[];
 }
 
 export class AgentConfigDto {
@@ -274,12 +282,12 @@ export class CreateAiAgentDto {
   @IsString({ each: true })
   catalogIds?: string[];
 
-  @ApiPropertyOptional({ description: "External API tool configurations", type: [ExternalApiToolDto] })
+  @ApiPropertyOptional({ description: "External API connections", type: [ApiConnectionDto] })
   @IsOptional()
   @IsArray()
   @ValidateNested({ each: true })
-  @Type(() => ExternalApiToolDto)
-  apiTools?: ExternalApiToolDto[];
+  @Type(() => ApiConnectionDto)
+  apiTools?: ApiConnectionDto[];
 }
 
 export class UpdateAiAgentDto {
@@ -398,12 +406,12 @@ export class UpdateAiAgentDto {
   @IsBoolean()
   appointmentsEnabled?: boolean;
 
-  @ApiPropertyOptional({ description: "External API tool configurations", type: [ExternalApiToolDto] })
+  @ApiPropertyOptional({ description: "External API connections", type: [ApiConnectionDto] })
   @IsOptional()
   @IsArray()
   @ValidateNested({ each: true })
-  @Type(() => ExternalApiToolDto)
-  apiTools?: ExternalApiToolDto[];
+  @Type(() => ApiConnectionDto)
+  apiTools?: ApiConnectionDto[];
 }
 
 export class AgentQueryDto {

@@ -167,24 +167,30 @@ export class AiAgent extends BaseEntity {
   @Column({ default: false })
   appointmentsEnabled: boolean;
 
-  @ApiProperty({ description: "External API tool configurations" })
+  @ApiProperty({ description: "External API connections with discovered tools" })
   @Column({ type: "jsonb", default: [] })
   apiTools: Array<{
-    name: string;
-    description: string;
-    url: string;
-    method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
-    headers?: Record<string, string>;
-    timeout?: number;
-    parameters: {
-      type: 'object';
-      properties: Record<string, {
-        type: string;
-        description: string;
-        enum?: string[];
-      }>;
-      required?: string[];
-    };
+    apiKey?: string;
+    authType: 'bearer' | 'api-key-header' | 'query-param' | 'basic' | 'none';
+    authHeaderName?: string;
+    authQueryParam?: string;
+    baseUrl: string;
+    tools: Array<{
+      name: string;
+      description: string;
+      path: string;
+      method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+      parameters: {
+        type: 'object';
+        properties: Record<string, {
+          type: string;
+          description: string;
+          enum?: string[];
+        }>;
+        required?: string[];
+      };
+      enabled: boolean;
+    }>;
   }>;
 
   // Relationships

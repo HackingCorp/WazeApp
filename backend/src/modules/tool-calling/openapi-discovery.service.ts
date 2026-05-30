@@ -147,7 +147,8 @@ export class OpenApiDiscoveryService {
   }
 
   private generateToolName(operationId: string | undefined, method: string, path: string): string {
-    if (operationId) {
+    // Use operationId only if it's human-readable (not a hash or UUID)
+    if (operationId && !/^[0-9a-f]{16,}$/i.test(operationId) && !/^[0-9a-f-]{36}$/i.test(operationId)) {
       // Clean operationId: replace non-alphanumeric with underscore, lowercase
       return operationId
         .replace(/[^a-zA-Z0-9]/g, '_')

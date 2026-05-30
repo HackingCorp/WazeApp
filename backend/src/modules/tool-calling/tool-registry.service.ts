@@ -81,8 +81,19 @@ export class ToolRegistryService {
           // New format: iterate nested tools
           for (const tool of entry.tools) {
             if (!tool.enabled) continue;
+            // If the stored name is a hash (not human-readable), regenerate from method+path
+            let toolName = tool.name;
+            if (/^[0-9a-f]{16,}$/i.test(toolName)) {
+              const cleanPath = (tool.path || '')
+                .replace(/\{([^}]+)\}/g, '$1')
+                .replace(/[^a-zA-Z0-9]/g, '_')
+                .replace(/_+/g, '_')
+                .replace(/^_|_$/g, '')
+                .toLowerCase();
+              toolName = `${(tool.method || 'get').toLowerCase()}_${cleanPath}`.substring(0, 64);
+            }
             tools.push({
-              name: tool.name,
+              name: toolName,
               description: tool.description,
               parameters: tool.parameters,
             });
@@ -144,7 +155,23 @@ export class ToolRegistryService {
           }
 
           if (isNewConnection(entry)) {
-            const tool = entry.tools?.find(t => t.name === name && t.enabled);
+            // Match by stored name OR by regenerated name (for hash->readable migration)
+            const tool = entry.tools?.find(t => {
+              if (!t.enabled) return false;
+              if (t.name === name) return true;
+              // Check if stored name is a hash and the called name matches the regenerated path-based name
+              if (/^[0-9a-f]{16,}$/i.test(t.name)) {
+                const cleanPath = (t.path || '')
+                  .replace(/\{([^}]+)\}/g, '$1')
+                  .replace(/[^a-zA-Z0-9]/g, '_')
+                  .replace(/_+/g, '_')
+                  .replace(/^_|_$/g, '')
+                  .toLowerCase();
+                const regenerated = `${(t.method || 'get').toLowerCase()}_${cleanPath}`.substring(0, 64);
+                return regenerated === name;
+              }
+              return false;
+            });
             if (tool) {
               // Decrypt apiKey at execution time
               const decryptedConnection = { ...entry };

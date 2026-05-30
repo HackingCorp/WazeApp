@@ -2296,7 +2296,12 @@ EXEMPLES DE CONTEXTE:
         presencePenalty: agent.config?.presencePenalty ?? 0,
       };
 
-      const hasTools = agent.ecommerceEnabled || agent.appointmentsEnabled || ((agent as any).apiTools?.length > 0);
+      const agentApiTools = (agent as any).apiTools;
+      const hasTools = agent.ecommerceEnabled || agent.appointmentsEnabled || (agentApiTools?.length > 0);
+      this.logger.log(`🔧 TOOL CHECK: ecommerce=${agent.ecommerceEnabled}, appointments=${agent.appointmentsEnabled}, apiTools=${agentApiTools?.length ?? 'undefined'}, hasTools=${hasTools}`);
+      if (agentApiTools?.length > 0) {
+        this.logger.log(`🔧 API TOOLS DETAIL: ${JSON.stringify(agentApiTools.map((t: any) => ({ baseUrl: t.baseUrl, toolCount: t.tools?.length, enabledCount: t.tools?.filter((x: any) => x.enabled)?.length })))}`);
+      }
       let response: any;
       let toolCalls: ToolCallRecord[] = [];
 

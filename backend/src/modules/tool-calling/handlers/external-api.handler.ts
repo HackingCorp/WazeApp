@@ -17,6 +17,69 @@ export class ExternalApiHandler {
     private readonly httpService: HttpService,
   ) {}
 
+  /**
+   * Execute a legacy-format tool (pre-refactor: url + method + headers at top level).
+   */
+  async executeLegacy(toolConfig: { url: string; method: string; headers?: Record<string, string>; timeout?: number }, args: Record<string, any>): Promise<ToolResult> {
+    try {
+      const validationError = this.validateUrl(toolConfig.url);
+      if (validationError) {
+        return { success: false, error: validationError };
+      }
+
+      let finalUrl = toolConfig.url;
+      const queryParams: Record<string, string> = {};
+      const bodyParams: Record<string, any> = {};
+
+      for (const [key, value] of Object.entries(args)) {
+        if (finalUrl.includes(`{${key}}`)) {
+          finalUrl = finalUrl.replace(`{${key}}`, encodeURIComponent(String(value)));
+        } else if (toolConfig.method === 'GET' || toolConfig.method === 'DELETE') {
+          queryParams[key] = String(value);
+        } else {
+          bodyParams[key] = value;
+        }
+      }
+
+      const timeout = Math.min(toolConfig.timeout || DEFAULT_TIMEOUT, MAX_TIMEOUT);
+
+      const response = await firstValueFrom(
+        this.httpService.request({
+          method: toolConfig.method,
+          url: finalUrl,
+          headers: toolConfig.headers || {},
+          params: Object.keys(queryParams).length > 0 ? queryParams : undefined,
+          data: Object.keys(bodyParams).length > 0 ? bodyParams : undefined,
+          timeout,
+          maxContentLength: MAX_RESPONSE_SIZE,
+          maxBodyLength: MAX_RESPONSE_SIZE,
+          validateStatus: () => true,
+        }),
+      );
+
+      let responseData = response.data;
+      const responseStr = typeof responseData === 'string' ? responseData : JSON.stringify(responseData);
+      if (responseStr.length > MAX_RESPONSE_SIZE) {
+        responseData = { truncated: true, data: responseStr.substring(0, MAX_RESPONSE_SIZE) };
+      }
+
+      if (response.status >= 200 && response.status < 300) {
+        return { success: true, data: responseData };
+      } else {
+        return {
+          success: false,
+          error: `HTTP ${response.status}: ${typeof responseData === 'string' ? responseData.substring(0, 500) : JSON.stringify(responseData).substring(0, 500)}`,
+        };
+      }
+    } catch (error) {
+      this.logger.error(`External API call to ${toolConfig.url} failed: ${error.message}`);
+      if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+        return { success: false, error: 'Request timed out' };
+      }
+      return { success: false, error: `API call failed: ${error.message}` };
+    }
+  }
+
   async execute(connection: ApiConnection, tool: DiscoveredTool, args: Record<string, any>): Promise<ToolResult> {
     try {
       // Build the full URL from baseUrl + tool path

@@ -8,6 +8,31 @@ import { ExternalApiHandler } from './handlers/external-api.handler';
 import { AiAgent } from '@/common/entities';
 import { decrypt, isEncrypted } from '@/common/utils/crypto.util';
 
+/**
+ * Legacy format (pre-refactor): tools stored as flat objects at top level
+ */
+interface LegacyApiTool {
+  name: string;
+  description: string;
+  url: string;
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+  headers?: Record<string, string>;
+  timeout?: number;
+  parameters: {
+    type: 'object';
+    properties: Record<string, { type: string; description: string; enum?: string[] }>;
+    required?: string[];
+  };
+}
+
+function isLegacyTool(entry: any): entry is LegacyApiTool {
+  return entry && typeof entry.url === 'string' && typeof entry.method === 'string' && !entry.baseUrl;
+}
+
+function isNewConnection(entry: any): entry is ApiConnection {
+  return entry && typeof entry.baseUrl === 'string' && Array.isArray(entry.tools);
+}
+
 @Injectable()
 export class ToolRegistryService {
   private readonly logger = new Logger(ToolRegistryService.name);
@@ -39,22 +64,34 @@ export class ToolRegistryService {
       tools.push(...this.appointmentHandler.getToolDefinitions(context));
     }
 
-    // External API tools from the new connection-based structure
-    const apiTools = agent.apiTools as ApiConnection[] | undefined;
+    // External API tools — support both legacy and new formats
+    const apiTools = (agent as any).apiTools as any[] | undefined;
+    this.logger.log(`🔧 getToolDefinitions: apiTools count = ${apiTools?.length ?? 'undefined'}, type = ${typeof apiTools}`);
     if (apiTools?.length) {
-      for (const connection of apiTools) {
-        if (!connection.tools?.length) continue;
-        for (const tool of connection.tools) {
-          if (!tool.enabled) continue;
+      for (const entry of apiTools) {
+        this.logger.log(`🔧 Entry check: isLegacy=${isLegacyTool(entry)}, isNew=${isNewConnection(entry)}, baseUrl=${entry.baseUrl || 'N/A'}, toolsCount=${entry.tools?.length || 0}`);
+        if (isLegacyTool(entry)) {
+          // Legacy format: tool definition is at top level
           tools.push({
-            name: tool.name,
-            description: tool.description,
-            parameters: tool.parameters,
+            name: entry.name,
+            description: entry.description,
+            parameters: entry.parameters,
           });
+        } else if (isNewConnection(entry)) {
+          // New format: iterate nested tools
+          for (const tool of entry.tools) {
+            if (!tool.enabled) continue;
+            tools.push({
+              name: tool.name,
+              description: tool.description,
+              parameters: tool.parameters,
+            });
+          }
         }
       }
     }
 
+    this.logger.log(`🔧 Total tool definitions generated: ${tools.length} (names: ${tools.map(t => t.name).join(', ')})`);
     return tools;
   }
 
@@ -86,20 +123,38 @@ export class ToolRegistryService {
         return result;
       }
 
-      // Check external API tools from connections
-      const apiTools = agent.apiTools as ApiConnection[] | undefined;
+      // Check external API tools — support both formats
+      const apiTools = (agent as any).apiTools as any[] | undefined;
       if (apiTools?.length) {
-        for (const connection of apiTools) {
-          const tool = connection.tools?.find(t => t.name === name && t.enabled);
-          if (tool) {
-            // Decrypt apiKey at execution time (agent may have been loaded without decryption)
-            const decryptedConnection = { ...connection };
-            if (decryptedConnection.apiKey && isEncrypted(decryptedConnection.apiKey)) {
-              decryptedConnection.apiKey = decrypt(decryptedConnection.apiKey, this.encryptionKey);
+        for (const entry of apiTools) {
+          if (isLegacyTool(entry) && entry.name === name) {
+            // Legacy format: decrypt header values if encrypted, then execute directly
+            const decryptedHeaders: Record<string, string> = {};
+            if (entry.headers) {
+              for (const [k, v] of Object.entries(entry.headers)) {
+                decryptedHeaders[k] = isEncrypted(v) ? decrypt(v, this.encryptionKey) : v;
+              }
             }
-            const result = await this.externalApiHandler.execute(decryptedConnection, tool, args);
-            this.logger.log(`Tool ${name} executed in ${Date.now() - startTime}ms (external)`);
+            const result = await this.externalApiHandler.executeLegacy(
+              { ...entry, headers: decryptedHeaders },
+              args,
+            );
+            this.logger.log(`Tool ${name} executed in ${Date.now() - startTime}ms (external/legacy)`);
             return result;
+          }
+
+          if (isNewConnection(entry)) {
+            const tool = entry.tools?.find(t => t.name === name && t.enabled);
+            if (tool) {
+              // Decrypt apiKey at execution time
+              const decryptedConnection = { ...entry };
+              if (decryptedConnection.apiKey && isEncrypted(decryptedConnection.apiKey)) {
+                decryptedConnection.apiKey = decrypt(decryptedConnection.apiKey, this.encryptionKey);
+              }
+              const result = await this.externalApiHandler.execute(decryptedConnection, tool, args);
+              this.logger.log(`Tool ${name} executed in ${Date.now() - startTime}ms (external)`);
+              return result;
+            }
           }
         }
       }

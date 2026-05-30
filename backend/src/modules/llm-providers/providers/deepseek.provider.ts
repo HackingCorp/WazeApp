@@ -207,11 +207,13 @@ export class DeepSeekProvider extends BaseLLMProvider {
   private buildRequestPayload(request: LLMRequest): any {
     const payload: any = {
       model: this.config.model,
-      messages: request.messages.map((msg) => ({
-        role: msg.role,
-        content: msg.content,
-        ...(msg.name && { name: msg.name }),
-      })),
+      messages: request.messages.map((msg: any) => {
+        const m: any = { role: msg.role, content: msg.content };
+        if (msg.name) m.name = msg.name;
+        if (msg.tool_calls) m.tool_calls = msg.tool_calls;
+        if (msg.tool_call_id) m.tool_call_id = msg.tool_call_id;
+        return m;
+      }),
       max_tokens: request.maxTokens || this.config.maxTokens || 2000,
       temperature: request.temperature ?? this.config.temperature ?? 0.7,
       top_p: request.topP ?? this.config.topP ?? 0.9,

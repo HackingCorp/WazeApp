@@ -109,17 +109,22 @@ export class ToolExecutionService {
         durationMs,
       });
 
-      // Add assistant message with function_call, then function result
+      // Add assistant message with tool_calls, then tool result (modern OpenAI format)
+      const toolCallId = `call_${iteration}_${toolName}`;
       conversationMessages.push({
         role: 'assistant',
         content: '',
-        name: toolName,
-      });
+        tool_calls: [{
+          id: toolCallId,
+          type: 'function',
+          function: { name: toolName, arguments: toolArgsStr },
+        }],
+      } as any);
       conversationMessages.push({
-        role: 'function',
+        role: 'tool',
         content: JSON.stringify(result.success ? result.data : { error: result.error }),
-        name: toolName,
-      });
+        tool_call_id: toolCallId,
+      } as any);
 
       this.logger.log(`🔧 Tool ${toolName} completed in ${durationMs}ms (success: ${result.success})`);
     }

@@ -77,10 +77,10 @@ export function isEncrypted(value: string): boolean {
  * Idempotent: skips values already encrypted.
  * Graceful: if no key provided, returns data unchanged.
  */
-export function encryptApiToolsCredentials(
-  apiTools: Array<{ apiKey?: string; [key: string]: any }>,
+export function encryptApiToolsCredentials<T extends { apiKey?: string }>(
+  apiTools: T[],
   key: string,
-): Array<{ apiKey?: string; [key: string]: any }> {
+): T[] {
   if (!key || !apiTools?.length) return apiTools;
 
   return apiTools.map((connection) => {
@@ -99,10 +99,10 @@ export function encryptApiToolsCredentials(
  * Fallback: if value is not encrypted (plaintext), returns as-is.
  * Graceful: if no key provided, returns data unchanged.
  */
-export function decryptApiToolsCredentials(
-  apiTools: Array<{ apiKey?: string; [key: string]: any }>,
+export function decryptApiToolsCredentials<T extends { apiKey?: string }>(
+  apiTools: T[],
   key: string,
-): Array<{ apiKey?: string; [key: string]: any }> {
+): T[] {
   if (!key || !apiTools?.length) return apiTools;
 
   return apiTools.map((connection) => {

@@ -287,15 +287,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       api.setToken(accessToken);
 
+      // Fetch full profile (login response is minimal — missing subscriptionActive etc.)
+      const profileResponse = await api.getProfile();
+      const fullUserData = profileResponse.success && profileResponse.data?.user
+        ? { ...userData, ...profileResponse.data.user }
+        : userData;
+
       // Now get subscription plan info (requires token)
-      const planInfo = await getUserPlanInfo(userData);
+      const planInfo = await getUserPlanInfo(fullUserData);
 
       setUser({
-        ...userData,
-        role: userData.role || userData.currentOrganization?.role || 'member',
-        organizationId: userData.currentOrganizationId || null,
+        ...fullUserData,
+        role: fullUserData.role || fullUserData.currentOrganization?.role || 'member',
+        organizationId: fullUserData.currentOrganizationId || null,
         organization: planInfo.organization,
-        onboardingStep: userData.onboardingStep ?? null,
+        onboardingStep: fullUserData.onboardingStep ?? null,
+        subscriptionActive: fullUserData.subscriptionActive ?? false,
         preferences: {
           theme: 'system',
           language: 'en',

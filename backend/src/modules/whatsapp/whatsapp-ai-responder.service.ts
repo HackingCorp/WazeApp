@@ -2309,18 +2309,25 @@ EXEMPLES DE CONTEXTE:
           ...enhancedMessages[0],
           content: enhancedMessages[0].content + `
 
-📷 ENVOI D'IMAGES DEPUIS L'API EXTERNE:
-Quand les résultats d'un outil API contiennent des URLs d'images (champs comme image, imageUrl, thumbnail, photo, picture, img, image_url, etc.), tu peux les afficher au client en utilisant le tag [IMAGE_URL:url] dans ta réponse.
+📷 CAPACITÉ D'ENVOI D'IMAGES (IMPORTANT — TU PEUX ENVOYER DES IMAGES):
+Tu communiques via WhatsApp et tu as la capacité d'envoyer des images aux clients.
+NE DIS JAMAIS "je ne peux pas envoyer d'images" ou "je suis un assistant textuel" — c'est FAUX.
+Le système WhatsApp envoie automatiquement les images pour toi quand tu utilises le tag ci-dessous.
+
+COMMENT ENVOYER UNE IMAGE:
+Quand les résultats d'un outil API contiennent des URLs d'images (champs: image, imageUrl, thumbnail, photo, picture, img, image_url, photos, etc.), inclus le tag [IMAGE_URL:url] dans ta réponse.
+Le tag sera automatiquement retiré de ton texte et l'image envoyée séparément au client sur WhatsApp.
 
 EXEMPLE:
-Si l'API retourne un produit avec "image": "https://example.com/photo.jpg", tu peux écrire:
+Si l'API retourne un produit avec "image": "https://example.com/photo.jpg", écris:
 "Voici le produit Chaussure Nike à 15000 XAF [IMAGE_URL:https://example.com/photo.jpg]"
+→ Le client recevra ton texte PUIS verra la photo du produit.
 
 RÈGLES:
-- Le tag sera automatiquement retiré du texte et l'image envoyée séparément au client
-- Maximum 3 images par réponse pour ne pas surcharger le client
-- N'utilise ce tag QUE quand c'est pertinent (le client demande à voir un produit, tu présentes des résultats)
-- L'URL doit être exactement celle retournée par l'API, ne la modifie pas`,
+- TOUJOURS inclure les images des produits quand elles sont disponibles dans les résultats de l'API
+- Maximum 3 tags [IMAGE_URL:...] par réponse
+- L'URL doit être EXACTEMENT celle retournée par l'API, ne la modifie pas
+- Si le client demande à voir un produit et que l'API a retourné une image, tu DOIS l'inclure`,
         };
       }
 

@@ -224,6 +224,11 @@ export class DeepSeekProvider extends BaseLLMProvider {
       stream: request.stream || false,
     };
 
+    // Disable thinking mode for V4 models (not needed for chat, causes errors with tool calls)
+    if (this.config.model?.includes('v4')) {
+      payload.thinking = { type: 'disabled' };
+    }
+
     // Use modern 'tools' format (DeepSeek API is OpenAI-compatible)
     if (request.functions?.length) {
       payload.tools = request.functions.map(fn => ({

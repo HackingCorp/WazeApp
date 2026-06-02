@@ -2302,6 +2302,28 @@ EXEMPLES DE CONTEXTE:
       if (agentApiTools?.length > 0) {
         this.logger.log(`🔧 API TOOLS DETAIL: ${JSON.stringify(agentApiTools.map((t: any) => ({ baseUrl: t.baseUrl, toolCount: t.tools?.length, enabledCount: t.tools?.filter((x: any) => x.enabled)?.length })))}`);
       }
+
+      // Add external image tag instructions when agent has external API tools
+      if (agentApiTools?.length > 0) {
+        enhancedMessages[0] = {
+          ...enhancedMessages[0],
+          content: enhancedMessages[0].content + `
+
+📷 ENVOI D'IMAGES DEPUIS L'API EXTERNE:
+Quand les résultats d'un outil API contiennent des URLs d'images (champs comme image, imageUrl, thumbnail, photo, picture, img, image_url, etc.), tu peux les afficher au client en utilisant le tag [IMAGE_URL:url] dans ta réponse.
+
+EXEMPLE:
+Si l'API retourne un produit avec "image": "https://example.com/photo.jpg", tu peux écrire:
+"Voici le produit Chaussure Nike à 15000 XAF [IMAGE_URL:https://example.com/photo.jpg]"
+
+RÈGLES:
+- Le tag sera automatiquement retiré du texte et l'image envoyée séparément au client
+- Maximum 3 images par réponse pour ne pas surcharger le client
+- N'utilise ce tag QUE quand c'est pertinent (le client demande à voir un produit, tu présentes des résultats)
+- L'URL doit être exactement celle retournée par l'API, ne la modifie pas`,
+        };
+      }
+
       let response: any;
       let toolCalls: ToolCallRecord[] = [];
 
@@ -2429,9 +2451,9 @@ EXEMPLES DE CONTEXTE:
       // Send response via WhatsApp
       try {
         // Parse image tags from AI response
-        const { cleanText, imageSlugs, productImageIndices } = this.parseImageTags(response.content);
+        const { cleanText, imageSlugs, productImageIndices, imageUrls } = this.parseImageTags(response.content);
 
-        this.logger.log(`📷 Image tags: KB=${imageSlugs.length}, Products=${productImageIndices.length}`);
+        this.logger.log(`📷 Image tags: KB=${imageSlugs.length}, Products=${productImageIndices.length}, URLs=${imageUrls.length}`);
 
         // Strip any leftover escalation tags that shouldn't be visible to client
         const sanitizedText = cleanText.replace(/\[ESCALAT[EE]\]\s*/gi, '').trim();
@@ -2507,6 +2529,24 @@ EXEMPLES DE CONTEXTE:
                   }
                 }
               }
+            }
+          }
+        }
+
+        // Send external API images based on [IMAGE_URL:https://...] tags
+        if (imageUrls.length > 0) {
+          this.logger.log(`[ExternalImages] Sending ${imageUrls.length} external image(s) from API tool results`);
+          for (const imgUrl of imageUrls.slice(0, 5)) {
+            try {
+              await this.baileysService.sendMessage(session.id, {
+                to: fromNumber,
+                message: imgUrl,
+                type: 'image',
+                mediaUrl: imgUrl,
+                caption: '',
+              });
+            } catch (imgError) {
+              this.logger.warn(`Failed to send external image ${imgUrl}: ${imgError.message}`);
             }
           }
         }
@@ -3052,11 +3092,13 @@ EXEMPLE DE BONNE RÉPONSE AUTOMATIQUE:
   /**
    * Parse [IMAGE:slug], [VIDEO:slug], and [AUDIO:slug] tags from AI response and return clean text + media slugs
    */
-  private parseImageTags(response: string): { cleanText: string; imageSlugs: string[]; productImageIndices: number[] } {
+  private parseImageTags(response: string): { cleanText: string; imageSlugs: string[]; productImageIndices: number[]; imageUrls: string[] } {
     const mediaTagRegex = /\[(?:IMAGE|VIDEO|AUDIO):([^\]]+)\]/gi;
     const productImageRegex = /\[PRODUCT_IMAGE:(\d+)\]/gi;
+    const imageUrlRegex = /\[IMAGE_URL:(https?:\/\/[^\]\s]+)\]/gi;
     const imageSlugs: string[] = [];
     const productImageIndices: number[] = [];
+    const imageUrls: string[] = [];
 
     // Extract all media slugs (KB images)
     let match;
@@ -3073,14 +3115,24 @@ EXEMPLE DE BONNE RÉPONSE AUTOMATIQUE:
       }
     }
 
+    // Extract external image URLs from [IMAGE_URL:https://...] tags
+    let urlMatch;
+    while ((urlMatch = imageUrlRegex.exec(response)) !== null) {
+      const url = urlMatch[1].trim();
+      if (!imageUrls.includes(url)) {
+        imageUrls.push(url);
+      }
+    }
+
     // Remove all tags from response
     const cleanText = response
       .replace(mediaTagRegex, '')
       .replace(productImageRegex, '')
+      .replace(imageUrlRegex, '')
       .replace(/\n{3,}/g, '\n\n')
       .trim();
 
-    return { cleanText, imageSlugs, productImageIndices };
+    return { cleanText, imageSlugs, productImageIndices, imageUrls };
   }
 
   /**

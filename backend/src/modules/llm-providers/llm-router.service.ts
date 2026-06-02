@@ -199,7 +199,7 @@ export class LLMRouterService implements OnModuleInit {
     const deepseekConfig = {
       apiKey: process.env.DEEPSEEK_API_KEY,
       apiEndpoint: process.env.DEEPSEEK_BASE_URL || "https://api.deepseek.com",
-      model: "deepseek-chat",
+      model: process.env.DEEPSEEK_MODEL || "deepseek-v4-flash",
       maxTokens: 4000,
       temperature: 0.7,
       timeout: 30000,

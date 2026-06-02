@@ -15,7 +15,7 @@ export class DeepSeekProvider extends BaseLLMProvider {
   private httpClient: AxiosInstance;
 
   constructor(config: LLMProviderConfig) {
-    super(config, "DeepSeek-R1", "deepseek");
+    super(config, `DeepSeek (${config.model || 'v4-flash'})`, "deepseek");
 
     this.httpClient = axios.create({
       baseURL: config.apiEndpoint,

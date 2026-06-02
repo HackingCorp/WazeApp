@@ -120,9 +120,19 @@ export class ToolExecutionService {
           function: { name: toolName, arguments: toolArgsStr },
         }],
       } as any);
+
+      // Build tool result content with IMAGE_URL reminder if result contains image URLs
+      let toolResultContent = JSON.stringify(result.success ? result.data : { error: result.error });
+      if (result.success) {
+        const hasImageUrls = /https?:\/\/[^\s"']+\.(jpg|jpeg|png|webp|gif|avif)/i.test(toolResultContent);
+        if (hasImageUrls) {
+          toolResultContent += `\n\n[INSTRUCTION SYSTÈME] Les données ci-dessus contiennent des URLs d'images. Tu DOIS inclure les images dans ta réponse en utilisant le tag [IMAGE_URL:url] avec l'URL exacte retournée. NE DIS JAMAIS que tu ne peux pas envoyer d'images. Exemple: "Voici le produit à 5000 F [IMAGE_URL:https://example.com/photo.jpg]"`;
+        }
+      }
+
       conversationMessages.push({
         role: 'tool',
-        content: JSON.stringify(result.success ? result.data : { error: result.error }),
+        content: toolResultContent,
         tool_call_id: toolCallId,
       } as any);
 

@@ -1440,6 +1440,17 @@ CRITICAL: If you cannot ACTUALLY solve the problem with information from your kn
       }
     }
 
+    // Parse [IMAGE_URL:https://...] tags from LLM response (external API images)
+    const imageUrlRegex = /\[IMAGE_URL:(https?:\/\/[^\]\s]+)\]/gi;
+    let imageUrlMatch;
+    while ((imageUrlMatch = imageUrlRegex.exec(cleanResponse)) !== null) {
+      const url = imageUrlMatch[1].trim();
+      if (!mediaItems.some(m => m.url === url)) {
+        mediaItems.push({ type: 'image', url, caption: '' });
+      }
+    }
+    cleanResponse = cleanResponse.replace(imageUrlRegex, '').replace(/\n{3,}/g, '\n\n').trim();
+
     // Parse [ORDER] tag from LLM response — create order and strip tag from response
     if (cleanResponse.includes('[ORDER]')) {
       try {

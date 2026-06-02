@@ -6,7 +6,7 @@ import * as net from 'net';
 import * as url from 'url';
 
 const MAX_RESPONSE_SIZE = 50 * 1024; // 50KB
-const DEFAULT_TIMEOUT = 10000; // 10s
+const DEFAULT_TIMEOUT = 20000; // 20s (accommodates external API cold starts)
 const MAX_TIMEOUT = 30000; // 30s
 
 @Injectable()

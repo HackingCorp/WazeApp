@@ -79,6 +79,6 @@ import { SubscriptionModule } from "../subscriptions/subscription.module";
     SyncConsumer,
     AuditService,
   ],
-  exports: [ProductService, ProductSearchService, StoreService],
+  exports: [ProductService, ProductSearchService, StoreService, CategoryService],
 })
 export class EcommerceModule {}

@@ -46,6 +46,9 @@ import { EcommerceModule } from "./modules/ecommerce/ecommerce.module";
 import { OrdersModule } from "./modules/orders/orders.module";
 import { AppointmentsModule } from "./modules/appointments/appointments.module";
 
+// Merchant API
+import { MerchantApiModule } from "./modules/merchant-api/merchant-api.module";
+
 // Guards
 import { JwtAuthGuard } from "./common/guards/jwt-auth.guard";
 import { PlanThrottlerGuard } from "./common/guards/plan-throttler.guard";
@@ -164,6 +167,9 @@ import { AppController } from "./app.controller";
     // Orders & Appointments
     OrdersModule,
     AppointmentsModule,
+
+    // Merchant API (external access for authorized merchants)
+    MerchantApiModule,
   ],
   providers: [
     // Global guards

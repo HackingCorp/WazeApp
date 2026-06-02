@@ -75,8 +75,27 @@ export class ApiKeyService {
   }
 
   /**
+   * Merchant-only permissions that don't require a WhatsApp session
+   */
+  private static readonly MERCHANT_PERMISSIONS: ApiKeyPermission[] = [
+    ApiKeyPermission.PRODUCTS_READ,
+    ApiKeyPermission.ORDERS_READ,
+    ApiKeyPermission.ORDERS_CREATE,
+    ApiKeyPermission.ORDERS_UPDATE,
+  ];
+
+  /**
+   * Check if all permissions in the list are merchant-only (no session needed)
+   */
+  private isMerchantOnlyKey(permissions: string[]): boolean {
+    return permissions.length > 0 && permissions.every(
+      p => ApiKeyService.MERCHANT_PERMISSIONS.includes(p as ApiKeyPermission),
+    );
+  }
+
+  /**
    * Create a new API key
-   * Each API key is linked to exactly ONE WhatsApp session
+   * Each API key is linked to exactly ONE WhatsApp session (unless merchant-only permissions)
    */
   async createApiKey(
     organizationId: string,
@@ -91,28 +110,32 @@ export class ApiKeyService {
       );
     }
 
-    // SessionId is required for new API keys
-    if (!dto.sessionId) {
-      throw new BadRequestException(
-        'sessionId is required when creating a new API key',
-      );
-    }
-
-    // Verify the session exists and belongs to this organization
-    const session = await this.sessionRepository.findOne({
-      where: { id: dto.sessionId, organizationId },
-    });
-    if (!session) {
-      throw new BadRequestException(
-        'Session not found or does not belong to this organization',
-      );
-    }
-
     // Validate permissions
     const validPermissions = Object.values(ApiKeyPermission);
     for (const permission of dto.permissions) {
       if (!validPermissions.includes(permission as ApiKeyPermission)) {
         throw new BadRequestException(`Invalid permission: ${permission}`);
+      }
+    }
+
+    const isMerchantOnly = this.isMerchantOnlyKey(dto.permissions);
+
+    // SessionId is required for non-merchant API keys
+    if (!isMerchantOnly && !dto.sessionId) {
+      throw new BadRequestException(
+        'sessionId is required when creating a non-merchant API key',
+      );
+    }
+
+    // Verify the session exists if provided
+    if (dto.sessionId) {
+      const session = await this.sessionRepository.findOne({
+        where: { id: dto.sessionId, organizationId },
+      });
+      if (!session) {
+        throw new BadRequestException(
+          'Session not found or does not belong to this organization',
+        );
       }
     }
 
@@ -123,7 +146,7 @@ export class ApiKeyService {
 
     const apiKey = this.apiKeyRepository.create({
       organizationId,
-      sessionId: dto.sessionId,
+      sessionId: dto.sessionId || undefined,
       name: dto.name,
       description: dto.description,
       keyHash,
@@ -236,13 +259,14 @@ export class ApiKeyService {
 
   /**
    * Validate API key and return organization/session info
-   * Each API key is linked to exactly ONE WhatsApp session
+   * Each API key is linked to exactly ONE WhatsApp session (unless skipSessionCheck is set)
    */
   async validateApiKey(
     key: string,
     requiredPermission?: ApiKeyPermission,
     clientIp?: string,
-  ): Promise<{ organizationId: string; sessionId: string; permissions: ApiKeyPermission[]; keyId: string; keyName: string; keyHash: string; rateLimitPerMinute: number; rateLimitPerDay: number }> {
+    options?: { skipSessionCheck?: boolean },
+  ): Promise<{ organizationId: string; sessionId?: string; permissions: ApiKeyPermission[]; keyId: string; keyName: string; keyHash: string; rateLimitPerMinute: number; rateLimitPerDay: number }> {
     if (!key) {
       throw new UnauthorizedException('API key is required. Please provide X-API-Key header.');
     }
@@ -294,8 +318,8 @@ export class ApiKeyService {
       );
     }
 
-    // Check if API key has a session assigned
-    if (!apiKey.sessionId) {
+    // Check if API key has a session assigned (skip for merchant API keys)
+    if (!options?.skipSessionCheck && !apiKey.sessionId) {
       throw new ForbiddenException(
         'This API key has no WhatsApp session assigned. Please update the API key to assign a session before using it.',
       );

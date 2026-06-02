@@ -49,14 +49,53 @@ export class ToolRegistryService {
     return this.configService.get<string>('TOOL_ENCRYPTION_KEY') || '';
   }
 
+  /**
+   * Check if external API tools cover a specific domain (products or orders).
+   * When external tools cover a domain, internal handlers for that domain should be skipped
+   * to avoid shadowing the external API with local (potentially empty) data.
+   */
+  private hasExternalToolsCovering(apiTools: any[], domain: 'products' | 'orders'): boolean {
+    const keywords = domain === 'products'
+      ? ['product', 'catalog', 'item', 'article', 'inventory']
+      : ['order', 'commande', 'purchase', 'checkout', 'cart'];
+
+    for (const entry of apiTools) {
+      if (isLegacyTool(entry)) {
+        const name = entry.name.toLowerCase();
+        const desc = (entry.description || '').toLowerCase();
+        if (keywords.some(kw => name.includes(kw) || desc.includes(kw))) return true;
+      } else if (isNewConnection(entry)) {
+        for (const tool of entry.tools || []) {
+          if (!tool.enabled) continue;
+          const name = (tool.name || '').toLowerCase();
+          const desc = (tool.description || '').toLowerCase();
+          const path = (tool.path || '').toLowerCase();
+          if (keywords.some(kw => name.includes(kw) || desc.includes(kw) || path.includes(kw))) return true;
+        }
+      }
+    }
+    return false;
+  }
+
   getToolDefinitions(agent: AiAgent, context: ToolExecutionContext): ToolDefinition[] {
     const tools: ToolDefinition[] = [];
 
-    if (agent.ecommerceEnabled && agent.catalogs?.length > 0) {
+    // Scan external API tools first to determine coverage
+    const apiTools = (agent as any).apiTools as any[] | undefined;
+    const hasExternalProducts = apiTools?.length ? this.hasExternalToolsCovering(apiTools, 'products') : false;
+    const hasExternalOrders = apiTools?.length ? this.hasExternalToolsCovering(apiTools, 'orders') : false;
+
+    if (hasExternalProducts || hasExternalOrders) {
+      this.logger.log(`🔧 External API tools cover: products=${hasExternalProducts}, orders=${hasExternalOrders} — skipping shadowed internal handlers`);
+    }
+
+    // Only add internal product tools if no external tools cover products
+    if (agent.ecommerceEnabled && agent.catalogs?.length > 0 && !hasExternalProducts) {
       tools.push(...this.productHandler.getToolDefinitions(context));
     }
 
-    if (agent.ecommerceEnabled) {
+    // Only add internal order tools if no external tools cover orders
+    if (agent.ecommerceEnabled && !hasExternalOrders) {
       tools.push(...this.orderHandler.getToolDefinitions(context));
     }
 
@@ -65,7 +104,6 @@ export class ToolRegistryService {
     }
 
     // External API tools — support both legacy and new formats
-    const apiTools = (agent as any).apiTools as any[] | undefined;
     this.logger.log(`🔧 getToolDefinitions: apiTools count = ${apiTools?.length ?? 'undefined'}, type = ${typeof apiTools}`);
     if (apiTools?.length) {
       for (const entry of apiTools) {
@@ -114,15 +152,20 @@ export class ToolRegistryService {
   ): Promise<ToolResult> {
     const startTime = Date.now();
 
+    // Determine if external API tools cover products/orders to avoid internal handler shadowing
+    const apiTools = (agent as any).apiTools as any[] | undefined;
+    const hasExternalProducts = apiTools?.length ? this.hasExternalToolsCovering(apiTools, 'products') : false;
+    const hasExternalOrders = apiTools?.length ? this.hasExternalToolsCovering(apiTools, 'orders') : false;
+
     try {
-      // Check internal handlers first
-      if (this.productHandler.handles(name)) {
+      // Check internal handlers — skip if external tools cover the same domain
+      if (!hasExternalProducts && this.productHandler.handles(name)) {
         const result = await this.productHandler.executeTool(name, args, context);
         this.logger.log(`Tool ${name} executed in ${Date.now() - startTime}ms (internal/product)`);
         return result;
       }
 
-      if (this.orderHandler.handles(name)) {
+      if (!hasExternalOrders && this.orderHandler.handles(name)) {
         const result = await this.orderHandler.executeTool(name, args, context);
         this.logger.log(`Tool ${name} executed in ${Date.now() - startTime}ms (internal/order)`);
         return result;
@@ -135,7 +178,6 @@ export class ToolRegistryService {
       }
 
       // Check external API tools — support both formats
-      const apiTools = (agent as any).apiTools as any[] | undefined;
       if (apiTools?.length) {
         for (const entry of apiTools) {
           if (isLegacyTool(entry) && entry.name === name) {

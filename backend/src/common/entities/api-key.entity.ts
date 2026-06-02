@@ -22,6 +22,11 @@ export enum ApiKeyPermission {
   CAMPAIGNS_WRITE = 'campaigns:write',
   SEND_MESSAGE = 'send:message',
   WEBHOOKS_MANAGE = 'webhooks:manage',
+  // Merchant API permissions
+  PRODUCTS_READ = 'products:read',
+  ORDERS_READ = 'orders:read',
+  ORDERS_CREATE = 'orders:create',
+  ORDERS_UPDATE = 'orders:update',
 }
 
 @Entity('api_keys')

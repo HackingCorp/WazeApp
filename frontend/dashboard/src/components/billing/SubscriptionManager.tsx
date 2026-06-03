@@ -341,8 +341,9 @@ export function SubscriptionManager({
     }
   };
 
-  // Check if user has a Stripe-managed subscription
-  const hasStripeSubscription = !!(user as any)?.organization?.subscription?.stripeSubscriptionId
+  // Check if user has a Stripe-managed subscription (flag sent by backend auth)
+  const hasStripeSubscription = !!(user as any)?.hasStripeSubscription
+    || !!(user as any)?.organization?.subscription?.stripeSubscriptionId
     || !!(user as any)?.subscription?.stripeSubscriptionId;
 
   // Get the current currency symbol

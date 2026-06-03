@@ -26,6 +26,7 @@ interface User {
   avatar?: string;
   onboardingStep?: number | null;
   subscriptionActive?: boolean;
+  hasStripeSubscription?: boolean;
   preferences: {
     theme: string;
     language: string;
@@ -173,6 +174,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           organization: planInfo.organization,
           onboardingStep: userData.onboardingStep ?? null,
           subscriptionActive: userData.subscriptionActive ?? false,
+          hasStripeSubscription: userData.hasStripeSubscription ?? false,
           preferences: {
             theme: 'system',
             language: 'en',
@@ -227,6 +229,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                   organization: planInfo.organization,
                   onboardingStep: userData.onboardingStep ?? null,
           subscriptionActive: userData.subscriptionActive ?? false,
+          hasStripeSubscription: userData.hasStripeSubscription ?? false,
                   preferences: {
                     theme: 'system',
                     language: 'en',
@@ -303,6 +306,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         organization: planInfo.organization,
         onboardingStep: fullUserData.onboardingStep ?? null,
         subscriptionActive: fullUserData.subscriptionActive ?? false,
+        hasStripeSubscription: fullUserData.hasStripeSubscription ?? false,
         preferences: {
           theme: 'system',
           language: 'en',

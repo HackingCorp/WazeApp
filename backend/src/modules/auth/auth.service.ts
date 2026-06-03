@@ -681,6 +681,8 @@ export class AuthService {
       order: { createdAt: 'DESC' },
     });
     const subscriptionActive = !!(subscription?.stripeSubscriptionId);
+    const hasStripeSubscription = !!(subscription?.stripeSubscriptionId);
+    const subscriptionPlan = subscription?.plan || 'free';
 
     return {
       user: {
@@ -688,6 +690,8 @@ export class AuthService {
         currentOrganizationId,
         currentOrganization,
         subscriptionActive,
+        hasStripeSubscription,
+        subscriptionPlan,
       },
       organizations: memberships.map((m) => ({
         id: m.organization.id,

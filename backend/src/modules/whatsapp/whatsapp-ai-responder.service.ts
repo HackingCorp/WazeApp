@@ -71,7 +71,11 @@ export class WhatsAppAIResponderService {
   private readonly BATCH_DELAY_MS = 4000; // Wait 4 seconds to collect messages
 
   // Per-conversation lock to prevent concurrent AI response generation
+  // When locked, new messages are queued in pendingWhileLocked and processed after current response completes
   private readonly activeResponses = new Set<string>();
+
+  // Pending messages queued while a response was being generated
+  private readonly pendingWhileLocked = new Map<string, { conversation: any; agent: any; session: any; fromNumber: string; userMessage: string; mediaAnalysis?: any; replyContext?: any }>();
 
   // Redis client for dedup operations (survives process restarts, shared across instances)
   private readonly redisClient: Redis;
@@ -1901,7 +1905,13 @@ Always respond directly in the user's language without any formatting.`,
     // Per-conversation lock: prevent duplicate AI responses from concurrent calls
     const lockKey = `${conversation.id}:${fromNumber}`;
     if (this.activeResponses.has(lockKey)) {
-      this.logger.warn(`⚠️ Skipping duplicate AI response for conversation ${conversation.id} (already generating)`);
+      // Queue message for processing after current response completes (instead of dropping it)
+      const existingPending = this.pendingWhileLocked.get(lockKey);
+      const combinedMessage = existingPending
+        ? `${existingPending.userMessage}\n\n${userMessage}`
+        : userMessage;
+      this.pendingWhileLocked.set(lockKey, { conversation, agent, session, fromNumber, userMessage: combinedMessage, mediaAnalysis, replyContext });
+      this.logger.warn(`📦 Message queued for conversation ${conversation.id} (AI response in progress, will process after completion)`);
       return;
     }
     this.activeResponses.add(lockKey);
@@ -2590,6 +2600,25 @@ RÈGLES IMAGES:
     } finally {
       // Release per-conversation lock
       this.activeResponses.delete(lockKey);
+
+      // Process any messages that arrived while we were generating a response
+      const pending = this.pendingWhileLocked.get(lockKey);
+      if (pending) {
+        this.pendingWhileLocked.delete(lockKey);
+        this.logger.log(`🔄 Processing queued message for conversation ${conversation.id} after lock release`);
+        // Use setImmediate to avoid deep recursion and let the event loop breathe
+        setImmediate(() => {
+          this.generateAndSendResponse(
+            pending.conversation,
+            pending.agent,
+            pending.session,
+            pending.fromNumber,
+            pending.userMessage,
+            pending.mediaAnalysis,
+            pending.replyContext,
+          ).catch(err => this.logger.error(`Error processing queued message: ${err.message}`));
+        });
+      }
     }
   }
 

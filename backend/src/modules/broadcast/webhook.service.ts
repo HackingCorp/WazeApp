@@ -223,11 +223,17 @@ export class WebhookService {
         // Retry with exponential backoff
         const delay = webhook.retryDelay * Math.pow(2, retryCount);
         setTimeout(() => {
-          this.sendWebhook(webhook, event, payload, retryCount + 1);
+          this.sendWebhook(webhook, event, payload, retryCount + 1).catch(
+            (retryErr) =>
+              this.logger.error(
+                `Webhook ${webhook.name} retry ${retryCount + 1} failed:`,
+                retryErr?.message,
+              ),
+          );
         }, delay);
       }
 
-      throw error;
+      this.logger.error(`Webhook ${webhook.name} delivery failed: ${errorMessage}`);
     }
   }
 

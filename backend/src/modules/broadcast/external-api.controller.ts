@@ -502,8 +502,8 @@ export class ExternalApiController {
       // Trigger webhook
       await this.webhookService.trigger(organizationId, 'message.sent', {
         recipient: dto.to,
-        messageId: result.messageId,
-        status: result.status,
+        messageId: result?.messageId || '',
+        status: result?.status || 'sent',
       });
 
       return {

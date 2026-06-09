@@ -113,6 +113,18 @@ export class BroadcastProcessor {
     const campaign = message.campaign;
     const contact = message.contact;
 
+    if (!campaign || !contact) {
+      this.logger.error(
+        `Message ${messageId} has missing relations — campaign: ${!!campaign}, contact: ${!!contact}`,
+      );
+      message.status = BroadcastMessageStatus.FAILED;
+      message.failedAt = new Date();
+      message.errorMessage = 'Missing campaign or contact relation';
+      message.errorCode = 'MISSING_RELATION';
+      await this.messageRepository.save(message);
+      return;
+    }
+
     // Skip if campaign is no longer running
     if (campaign.status !== CampaignStatus.RUNNING) {
       message.status = BroadcastMessageStatus.CANCELLED;
@@ -188,7 +200,7 @@ export class BroadcastProcessor {
             caption: caption,
           });
 
-          lastMessageId = result.messageId;
+          lastMessageId = result?.messageId || '';
 
           // Small delay between multiple media messages
           if (i < campaign.mediaUrls.length - 1) {
@@ -208,7 +220,7 @@ export class BroadcastProcessor {
           filename: preparedContent.filename,
         });
 
-        lastMessageId = result.messageId;
+        lastMessageId = result?.messageId || '';
         this.logger.debug(`Message sent to ${phoneNumber} (original: ${contact.phoneNumber})`);
       }
 
@@ -306,13 +318,13 @@ export class BroadcastProcessor {
       // Mark as sent to prevent duplicate on retry
       await this.markSendDone(messageContent.to, messageContent.message);
 
-      this.logger.log(`✅ External message sent to ${messageContent.to} (messageId: ${result.messageId})`);
+      this.logger.log(`✅ External message sent to ${messageContent.to} (messageId: ${result?.messageId})`);
 
       // Trigger webhook
       await this.webhookService.trigger(organizationId, 'message.sent', {
         recipient: messageContent.to,
-        messageId: result.messageId,
-        status: result.status,
+        messageId: result?.messageId || '',
+        status: result?.status || 'sent',
         source: 'external-api',
       });
     } catch (error) {

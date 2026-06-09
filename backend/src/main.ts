@@ -220,6 +220,16 @@ async function bootstrap() {
     }
   };
 
+  // Catch unhandled promise rejections to prevent silent crashes
+  process.on('unhandledRejection', (reason, promise) => {
+    logger.error('Unhandled Promise Rejection:', reason);
+  });
+
+  process.on('uncaughtException', (error) => {
+    logger.error('Uncaught Exception:', error);
+    gracefulShutdown('uncaughtException');
+  });
+
   // Listen for termination signals
   process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
   process.on('SIGINT', () => gracefulShutdown('SIGINT'));

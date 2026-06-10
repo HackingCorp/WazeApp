@@ -212,8 +212,11 @@ export class MessageResponseDto {
   @ApiProperty({ description: "Message ID" })
   messageId: string;
 
-  @ApiProperty({ description: "Message status" })
-  status: "sent" | "delivered" | "read" | "failed";
+  @ApiProperty({
+    description: "Message delivery status from WhatsApp",
+    enum: ["pending", "server_ack", "sent", "delivered", "read", "played", "error", "failed"],
+  })
+  status: "pending" | "server_ack" | "sent" | "delivered" | "read" | "played" | "error" | "failed";
 
   @ApiProperty({ description: "Timestamp" })
   timestamp: Date;

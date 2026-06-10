@@ -242,6 +242,20 @@ export default function ApiDocumentationPage() {
               id="send-request"
               language="json"
             />
+            <h4 className="text-md font-medium text-gray-800 dark:text-gray-200 mt-4 mb-2">Réponse</h4>
+            <CodeBlock
+              code={`{
+  "totalRecipients": 2,
+  "queued": 2,
+  "failed": 0,
+  "results": [
+    { "recipient": "+237612345678", "success": true, "status": "queued" },
+    { "recipient": "+237698765432", "success": true, "status": "queued" }
+  ]
+}`}
+              id="send-response"
+              language="json"
+            />
           </div>
 
           {/* Send Immediate */}
@@ -269,6 +283,34 @@ export default function ApiDocumentationPage() {
 
 // Note: Le sessionId n'est plus requis`}
               id="send-immediate"
+              language="json"
+            />
+            <h4 className="text-md font-medium text-gray-800 dark:text-gray-200 mt-4 mb-2">Réponse</h4>
+            <CodeBlock
+              code={`{
+  "success": true,
+  "messageId": "3EB0A1B2C3D4E5F6",
+  "status": "server_ack"
+}
+
+// Statuts possibles:
+// "pending"    - Message en cours d'envoi
+// "server_ack" - Reçu par le serveur WhatsApp
+// "delivered"  - Délivré au destinataire
+// "read"       - Lu par le destinataire
+// "played"     - Audio/vidéo lu
+// "error"      - Erreur d'envoi
+
+// Si la session est déconnectée (avec queueIfDisconnected: true):
+{
+  "success": true,
+  "status": "queued",
+  "message": "Session is disconnected. Message queued for delivery when session reconnects.",
+  "messageId": "uuid",
+  "queuePosition": 3,
+  "sessionStatus": "disconnected"
+}`}
+              id="send-immediate-response"
               language="json"
             />
           </div>

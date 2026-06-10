@@ -508,7 +508,7 @@ export class ExternalApiController {
 
       return {
         ...result,
-        status: 'sent',
+        success: true,
       };
     } catch (error) {
       const errorCode = (error as Error & { code?: string })?.code;

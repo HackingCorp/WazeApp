@@ -1566,9 +1566,20 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
         setTimeout(() => this.sentBySystemIds.delete(sentMessage.key.id), 300000);
       }
 
+      // Map Baileys WAMessageStatus to human-readable status
+      // 0=ERROR, 1=PENDING, 2=SERVER_ACK, 3=DELIVERY_ACK, 4=READ, 5=PLAYED
+      const statusMap: Record<number, string> = {
+        0: "error",
+        1: "pending",
+        2: "server_ack",
+        3: "delivered",
+        4: "read",
+        5: "played",
+      };
+
       return {
         messageId: sentMessage.key.id,
-        status: "sent",
+        status: statusMap[sentMessage?.status] || "sent",
       };
     } catch (error) {
       this.logger.error(

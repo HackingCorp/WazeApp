@@ -230,11 +230,11 @@ export class UnansweredMessageService {
     cutoffTime: Date,
     maxMessages: number,
   ): Promise<AgentMessage[]> {
-    // SAFETY: Only catch-up messages that are at least 2 minutes old
+    // SAFETY: Only catch-up messages that are at least 5 minutes old
     // This prevents catching up messages that were just handled by the real-time AI responder
     // (which saves responses in its own conversation record)
     const minAgeTime = new Date();
-    minAgeTime.setMinutes(minAgeTime.getMinutes() - 2);
+    minAgeTime.setMinutes(minAgeTime.getMinutes() - 5);
 
     // Use the earlier of cutoffTime and minAgeTime as the upper bound
     const effectiveMaxTime = minAgeTime;
@@ -267,6 +267,7 @@ export class UnansweredMessageService {
         AND m."createdAt" <= $4
         AND (m.metadata->>'catchUpProcessed' IS NULL OR m.metadata->>'catchUpProcessed' = 'false')
         AND later_agent_msg.id IS NULL
+        AND c."isHumanControlled" IS NOT TRUE
         AND NOT EXISTS (
           SELECT 1 FROM agent_messages cross_msg
           INNER JOIN agent_conversations cross_conv ON cross_conv.id = cross_msg."conversationId"
@@ -281,7 +282,7 @@ export class UnansweredMessageService {
       [sessionId, cutoffTime.toISOString(), maxMessages, effectiveMaxTime.toISOString()],
     );
 
-    this.logger.log(`Raw SQL found ${rawResults.length} unanswered messages for session ${sessionId} (min age: 2 min)`);
+    this.logger.log(`Raw SQL found ${rawResults.length} unanswered messages for session ${sessionId} (window: ${cutoffTime.toISOString()} to ${effectiveMaxTime.toISOString()})`);
 
     // Map raw results to message objects with conversation info
     const messages: AgentMessage[] = rawResults.map((raw: any) => {

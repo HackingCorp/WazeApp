@@ -1420,6 +1420,27 @@ Always respond directly in the user's language without any formatting.`,
     }
 
     const savedMessage = await this.messageRepository.save(message);
+
+    // Notify WebSocket gateway so dashboard shows the message in real-time
+    if (conversation.userId) {
+      this.eventEmitter.emit("whatsapp.ui.message.update", {
+        userId: conversation.userId,
+        conversationId: conversation.id,
+        message: {
+          id: savedMessage.id,
+          content: messageText,
+          timestamp: savedMessage.createdAt,
+          sender: "client",
+          type: mediaAnalysis?.type || "text",
+          status: "delivered",
+        },
+        contact: {
+          id: conversation.id,
+          phoneNumber: conversation.clientPhoneNumber,
+        },
+      });
+    }
+
     return savedMessage;
   }
 

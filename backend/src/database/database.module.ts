@@ -115,7 +115,7 @@ import {
             : false,
         maxQueryExecutionTime: 1000,
         extra: {
-          max: +configService.get("DATABASE_MAX_CONNECTIONS", 20),
+          max: +configService.get("DATABASE_MAX_CONNECTIONS", 50),
           min: 1,
           idleTimeoutMillis: 30000,
           acquireTimeoutMillis: 60000,

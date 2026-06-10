@@ -61,9 +61,9 @@ RUN mkdir -p whatsapp-sessions uploads uploads/templates uploads/broadcasts temp
 
 USER nestjs
 
-# Health check with longer start period for slow starts
+# Liveness check — does NOT ping the DB so the container survives sync-heavy periods
 HEALTHCHECK --interval=30s --timeout=10s --start-period=90s --retries=3 \
-    CMD curl -f http://localhost:3100/api/v1/health || exit 1
+    CMD curl -f http://localhost:3100/api/v1/health/live || exit 1
 
 ENV NODE_ENV=production
 ENV PORT=3100

@@ -31,7 +31,7 @@ const AppDataSource = new DataSource({
         }
       : false,
   extra: {
-    max: 20,
+    max: 50,
     min: 2,
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 5000,

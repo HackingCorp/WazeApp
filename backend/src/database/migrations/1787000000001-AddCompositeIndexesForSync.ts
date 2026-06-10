@@ -8,25 +8,25 @@ export class AddCompositeIndexesForSync1787000000001
   public async up(queryRunner: QueryRunner): Promise<void> {
     // Index composite for the most frequent query (userId + channel + sessionId)
     await queryRunner.query(
-      `CREATE INDEX CONCURRENTLY IF NOT EXISTS "IDX_CONV_USER_CHANNEL_SESSION"
+      `CREATE INDEX IF NOT EXISTS "IDX_CONV_USER_CHANNEL_SESSION"
        ON "agent_conversations" ("userId", "channel", "sessionId")`,
     );
 
     // Index for JSONB context->>'sessionId' lookups
     await queryRunner.query(
-      `CREATE INDEX CONCURRENTLY IF NOT EXISTS "IDX_CONV_CONTEXT_SESSION"
+      `CREATE INDEX IF NOT EXISTS "IDX_CONV_CONTEXT_SESSION"
        ON "agent_conversations" ((context->>'sessionId'))`,
     );
 
     // Index composite for contact lookup (sessionId + lid)
     await queryRunner.query(
-      `CREATE INDEX CONCURRENTLY IF NOT EXISTS "IDX_CONTACT_SESSION_LID"
+      `CREATE INDEX IF NOT EXISTS "IDX_CONTACT_SESSION_LID"
        ON "whatsapp_contacts" ("sessionId", "lid")`,
     );
 
     // Partial index for message dedup lookup (conversationId + createdAt where content is not null)
     await queryRunner.query(
-      `CREATE INDEX CONCURRENTLY IF NOT EXISTS "IDX_MSG_CONV_CONTENT_DATE"
+      `CREATE INDEX IF NOT EXISTS "IDX_MSG_CONV_CONTENT_DATE"
        ON "agent_messages" ("conversationId", "createdAt")
        WHERE content IS NOT NULL`,
     );

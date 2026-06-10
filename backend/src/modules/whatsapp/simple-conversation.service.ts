@@ -69,6 +69,9 @@ export class SimpleConversationService implements OnModuleDestroy {
   private readonly CONVERSATION_TTL_MS = 24 * 60 * 60 * 1000; // Remove conversations older than 24 hours from memory
   private cleanupTimer: NodeJS.Timeout;
 
+  // Serializes sync batch processing to avoid saturating the DB connection pool
+  private syncQueue: Promise<void> = Promise.resolve();
+
   constructor(
     @InjectRepository(AgentConversation)
     private conversationRepository: Repository<AgentConversation>,
@@ -120,52 +123,56 @@ export class SimpleConversationService implements OnModuleDestroy {
   }) {
     const { sessionId, messages } = data;
 
-    // Fetch session once for the entire batch
-    const session = await this.sessionRepository.findOne({
-      where: { id: sessionId },
-    });
+    // Queue this batch behind any currently-processing batch to avoid
+    // saturating the DB connection pool when multiple batches arrive rapidly
+    this.syncQueue = this.syncQueue.then(async () => {
+      // Fetch session once for the entire batch
+      const session = await this.sessionRepository.findOne({
+        where: { id: sessionId },
+      });
 
-    if (!session) {
-      this.logger.warn(
-        `Session ${sessionId} not found for sync messages batch`,
-      );
-      return;
-    }
-
-    this.logger.log(
-      `Processing batch of ${messages.length} sync messages for session ${sessionId}`,
-    );
-
-    // Process messages sequentially to avoid DB connection issues
-    for (const messageData of messages) {
-      try {
-        // Convert sync message to conversation message format
-        const conversationMessageData = {
-          sessionId: messageData.sessionId,
-          userId: session.userId,
-          organizationId: session.organizationId,
-          fromNumber: messageData.fromNumber,
-          messageText: messageData.messageText,
-          messageId: messageData.messageId,
-          timestamp: messageData.timestamp,
-          isGroup: messageData.isGroup,
-          groupId: messageData.groupId,
-          participant: messageData.participant,
-          isHistorical: messageData.isHistorical,
-          isFromMe: messageData.isFromMe,
-          messageType: messageData.messageType,
-        };
-
-        await this.handleWhatsAppMessage(conversationMessageData);
-      } catch (error) {
-        this.logger.error(
-          `Error processing sync message ${messageData.messageId}:`,
-          error,
+      if (!session) {
+        this.logger.warn(
+          `Session ${sessionId} not found for sync messages batch`,
         );
+        return;
       }
-    }
 
-    this.logger.log(`Completed processing batch for session ${sessionId}`);
+      this.logger.log(
+        `Processing batch of ${messages.length} sync messages for session ${sessionId}`,
+      );
+
+      // Process messages sequentially to avoid DB connection issues
+      for (const messageData of messages) {
+        try {
+          // Convert sync message to conversation message format
+          const conversationMessageData = {
+            sessionId: messageData.sessionId,
+            userId: session.userId,
+            organizationId: session.organizationId,
+            fromNumber: messageData.fromNumber,
+            messageText: messageData.messageText,
+            messageId: messageData.messageId,
+            timestamp: messageData.timestamp,
+            isGroup: messageData.isGroup,
+            groupId: messageData.groupId,
+            participant: messageData.participant,
+            isHistorical: messageData.isHistorical,
+            isFromMe: messageData.isFromMe,
+            messageType: messageData.messageType,
+          };
+
+          await this.handleWhatsAppMessage(conversationMessageData);
+        } catch (error) {
+          this.logger.error(
+            `Error processing sync message ${messageData.messageId}:`,
+            error,
+          );
+        }
+      }
+
+      this.logger.log(`Completed processing batch for session ${sessionId}`);
+    }).catch(err => this.logger.error('Sync queue error:', err));
   }
 
   @OnEvent("whatsapp.sync.message")

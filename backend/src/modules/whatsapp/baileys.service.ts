@@ -2106,8 +2106,8 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
     try {
       let processedCount = 0;
 
-      // Process messages in batches to avoid overwhelming the database
-      const batchSize = 10;
+      // Process messages in small batches to avoid overwhelming the database during sync
+      const batchSize = 5;
       const batches = [];
 
       // Prepare message batches
@@ -2219,8 +2219,8 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
           });
         }
 
-        // Delay between batches to avoid overwhelming the system
-        await new Promise((resolve) => setTimeout(resolve, 200));
+        // Delay between batches to avoid saturating the DB connection pool during sync
+        await new Promise((resolve) => setTimeout(resolve, 500));
       }
 
       this.logger.log(

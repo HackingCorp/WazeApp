@@ -8,7 +8,11 @@ import { Boom } from "@hapi/boom";
 import * as path from "path";
 import * as fs from "fs/promises";
 import Redis from "ioredis";
+import pino from "pino";
 import { SendMessageDto } from "./dto/whatsapp.dto";
+
+// Silent pino logger to prevent Baileys from dumping credentials/pre-keys to stdout
+const baileysLogger = pino({ level: "silent" });
 import { WhatsAppSession } from "@/common/entities";
 import { WhatsAppSessionStatus } from "@/common/enums";
 import { usePostgresAuthState, PostgresAuthStateResult } from "./postgres-auth-state";
@@ -543,6 +547,7 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
 
       const sock = makeWASocket({
         version,
+        logger: baileysLogger,
         printQRInTerminal: false,
 
         // Use standard WhatsApp Web browser fingerprint to avoid detection
@@ -551,7 +556,7 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
 
         auth: {
           creds: authState.state.creds,
-          keys: makeCacheableSignalKeyStore(authState.state.keys, undefined),
+          keys: makeCacheableSignalKeyStore(authState.state.keys, baileysLogger),
         },
 
         // OPTIMIZED Configuration based on community best practices (2025)
@@ -1109,11 +1114,12 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
 
       const sock = makeWASocket({
         version,
+        logger: baileysLogger,
         printQRInTerminal: false,
         browser: Browsers.windows("Chrome"),
         auth: {
           creds: authState.state.creds,
-          keys: makeCacheableSignalKeyStore(authState.state.keys, undefined),
+          keys: makeCacheableSignalKeyStore(authState.state.keys, baileysLogger),
         },
         // OPTIMIZED Configuration based on community best practices (2025)
         generateHighQualityLinkPreview: false,
@@ -1313,12 +1319,13 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
           const { version } = await fetchLatestBaileysVersion();
           const tempSock = makeWASocket({
             version,
+            logger: baileysLogger,
             printQRInTerminal: false,
             auth: {
               creds: authState.state.creds,
               keys: makeCacheableSignalKeyStore(
                 authState.state.keys,
-                undefined,
+                baileysLogger,
               ),
             },
             generateHighQualityLinkPreview: false,

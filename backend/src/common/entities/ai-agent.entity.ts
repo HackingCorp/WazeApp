@@ -126,6 +126,9 @@ export class AiAgent extends BaseEntity {
     escalationMessage?: string;
     operatorWhatsAppNumber?: string;
     notificationEmails?: string[];
+    // When not explicitly false, the AI reformulates the operator's WhatsApp reply into a
+    // coherent, client-facing message before forwarding it to the customer.
+    reformulateOperatorReplies?: boolean;
   };
 
   @ApiProperty({ description: "Agent performance metrics" })

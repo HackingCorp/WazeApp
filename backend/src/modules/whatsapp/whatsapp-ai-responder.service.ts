@@ -3710,6 +3710,72 @@ RÈGLES:
   }
 
   /**
+   * Reformulate an operator's raw reply into a polished, client-facing WhatsApp message.
+   * The operator's text is the source of truth (no facts are invented); the conversation
+   * history is used only for language, tone and coherence. Falls back to the raw reply on
+   * any failure so a client is never left without an answer.
+   */
+  private async reformulateOperatorReply(
+    rawReply: string,
+    conversationId: string,
+    agent: AiAgent,
+  ): Promise<string> {
+    try {
+      // Load recent conversation history for context (most recent first, then chronological)
+      const recent = await this.messageRepository.find({
+        where: { conversationId },
+        order: { sequenceNumber: 'DESC' },
+        take: 12,
+      });
+
+      const historyText = recent
+        .reverse()
+        .filter(m => m.role !== MessageRole.SYSTEM && !(m.metadata as any)?.escalationMessage)
+        .map(m => {
+          const who =
+            m.role === MessageRole.USER ? 'Client'
+            : m.role === MessageRole.OPERATOR ? 'Équipe'
+            : 'Assistant';
+          return `${who}: ${this.sanitizeForPrompt(m.content || '', 400)}`;
+        })
+        .join('\n');
+
+      const prompt =
+        `Tu es l'assistant "${agent.name}". Une conversation client a été escaladée à un opérateur humain. ` +
+        `L'opérateur vient de fournir cette réponse interne (parfois brève, en notes, ou dans une autre langue) :\n\n` +
+        `"""\n${rawReply}\n"""\n\n` +
+        `Rédige le message WhatsApp à envoyer DIRECTEMENT au client. Règles impératives :\n` +
+        `- Écris dans la MÊME langue que le client (déduis-la de la conversation ci-dessous).\n` +
+        `- Introduis naturellement le fait que la demande a été traitée par l'équipe ` +
+        `(ex. « J'ai fait remonter votre demande à notre équipe, voici leur réponse : … »), sans formule rigide ni répétitive.\n` +
+        `- Conserve EXACTEMENT le sens et les faits donnés par l'opérateur. N'invente AUCUNE information, prix, délai ou engagement absent de sa réponse.\n` +
+        `- Reste cohérent avec le contexte (ton, sujet, ce que le client demandait).\n` +
+        `- Ne dis jamais que tu es une IA, ni que tu "reformules". Pas de guillemets autour du message, pas de balises, pas de préambule de ta part : renvoie UNIQUEMENT le message destiné au client.\n\n` +
+        `Contexte récent de la conversation :\n${historyText || '(aucun historique disponible)'}\n\n` +
+        `Message final à envoyer au client :`;
+
+      const result = await this.llmRouterService.generateResponse({
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.4,
+        maxTokens: 500,
+        organizationId: agent.organizationId,
+        priority: 'high',
+      });
+
+      const reformulated = (result?.content || '').trim();
+      if (!reformulated) {
+        this.logger.warn(`Reformulation returned empty — sending operator reply verbatim`);
+        return rawReply;
+      }
+      this.logger.log(`✍️ Operator reply reformulated for client (conversation ${conversationId})`);
+      return reformulated;
+    } catch (error) {
+      this.logger.warn(`Failed to reformulate operator reply (${error.message}) — sending verbatim`);
+      return rawReply;
+    }
+  }
+
+  /**
    * Handle an operator's WhatsApp reply to an escalated conversation.
    * Saves the message, forwards it to the client, and notifies the dashboard.
    */
@@ -3727,6 +3793,14 @@ RÈGLES:
         return;
       }
 
+      // Reformulate the operator's raw note into a coherent, client-facing message that makes
+      // clear the team has answered. Can be disabled per-agent via escalationConfig; on failure
+      // we fall back to the verbatim reply so the client always receives something.
+      const reformulationEnabled = agent.escalationConfig?.reformulateOperatorReplies !== false;
+      const clientFacingText = reformulationEnabled
+        ? await this.reformulateOperatorReply(replyText, escalationMatch.conversationId, agent)
+        : replyText;
+
       // Get next sequence number
       const lastMessage = await this.messageRepository.findOne({
         where: { conversationId: escalationMatch.conversationId },
@@ -3734,17 +3808,21 @@ RÈGLES:
       });
       const nextSequence = (lastMessage?.sequenceNumber || 0) + 1;
 
-      // Save operator message in conversation history
+      // Save operator message in conversation history. The stored content is what the client
+      // actually received (keeps history and future AI context coherent); the operator's raw
+      // note is preserved in metadata for audit.
       const operatorMessage = this.messageRepository.create({
         conversationId: escalationMatch.conversationId,
         role: MessageRole.OPERATOR,
-        content: replyText,
+        content: clientFacingText,
         status: MessageStatus.SENT,
         sequenceNumber: nextSequence,
         metadata: {
           fromWhatsApp: true,
           replyChannel: 'whatsapp',
           originalSender: 'operator',
+          reformulated: reformulationEnabled && clientFacingText !== replyText,
+          originalOperatorText: replyText,
         } as any,
       });
       const savedMessage = await this.messageRepository.save(operatorMessage);
@@ -3753,7 +3831,7 @@ RÈGLES:
       this.eventEmitter.emit('operator.message.send', {
         sessionId: escalationMatch.sessionId,
         clientPhoneNumber: escalationMatch.clientPhoneNumber,
-        message: replyText,
+        message: clientFacingText,
         conversationId: escalationMatch.conversationId,
         messageId: savedMessage.id,
         operatorId: 'whatsapp-reply',
@@ -3764,11 +3842,11 @@ RÈGLES:
         conversationId: escalationMatch.conversationId,
         message: {
           id: savedMessage.id,
-          content: replyText,
+          content: clientFacingText,
           role: 'operator',
           status: 'sent',
           createdAt: new Date(),
-          metadata: { fromWhatsApp: true, replyChannel: 'whatsapp' },
+          metadata: { fromWhatsApp: true, replyChannel: 'whatsapp', reformulated: reformulationEnabled && clientFacingText !== replyText },
         },
         organizationId: agent.organizationId,
       });

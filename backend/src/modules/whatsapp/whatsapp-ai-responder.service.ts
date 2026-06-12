@@ -3851,7 +3851,31 @@ RÈGLES:
         organizationId: agent.organizationId,
       });
 
-      // Refresh the escalation:active Redis key TTL (operator is actively responding)
+      // Answering the escalation notification is a one-off remote reply: the operator provided
+      // the answer the bot was missing, so hand the conversation back to the AI. The AI only
+      // stays paused when the operator takes over *directly in the conversation* (phone reply,
+      // handled by handleFromMeMessage, or a manual dashboard takeover).
+      try {
+        const conversation = await this.conversationRepository.findOne({
+          where: { id: escalationMatch.conversationId },
+        });
+        if (conversation?.isHumanControlled) {
+          conversation.isHumanControlled = false;
+          conversation.escalationReason = null;
+          conversation.assignedOperatorId = null;
+          await this.conversationRepository.save(conversation);
+          this.logger.log(`🤖 Conversation ${conversation.id} released back to AI after operator notification reply`);
+          this.eventEmitter.emit('conversation.released', {
+            conversationId: conversation.id,
+            organizationId: agent.organizationId,
+          });
+        }
+      } catch (releaseErr) {
+        this.logger.warn(`Could not release conversation after operator reply: ${releaseErr.message}`);
+      }
+
+      // Keep the escalation:active Redis key alive briefly so a quick operator follow-up still
+      // routes correctly, but the conversation is no longer human-controlled.
       const normalizedOperator = (agent.escalationConfig?.operatorWhatsAppNumber || '').replace(/@.*$/, '').replace(/\D/g, '');
       const activeKey = `escalation:active:${session.id}:${normalizedOperator}`;
       const existingData = await this.redisClient.get(activeKey);

@@ -909,14 +909,25 @@ export class WhatsAppAIResponderService {
       if (agent.escalationConfig?.operatorWhatsAppNumber) {
         const normalizedFrom = fromNumber.replace(/@.*$/, '').replace(/\D/g, '');
         const normalizedOperator = agent.escalationConfig.operatorWhatsAppNumber.replace(/@.*$/, '').replace(/\D/g, '');
+        const isOperatorNumber = normalizedFrom === normalizedOperator;
 
-        if (normalizedFrom === normalizedOperator) {
-          this.logger.log(`📞 Message from operator phone ${normalizedFrom} — checking for escalation match`);
+        // A quoted reply to an escalation notification is a reliable operator signal on its own:
+        // only the operator receives the notification, so only the operator can quote it. We must
+        // NOT gate quote-based matching behind sender-number equality — incoming operator replies
+        // frequently arrive with a LID-based remoteJid that won't match the configured operator
+        // phone number, which previously caused the reply to be processed as a brand-new client
+        // message (and re-escalated, sending the operator the client-facing acknowledgment).
+        const firstMsg = bufferedMessages[0]?.event?.message;
+        const replyCtx = firstMsg ? this.extractReplyContext(firstMsg) : { isReply: false };
+
+        if (isOperatorNumber || replyCtx.isReply) {
+          this.logger.log(`📞 Checking escalation reply — from ${normalizedFrom}, isOperator=${isOperatorNumber}, isReply=${replyCtx.isReply}`);
           const escalationMatch = await this.matchOperatorReplyToEscalation(
             bufferedMessages,
             session,
             agent,
             normalizedFrom,
+            isOperatorNumber,
           );
 
           if (escalationMatch) {
@@ -932,7 +943,7 @@ export class WhatsAppAIResponderService {
           }
           // No escalation match — fall through to normal AI processing
           // (operator may also be a regular client of a different agent)
-          this.logger.log(`ℹ️ No active escalation match for operator ${normalizedFrom} — processing as normal message`);
+          this.logger.log(`ℹ️ No active escalation match for ${normalizedFrom} — processing as normal message`);
         }
       }
 
@@ -3589,8 +3600,13 @@ RÈGLES:
     session: WhatsAppSession,
     agent: AiAgent,
     normalizedOperatorPhone: string,
+    isOperatorNumber: boolean = true,
   ): Promise<{ conversationId: string; sessionId: string; clientPhoneNumber: string; agentId: string } | null> {
     try {
+      // Tiers 1 & 2 (quoted-reply based) run for any sender, since only the operator can quote
+      // an escalation notification. Tier 3 (plain non-quoted reply) is gated to the operator's
+      // own number to avoid a random client's message hijacking an active escalation.
+
       // Tier 1: Check if operator quoted the escalation notification
       const firstMsg = bufferedMessages[0]?.event?.message;
       if (firstMsg) {
@@ -3631,55 +3647,59 @@ RÈGLES:
         }
       }
 
-      // Tier 3: Plain reply fallback — check Redis active key
-      const activeData = await this.redisClient.get(`escalation:active:${session.id}:${normalizedOperatorPhone}`);
-      if (activeData) {
-        const parsed = JSON.parse(activeData);
-        // Verify the conversation is still escalated
-        const conversation = await this.conversationRepository.findOne({
-          where: { id: parsed.conversationId, isHumanControlled: true },
-        });
-        if (conversation) {
-          this.logger.log(`🎯 Tier 3 match: active escalation key for operator on session ${session.id}`);
-          return parsed;
+      // Tier 3 (plain, non-quoted replies) only applies when the sender IS the configured
+      // operator number — otherwise a random client's message could hijack an active escalation.
+      if (isOperatorNumber) {
+        // Tier 3: Plain reply fallback — check Redis active key
+        const activeData = await this.redisClient.get(`escalation:active:${session.id}:${normalizedOperatorPhone}`);
+        if (activeData) {
+          const parsed = JSON.parse(activeData);
+          // Verify the conversation is still escalated
+          const conversation = await this.conversationRepository.findOne({
+            where: { id: parsed.conversationId, isHumanControlled: true },
+          });
+          if (conversation) {
+            this.logger.log(`🎯 Tier 3 match: active escalation key for operator on session ${session.id}`);
+            return parsed;
+          }
         }
-      }
 
-      // Tier 3 fallback: check if exactly ONE active escalation exists for this session
-      const activeEscalations = await this.conversationRepository.find({
-        where: {
-          agentId: agent.id,
-          isHumanControlled: true,
-        },
-        order: { updatedAt: 'DESC' },
-        take: 2, // Only need to know if there's exactly 1
-      });
-
-      if (activeEscalations.length === 1) {
-        const conv = activeEscalations[0];
-        this.logger.log(`🎯 Tier 3 fallback: single active escalation found — conversation ${conv.id}`);
-        return {
-          conversationId: conv.id,
-          sessionId: session.id,
-          clientPhoneNumber: conv.clientPhoneNumber,
-          agentId: agent.id,
-        };
-      }
-
-      if (activeEscalations.length > 1) {
-        // Multiple active escalations — send disambiguation message
-        this.logger.log(`⚠️ Multiple active escalations (${activeEscalations.length}) — sending disambiguation to operator`);
-        const operatorJid = agent.escalationConfig.operatorWhatsAppNumber.replace(/@.*$/, '');
-        let disambigMsg = `⚠️ *Plusieurs conversations escaladées en cours*\n\nVeuillez citer (répondre à) la notification spécifique du client auquel vous souhaitez répondre.\n\n`;
-        disambigMsg += `Conversations actives:\n`;
-        for (const conv of activeEscalations) {
-          disambigMsg += `• Client: +${conv.clientPhoneNumber}\n`;
-        }
-        await this.baileysService.sendMessage(session.id, {
-          to: operatorJid,
-          message: disambigMsg,
-          type: 'text',
+        // Tier 3 fallback: check if exactly ONE active escalation exists for this session
+        const activeEscalations = await this.conversationRepository.find({
+          where: {
+            agentId: agent.id,
+            isHumanControlled: true,
+          },
+          order: { updatedAt: 'DESC' },
+          take: 2, // Only need to know if there's exactly 1
         });
+
+        if (activeEscalations.length === 1) {
+          const conv = activeEscalations[0];
+          this.logger.log(`🎯 Tier 3 fallback: single active escalation found — conversation ${conv.id}`);
+          return {
+            conversationId: conv.id,
+            sessionId: session.id,
+            clientPhoneNumber: conv.clientPhoneNumber,
+            agentId: agent.id,
+          };
+        }
+
+        if (activeEscalations.length > 1) {
+          // Multiple active escalations — send disambiguation message
+          this.logger.log(`⚠️ Multiple active escalations (${activeEscalations.length}) — sending disambiguation to operator`);
+          const operatorJid = agent.escalationConfig.operatorWhatsAppNumber.replace(/@.*$/, '');
+          let disambigMsg = `⚠️ *Plusieurs conversations escaladées en cours*\n\nVeuillez citer (répondre à) la notification spécifique du client auquel vous souhaitez répondre.\n\n`;
+          disambigMsg += `Conversations actives:\n`;
+          for (const conv of activeEscalations) {
+            disambigMsg += `• Client: +${conv.clientPhoneNumber}\n`;
+          }
+          await this.baileysService.sendMessage(session.id, {
+            to: operatorJid,
+            message: disambigMsg,
+            type: 'text',
+          });
+        }
       }
 
       return null;

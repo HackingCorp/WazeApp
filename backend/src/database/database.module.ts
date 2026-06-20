@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { ConfigModule, ConfigService } from "@nestjs/config";
+import { SafeQueryLogger } from "./safe-query.logger";
 import {
   User,
   Organization,
@@ -106,6 +107,9 @@ import {
           configService.get("DATABASE_SYNCHRONIZE", "false") === "true",
         migrationsRun: true,
         logging: configService.get("NODE_ENV") === "development",
+        // Custom logger that strips query parameters from slow/error logs so we
+        // never leak secrets (e.g. whatsapp_sessions.authData) into stdout.
+        logger: new SafeQueryLogger(),
         ssl:
           configService.get("DATABASE_SSL_ENABLED") === "true"
             ? {

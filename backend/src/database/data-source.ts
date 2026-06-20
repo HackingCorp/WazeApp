@@ -2,6 +2,7 @@ import { DataSource } from "typeorm";
 import { ConfigService } from "@nestjs/config";
 import { config } from "dotenv";
 import * as path from "path";
+import { SafeQueryLogger } from "./safe-query.logger";
 
 // Load environment variables
 config();
@@ -22,6 +23,8 @@ const AppDataSource = new DataSource({
   database: configService.get("DATABASE_NAME", "wazeapp"),
   synchronize: configService.get("DATABASE_SYNCHRONIZE", "false") === "true",
   logging: isProduction ? ["error", "warn", "migration", "schema"] : true,
+  // Strip query parameters from slow/error logs to avoid leaking secrets.
+  logger: new SafeQueryLogger(),
   maxQueryExecutionTime: 1000,
   ssl:
     configService.get("DATABASE_SSL_ENABLED") === "true"

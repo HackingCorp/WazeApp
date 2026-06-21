@@ -45,6 +45,44 @@ export class EscalationConfigDto {
   notificationEmails?: string[];
 }
 
+export class LeadQualificationConfigDto {
+  @ApiPropertyOptional({ description: "Enable lead capture & qualification", default: false })
+  @IsOptional()
+  @IsBoolean()
+  enabled?: boolean;
+
+  @ApiPropertyOptional({ description: "Enable periodic lead reports", default: false })
+  @IsOptional()
+  @IsBoolean()
+  reportEnabled?: boolean;
+
+  @ApiPropertyOptional({ description: "Report frequency", enum: ["daily", "weekly"] })
+  @IsOptional()
+  @IsString()
+  reportFrequency?: "daily" | "weekly";
+
+  @ApiPropertyOptional({ description: "Hour of day (0-23) to send the report" })
+  @IsOptional()
+  @IsNumber()
+  reportHour?: number;
+
+  @ApiPropertyOptional({ description: "Report recipient emails", type: [String] })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  reportEmails?: string[];
+
+  @ApiPropertyOptional({ description: "Report recipient WhatsApp number" })
+  @IsOptional()
+  @IsString()
+  reportWhatsAppNumber?: string;
+
+  @ApiPropertyOptional({ description: "Minimum tier to include in reports", enum: ["cold", "warm", "hot"] })
+  @IsOptional()
+  @IsString()
+  minReportTier?: "cold" | "warm" | "hot";
+}
+
 export class DiscoveredToolParametersDto {
   @ApiProperty({ description: "Always 'object'", default: 'object' })
   @IsIn(['object'])
@@ -276,6 +314,12 @@ export class CreateAiAgentDto {
   @Type(() => EscalationConfigDto)
   escalationConfig?: EscalationConfigDto;
 
+  @ApiPropertyOptional({ description: "Lead qualification configuration", type: LeadQualificationConfigDto })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => LeadQualificationConfigDto)
+  leadQualificationConfig?: LeadQualificationConfigDto;
+
   @ApiPropertyOptional({ description: "E-commerce catalog IDs to associate" })
   @IsOptional()
   @IsArray()
@@ -389,6 +433,12 @@ export class UpdateAiAgentDto {
   @ValidateNested()
   @Type(() => EscalationConfigDto)
   escalationConfig?: EscalationConfigDto;
+
+  @ApiPropertyOptional({ description: "Lead qualification configuration", type: LeadQualificationConfigDto })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => LeadQualificationConfigDto)
+  leadQualificationConfig?: LeadQualificationConfigDto;
 
   @ApiPropertyOptional({ description: "E-commerce catalog IDs to associate" })
   @IsOptional()

@@ -4,6 +4,7 @@ import { ToolDefinition, ToolResult, ToolExecutionContext, ApiConnection } from 
 import { InternalProductHandler } from './handlers/internal-product.handler';
 import { InternalOrderHandler } from './handlers/internal-order.handler';
 import { InternalAppointmentHandler } from './handlers/internal-appointment.handler';
+import { InternalLeadHandler } from './handlers/internal-lead.handler';
 import { ExternalApiHandler } from './handlers/external-api.handler';
 import { AiAgent } from '@/common/entities';
 import { decrypt, isEncrypted } from '@/common/utils/crypto.util';
@@ -41,6 +42,7 @@ export class ToolRegistryService {
     private readonly productHandler: InternalProductHandler,
     private readonly orderHandler: InternalOrderHandler,
     private readonly appointmentHandler: InternalAppointmentHandler,
+    private readonly leadHandler: InternalLeadHandler,
     private readonly externalApiHandler: ExternalApiHandler,
     private readonly configService: ConfigService,
   ) {}
@@ -101,6 +103,11 @@ export class ToolRegistryService {
 
     if (agent.appointmentsEnabled) {
       tools.push(...this.appointmentHandler.getToolDefinitions(context));
+    }
+
+    // Lead capture tool — only when lead qualification is enabled for the agent.
+    if ((agent as any).leadQualificationConfig?.enabled) {
+      tools.push(...this.leadHandler.getToolDefinitions(context));
     }
 
     // External API tools — support both legacy and new formats
@@ -174,6 +181,12 @@ export class ToolRegistryService {
       if (this.appointmentHandler.handles(name)) {
         const result = await this.appointmentHandler.executeTool(name, args, context);
         this.logger.log(`Tool ${name} executed in ${Date.now() - startTime}ms (internal/appointment)`);
+        return result;
+      }
+
+      if (this.leadHandler.handles(name)) {
+        const result = await this.leadHandler.executeTool(name, args, context);
+        this.logger.log(`Tool ${name} executed in ${Date.now() - startTime}ms (internal/lead)`);
         return result;
       }
 

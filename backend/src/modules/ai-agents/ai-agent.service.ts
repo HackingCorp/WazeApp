@@ -1348,7 +1348,7 @@ CRITICAL: If you cannot ACTUALLY solve the problem with information from your kn
     let tokensUsed = 0;
 
     try {
-      const hasTools = agent.ecommerceEnabled || agent.appointmentsEnabled || ((agent as any).apiTools?.length > 0);
+      const hasTools = agent.ecommerceEnabled || agent.appointmentsEnabled || (agent as any).leadQualificationConfig?.enabled === true || ((agent as any).apiTools?.length > 0);
       const llmParams = {
         temperature: agent.config?.temperature || 0.7,
         maxTokens: agent.config?.maxTokens || 2000,

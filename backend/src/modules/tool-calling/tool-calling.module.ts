@@ -3,12 +3,14 @@ import { HttpModule } from '@nestjs/axios';
 import { EcommerceModule } from '../ecommerce/ecommerce.module';
 import { OrdersModule } from '../orders/orders.module';
 import { AppointmentsModule } from '../appointments/appointments.module';
+import { LeadsModule } from '../leads/leads.module';
 import { LlmProvidersModule } from '../llm-providers/llm-providers.module';
 import { ToolRegistryService } from './tool-registry.service';
 import { ToolExecutionService } from './tool-execution.service';
 import { InternalProductHandler } from './handlers/internal-product.handler';
 import { InternalOrderHandler } from './handlers/internal-order.handler';
 import { InternalAppointmentHandler } from './handlers/internal-appointment.handler';
+import { InternalLeadHandler } from './handlers/internal-lead.handler';
 import { ExternalApiHandler } from './handlers/external-api.handler';
 import { OpenApiDiscoveryService } from './openapi-discovery.service';
 import { OpenApiDiscoveryController } from './openapi-discovery.controller';
@@ -19,6 +21,7 @@ import { OpenApiDiscoveryController } from './openapi-discovery.controller';
     EcommerceModule,
     OrdersModule,
     AppointmentsModule,
+    LeadsModule,
     LlmProvidersModule,
   ],
   controllers: [OpenApiDiscoveryController],
@@ -28,6 +31,7 @@ import { OpenApiDiscoveryController } from './openapi-discovery.controller';
     InternalProductHandler,
     InternalOrderHandler,
     InternalAppointmentHandler,
+    InternalLeadHandler,
     ExternalApiHandler,
     OpenApiDiscoveryService,
   ],

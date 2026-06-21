@@ -131,6 +131,23 @@ export class AiAgent extends BaseEntity {
     reformulateOperatorReplies?: boolean;
   };
 
+  @ApiProperty({ description: "Lead qualification & reporting configuration" })
+  @Column({ type: "jsonb", default: {} })
+  leadQualificationConfig: {
+    // Master switch — when true the AI captures & qualifies leads during conversations.
+    enabled?: boolean;
+    // Periodic report settings.
+    reportEnabled?: boolean;
+    reportFrequency?: "daily" | "weekly";
+    // Hour of day (0-23, server tz) to send the report. Default 8.
+    reportHour?: number;
+    // Where reports are sent.
+    reportEmails?: string[];
+    reportWhatsAppNumber?: string;
+    // Minimum tier to include in reports (e.g. only "warm" and above). Default "cold".
+    minReportTier?: "cold" | "warm" | "hot";
+  };
+
   @ApiProperty({ description: "Agent performance metrics" })
   @Column({ type: "jsonb", default: {} })
   metrics: {

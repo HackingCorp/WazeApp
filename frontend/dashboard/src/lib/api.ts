@@ -975,6 +975,47 @@ class ApiClient {
   }
 
   // ============================================
+  // LEADS
+  // ============================================
+  async getLeads(params?: {
+    status?: string;
+    search?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    page?: number;
+    limit?: number;
+  }) {
+    const queryParams = new URLSearchParams();
+    if (params?.status) queryParams.append('status', params.status);
+    if (params?.search) queryParams.append('search', params.search);
+    if (params?.dateFrom) queryParams.append('dateFrom', params.dateFrom);
+    if (params?.dateTo) queryParams.append('dateTo', params.dateTo);
+    if (params?.page) queryParams.append('page', params.page.toString());
+    if (params?.limit) queryParams.append('limit', params.limit.toString());
+    const query = queryParams.toString();
+    return this.request(`/leads${query ? `?${query}` : ''}`);
+  }
+
+  async getLead(id: string) {
+    return this.request(`/leads/${id}`);
+  }
+
+  async getLeadStats() {
+    return this.request('/leads/stats');
+  }
+
+  async updateLeadStatus(id: string, status: string) {
+    return this.request(`/leads/${id}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
+    });
+  }
+
+  async deleteLead(id: string) {
+    return this.request(`/leads/${id}`, { method: 'DELETE' });
+  }
+
+  // ============================================
   // APPOINTMENTS ENDPOINTS
   // ============================================
 

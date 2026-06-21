@@ -2268,4 +2268,108 @@ ${t(lang, 'cancellation_retention_support')}
       this.logger.error(`❌ Failed to send cancellation_retention email to ${email}: ${error.message}`);
     }
   }
+
+  /**
+   * Periodic lead qualification report: new leads grouped by tier with a
+   * summary of each customer's need.
+   */
+  async sendLeadReport(
+    email: string,
+    data: {
+      agentName: string;
+      periodLabel: string;
+      total: number;
+      grouped: Array<{
+        label: string;
+        leads: Array<{
+          clientName?: string;
+          clientPhoneNumber: string;
+          score: number;
+          interest?: string;
+          needSummary?: string;
+        }>;
+      }>;
+    },
+  ): Promise<void> {
+    if (!this.transporter) {
+      this.logger.error(`❌ Cannot send lead report: SMTP transporter not configured.`);
+      return;
+    }
+
+    const dashboardUrl = this.getDashboardUrl();
+    const leadsUrl = `${dashboardUrl}/leads`;
+
+    const sections = data.grouped
+      .map((g) => {
+        const rows = g.leads
+          .map((l) => {
+            const who = l.clientName
+              ? `${l.clientName} (+${l.clientPhoneNumber})`
+              : `+${l.clientPhoneNumber}`;
+            const need = l.needSummary || l.interest || "—";
+            return `
+              <tr>
+                <td style="padding:8px;border-bottom:1px solid #eee;">${who}</td>
+                <td style="padding:8px;border-bottom:1px solid #eee;text-align:center;font-weight:600;">${l.score}/100</td>
+                <td style="padding:8px;border-bottom:1px solid #eee;color:#555;">${need}</td>
+              </tr>`;
+          })
+          .join("");
+        return `
+          <h3 style="margin:24px 0 8px;color:#111;">${g.label} (${g.leads.length})</h3>
+          <table style="width:100%;border-collapse:collapse;font-size:14px;">
+            <thead>
+              <tr style="text-align:left;color:#888;">
+                <th style="padding:8px;">Client</th>
+                <th style="padding:8px;text-align:center;">Score</th>
+                <th style="padding:8px;">Besoin</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>`;
+      })
+      .join("");
+
+    const html = `
+      <div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto;padding:24px;">
+        <h2 style="color:#16a34a;margin-bottom:4px;">📊 Rapport leads — ${data.agentName}</h2>
+        <p style="color:#666;margin-top:0;">${data.periodLabel} • ${data.total} nouveau(x) lead(s)</p>
+        ${sections}
+        <p style="margin-top:24px;">
+          <a href="${leadsUrl}" style="background:#16a34a;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none;">
+            Voir tous les leads
+          </a>
+        </p>
+        <p style="color:#999;font-size:12px;margin-top:24px;">L'équipe WazeApp</p>
+      </div>`;
+
+    const text =
+      `Rapport leads — ${data.agentName} (${data.periodLabel})\n${data.total} nouveau(x) lead(s)\n\n` +
+      data.grouped
+        .map(
+          (g) =>
+            `${g.label} (${g.leads.length})\n` +
+            g.leads
+              .map(
+                (l) =>
+                  `- ${l.clientName || "+" + l.clientPhoneNumber} (${l.score}/100): ${l.needSummary || l.interest || "—"}`,
+              )
+              .join("\n"),
+        )
+        .join("\n\n") +
+      `\n\nVoir: ${leadsUrl}`;
+
+    try {
+      await this.transporter.sendMail({
+        from: `"${this.getFromName()}" <${this.getFromAddress()}>`,
+        to: email,
+        subject: `📊 ${data.total} nouveau(x) lead(s) — ${data.agentName}`,
+        html,
+        text,
+      });
+      this.logger.log(`✅ Lead report sent to ${email}`);
+    } catch (error) {
+      this.logger.error(`❌ Failed to send lead report to ${email}: ${error.message}`);
+    }
+  }
 }

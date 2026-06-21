@@ -2120,6 +2120,21 @@ IMPORTANT RULES:
         }
       }
 
+      // Lead qualification guidance — instructs the model to silently call capture_lead.
+      if ((agent as any).leadQualificationConfig?.enabled) {
+        systemPrompt += `\n\nQUALIFICATION DES LEADS (outil capture_lead):
+Tu disposes de l'outil "capture_lead" pour enregistrer et qualifier discrètement les prospects.
+APPELLE capture_lead (sans jamais l'annoncer au client, sans interrompre la conversation) dès que tu apprends une information qualifiante, par exemple :
+- le client exprime un intérêt pour un produit/service (explicitInterest=true) ;
+- un besoin ou problème concret est identifié (need=true, + needSummary court) ;
+- le client parle de prix/budget sérieusement (budget=true) ;
+- il évoque une échéance ou une urgence (timeline="...") ;
+- il semble être le décideur (authority=true) ;
+- il partage son nom ou son email (clientName / clientEmail).
+Renseigne "interest" (produit/service visé) et "needSummary" (1-2 phrases résumant le besoin) quand c'est possible.
+Tu peux appeler capture_lead plusieurs fois au fil de la conversation : les informations sont fusionnées et le score est recalculé automatiquement. N'invente jamais d'informations : ne renseigne que ce que le client a réellement dit.`;
+      }
+
       // Add response style instructions based on agent configuration
       systemPrompt += this.buildResponseStyleInstructions(agent);
 
@@ -2339,8 +2354,9 @@ EXEMPLES DE CONTEXTE:
       };
 
       const agentApiTools = (agent as any).apiTools;
-      const hasTools = agent.ecommerceEnabled || agent.appointmentsEnabled || (agentApiTools?.length > 0);
-      this.logger.log(`🔧 TOOL CHECK: ecommerce=${agent.ecommerceEnabled}, appointments=${agent.appointmentsEnabled}, apiTools=${agentApiTools?.length ?? 'undefined'}, hasTools=${hasTools}`);
+      const leadCaptureEnabled = (agent as any).leadQualificationConfig?.enabled === true;
+      const hasTools = agent.ecommerceEnabled || agent.appointmentsEnabled || leadCaptureEnabled || (agentApiTools?.length > 0);
+      this.logger.log(`🔧 TOOL CHECK: ecommerce=${agent.ecommerceEnabled}, appointments=${agent.appointmentsEnabled}, leadCapture=${leadCaptureEnabled}, apiTools=${agentApiTools?.length ?? 'undefined'}, hasTools=${hasTools}`);
       if (agentApiTools?.length > 0) {
         this.logger.log(`🔧 API TOOLS DETAIL: ${JSON.stringify(agentApiTools.map((t: any) => ({ baseUrl: t.baseUrl, toolCount: t.tools?.length, enabledCount: t.tools?.filter((x: any) => x.enabled)?.length })))}`);
       }
@@ -3887,6 +3903,42 @@ RÈGLES:
       this.logger.log(`✅ Operator WhatsApp reply forwarded to client +${escalationMatch.clientPhoneNumber} (conversation ${escalationMatch.conversationId})`);
     } catch (error) {
       this.logger.error(`Failed to handle operator WhatsApp reply: ${error.message}`, error.stack);
+    }
+  }
+
+  /**
+   * Deliver a periodic lead report to the configured WhatsApp number.
+   * Emitted by LeadReportService (decoupled to avoid a leads→whatsapp import cycle).
+   */
+  @OnEvent('lead.report.whatsapp')
+  async handleLeadReportWhatsApp(payload: {
+    agentId: string;
+    organizationId?: string;
+    to: string;
+    message: string;
+  }): Promise<void> {
+    try {
+      // Find a connected session for this agent (fallback: any connected session in the org).
+      let session = await this.sessionRepository.findOne({
+        where: { agentId: payload.agentId, status: WhatsAppSessionStatus.CONNECTED },
+      });
+      if (!session && payload.organizationId) {
+        session = await this.sessionRepository.findOne({
+          where: { organizationId: payload.organizationId, status: WhatsAppSessionStatus.CONNECTED },
+        });
+      }
+      if (!session) {
+        this.logger.warn(`No connected session to send lead report for agent ${payload.agentId}`);
+        return;
+      }
+      await this.baileysService.sendMessage(session.id, {
+        to: payload.to,
+        message: payload.message,
+        type: 'text',
+      });
+      this.logger.log(`📊 Lead report sent via WhatsApp to ${payload.to}`);
+    } catch (error) {
+      this.logger.error(`Failed to send lead report via WhatsApp: ${error.message}`);
     }
   }
 

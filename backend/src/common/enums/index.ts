@@ -230,6 +230,24 @@ export enum OrderSource {
   API = "api",
 }
 
+// Lead qualification tier (also used as the lead's lifecycle status).
+// Ordered by engagement: new < cold < warm < hot; customer = already bought; lost = disqualified.
+export enum LeadStatus {
+  NEW = "new",
+  COLD = "cold",
+  WARM = "warm",
+  HOT = "hot",
+  CUSTOMER = "customer",
+  LOST = "lost",
+}
+
+export enum LeadSource {
+  WHATSAPP_AI = "whatsapp_ai",
+  FACEBOOK_AI = "facebook_ai",
+  DASHBOARD = "dashboard",
+  API = "api",
+}
+
 export enum AppointmentStatus {
   PENDING = "pending",
   CONFIRMED = "confirmed",

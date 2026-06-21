@@ -44,6 +44,7 @@ import { EcommerceModule } from "./modules/ecommerce/ecommerce.module";
 
 // Orders & Appointments
 import { OrdersModule } from "./modules/orders/orders.module";
+import { LeadsModule } from "./modules/leads/leads.module";
 import { AppointmentsModule } from "./modules/appointments/appointments.module";
 
 // Merchant API
@@ -166,6 +167,7 @@ import { AppController } from "./app.controller";
 
     // Orders & Appointments
     OrdersModule,
+    LeadsModule,
     AppointmentsModule,
 
     // Merchant API (external access for authorized merchants)

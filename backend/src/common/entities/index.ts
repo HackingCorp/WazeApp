@@ -51,5 +51,8 @@ export { ProductCategory } from "./product-category.entity";
 export { Order } from "./order.entity";
 export { OrderItem } from "./order-item.entity";
 export { Appointment } from "./appointment.entity";
+
+// Lead entity
+export { Lead } from "./lead.entity";
 export { BusinessHours } from "./business-hours.entity";
 export { DayOff } from "./day-off.entity";

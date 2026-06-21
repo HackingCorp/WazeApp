@@ -26,6 +26,7 @@ import {
   Calendar,
   Key,
   Facebook,
+  Target,
 } from 'lucide-react';
 import { useI18n } from '@/providers/I18nProvider';
 import { useAuth } from '@/providers/AuthProvider';
@@ -95,6 +96,12 @@ export function Sidebar({ collapsed, onToggleCollapse }: SidebarProps) {
       name: t('sidebar.orders'),
       href: '/orders',
       icon: ClipboardList,
+      permission: null,
+    },
+    {
+      name: t('sidebar.leads'),
+      href: '/leads',
+      icon: Target,
       permission: null,
     },
     {

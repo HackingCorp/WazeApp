@@ -77,6 +77,15 @@ interface Agent {
     operatorWhatsAppNumber?: string;
     notificationEmails?: string[];
   };
+  leadQualificationConfig?: {
+    enabled?: boolean;
+    reportEnabled?: boolean;
+    reportFrequency?: 'daily' | 'weekly';
+    reportHour?: number;
+    reportEmails?: string[];
+    reportWhatsAppNumber?: string;
+    minReportTier?: 'cold' | 'warm' | 'hot';
+  };
   whatsappSessions?: Array<{
     id: string;
     name: string;
@@ -154,6 +163,15 @@ interface AgentFormData {
     escalationMessage?: string;
     operatorWhatsAppNumber?: string;
     notificationEmails?: string[];
+  };
+  leadQualificationConfig?: {
+    enabled?: boolean;
+    reportEnabled?: boolean;
+    reportFrequency?: 'daily' | 'weekly';
+    reportHour?: number;
+    reportEmails?: string[];
+    reportWhatsAppNumber?: string;
+    minReportTier?: 'cold' | 'warm' | 'hot';
   };
 }
 
@@ -245,6 +263,15 @@ export default function EditAgentPage() {
       operatorWhatsAppNumber: '',
       notificationEmails: [],
     },
+    leadQualificationConfig: {
+      enabled: false,
+      reportEnabled: false,
+      reportFrequency: 'daily',
+      reportHour: 8,
+      reportEmails: [],
+      reportWhatsAppNumber: '',
+      minReportTier: 'cold',
+    },
   });
 
   // Charger l'agent au montage
@@ -292,6 +319,15 @@ export default function EditAgentPage() {
               escalationMessage: agentData.escalationConfig?.escalationMessage ?? '',
               operatorWhatsAppNumber: agentData.escalationConfig?.operatorWhatsAppNumber ?? '',
               notificationEmails: agentData.escalationConfig?.notificationEmails ?? [],
+            },
+            leadQualificationConfig: {
+              enabled: agentData.leadQualificationConfig?.enabled ?? false,
+              reportEnabled: agentData.leadQualificationConfig?.reportEnabled ?? false,
+              reportFrequency: agentData.leadQualificationConfig?.reportFrequency ?? 'daily',
+              reportHour: agentData.leadQualificationConfig?.reportHour ?? 8,
+              reportEmails: agentData.leadQualificationConfig?.reportEmails ?? [],
+              reportWhatsAppNumber: agentData.leadQualificationConfig?.reportWhatsAppNumber ?? '',
+              minReportTier: agentData.leadQualificationConfig?.minReportTier ?? 'cold',
             },
           });
         } else {
@@ -1514,6 +1550,181 @@ export default function EditAgentPage() {
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                     {t('agents.escalationNotificationEmailsHint')}
                   </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Lead Qualification */}
+            <div>
+              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
+                Qualification des leads
+              </h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
+                L&apos;agent identifie les prospects au fil des conversations, les enregistre et les qualifie automatiquement (froid / tiède / chaud / client).
+              </p>
+
+              <div className="space-y-6">
+                {/* Enable lead qualification */}
+                <div className="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
+                  <div>
+                    <label className="text-sm font-medium text-gray-900 dark:text-white">
+                      Activer la qualification des leads
+                    </label>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      L&apos;agent capture et qualifie les prospects pendant les conversations
+                    </p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.leadQualificationConfig?.enabled ?? false}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          leadQualificationConfig: {
+                            ...prev.leadQualificationConfig,
+                            enabled: e.target.checked,
+                          },
+                        }))
+                      }
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 dark:peer-focus:ring-green-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-green-600"></div>
+                  </label>
+                </div>
+
+                {/* Enable periodic reports */}
+                <div className="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
+                  <div>
+                    <label className="text-sm font-medium text-gray-900 dark:text-white">
+                      Rapports périodiques
+                    </label>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      Recevez un récap des nouveaux leads classés par qualification
+                    </p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.leadQualificationConfig?.reportEnabled ?? false}
+                      disabled={!formData.leadQualificationConfig?.enabled}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          leadQualificationConfig: {
+                            ...prev.leadQualificationConfig,
+                            reportEnabled: e.target.checked,
+                          },
+                        }))
+                      }
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 dark:peer-focus:ring-green-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-green-600"></div>
+                  </label>
+                </div>
+
+                {/* Frequency + hour */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Fréquence</label>
+                    <select
+                      value={formData.leadQualificationConfig?.reportFrequency ?? 'daily'}
+                      disabled={!formData.leadQualificationConfig?.reportEnabled}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          leadQualificationConfig: {
+                            ...prev.leadQualificationConfig,
+                            reportFrequency: e.target.value as 'daily' | 'weekly',
+                          },
+                        }))
+                      }
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white disabled:opacity-50"
+                    >
+                      <option value="daily">Quotidien</option>
+                      <option value="weekly">Hebdomadaire (lundi)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Heure d&apos;envoi</label>
+                    <input
+                      type="number"
+                      min={0}
+                      max={23}
+                      value={formData.leadQualificationConfig?.reportHour ?? 8}
+                      disabled={!formData.leadQualificationConfig?.reportEnabled}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          leadQualificationConfig: {
+                            ...prev.leadQualificationConfig,
+                            reportHour: parseInt(e.target.value, 10) || 0,
+                          },
+                        }))
+                      }
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white disabled:opacity-50"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Tier minimum</label>
+                    <select
+                      value={formData.leadQualificationConfig?.minReportTier ?? 'cold'}
+                      disabled={!formData.leadQualificationConfig?.reportEnabled}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          leadQualificationConfig: {
+                            ...prev.leadQualificationConfig,
+                            minReportTier: e.target.value as 'cold' | 'warm' | 'hot',
+                          },
+                        }))
+                      }
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white disabled:opacity-50"
+                    >
+                      <option value="cold">Froid et +</option>
+                      <option value="warm">Tiède et +</option>
+                      <option value="hot">Chaud uniquement</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Report emails */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Emails destinataires</label>
+                  <input
+                    type="text"
+                    value={formData.leadQualificationConfig?.reportEmails?.join(', ') || ''}
+                    disabled={!formData.leadQualificationConfig?.reportEnabled}
+                    onChange={(e) => {
+                      const arr = e.target.value.split(',').map((s) => s.trim()).filter(Boolean);
+                      setFormData((prev) => ({
+                        ...prev,
+                        leadQualificationConfig: { ...prev.leadQualificationConfig, reportEmails: arr },
+                      }));
+                    }}
+                    placeholder="ventes@entreprise.com, manager@entreprise.com"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white disabled:opacity-50"
+                  />
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Séparez les emails par des virgules.</p>
+                </div>
+
+                {/* Report WhatsApp number */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Numéro WhatsApp destinataire</label>
+                  <input
+                    type="text"
+                    value={formData.leadQualificationConfig?.reportWhatsAppNumber || ''}
+                    disabled={!formData.leadQualificationConfig?.reportEnabled}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        leadQualificationConfig: { ...prev.leadQualificationConfig, reportWhatsAppNumber: e.target.value },
+                      }))
+                    }
+                    placeholder="Ex: 237690000000"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white disabled:opacity-50"
+                  />
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Le rapport sera aussi envoyé sur ce WhatsApp.</p>
                 </div>
               </div>
             </div>

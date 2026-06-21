@@ -45,6 +45,8 @@ import {
   Order,
   OrderItem,
   Appointment,
+  // Lead entity
+  Lead,
 } from "../common/entities";
 
 @Module({
@@ -101,6 +103,8 @@ import {
           Order,
           OrderItem,
           Appointment,
+          // Lead entity
+          Lead,
         ],
         migrations: [__dirname + '/migrations/*{.ts,.js}'],
         synchronize:

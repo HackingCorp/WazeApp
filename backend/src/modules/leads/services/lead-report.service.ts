@@ -46,7 +46,9 @@ export class LeadReportService {
     try {
       agents = await this.agentRepository
         .createQueryBuilder("agent")
-        .where("agent.leadQualificationConfig->>'reportEnabled' = 'true'")
+        // Quote the column — Postgres folds unquoted identifiers to lowercase,
+        // but the jsonb column is camelCase ("leadQualificationConfig").
+        .where(`agent."leadQualificationConfig"->>'reportEnabled' = 'true'`)
         .getMany();
     } catch (e) {
       this.logger.warn(`Lead report cron query failed: ${e.message}`);

@@ -2608,12 +2608,17 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
       const usePostgresAuth = this.configService.get("WHATSAPP_AUTH_STORAGE", "postgres") === "postgres";
       this.logger.log(`🗄️ Auth storage mode: ${usePostgresAuth ? 'PostgreSQL' : 'Filesystem'}`);
 
-      // Get all sessions that were connected from the database
+      // Only restore sessions that were actually connected before the restart.
+      // Sessions with status "disconnected" have expired credentials and will
+      // just generate QR codes, slow queries, and DB load without connecting.
       const dbSessions = await this.sessionRepository.find({
-        where: { autoReconnect: true },
+        where: {
+          autoReconnect: true,
+          status: WhatsAppSessionStatus.CONNECTED,
+        },
       });
 
-      this.logger.log(`📊 Found ${dbSessions.length} sessions in database with autoReconnect enabled`);
+      this.logger.log(`📊 Found ${dbSessions.length} connected sessions to restore`);
 
       const sessionsPath = this.configService.get("WHATSAPP_SESSION_PATH", "./whatsapp-sessions");
 
@@ -2690,10 +2695,19 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
                   lastSeenAt: new Date(),
                 });
               } else {
-                this.logger.log(`⚠️ Session ${sessionId} requires QR code`);
+                this.logger.log(`⚠️ Session ${sessionId} requires QR code - marking disconnected`);
+                await this.sessionRepository.update(sessionId, {
+                  status: WhatsAppSessionStatus.DISCONNECTED,
+                });
               }
             } catch (error) {
-              this.logger.warn(`❌ Failed to restore session ${sessionId}:`, error.message);
+              this.logger.warn(`❌ Failed to restore session ${sessionId}: ${error?.message}`);
+              // Mark as disconnected so it won't be retried on next restart
+              try {
+                await this.sessionRepository.update(sessionId, {
+                  status: WhatsAppSessionStatus.DISCONNECTED,
+                });
+              } catch {}
             }
           }, totalDelay);
         } else {

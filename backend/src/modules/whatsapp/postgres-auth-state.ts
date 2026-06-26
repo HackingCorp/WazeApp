@@ -8,6 +8,11 @@
  * - Better for production multi-instance deployments
  * - Atomic operations with database transactions
  *
+ * Performance optimizations:
+ * - In-memory localAuthData eliminates redundant DB reads
+ * - Debounced writes batch rapid key updates (2s window)
+ * - keyCache avoids deserialization on repeated access
+ *
  * Based on: https://baileys.wiki/docs/api/functions/useMultiFileAuthState/
  * Inspired by: https://github.com/rzkytmgr/baileysauth
  */
@@ -42,6 +47,7 @@ export interface PostgresAuthStateResult {
   state: AuthState;
   saveCreds: () => Promise<void>;
   clearState: () => Promise<void>;
+  flushAuthData: () => Promise<void>;
 }
 
 /**
@@ -65,10 +71,17 @@ export async function usePostgresAuthState(
   // Mutex for thread-safe database operations
   const mutex = new Mutex();
 
-  // In-memory cache for frequently accessed keys (reduces DB queries)
+  // In-memory cache for deserialized keys (avoids repeated JSON.parse)
   const keyCache = new Map<string, any>();
   let creds: any = null;
   let isInitialized = false;
+
+  // In-memory copy of the full authData blob (eliminates repeated DB reads)
+  let localAuthData: Record<string, any> = {};
+
+  // Debounced save: batch rapid setKeys() calls into a single DB write
+  const SAVE_DEBOUNCE_MS = 2000;
+  let saveTimer: ReturnType<typeof setTimeout> | null = null;
 
   /**
    * Get the full key identifier for storage
@@ -104,6 +117,48 @@ export async function usePostgresAuthState(
   };
 
   /**
+   * Schedule a debounced save to database.
+   * Multiple setKeys() calls within SAVE_DEBOUNCE_MS are batched into one write.
+   * Must be called while mutex is NOT held (or from within a mutex-holding context
+   * that won't conflict with the timer callback).
+   */
+  const scheduleSave = (): void => {
+    if (saveTimer) return; // Already scheduled
+    saveTimer = setTimeout(async () => {
+      saveTimer = null;
+      const release = await mutex.acquire();
+      try {
+        await saveToDatabase({ ...localAuthData });
+        log.debug(`Flushed auth data for session ${sessionId}`);
+      } catch (err) {
+        log.error(`Failed to flush auth data for session ${sessionId}: ${err?.message || err}`);
+      } finally {
+        release();
+      }
+    }, SAVE_DEBOUNCE_MS);
+  };
+
+  /**
+   * Flush any pending debounced writes immediately.
+   * Call this during graceful shutdown to avoid data loss.
+   */
+  const flushAuthData = async (): Promise<void> => {
+    if (saveTimer) {
+      clearTimeout(saveTimer);
+      saveTimer = null;
+    }
+    const release = await mutex.acquire();
+    try {
+      await saveToDatabase({ ...localAuthData });
+      log.debug(`Force-flushed auth data for session ${sessionId}`);
+    } catch (err) {
+      log.error(`Failed to force-flush auth data for session ${sessionId}: ${err?.message || err}`);
+    } finally {
+      release();
+    }
+  };
+
+  /**
    * Initialize or load credentials
    */
   const initializeCreds = async (): Promise<void> => {
@@ -113,12 +168,12 @@ export async function usePostgresAuthState(
     try {
       if (isInitialized) return; // Double-check after acquiring lock
 
-      const authData = await loadFromDatabase();
+      localAuthData = await loadFromDatabase();
 
-      if (authData.creds) {
+      if (localAuthData.creds) {
         // Deserialize credentials from database
         creds = JSON.parse(
-          JSON.stringify(authData.creds),
+          JSON.stringify(localAuthData.creds),
           BufferJSON.reviver,
         );
         log.debug(`Loaded existing credentials for session ${sessionId}`);
@@ -129,7 +184,7 @@ export async function usePostgresAuthState(
       }
 
       // Load keys into cache
-      for (const [key, value] of Object.entries(authData)) {
+      for (const [key, value] of Object.entries(localAuthData)) {
         if (key !== "creds" && value) {
           try {
             keyCache.set(
@@ -153,26 +208,31 @@ export async function usePostgresAuthState(
   await initializeCreds();
 
   /**
-   * Save credentials to database
+   * Save credentials to database (immediate, not debounced)
    */
   const saveCreds = async (): Promise<void> => {
     const release = await mutex.acquire();
     try {
-      const authData = await loadFromDatabase();
+      // Cancel any pending debounced save - we'll include everything now
+      if (saveTimer) {
+        clearTimeout(saveTimer);
+        saveTimer = null;
+      }
 
-      // Serialize credentials
-      authData.creds = JSON.parse(JSON.stringify(creds, BufferJSON.replacer));
+      // Update localAuthData with current creds
+      localAuthData.creds = JSON.parse(JSON.stringify(creds, BufferJSON.replacer));
 
-      // Save all cached keys
+      // Sync all cached keys into localAuthData
       for (const [key, value] of keyCache.entries()) {
         if (value) {
-          authData[key] = JSON.parse(JSON.stringify(value, BufferJSON.replacer));
+          localAuthData[key] = JSON.parse(JSON.stringify(value, BufferJSON.replacer));
         } else {
-          delete authData[key];
+          delete localAuthData[key];
         }
       }
 
-      await saveToDatabase(authData);
+      // Immediate save (credentials are critical)
+      await saveToDatabase(localAuthData);
       log.debug(`Saved credentials and ${keyCache.size} keys for session ${sessionId}`);
     } catch (error) {
       log.error(`Failed to save credentials for session ${sessionId}:`, error);
@@ -188,8 +248,15 @@ export async function usePostgresAuthState(
   const clearState = async (): Promise<void> => {
     const release = await mutex.acquire();
     try {
+      // Cancel any pending debounced save
+      if (saveTimer) {
+        clearTimeout(saveTimer);
+        saveTimer = null;
+      }
+
       keyCache.clear();
       creds = initAuthCreds();
+      localAuthData = {};
       await saveToDatabase({});
       isInitialized = false;
       log.log(`Cleared auth state for session ${sessionId}`);
@@ -214,12 +281,11 @@ export async function usePostgresAuthState(
       let value = keyCache.get(keyId);
 
       if (value === undefined) {
-        // Try to load from database if not in cache
-        const authData = await loadFromDatabase();
-        if (authData[keyId]) {
+        // Check localAuthData (no DB query needed)
+        if (localAuthData[keyId]) {
           try {
             value = JSON.parse(
-              JSON.stringify(authData[keyId]),
+              JSON.stringify(localAuthData[keyId]),
               BufferJSON.reviver,
             );
             keyCache.set(keyId, value);
@@ -243,14 +309,13 @@ export async function usePostgresAuthState(
   };
 
   /**
-   * Set keys by type
+   * Set keys by type (debounced write)
    */
   const setKeys = async (data: {
     [type: string]: { [id: string]: any };
   }): Promise<void> => {
     const release = await mutex.acquire();
     try {
-      const authData = await loadFromDatabase();
       let hasChanges = false;
 
       for (const [type, typeData] of Object.entries(data)) {
@@ -263,20 +328,19 @@ export async function usePostgresAuthState(
               JSON.stringify(value, BufferJSON.replacer),
             );
             keyCache.set(keyId, value);
-            authData[keyId] = serialized;
+            localAuthData[keyId] = serialized;
             hasChanges = true;
           } else {
             // Delete key
             keyCache.delete(keyId);
-            delete authData[keyId];
+            delete localAuthData[keyId];
             hasChanges = true;
           }
         }
       }
 
       if (hasChanges) {
-        await saveToDatabase(authData);
-        log.debug(`Updated keys for session ${sessionId}`);
+        scheduleSave(); // Debounced: batches rapid updates into one DB write
       }
     } finally {
       release();
@@ -293,6 +357,7 @@ export async function usePostgresAuthState(
     },
     saveCreds,
     clearState,
+    flushAuthData,
   };
 }
 

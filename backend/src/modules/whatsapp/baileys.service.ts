@@ -421,14 +421,14 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
       if (usePostgres) {
         this.logger.log(`🗄️ Initializing PostgreSQL auth state for session ${sessionId}`);
 
-        const { state, saveCreds, clearState } = await usePostgresAuthState(
+        const { state, saveCreds, clearState, flushAuthData } = await usePostgresAuthState(
           sessionId,
           this.sessionRepository,
           this.logger,
         );
 
         // Store auth state with PostgreSQL-specific methods
-        this.authStates.set(sessionId, { state, saveCreds, clearState, isPostgres: true });
+        this.authStates.set(sessionId, { state, saveCreds, clearState, flushAuthData, isPostgres: true });
 
         // Log session state for debugging
         const hasValidCreds = !!(state.creds && state.creds.me);
@@ -2568,7 +2568,10 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
 
   private async restoreCredentialsFromDatabase(sessionId: string): Promise<boolean> {
     try {
-      const session = await this.sessionRepository.findOne({ where: { id: sessionId } });
+      const session = await this.sessionRepository.findOne({
+        where: { id: sessionId },
+        select: ["id", "authData"],
+      });
 
       if (!session || !session.authData || Object.keys(session.authData).length === 0) {
         return false;
@@ -2627,18 +2630,12 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
         let hasCredentials = false;
 
         if (usePostgresAuth) {
-          // PostgreSQL auth mode: Check if credentials exist in database authData
-          const hasDbCreds = dbSession.authData &&
-                            typeof dbSession.authData === 'object' &&
-                            dbSession.authData.creds &&
-                            Object.keys(dbSession.authData).length > 0;
-
-          if (hasDbCreds) {
-            hasCredentials = true;
-            this.logger.log(`🗄️ Found PostgreSQL credentials for session ${sessionId}`);
-          } else {
-            this.logger.log(`📁 No PostgreSQL credentials for session ${sessionId}`);
-          }
+          // PostgreSQL auth mode: credentials are loaded on demand by usePostgresAuthState.
+          // Session status CONNECTED already implies credentials existed.
+          // authData is excluded from default queries (select: false) to avoid
+          // loading 200-300KB blobs for every session query.
+          hasCredentials = true;
+          this.logger.log(`🗄️ PostgreSQL auth mode for session ${sessionId} - credentials loaded on demand`);
         } else {
           // Filesystem auth mode: Check if credentials exist in filesystem
           const sessionPath = path.join(sessionsPath, sessionId);
@@ -2653,7 +2650,9 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
           }
 
           // If no filesystem creds, try to restore from database
-          if (!hasCredentials && dbSession.authData && Object.keys(dbSession.authData).length > 0) {
+          // authData is excluded from default queries (select: false), so we
+          // defer the check to restoreCredentialsFromDatabase which loads it explicitly
+          if (!hasCredentials) {
             this.logger.log(`💾 Restoring credentials from database for session ${sessionId}...`);
             hasCredentials = await this.restoreCredentialsFromDatabase(sessionId);
           }
@@ -2752,9 +2751,12 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
       try {
         const authState = this.authStates.get(sessionId);
         if (authState && authState.saveCreds) {
-          // Save current credentials before shutdown
+          // Flush any pending debounced auth writes, then save credentials
+          if (authState.flushAuthData) {
+            await authState.flushAuthData();
+          }
           await authState.saveCreds();
-          this.logger.log(`💾 Saved filesystem credentials for session ${sessionId}`);
+          this.logger.log(`💾 Saved credentials for session ${sessionId}`);
         }
 
         // Backup credentials to database for persistence across deployments

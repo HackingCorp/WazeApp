@@ -40,7 +40,7 @@ export class WhatsAppSession extends BaseEntity {
 
   @ApiProperty({ description: "Session authentication data", required: false })
   @Exclude({ toPlainOnly: true })
-  @Column({ nullable: true, type: "jsonb" })
+  @Column({ nullable: true, type: "jsonb", select: false })
   authData?: Record<string, any>;
 
   @ApiProperty({ description: "Last connection attempt", required: false })

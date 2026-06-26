@@ -11,6 +11,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Trash2,
+  Download,
+  X,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { api } from '@/lib/api';
@@ -61,7 +63,10 @@ export default function LeadsPage() {
   const [stats, setStats] = useState<LeadStats | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const [isExporting, setIsExporting] = useState(false);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const limit = 20;
@@ -72,6 +77,8 @@ export default function LeadsPage() {
       const response = await api.getLeads({
         search: searchQuery || undefined,
         status: statusFilter || undefined,
+        dateFrom: dateFrom || undefined,
+        dateTo: dateTo || undefined,
         page,
         limit,
       });
@@ -86,7 +93,7 @@ export default function LeadsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [searchQuery, statusFilter, page]);
+  }, [searchQuery, statusFilter, dateFrom, dateTo, page]);
 
   const fetchStats = useCallback(async () => {
     try {
@@ -119,6 +126,73 @@ export default function LeadsPage() {
     fetchStats();
   };
 
+  const csvEscape = (value: unknown): string => {
+    const str = value === null || value === undefined ? '' : String(value);
+    return /[",\n\r]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
+  };
+
+  const handleExport = async () => {
+    setIsExporting(true);
+    try {
+      // Fetch all leads matching the current filters (ignoring pagination).
+      const response = await api.getLeads({
+        search: searchQuery || undefined,
+        status: statusFilter || undefined,
+        dateFrom: dateFrom || undefined,
+        dateTo: dateTo || undefined,
+        page: 1,
+        limit: 10000,
+      });
+      if (!response.success || !response.data) return;
+      const data: any = (response.data as any).data || response.data;
+      const allLeads: Lead[] = Array.isArray(data) ? data : data.leads || [];
+
+      const headers = [
+        'Nom',
+        'Téléphone',
+        'Email',
+        'Statut',
+        'Score',
+        'Intérêt',
+        'Résumé du besoin',
+        'Tags',
+        'Dernière interaction',
+        'Créé le',
+      ];
+      const rows = allLeads.map((lead) => [
+        lead.clientName || '',
+        lead.clientPhoneNumber,
+        lead.clientEmail || '',
+        STATUS_META[lead.status]?.label || lead.status,
+        lead.score,
+        lead.interest || '',
+        lead.needSummary || '',
+        (lead.tags || []).join(', '),
+        lead.lastInteractionAt ? new Date(lead.lastInteractionAt).toLocaleString('fr-FR') : '',
+        lead.createdAt ? new Date(lead.createdAt).toLocaleString('fr-FR') : '',
+      ]);
+
+      const csv = [headers, ...rows]
+        .map((row) => row.map(csvEscape).join(','))
+        .join('\r\n');
+
+      // Prepend BOM so Excel reads UTF-8 accents correctly.
+      const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `leads-${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      if (process.env.NODE_ENV === 'development') console.error('Error exporting leads:', error);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   const statCards = [
     { label: 'Total', value: stats?.total ?? 0, icon: Target, color: 'text-gray-500' },
     { label: 'Chauds', value: stats?.hot ?? 0, icon: Flame, color: 'text-red-500' },
@@ -130,13 +204,23 @@ export default function LeadsPage() {
   return (
     <div className="p-6 max-w-7xl mx-auto">
       {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-          <Target className="w-6 h-6 text-green-600" /> Leads
-        </h1>
-        <p className="text-gray-500 dark:text-gray-400 mt-1">
-          Prospects qualifiés automatiquement par vos agents IA
-        </p>
+      <div className="mb-6 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+            <Target className="w-6 h-6 text-green-600" /> Leads
+          </h1>
+          <p className="text-gray-500 dark:text-gray-400 mt-1">
+            Prospects qualifiés automatiquement par vos agents IA
+          </p>
+        </div>
+        <button
+          onClick={handleExport}
+          disabled={isExporting || leads.length === 0}
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition self-start"
+        >
+          <Download className="w-4 h-4" />
+          {isExporting ? 'Export…' : 'Exporter (CSV)'}
+        </button>
       </div>
 
       {/* Stats */}
@@ -186,6 +270,48 @@ export default function LeadsPage() {
             </button>
           ))}
         </div>
+      </div>
+
+      {/* Date range filter */}
+      <div className="flex flex-wrap items-end gap-3 mb-4">
+        <div className="flex flex-col">
+          <label className="text-xs text-gray-500 dark:text-gray-400 mb-1">Du</label>
+          <input
+            type="date"
+            value={dateFrom}
+            max={dateTo || undefined}
+            onChange={(e) => {
+              setPage(1);
+              setDateFrom(e.target.value);
+            }}
+            className="px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+          />
+        </div>
+        <div className="flex flex-col">
+          <label className="text-xs text-gray-500 dark:text-gray-400 mb-1">Au</label>
+          <input
+            type="date"
+            value={dateTo}
+            min={dateFrom || undefined}
+            onChange={(e) => {
+              setPage(1);
+              setDateTo(e.target.value);
+            }}
+            className="px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+          />
+        </div>
+        {(dateFrom || dateTo) && (
+          <button
+            onClick={() => {
+              setPage(1);
+              setDateFrom('');
+              setDateTo('');
+            }}
+            className="inline-flex items-center gap-1 px-3 py-2 rounded-lg text-sm font-medium border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition"
+          >
+            <X className="w-3.5 h-3.5" /> Réinitialiser
+          </button>
+        )}
       </div>
 
       {/* List */}

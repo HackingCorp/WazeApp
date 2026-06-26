@@ -307,7 +307,7 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
                     {},
                     {
                       logger: this.logger as never,
-                      reuploadRequest: sock.updateMediaMessage,
+                      reuploadRequest: this.safeReuploadRequest(sock),
                     },
                   );
 
@@ -2039,7 +2039,7 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
                 {},
                 {
                   logger: this.logger as never,
-                  reuploadRequest: sock.updateMediaMessage,
+                  reuploadRequest: this.safeReuploadRequest(sock),
                 },
               );
 
@@ -2168,7 +2168,7 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
                   {},
                   {
                     logger: this.logger as never,
-                    reuploadRequest: sock.updateMediaMessage,
+                    reuploadRequest: this.safeReuploadRequest(sock),
                   },
                 );
 
@@ -2550,6 +2550,22 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
   /**
    * Restore credentials from database to filesystem
    */
+  /**
+   * Wrap sock.updateMediaMessage to prevent uncaught TypeError: terminated
+   * when the socket disconnects during media download.
+   */
+  private safeReuploadRequest(sock: any): ((...args: any[]) => Promise<any>) | undefined {
+    if (!sock?.updateMediaMessage) return undefined;
+    return async (...args: any[]) => {
+      try {
+        return await sock.updateMediaMessage(...args);
+      } catch (err) {
+        this.logger.warn(`reuploadRequest failed (non-fatal): ${err?.message || err}`);
+        return undefined;
+      }
+    };
+  }
+
   private async restoreCredentialsFromDatabase(sessionId: string): Promise<boolean> {
     try {
       const session = await this.sessionRepository.findOne({ where: { id: sessionId } });
@@ -2639,6 +2655,19 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
         }
 
         if (hasCredentials) {
+          // Skip sessions that haven't been seen in more than 7 days.
+          // These sessions have expired credentials and will just generate
+          // QR codes, slow queries, and DB load without ever connecting.
+          const maxStaleMs = 7 * 24 * 60 * 60 * 1000; // 7 days
+          const lastSeen = dbSession.lastSeenAt ? new Date(dbSession.lastSeenAt).getTime() : 0;
+          const staleDuration = Date.now() - lastSeen;
+          if (staleDuration > maxStaleMs) {
+            this.logger.log(
+              `⏭️ Skipping stale session ${sessionId} - last seen ${Math.round(staleDuration / 86400000)}d ago`,
+            );
+            continue;
+          }
+
           // Calculate staggered delay based on session index to avoid rate limiting
           // Each session gets a progressively longer delay (10-30s base + random jitter)
           const sessionIndex = dbSessions.indexOf(dbSession);

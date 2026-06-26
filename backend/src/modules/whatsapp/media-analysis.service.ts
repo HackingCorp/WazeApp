@@ -571,6 +571,19 @@ export class MediaAnalysisService implements OnModuleInit {
    * Analyser tout type de média
    */
   async analyzeMedia(message: any, sock?: any): Promise<MediaAnalysisResult | null> {
+    // Wrap reuploadRequest to prevent uncaught TypeError: terminated
+    // when the socket disconnects during media download
+    const safeReuploadRequest = sock?.updateMediaMessage
+      ? async (...args: any[]) => {
+          try {
+            return await sock.updateMediaMessage(...args);
+          } catch (err) {
+            this.logger.warn(`reuploadRequest failed (non-fatal): ${err?.message || err}`);
+            return undefined;
+          }
+        }
+      : undefined;
+
     try {
       // Image
       if (message.message?.imageMessage) {
@@ -588,7 +601,7 @@ export class MediaAnalysisService implements OnModuleInit {
               {},
               {
                 logger: this.logger as never,
-                reuploadRequest: sock.updateMediaMessage,
+                reuploadRequest: safeReuploadRequest,
               }
             );
             imageBuffer = Buffer.from(downloadedMedia);
@@ -621,7 +634,7 @@ export class MediaAnalysisService implements OnModuleInit {
               {},
               {
                 logger: this.logger as never,
-                reuploadRequest: sock.updateMediaMessage,
+                reuploadRequest: safeReuploadRequest,
               }
             );
             docBuffer = Buffer.from(downloadedMedia);
@@ -655,7 +668,7 @@ export class MediaAnalysisService implements OnModuleInit {
               {},
               {
                 logger: this.logger as never,
-                reuploadRequest: sock.updateMediaMessage,
+                reuploadRequest: safeReuploadRequest,
               }
             );
 
@@ -728,7 +741,7 @@ export class MediaAnalysisService implements OnModuleInit {
               {},
               {
                 logger: this.logger as never,
-                reuploadRequest: sock.updateMediaMessage,
+                reuploadRequest: safeReuploadRequest,
               }
             );
             

@@ -9,6 +9,7 @@ import {
   UseGuards,
   HttpStatus,
   BadRequestException,
+  Logger,
 } from "@nestjs/common";
 import {
   ApiTags,
@@ -50,6 +51,8 @@ class BulkEmbeddingDto {
 @UseGuards(JwtAuthGuard, RolesGuard)
 @AllowIndividualUsers()
 export class VectorDatabaseController {
+  private readonly logger = new Logger(VectorDatabaseController.name);
+
   constructor(private vectorEmbeddingService: VectorEmbeddingService) {}
 
   @Post("search")
@@ -268,17 +271,24 @@ export class VectorDatabaseController {
     @CurrentUser() user: User,
     @Query("knowledgeBaseId") knowledgeBaseId?: string,
   ) {
-    // This would be a long-running operation, ideally queued
-    // For now, return a success message indicating the operation has started
+    const organizationId = user.currentOrganizationId!;
+
+    // Run detached so the HTTP request doesn't time out on large knowledge
+    // bases; progress is visible via the stats endpoint and server logs.
+    void this.vectorEmbeddingService
+      .reindexOrganization(organizationId, knowledgeBaseId)
+      .catch((error) =>
+        this.logger.error(`Reindexing failed for organization ${organizationId}: ${error.message}`),
+      );
 
     return {
       success: true,
       message: knowledgeBaseId
         ? `Reindexing started for knowledge base: ${knowledgeBaseId}`
         : "Full reindexing started for organization",
-      organizationId: user.currentOrganizationId!,
+      organizationId,
       knowledgeBaseId,
-      note: "Reindexing is a background operation. Check the stats endpoint for progress.",
+      note: "Reindexing runs in the background. Check the stats endpoint for progress.",
     };
   }
 

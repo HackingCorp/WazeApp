@@ -1,4 +1,4 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { ConfigService } from "@nestjs/config";
@@ -50,7 +50,7 @@ export interface VectorSearchResult {
 }
 
 @Injectable()
-export class VectorEmbeddingService {
+export class VectorEmbeddingService implements OnModuleInit {
   private readonly logger = new Logger(VectorEmbeddingService.name);
   private qdrantClient: QdrantClient;
   private embeddingProvider: "openai" | "sentence-transformers" | "custom";
@@ -522,6 +522,105 @@ export class VectorEmbeddingService {
   /**
    * Ensure collection exists with proper configuration
    */
+  /**
+   * Re-embed and re-index every chunk of an organization into Qdrant. Safe to
+   * run repeatedly (upserts by deterministic point id, forces regeneration).
+   * Used to rebuild the vector index after Qdrant was reset/emptied, or on
+   * demand via the reindex endpoint.
+   */
+  async reindexOrganization(
+    organizationId: string,
+    knowledgeBaseId?: string,
+  ): Promise<{ total: number; successful: number; failed: number }> {
+    const qb = this.chunkRepository
+      .createQueryBuilder("chunk")
+      .innerJoin("chunk.document", "document")
+      .innerJoin("document.knowledgeBase", "kb")
+      .where("kb.organizationId = :organizationId", { organizationId })
+      .select("chunk.id", "id");
+    if (knowledgeBaseId) {
+      qb.andWhere("kb.id = :knowledgeBaseId", { knowledgeBaseId });
+    }
+    const rows = await qb.getRawMany();
+    const chunkIds = rows.map((r) => r.id as string);
+
+    this.logger.log(
+      `Reindexing ${chunkIds.length} chunks for organization ${organizationId}${knowledgeBaseId ? ` (KB ${knowledgeBaseId})` : ""}`,
+    );
+
+    let successful = 0;
+    let failed = 0;
+    for (const chunkId of chunkIds) {
+      try {
+        await this.storeChunkEmbedding(chunkId, organizationId, true);
+        successful++;
+      } catch (error) {
+        failed++;
+        this.logger.warn(`Reindex failed for chunk ${chunkId}: ${error.message}`);
+      }
+    }
+
+    this.logger.log(
+      `Reindex complete for organization ${organizationId}: ${successful} ok, ${failed} failed (of ${chunkIds.length})`,
+    );
+    return { total: chunkIds.length, successful, failed };
+  }
+
+  /**
+   * Startup self-heal: if an organization has chunks but its Qdrant collection
+   * is missing (e.g. the Qdrant volume was reset), rebuild the index for it.
+   * Runs detached so it never blocks application boot. Only reindexes orgs whose
+   * collection is genuinely absent — healthy orgs are left untouched.
+   */
+  async onModuleInit(): Promise<void> {
+    setTimeout(() => {
+      this.selfHealMissingCollections().catch((e) =>
+        this.logger.warn(`Vector index self-heal failed: ${e.message}`),
+      );
+    }, 15000);
+  }
+
+  private async selfHealMissingCollections(): Promise<void> {
+    // Organizations that currently have indexable chunks.
+    const rows = await this.chunkRepository
+      .createQueryBuilder("chunk")
+      .innerJoin("chunk.document", "document")
+      .innerJoin("document.knowledgeBase", "kb")
+      .where("kb.organizationId IS NOT NULL")
+      .select("kb.organizationId", "orgId")
+      .addSelect("COUNT(chunk.id)", "cnt")
+      .groupBy("kb.organizationId")
+      .getRawMany();
+
+    for (const row of rows) {
+      const organizationId = row.orgId as string;
+      const collectionName = this.getCollectionName(organizationId);
+      let collectionExists = true;
+      try {
+        await this.qdrantClient.getCollection(collectionName);
+      } catch (error) {
+        const msg = String(error?.message || "");
+        // Only treat a definitive "not found" as missing; ignore transient
+        // connectivity errors so we don't needlessly re-embed.
+        collectionExists = !(
+          msg.includes("Not Found") ||
+          msg.includes("404") ||
+          msg.toLowerCase().includes("doesn't exist")
+        );
+      }
+
+      if (!collectionExists) {
+        this.logger.warn(
+          `Qdrant collection missing for organization ${organizationId} (${row.cnt} chunks) — self-healing (reindexing)`,
+        );
+        const result = await this.reindexOrganization(organizationId);
+        this.logger.log(
+          `Self-heal reindex for ${organizationId}: ${result.successful}/${result.total} chunks restored`,
+        );
+      }
+    }
+  }
+
   private async ensureCollection(
     collectionName: string,
     dimensions: number,

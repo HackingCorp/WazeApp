@@ -1083,62 +1083,81 @@ export class WhatsAppService {
     syncedChats: number;
     totalChats: number;
   }) {
-    this.logger.log(
-      `✅ WhatsApp sync completed for session ${data.sessionId}: ${data.syncedChats}/${data.totalChats} chats processed`,
-    );
+    // This runs as an async @OnEvent handler: any throw here (e.g. a transient
+    // DB/query failure under memory pressure) would surface as an unhandled
+    // rejection and can crash the whole process. Contain it locally.
+    try {
+      this.logger.log(
+        `✅ WhatsApp sync completed for session ${data?.sessionId}: ${data?.syncedChats}/${data?.totalChats} chats processed`,
+      );
 
-    // Update session to indicate sync is complete
-    const session = await this.sessionRepository.findOne({
-      where: { id: data.sessionId },
-    });
-    if (session) {
-      session.metadata = {
-        ...session.metadata,
-        syncInProgress: false,
-        syncCompleted: true,
-        syncCompletedAt: new Date().toISOString(),
-        totalChats: data.totalChats,
+      if (!data?.sessionId) return;
+
+      // Update session to indicate sync is complete
+      const session = await this.sessionRepository.findOne({
+        where: { id: data.sessionId },
+      });
+      if (session) {
+        session.metadata = {
+          ...session.metadata,
+          syncInProgress: false,
+          syncCompleted: true,
+          syncCompletedAt: new Date().toISOString(),
+          totalChats: data.totalChats,
+          syncedChats: data.syncedChats,
+        };
+        await this.sessionRepository.save(session);
+      }
+
+      // Emit to frontend via Gateway
+      this.eventEmitter.emit("whatsapp.session.sync", {
+        sessionId: data.sessionId,
+        status: "completed",
         syncedChats: data.syncedChats,
-      };
-      await this.sessionRepository.save(session);
+        totalChats: data.totalChats,
+      });
+    } catch (error) {
+      this.logger.error(
+        `Failed to process sync completion for session ${data?.sessionId}: ${error?.message}`,
+      );
     }
-
-    // Emit to frontend via Gateway
-    this.eventEmitter.emit("whatsapp.session.sync", {
-      sessionId: data.sessionId,
-      status: "completed",
-      syncedChats: data.syncedChats,
-      totalChats: data.totalChats,
-    });
   }
 
   @OnEvent("whatsapp.sync.failed")
   async handleSyncFailed(data: { sessionId: string; error: string }) {
-    this.logger.error(
-      `❌ WhatsApp sync failed for session ${data.sessionId}: ${data.error}`,
-    );
+    try {
+      this.logger.error(
+        `❌ WhatsApp sync failed for session ${data?.sessionId}: ${data?.error}`,
+      );
 
-    // Update session to indicate sync failed
-    const session = await this.sessionRepository.findOne({
-      where: { id: data.sessionId },
-    });
-    if (session) {
-      session.metadata = {
-        ...session.metadata,
-        syncInProgress: false,
-        syncFailed: true,
-        syncFailedAt: new Date().toISOString(),
-        syncError: data.error,
-      };
-      await this.sessionRepository.save(session);
+      if (!data?.sessionId) return;
+
+      // Update session to indicate sync failed
+      const session = await this.sessionRepository.findOne({
+        where: { id: data.sessionId },
+      });
+      if (session) {
+        session.metadata = {
+          ...session.metadata,
+          syncInProgress: false,
+          syncFailed: true,
+          syncFailedAt: new Date().toISOString(),
+          syncError: data.error,
+        };
+        await this.sessionRepository.save(session);
+      }
+
+      // Emit to frontend via Gateway
+      this.eventEmitter.emit("whatsapp.session.sync", {
+        sessionId: data.sessionId,
+        status: "failed",
+        error: data.error,
+      });
+    } catch (error) {
+      this.logger.error(
+        `Failed to process sync failure for session ${data?.sessionId}: ${error?.message}`,
+      );
     }
-
-    // Emit to frontend via Gateway
-    this.eventEmitter.emit("whatsapp.session.sync", {
-      sessionId: data.sessionId,
-      status: "failed",
-      error: data.error,
-    });
   }
 
   @OnEvent("whatsapp.qr.update")

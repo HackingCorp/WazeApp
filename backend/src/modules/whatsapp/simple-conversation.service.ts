@@ -238,18 +238,24 @@ export class SimpleConversationService implements OnModuleDestroy {
     sessionId: string;
     messageCount: number;
   }) {
-    const { sessionId, messageCount } = data;
-    this.logger.log(
-      `✅ WhatsApp sync completed for session ${sessionId}: ${messageCount} messages processed`,
-    );
+    try {
+      const { sessionId, messageCount } = data;
+      this.logger.log(
+        `✅ WhatsApp sync completed for session ${sessionId}: ${messageCount} messages processed`,
+      );
 
-    // Emit notification to frontend that sync is complete
-    this.eventEmitter.emit("whatsapp.sync.completed", {
-      sessionId,
-      status: "completed",
-      messageCount,
-      message: `Sync completed! ${messageCount} messages processed.`,
-    });
+      // Emit notification to frontend that sync is complete
+      this.eventEmitter.emit("whatsapp.sync.completed", {
+        sessionId,
+        status: "completed",
+        messageCount,
+        message: `Sync completed! ${messageCount} messages processed.`,
+      });
+    } catch (error) {
+      this.logger.error(
+        `Failed to handle sync completion for session ${data?.sessionId}: ${error?.message}`,
+      );
+    }
   }
 
   @OnEvent("whatsapp.image.downloaded")

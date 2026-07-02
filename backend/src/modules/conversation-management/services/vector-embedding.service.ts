@@ -410,6 +410,17 @@ export class VectorEmbeddingService {
       this.logger.debug(`Vector search returned ${results.length} results`);
       return results;
     } catch (error) {
+      // A missing/empty collection (Qdrant "Not Found"/404) is expected when an
+      // org has no indexed documents yet, or when Qdrant was reset. Treat it as
+      // "no results" so the caller falls back to text search, instead of
+      // throwing and spamming error logs on every message.
+      const msg = String(error?.message || "");
+      if (msg.includes("Not Found") || msg.includes("404") || msg.toLowerCase().includes("doesn't exist")) {
+        this.logger.warn(
+          `Vector search: collection missing/empty for organization ${request.organizationId} — returning no results (falling back to text search). Reindex the knowledge base to restore semantic search.`,
+        );
+        return [];
+      }
       this.logger.error(`Vector search failed: ${error.message}`, error.stack);
       throw error;
     }

@@ -94,9 +94,14 @@ POST /send
   "message": {
     "type": "text",
     "text": "Bonjour! Ceci est un message test."
-  }
+  },
+  "idempotencyKey": "colis-12345-rappel-7"
 }
 ```
+
+**Champs optionnels:**
+- `delayMs` - Délai entre les messages en millisecondes (défaut: 3000)
+- `idempotencyKey` - Clé d'idempotence (voir la section [Idempotence & déduplication](#idempotence--déduplication)). **Fortement recommandée** pour les notifications automatisées afin d'éviter les doublons.
 
 **Types de messages supportés:**
 - `text` - Message texte
@@ -135,9 +140,12 @@ POST /send/immediate
   "sessionId": "uuid",
   "to": "+237612345678",
   "message": "Bonjour!",
-  "type": "text"
+  "type": "text",
+  "idempotencyKey": "colis-12345-rappel-7"
 }
 ```
+
+> `idempotencyKey` est optionnelle mais **fortement recommandée** — voir [Idempotence & déduplication](#idempotence--déduplication).
 
 **Pour les messages média:**
 ```json
@@ -160,6 +168,46 @@ POST /send/immediate
   }
 }
 ```
+
+---
+
+## Idempotence & déduplication
+
+Pour éviter qu'un même client reçoive plusieurs fois la **même** notification, l'API supporte une clé d'idempotence sur `POST /send` et `POST /send/immediate`.
+
+**Champ:** `idempotencyKey` (string, optionnel)
+
+**Comportement:**
+- Fournissez une clé **stable et unique par notification logique** (ex. `colis-12345-rappel-7`).
+- Tout appel répété avec la **même clé pour le même destinataire dans une fenêtre de 24 h** est **dédupliqué** : le message n'est envoyé qu'une seule fois. La requête réussit quand même, avec le statut `deduplicated`.
+- La déduplication est **indépendante du contenu du message** : elle fonctionne même si le texte change entre deux appels (URL de suivi dynamique, compteur de rappel, etc.).
+
+**Sans `idempotencyKey`**, un repli automatique s'applique : déduplication par **hash du contenu** sur **5 minutes** seulement — insuffisant si le contenu varie ou si les envois sont espacés de plus de 5 minutes. **Il est donc fortement recommandé de toujours envoyer une `idempotencyKey`** pour les notifications automatisées.
+
+**Exemple — un rappel de colis renvoyé plusieurs fois ne sera livré qu'une fois:**
+```json
+POST /send
+{
+  "recipients": ["+237612345678"],
+  "message": { "type": "text", "text": "Rappel: votre colis vous attend. Suivi: https://kut.es/aB3" },
+  "idempotencyKey": "colis-12345-rappel-7"
+}
+```
+
+**Réponse en cas de doublon détecté:**
+```json
+{
+  "success": true,
+  "totalRecipients": 1,
+  "queued": 0,
+  "failed": 0,
+  "results": [
+    { "recipient": "+237612345678", "success": true, "status": "deduplicated" }
+  ]
+}
+```
+
+**Recommandation de format de clé:** `<type>-<idEntité>-<étape>`, par ex. `colis-12345-rappel-7`, `commande-987-confirmation`, `facture-555-relance-2`.
 
 ---
 
@@ -503,6 +551,7 @@ Les webhooks sont envoyés en POST avec un body JSON:
 1. **Délai entre messages**: Respectez un délai minimum de 3 secondes entre les messages pour éviter les blocages WhatsApp
 2. **Validation des contacts**: Validez les numéros WhatsApp avant d'envoyer des campagnes
 3. **Gestion des erreurs**: Vérifiez toujours le statut de la réponse et gérez les erreurs
+4. **Idempotence**: Envoyez toujours une `idempotencyKey` stable pour les notifications automatisées (rappels, confirmations) afin d'éviter que le client reçoive plusieurs fois le même message. Voir [Idempotence & déduplication](#idempotence--déduplication)
 
 ---
 

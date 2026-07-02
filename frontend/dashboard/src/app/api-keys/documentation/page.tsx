@@ -1,9 +1,80 @@
 'use client';
 
 import { useI18n } from '@/providers/I18nProvider';
-import { ArrowLeft, Copy, Check, ExternalLink } from 'lucide-react';
+import { ArrowLeft, Copy, Check, ExternalLink, ClipboardCopy } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
+
+// Version texte/markdown complète de la documentation, pour le bouton
+// « Copier toute la documentation ».
+const FULL_DOCUMENTATION = `# Documentation API Externe WazeApp
+
+URL de base: https://api.wazeapp.ai/api/v1/external
+
+## Authentification
+Toutes les requêtes nécessitent une clé API dans le header X-API-Key:
+  curl -X GET https://api.wazeapp.ai/api/v1/external/health -H "X-API-Key: wz_live_votre_cle_api"
+
+Chaque clé API est liée à une seule session WhatsApp : le sessionId n'a pas besoin d'être fourni, il est déterminé automatiquement par la clé.
+
+## Endpoints principaux
+
+### GET /health
+Vérifie l'état de l'API.
+
+### POST /send  (permission: send:message)
+Envoyer des messages à un ou plusieurs destinataires.
+Body (message personnalisé):
+{
+  "recipients": ["+237612345678"],
+  "message": { "type": "text", "text": "Bonjour!" },
+  "idempotencyKey": "colis-12345-rappel-7"
+}
+Champs optionnels: delayMs (défaut 3000), idempotencyKey (fortement recommandé, voir Idempotence).
+Types supportés: text, image, video, audio, document.
+
+### POST /send/immediate  (permission: send:message)
+Envoyer un message immédiatement (un seul destinataire). Si la session est déconnectée, le message est mis en file d'attente.
+Body:
+{ "to": "+237612345678", "message": "Bonjour!", "type": "text", "idempotencyKey": "colis-12345-rappel-7" }
+
+## Idempotence & déduplication
+Pour éviter qu'un client reçoive plusieurs fois la même notification, ajoutez une clé idempotencyKey sur /send et /send/immediate.
+- Clé stable et unique par notification logique (ex: colis-12345-rappel-7).
+- Tout appel répété avec la même clé pour le même destinataire dans les 24h est dédupliqué (statut "deduplicated").
+- Indépendant du contenu: fonctionne même si le texte change (URL de suivi dynamique, numéro de rappel...).
+- Sans idempotencyKey: repli par hash du contenu sur 5 minutes seulement.
+Format de clé recommandé: <type>-<id>-<étape>, ex: colis-12345-rappel-7, commande-987-confirmation.
+
+### POST /validate-numbers  (permission: send:message)
+Valider si des numéros sont enregistrés sur WhatsApp. Maximum 100 numéros par requête.
+
+## Contacts
+- GET /contacts — lister les contacts
+- POST /contacts — créer un contact
+
+## Templates
+- GET /templates — lister les templates
+- GET /templates/:id — obtenir un template
+
+## Campagnes
+- GET /campaigns, GET /campaigns/:id, GET /campaigns/:id/stats
+- POST /campaigns — créer
+- POST /campaigns/:id/start | /pause | /cancel
+
+## Webhooks
+- GET /webhooks — lister les webhooks configurés
+Événements: message.sent, message.delivered, message.read, message.failed.
+
+## Limites
+Respectez un délai minimum de 3 secondes entre les messages. Limite par destinataire: 100 messages/heure.
+
+## Bonnes pratiques
+1. Délai minimum de 3s entre les messages.
+2. Validez les numéros WhatsApp avant les campagnes.
+3. Vérifiez toujours le statut de la réponse et gérez les erreurs.
+4. Envoyez toujours une idempotencyKey stable pour les notifications automatisées (rappels, confirmations).
+`;
 
 export default function ApiDocumentationPage() {
   const { t } = useI18n();
@@ -44,12 +115,30 @@ export default function ApiDocumentationPage() {
           <ArrowLeft className="w-4 h-4 mr-2" />
           Retour aux clés API
         </Link>
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-          Documentation API Externe
-        </h1>
-        <p className="text-gray-500 dark:text-gray-400 mt-2">
-          Guide complet pour utiliser l'API WazeApp
-        </p>
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+              Documentation API Externe
+            </h1>
+            <p className="text-gray-500 dark:text-gray-400 mt-2">
+              Guide complet pour utiliser l'API WazeApp
+            </p>
+          </div>
+          <button
+            onClick={() => copyToClipboard(FULL_DOCUMENTATION, 'full-doc')}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-green-600 text-white hover:bg-green-700 transition self-start shrink-0"
+          >
+            {copiedCode === 'full-doc' ? (
+              <>
+                <Check className="w-4 h-4" /> Copié !
+              </>
+            ) : (
+              <>
+                <ClipboardCopy className="w-4 h-4" /> Copier toute la documentation
+              </>
+            )}
+          </button>
+        </div>
       </div>
 
       {/* Content */}
@@ -234,11 +323,14 @@ export default function ApiDocumentationPage() {
   "message": {
     "type": "text",
     "text": "Bonjour! Ceci est un message test."
-  }
+  },
+  "idempotencyKey": "colis-12345-rappel-7"
 }
 
 // Note: Le sessionId n'est plus requis - il est déterminé
-// automatiquement par votre clé API`}
+// automatiquement par votre clé API
+// idempotencyKey (optionnel, fortement recommandé): évite les
+// doublons — voir la section "Idempotence & déduplication"`}
               id="send-request"
               language="json"
             />
@@ -270,7 +362,8 @@ export default function ApiDocumentationPage() {
               code={`{
   "to": "+237612345678",
   "message": "Bonjour!",
-  "type": "text"
+  "type": "text",
+  "idempotencyKey": "colis-12345-rappel-7"
 }
 
 // Pour les médias
@@ -281,7 +374,8 @@ export default function ApiDocumentationPage() {
   "caption": "Regardez cette image!"
 }
 
-// Note: Le sessionId n'est plus requis`}
+// Note: Le sessionId n'est plus requis
+// idempotencyKey (optionnel, fortement recommandé) évite les doublons`}
               id="send-immediate"
               language="json"
             />
@@ -311,6 +405,49 @@ export default function ApiDocumentationPage() {
   "sessionStatus": "disconnected"
 }`}
               id="send-immediate-response"
+              language="json"
+            />
+          </div>
+
+          {/* Idempotency */}
+          <div className="mb-8 pt-6 border-t border-gray-200 dark:border-gray-700">
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+              🔁 Idempotence &amp; déduplication
+            </h3>
+            <p className="text-gray-600 dark:text-gray-300 mb-3">
+              Pour éviter qu&apos;un client reçoive plusieurs fois la même notification, ajoutez une clé{' '}
+              <code>idempotencyKey</code> sur <code>/send</code> et <code>/send/immediate</code>.
+            </p>
+            <ul className="list-disc pl-5 space-y-1 text-gray-600 dark:text-gray-300 mb-3 text-sm">
+              <li>Utilisez une clé <strong>stable et unique par notification logique</strong> (ex. <code>colis-12345-rappel-7</code>).</li>
+              <li>Tout appel répété avec la <strong>même clé pour le même destinataire dans les 24 h</strong> est dédupliqué : le message n&apos;est envoyé qu&apos;une fois (statut <code>deduplicated</code>).</li>
+              <li>La déduplication est <strong>indépendante du contenu</strong> : elle fonctionne même si le texte change (URL de suivi dynamique, numéro de rappel, etc.).</li>
+              <li>Sans <code>idempotencyKey</code>, un repli par hash du contenu s&apos;applique sur <strong>5 minutes</strong> seulement — insuffisant si le contenu varie ou si les envois sont espacés.</li>
+            </ul>
+            <CodeBlock
+              code={`// Un rappel renvoyé plusieurs fois n'est livré qu'une seule fois
+{
+  "recipients": ["+237612345678"],
+  "message": {
+    "type": "text",
+    "text": "Rappel: votre colis vous attend. Suivi: https://kut.es/aB3"
+  },
+  "idempotencyKey": "colis-12345-rappel-7"
+}
+
+// Réponse si un doublon est détecté:
+{
+  "totalRecipients": 1,
+  "queued": 0,
+  "failed": 0,
+  "results": [
+    { "recipient": "+237612345678", "success": true, "status": "deduplicated" }
+  ]
+}
+
+// Format de clé recommandé: <type>-<id>-<étape>
+// ex: colis-12345-rappel-7, commande-987-confirmation`}
+              id="idempotency-example"
               language="json"
             />
           </div>

@@ -71,6 +71,77 @@ export class VectorSearchService implements OnModuleInit {
   async onModuleInit() {
     await this.initializeQdrant();
     await this.detectEmbeddingProvider();
+
+    // Startup self-heal: this service backs the WhatsApp bot's knowledge-base
+    // retrieval (collection `org_<id>`). The collection is created lazily on
+    // indexing, so if Qdrant was reset (or documents were never indexed), the
+    // bot's semantic search silently returns nothing. Rebuild any org that has
+    // chunks but no collection. Detached so it never blocks boot.
+    setTimeout(() => {
+      this.selfHealMissingCollections().catch((e) =>
+        this.logger.warn(`Vector self-heal failed: ${e.message}`),
+      );
+    }, 20000);
+  }
+
+  private async selfHealMissingCollections(): Promise<void> {
+    if (!this.isConnected || this.embeddingProvider === "none") {
+      return;
+    }
+
+    const orgRows = await this.chunkRepository
+      .createQueryBuilder("chunk")
+      .innerJoin("chunk.document", "document")
+      .innerJoin("document.knowledgeBase", "kb")
+      .where("kb.organizationId IS NOT NULL")
+      .select("kb.organizationId", "orgId")
+      .addSelect("COUNT(chunk.id)", "cnt")
+      .groupBy("kb.organizationId")
+      .getRawMany();
+
+    for (const row of orgRows) {
+      const organizationId = row.orgId as string;
+      const collectionName = this.getCollectionName(organizationId);
+
+      let exists = true;
+      try {
+        await this.qdrantClient.getCollection(collectionName);
+      } catch (error) {
+        const m = String(error?.message || "");
+        // Only a definitive "not found" counts as missing; ignore transient
+        // connectivity errors so we don't needlessly re-embed.
+        exists = !(
+          m.includes("Not Found") ||
+          m.includes("404") ||
+          m.toLowerCase().includes("doesn't exist")
+        );
+      }
+      if (exists) {
+        continue;
+      }
+
+      this.logger.warn(
+        `Vector collection ${collectionName} missing (${row.cnt} chunks) — self-healing (reindexing)`,
+      );
+
+      // Load chunks WITH their document so indexChunk can resolve the KB/org.
+      const chunks = await this.chunkRepository
+        .createQueryBuilder("chunk")
+        .innerJoinAndSelect("chunk.document", "document")
+        .innerJoin("document.knowledgeBase", "kb")
+        .where("kb.organizationId = :organizationId", { organizationId })
+        .getMany();
+
+      let ok = 0;
+      for (const chunk of chunks) {
+        if (await this.indexChunk(chunk)) {
+          ok++;
+        }
+      }
+      this.logger.log(
+        `Self-heal reindex for org ${organizationId}: ${ok}/${chunks.length} chunks indexed into ${collectionName}`,
+      );
+    }
   }
 
   private async detectEmbeddingProvider(): Promise<void> {

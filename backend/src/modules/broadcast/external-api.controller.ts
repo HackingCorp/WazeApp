@@ -50,7 +50,8 @@ import { Queue } from 'bull';
 @Controller('external')
 @Public()
 export class ExternalApiController {
-  private readonly DEDUP_TTL_SECONDS = 300; // 5 minutes deduplication window
+  private readonly DEDUP_TTL_SECONDS = 300; // 5 minutes content-hash dedup window
+  private readonly IDEM_TTL_SECONDS = 86400; // 24h idempotency-key dedup window
   private readonly RECIPIENT_RATE_LIMIT = 100; // Max 100 messages per recipient per hour
   private readonly RECIPIENT_RATE_WINDOW = 3600; // 1 hour window
   private readonly MIN_DELAY_MS = 1000; // Minimum 1 second between messages
@@ -102,6 +103,36 @@ export class ExternalApiController {
     const hash = this.generateMessageHash(to, message);
     const redisKey = `dedup:msg:${hash}`;
     await this.redis.set(redisKey, '1', 'EX', this.DEDUP_TTL_SECONDS);
+  }
+
+  /**
+   * Idempotency-key dedup key: scoped to organization + recipient + client key.
+   * Independent of message content, so notifications with a dynamic tracking URL
+   * or reminder counter still dedup correctly.
+   */
+  private idemRedisKey(organizationId: string, to: string, key: string): string {
+    const hash = crypto
+      .createHash('sha256')
+      .update(`${organizationId}:${to}:${key}`)
+      .digest('hex');
+    return `dedup:idem:${hash}`;
+  }
+
+  /**
+   * Whether this (org, recipient, idempotency-key) was already accepted within
+   * the 24h window.
+   */
+  private async isDuplicateByKey(organizationId: string, to: string, key: string): Promise<boolean> {
+    const exists = await this.redis.exists(this.idemRedisKey(organizationId, to, key));
+    return exists === 1;
+  }
+
+  /**
+   * Record that this (org, recipient, idempotency-key) was accepted. Called after
+   * the message is successfully queued so a failed enqueue doesn't swallow the key.
+   */
+  private async markSentByKey(organizationId: string, to: string, key: string): Promise<void> {
+    await this.redis.set(this.idemRedisKey(organizationId, to, key), '1', 'EX', this.IDEM_TTL_SECONDS);
   }
 
   /**
@@ -317,8 +348,20 @@ export class ExternalApiController {
           continue;
         }
 
-        // Check for duplicate message before queuing
-        if (await this.isDuplicateMessage(messageContent.to, messageContent.message)) {
+        // Idempotency-key dedup (24h, content-independent) — preferred when the
+        // caller passes a stable key. Catches duplicates the content hash misses
+        // (dynamic tracking URL, reminder counter) and over a much longer window.
+        if (dto.idempotencyKey && (await this.isDuplicateByKey(organizationId, messageContent.to, dto.idempotencyKey))) {
+          results.push({
+            recipient,
+            success: true,
+            status: 'deduplicated',
+          });
+          continue;
+        }
+
+        // Content-hash dedup (5min) — fallback when no idempotency key is given.
+        if (!dto.idempotencyKey && (await this.isDuplicateMessage(messageContent.to, messageContent.message))) {
           results.push({
             recipient,
             success: true,
@@ -328,7 +371,9 @@ export class ExternalApiController {
         }
 
         // Generate deterministic job ID to prevent duplicate queue entries on client retry
-        const jobId = `ext-${this.generateMessageHash(messageContent.to, messageContent.message)}`;
+        const jobId = dto.idempotencyKey
+          ? `ext-idem-${this.idemRedisKey(organizationId, messageContent.to, dto.idempotencyKey).replace('dedup:idem:', '')}`
+          : `ext-${this.generateMessageHash(messageContent.to, messageContent.message)}`;
 
         // Add to queue with jittered delay and deterministic job ID
         const jitteredDelay = this.applyJitter(i * delay);
@@ -349,7 +394,11 @@ export class ExternalApiController {
         );
 
         // Mark as queued for deduplication
-        await this.markMessageSent(messageContent.to, messageContent.message);
+        if (dto.idempotencyKey) {
+          await this.markSentByKey(organizationId, messageContent.to, dto.idempotencyKey);
+        } else {
+          await this.markMessageSent(messageContent.to, messageContent.message);
+        }
 
         results.push({
           recipient,
@@ -390,6 +439,7 @@ export class ExternalApiController {
       mediaUrl?: string;
       caption?: string;
       queueIfDisconnected?: boolean; // Default: true - queue message if session is disconnected
+      idempotencyKey?: string; // Stable key: dedups repeated calls for 24h regardless of content
     },
   ) {
     const { organizationId, sessionId: apiKeySessionId, keyHash, rateLimitPerMinute, rateLimitPerDay } = await this.apiKeyService.validateApiKey(
@@ -432,12 +482,16 @@ export class ExternalApiController {
       );
     }
 
-    // Check for duplicate message (same recipient + content within 5 minutes)
-    if (await this.isDuplicateMessage(dto.to, dto.message)) {
+    // Duplicate detection: prefer the 24h idempotency key (content-independent)
+    // when provided, else fall back to the 5-minute content hash.
+    const isDup = dto.idempotencyKey
+      ? await this.isDuplicateByKey(organizationId, dto.to, dto.idempotencyKey)
+      : await this.isDuplicateMessage(dto.to, dto.message);
+    if (isDup) {
       return {
         success: true,
         status: 'deduplicated',
-        message: 'Duplicate message detected - already sent within the last 30 seconds',
+        message: 'Duplicate message detected - already accepted recently',
         deduplicated: true,
       };
     }
@@ -462,8 +516,12 @@ export class ExternalApiController {
           originalError: `Session disconnected (status: ${realStatus})`,
         });
 
-        // Mark as queued for deduplication (prevents duplicate queue entries)
-        await this.markMessageSent(dto.to, dto.message);
+        // Mark as accepted for deduplication (prevents duplicate queue entries)
+        if (dto.idempotencyKey) {
+          await this.markSentByKey(organizationId, dto.to, dto.idempotencyKey);
+        } else {
+          await this.markMessageSent(dto.to, dto.message);
+        }
 
         // Return 202 Accepted - message queued for later delivery
         return {
@@ -497,7 +555,11 @@ export class ExternalApiController {
       });
 
       // Mark as sent for deduplication
-      await this.markMessageSent(dto.to, dto.message);
+      if (dto.idempotencyKey) {
+        await this.markSentByKey(organizationId, dto.to, dto.idempotencyKey);
+      } else {
+        await this.markMessageSent(dto.to, dto.message);
+      }
 
       // Trigger webhook
       await this.webhookService.trigger(organizationId, 'message.sent', {

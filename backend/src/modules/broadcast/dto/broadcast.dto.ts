@@ -400,6 +400,17 @@ export class ExternalSendMessageDto {
   @IsOptional()
   @IsNumber()
   delayMs?: number;
+
+  @ApiPropertyOptional({
+    description:
+      'Idempotency key: a stable identifier for this logical notification. ' +
+      'Repeated calls with the same key + recipient within 24h are deduplicated, ' +
+      'even if the message text differs (e.g. a dynamic tracking URL). ' +
+      'Prevents the same client receiving the same notification multiple times.',
+  })
+  @IsOptional()
+  @IsString()
+  idempotencyKey?: string;
 }
 
 export class CreateWebhookDto {

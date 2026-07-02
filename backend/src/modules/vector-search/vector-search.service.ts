@@ -139,7 +139,18 @@ export class VectorSearchService implements OnModuleInit {
 
       return results;
     } catch (error) {
-      this.logger.error(`Vector search failed: ${error.message}`);
+      // A missing/empty collection (Qdrant "Not Found"/404) is expected when an
+      // org has no vectors indexed in this collection. Log it quietly — the
+      // text-search fallback below keeps results flowing — instead of emitting
+      // an ERROR on every query.
+      const msg = String(error?.message || "");
+      if (msg.includes("Not Found") || msg.includes("404") || msg.toLowerCase().includes("doesn't exist")) {
+        this.logger.warn(
+          `Vector search: collection missing/empty for organization ${request.organizationId} — using text-search fallback`,
+        );
+      } else {
+        this.logger.error(`Vector search failed: ${error.message}`);
+      }
 
       // Fall back to text search
       return this.fallbackTextSearch(request);

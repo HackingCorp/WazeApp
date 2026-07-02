@@ -134,6 +134,9 @@ export class UnansweredMessageProcessor {
         for (const msg of allMessages) {
           await this.unansweredMessageService.markMessageAsProcessed(msg.id);
         }
+        // Start the per-conversation cooldown so we don't reach out again on the
+        // next reconnection (anti-spam).
+        await this.unansweredMessageService.markConversationCaughtUp(conversationId);
         this.logger.log(`Catch-up completed for conversation ${conversationId} — ${allMessages.length} messages marked processed`);
       } else {
         this.logger.warn(`Catch-up AI response failed for conversation ${conversationId} — messages NOT marked processed (will retry)`);

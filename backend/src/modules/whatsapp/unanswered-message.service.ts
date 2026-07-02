@@ -33,6 +33,27 @@ export interface CatchUpMessageJob {
 const LOCK_TTL_SECONDS = 120;
 const LOCK_PREFIX = "lock:catchup:";
 
+/**
+ * Hard upper bound on the catch-up look-back window, regardless of the
+ * CATCHUP_TIME_WINDOW_HOURS env value. Replying to messages older than this is
+ * almost always unwanted (the conversation is stale / already resolved), so we
+ * clamp to protect against misconfiguration (e.g. env set to 168h = 7 days).
+ */
+const HARD_MAX_WINDOW_HOURS = 24;
+
+/**
+ * Hard upper bound on the number of unanswered messages scanned per catch-up run.
+ */
+const HARD_MAX_MESSAGES = 100;
+
+/**
+ * Per-conversation catch-up cooldown. A given conversation receives at most one
+ * catch-up outreach within this window, even across reconnections/restarts.
+ * This is the main anti-spam guard preventing repeated messages to the same
+ * conversation when the session reconnects multiple times.
+ */
+const CONV_COOLDOWN_PREFIX = "catchup:conv:";
+
 @Injectable()
 export class UnansweredMessageService {
   private readonly logger = new Logger(UnansweredMessageService.name);
@@ -126,19 +147,27 @@ export class UnansweredMessageService {
         return;
       }
 
-      // Get configuration
-      const timeWindowHours = this.configService.get<number>("CATCHUP_TIME_WINDOW_HOURS", 24);
+      // Get configuration. Clamp the look-back window to a hard maximum so a
+      // misconfigured env (e.g. CATCHUP_TIME_WINDOW_HOURS=168) can never make
+      // the bot reply to week-old, already-resolved conversations.
+      const configuredWindow = this.configService.get<number>("CATCHUP_TIME_WINDOW_HOURS", 24);
+      const timeWindowHours = Math.min(configuredWindow, HARD_MAX_WINDOW_HOURS);
+      if (configuredWindow > HARD_MAX_WINDOW_HOURS) {
+        this.logger.warn(
+          `CATCHUP_TIME_WINDOW_HOURS=${configuredWindow}h exceeds hard cap ${HARD_MAX_WINDOW_HOURS}h — clamping to avoid replying to stale conversations`,
+        );
+      }
       const delayMs = this.configService.get<number>("CATCHUP_DELAY_MS", 3000);
 
       // Calculate cutoff time
       const cutoffTime = new Date();
       cutoffTime.setHours(cutoffTime.getHours() - timeWindowHours);
 
-      // Find unanswered messages
+      // Find unanswered messages (hard-capped count)
       const unansweredMessages = await this.findUnansweredMessages(
         sessionId,
         cutoffTime,
-        100, // Get up to 100 messages to analyze
+        HARD_MAX_MESSAGES,
       );
 
       if (unansweredMessages.length === 0) {
@@ -160,7 +189,16 @@ export class UnansweredMessageService {
 
       // Queue one job per conversation with ALL messages as combined context
       let jobIndex = 0;
+      let skippedCooldown = 0;
       for (const [convId, messages] of messagesByConversation) {
+        // Anti-spam guard: don't reach out to the same conversation more than
+        // once per cooldown window, even if the session reconnects repeatedly.
+        if (await this.wasConversationRecentlyCaughtUp(convId)) {
+          this.logger.log(`Conversation ${convId} caught up recently — skipping to avoid duplicate outreach`);
+          skippedCooldown++;
+          continue;
+        }
+
         // Sort by createdAt ASC so context reads chronologically
         messages.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 
@@ -212,7 +250,7 @@ export class UnansweredMessageService {
         jobIndex++;
       }
 
-      this.logger.log(`Queued ${messagesByConversation.size} catch-up jobs for session ${sessionId} (${unansweredMessages.length} total messages)`);
+      this.logger.log(`Catch-up for session ${sessionId}: ${messagesByConversation.size} conversations in window, ${skippedCooldown} skipped by cooldown, ${unansweredMessages.length} total messages`);
 
     } catch (error) {
       this.logger.error(`Error during catch-up process for session ${sessionId}: ${error.message}`, error.stack);
@@ -328,6 +366,35 @@ export class UnansweredMessageService {
       }
     } catch (error) {
       this.logger.error(`Failed to mark message ${messageId} as processed: ${error.message}`);
+    }
+  }
+
+  /**
+   * Whether this conversation has been caught up within the cooldown window.
+   */
+  async wasConversationRecentlyCaughtUp(conversationId: string): Promise<boolean> {
+    try {
+      const v = await this.redis.get(`${CONV_COOLDOWN_PREFIX}${conversationId}`);
+      return v !== null;
+    } catch (error) {
+      // On Redis failure, fail open (don't block catch-up) but log it.
+      this.logger.warn(`Cooldown check failed for conversation ${conversationId}: ${error.message}`);
+      return false;
+    }
+  }
+
+  /**
+   * Mark a conversation as caught up, starting its cooldown window. Called after
+   * a catch-up response is successfully sent so the same conversation isn't
+   * contacted again on the next reconnection.
+   */
+  async markConversationCaughtUp(conversationId: string): Promise<void> {
+    try {
+      const cooldownHours = this.configService.get<number>("CATCHUP_CONV_COOLDOWN_HOURS", 24);
+      const ttlSeconds = Math.max(1, cooldownHours) * 3600;
+      await this.redis.set(`${CONV_COOLDOWN_PREFIX}${conversationId}`, Date.now().toString(), "EX", ttlSeconds);
+    } catch (error) {
+      this.logger.warn(`Failed to set cooldown for conversation ${conversationId}: ${error.message}`);
     }
   }
 

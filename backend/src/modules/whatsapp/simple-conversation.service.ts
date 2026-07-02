@@ -238,19 +238,17 @@ export class SimpleConversationService implements OnModuleDestroy {
     sessionId: string;
     messageCount: number;
   }) {
+    // NOTE: This handler listens to "whatsapp.sync.completed". It must NEVER
+    // re-emit that same event — doing so created an infinite feedback loop that
+    // flooded the DB with metadata UPDATEs on whatsapp_sessions (row-lock
+    // contention, multi-second slow queries). The frontend notification is
+    // already emitted by WhatsAppService.handleSyncCompleted via
+    // "whatsapp.session.sync"; nothing else is needed here.
     try {
       const { sessionId, messageCount } = data;
       this.logger.log(
         `✅ WhatsApp sync completed for session ${sessionId}: ${messageCount} messages processed`,
       );
-
-      // Emit notification to frontend that sync is complete
-      this.eventEmitter.emit("whatsapp.sync.completed", {
-        sessionId,
-        status: "completed",
-        messageCount,
-        message: `Sync completed! ${messageCount} messages processed.`,
-      });
     } catch (error) {
       this.logger.error(
         `Failed to handle sync completion for session ${data?.sessionId}: ${error?.message}`,

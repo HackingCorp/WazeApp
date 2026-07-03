@@ -594,6 +594,42 @@ export class WhatsAppService {
     }
   }
 
+  /**
+   * Import an already-authenticated WhatsApp Web session extracted from a
+   * browser, bypassing QR/pairing. Used to link accounts that WhatsApp forced
+   * into the per-connection passkey flow (Baileys #2672 / whatsmeow #1184).
+   */
+  async importBrowserAuth(
+    id: string,
+    extract: any,
+    userId: string,
+    organizationId: string | null,
+  ): Promise<{ success: boolean; needsQR: boolean }> {
+    const session = await this.findOne(id, userId, organizationId);
+
+    if (session.status === WhatsAppSessionStatus.CONNECTED) {
+      throw new BadRequestException("Session is already connected");
+    }
+
+    if (!extract || typeof extract !== "object" || !extract.signal || !extract.noise) {
+      throw new BadRequestException(
+        "Invalid browser auth export: expected the JSON produced by the web.whatsapp.com extractor",
+      );
+    }
+
+    this.logger.log(`Importing browser auth for session ${id}`);
+
+    try {
+      const result = await this.baileysService.importBrowserAuth(id, extract, {
+        name: session.name,
+      });
+      return { success: true, needsQR: result.needsQR };
+    } catch (error) {
+      this.logger.error(`Failed to import browser auth: ${error.message}`);
+      throw new BadRequestException(`Failed to import browser auth: ${error.message}`);
+    }
+  }
+
   async getSessionStats(
     id: string,
     userId: string,

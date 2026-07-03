@@ -268,6 +268,29 @@ export class WhatsAppController {
     );
   }
 
+  @Post("sessions/:id/import-browser-auth")
+  @ApiOperation({
+    summary:
+      "Import an authenticated WhatsApp Web session from a browser export (bypasses QR when the account requires a passkey)",
+  })
+  @ApiResponse({ status: 200, description: "Browser auth imported, connecting" })
+  @ApiResponse({ status: 400, description: "Invalid or unusable browser auth export" })
+  async importBrowserAuth(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body() body: { extract: any },
+    @CurrentUser() user: AuthenticatedRequest,
+  ): Promise<{ success: boolean; needsQR: boolean }> {
+    if (!user?.userId) {
+      throw new UnauthorizedException("Authentication required");
+    }
+    return this.whatsappService.importBrowserAuth(
+      id,
+      body?.extract,
+      user.userId,
+      user.organizationId || null,
+    );
+  }
+
   @Post("sessions/:id/send")
   @ApiOperation({ summary: "Send WhatsApp message" })
   @ApiResponse({

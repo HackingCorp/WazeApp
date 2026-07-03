@@ -515,6 +515,74 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
     }
   }
 
+  /**
+   * Import an already-authenticated WhatsApp Web session extracted from a
+   * browser (see browser-auth-bridge.ts). This bypasses QR/pairing entirely,
+   * which is the only way to link accounts that WhatsApp has forced into the
+   * per-connection passkey flow (Baileys issue #2672 / whatsmeow #1184).
+   *
+   * @param extract The BrowserAuthExtract JSON produced by the console extractor
+   *                run on web.whatsapp.com.
+   */
+  async importBrowserAuth(
+    sessionId: string,
+    extract: any,
+    options: { name?: string } = {},
+  ): Promise<{ needsQR: boolean; qr?: string }> {
+    this.logger.log(`🔐 Importing browser auth for session ${sessionId}`);
+
+    const { makeBrowserAuthImport, loadBridgeDeps } = await import(
+      "./browser-auth-bridge"
+    );
+    const baileys = await import("@whiskeysockets/baileys");
+    const BufferJSON = baileys.BufferJSON;
+
+    await loadBridgeDeps();
+
+    // Convert the browser export into Baileys creds + Signal keys.
+    const authImport = makeBrowserAuthImport(extract, {
+      name: options.name,
+      platform: "web",
+    });
+
+    // Serialize into WazeApp's PostgreSQL authData shape: creds under "creds",
+    // each Signal key under "<type>-<id>" (see postgres-auth-state.ts).
+    const authData: Record<string, any> = {};
+    authData.creds = JSON.parse(
+      JSON.stringify(authImport.creds, BufferJSON.replacer),
+    );
+    for (const type of Object.keys(authImport.keys)) {
+      const values = (authImport.keys as any)[type] || {};
+      for (const id of Object.keys(values)) {
+        const value = values[id];
+        if (value === undefined || value === null) continue;
+        authData[`${type}-${id}`] = JSON.parse(
+          JSON.stringify(value, BufferJSON.replacer),
+        );
+      }
+    }
+
+    // Tear down any in-flight connection/reconnect for a clean slate.
+    this.cancelReconnection(sessionId);
+    await this.disconnectSession(sessionId);
+    this.authStates.delete(sessionId);
+
+    // Persist the imported credentials, then let the normal connect flow load
+    // them from the database (forceReset must stay false or we'd wipe them).
+    await this.sessionRepository.update(sessionId, {
+      authData,
+      status: WhatsAppSessionStatus.CONNECTING,
+      qrCode: null,
+      qrCodeExpiresAt: null,
+      lastSeenAt: new Date(),
+    });
+    this.logger.log(
+      `🔐 Imported ${Object.keys(authData).length} auth entries for session ${sessionId}, connecting...`,
+    );
+
+    return this.connectSession(sessionId, false);
+  }
+
   private async doConnectSession(
     sessionId: string,
     forceReset: boolean = false,

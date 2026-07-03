@@ -28,6 +28,7 @@ let makeWASocket: any;
 let DisconnectReason: any;
 let useMultiFileAuthState: any;
 let fetchLatestBaileysVersion: any;
+let fetchLatestWaWebVersion: any;
 let Browsers: any;
 let makeCacheableSignalKeyStore: any;
 let downloadMediaMessage: any;
@@ -42,6 +43,7 @@ async function loadBaileys() {
     DisconnectReason = baileys.DisconnectReason;
     useMultiFileAuthState = baileys.useMultiFileAuthState;
     fetchLatestBaileysVersion = baileys.fetchLatestBaileysVersion;
+    fetchLatestWaWebVersion = baileys.fetchLatestWaWebVersion;
     Browsers = baileys.Browsers;
     makeCacheableSignalKeyStore = baileys.makeCacheableSignalKeyStore;
     downloadMediaMessage = baileys.downloadMediaMessage;
@@ -494,6 +496,25 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
     }
   }
 
+  /**
+   * fetchLatestBaileysVersion() can lag behind the real WA Web version and
+   * silently break new device linking (Baileys issue #2679), so prefer
+   * fetchLatestWaWebVersion() and only fall back on network failure.
+   */
+  private async fetchCurrentWaVersion(): Promise<{
+    version: number[];
+    isLatest: boolean;
+  }> {
+    try {
+      return await fetchLatestWaWebVersion();
+    } catch (error) {
+      this.logger.warn(
+        `fetchLatestWaWebVersion failed (${error.message}), falling back to fetchLatestBaileysVersion`,
+      );
+      return await fetchLatestBaileysVersion();
+    }
+  }
+
   private async doConnectSession(
     sessionId: string,
     forceReset: boolean = false,
@@ -539,7 +560,7 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
         }
       }
 
-      const { version, isLatest } = await fetchLatestBaileysVersion();
+      const { version, isLatest } = await this.fetchCurrentWaVersion();
 
       this.logger.log(
         `Using WA version ${version.join(".")}, isLatest: ${isLatest}`,
@@ -1104,7 +1125,7 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
       throw new Error("Failed to initialize auth state for pairing");
     }
 
-    const { version, isLatest } = await fetchLatestBaileysVersion();
+    const { version, isLatest } = await this.fetchCurrentWaVersion();
     this.logger.log(`Using WA version ${version.join(".")}, isLatest: ${isLatest} for pairing`);
 
     return new Promise((resolve, reject) => {
@@ -1316,7 +1337,7 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
             `Found auth credentials for ${sessionId}, creating temporary connection for logout...`,
           );
 
-          const { version } = await fetchLatestBaileysVersion();
+          const { version } = await this.fetchCurrentWaVersion();
           const tempSock = makeWASocket({
             version,
             logger: baileysLogger,

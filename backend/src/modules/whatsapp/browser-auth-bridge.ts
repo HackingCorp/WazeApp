@@ -1,5 +1,17 @@
 import { chmod, mkdir, writeFile } from 'fs/promises'
+import { createPrivateKey, createPublicKey } from 'crypto'
 import { join } from 'path'
+
+// The installed Baileys (rc13) Curve export lacks publicKeyFromPrivate (it was
+// added on the develop branch this PR targeted), so derive the X25519 public
+// key from a raw 32-byte private key via Node crypto instead.
+const X25519_PKCS8_PREFIX = Buffer.from('302e020100300506032b656e04220420', 'hex')
+const publicKeyFromPrivate = (privateKey: Buffer): Buffer => {
+	const der = Buffer.concat([X25519_PKCS8_PREFIX, privateKey])
+	const keyObject = createPrivateKey({ key: der, format: 'der', type: 'pkcs8' })
+	const spki = createPublicKey(keyObject).export({ format: 'der', type: 'spki' })
+	return Buffer.from(spki.subarray(spki.length - 32))
+}
 import type { AuthenticationCreds, KeyPair, SignalDataSet, SignedKeyPair } from '@whiskeysockets/baileys';
 
 // Baileys is ESM-only while this project compiles to CommonJS, so its runtime
@@ -131,7 +143,7 @@ const jidUser = (jid: string) => {
 const selectNoiseKeyPair = (noise: BrowserAuthExtract['noise']) => {
 	for (const privateCandidate of noise.privateKeyCandidates) {
 		const privateKey = bufferFromB64(privateCandidate.value)
-		const derivedPublicKey = Curve.publicKeyFromPrivate(privateKey)
+		const derivedPublicKey = publicKeyFromPrivate(privateKey)
 		for (const publicCandidate of noise.publicKeyCandidates) {
 			const publicKey = bufferFromB64(publicCandidate.value)
 			if (derivedPublicKey.equals(publicKey)) {

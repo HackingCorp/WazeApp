@@ -501,6 +501,51 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
    * silently break new device linking (Baileys issue #2679), so prefer
    * fetchLatestWaWebVersion() and only fall back on network failure.
    */
+  /**
+   * WhatsApp's per-connection passkey rollout sends `passkey_prologue_request`
+   * / `crsc_continuation` notifications during pairing that Baileys has no
+   * handler for, so it never ACKs them and the connection hangs (Baileys #2672).
+   * Intercept those nodes at the WS level and ACK immediately. Harmless no-op
+   * for normal sessions (these node types are never emitted otherwise); logs
+   * whether they actually arrive so we can confirm the behaviour in prod.
+   */
+  private attachPasskeyAckHandlers(sock: any, sessionId: string): void {
+    const ackNode = async (node: any, label: string) => {
+      try {
+        this.logger.warn(
+          `🔑 Passkey node '${label}' received for session ${sessionId} — sending ACK`,
+        );
+        await sock.sendNode({
+          tag: "ack",
+          attrs: {
+            id: node.attrs.id,
+            class: "notification",
+            to: node.attrs.from,
+            ...(node.attrs.type ? { type: node.attrs.type } : {}),
+          },
+        });
+        this.logger.log(`🔑 ACK sent for '${label}' (session ${sessionId})`);
+      } catch (err) {
+        this.logger.error(
+          `🔑 Failed to ACK '${label}' for session ${sessionId}: ${err?.message || err}`,
+        );
+      }
+    };
+    try {
+      sock.ws.on(
+        "CB:notification,type:passkey_prologue_request",
+        (node: any) => ackNode(node, "passkey_prologue_request"),
+      );
+      sock.ws.on("CB:notification,type:crsc_continuation", (node: any) =>
+        ackNode(node, "crsc_continuation"),
+      );
+    } catch (err) {
+      this.logger.warn(
+        `Could not attach passkey ACK handlers for session ${sessionId}: ${err?.message || err}`,
+      );
+    }
+  }
+
   private async fetchCurrentWaVersion(): Promise<{
     version: number[];
     isLatest: boolean;
@@ -667,6 +712,7 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
       });
 
       this.sessions.set(sessionId, sock);
+      this.attachPasskeyAckHandlers(sock, sessionId);
 
       // Handle connection updates
       sock.ev.on("connection.update", async (update) => {
@@ -1221,6 +1267,7 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
       });
 
       this.sessions.set(sessionId, sock);
+      this.attachPasskeyAckHandlers(sock, sessionId);
       let pairingCodeRequested = false;
 
       // Set up connection event handlers

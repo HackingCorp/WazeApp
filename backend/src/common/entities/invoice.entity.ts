@@ -106,12 +106,14 @@ export class Invoice extends BaseEntity {
   metadata: Record<string, any>;
 
   // Relationships
-  @ManyToOne(() => Organization, { onDelete: 'CASCADE' })
+  // organizationId is nullable: a user (and thus their subscription/invoice)
+  // may not belong to an organization.
+  @ManyToOne(() => Organization, { onDelete: 'CASCADE', nullable: true })
   @JoinColumn({ name: 'organizationId' })
-  organization: Organization;
+  organization?: Organization;
 
-  @Column({ name: 'organizationId' })
-  organizationId: string;
+  @Column({ name: 'organizationId', nullable: true })
+  organizationId?: string;
 
   @ManyToOne(() => Subscription, { onDelete: 'SET NULL', nullable: true })
   @JoinColumn({ name: 'subscriptionId' })

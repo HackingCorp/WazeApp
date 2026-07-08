@@ -1466,7 +1466,32 @@ export class WhatsAppService {
           },
         });
 
-        await this.contactRepository.save(newContact);
+        try {
+          await this.contactRepository.save(newContact);
+        } catch (err) {
+          // Race condition: a concurrent update already inserted this
+          // (sessionId, phoneNumber). Merge into the existing row instead of
+          // failing on the unique constraint.
+          if (err?.code === '23505') {
+            const existing = await this.contactRepository.findOne({
+              where: { sessionId, phoneNumber },
+            });
+            if (existing) {
+              existing.name = newContact.name || existing.name;
+              existing.pushName = newContact.pushName || existing.pushName;
+              existing.shortName = newContact.shortName || existing.shortName;
+              existing.lid = newContact.lid || existing.lid;
+              existing.isBusiness = newContact.isBusiness || existing.isBusiness;
+              existing.profilePictureUrl =
+                newContact.profilePictureUrl || existing.profilePictureUrl;
+              existing.lastInteractionAt = new Date();
+              existing.metadata = { ...existing.metadata, ...newContact.metadata };
+              await this.contactRepository.save(existing);
+            }
+          } else {
+            throw err;
+          }
+        }
       }
     } catch (error) {
       this.logger.error(`Failed to upsert contact:`, error);

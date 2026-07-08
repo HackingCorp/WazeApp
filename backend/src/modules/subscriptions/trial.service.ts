@@ -36,9 +36,16 @@ export class TrialService {
       const user = await this.getSubscriptionUser(subscription);
       if (!user) return;
 
-      // Create trial invoice with dueDate = trialEndsAt
+      // Create trial invoice with dueDate = trialEndsAt.
+      // Isolate its failure so it never blocks the welcome email below.
       if (subscription.trialEndsAt) {
-        await this.invoiceService.createTrialInvoice(subscription);
+        try {
+          await this.invoiceService.createTrialInvoice(subscription);
+        } catch (invoiceError) {
+          this.logger.error(
+            `Failed to create trial invoice for subscription ${subscription.id}: ${invoiceError.message}`,
+          );
+        }
       }
 
       // Send trial start email

@@ -1796,54 +1796,47 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
     // sock.user is the most reliable indicator that the session is connected
     const hasUser = !!sock?.user;
 
-    // Check if WebSocket is actually open (readyState 1 = OPEN)
-    // This catches cases where the socket object exists but WebSocket is dead
-    const wsReadyState = sock?.ws?.readyState;
-    const isWsOpen = wsReadyState === 1; // WebSocket.OPEN = 1
+    // Baileys' WebSocketClient (rc13) exposes isOpen/isConnecting getters, NOT
+    // a numeric readyState. Reading sock.ws.readyState always returned
+    // undefined, which made the old logic collapse to "sock.user exists =>
+    // connected" — so a session whose socket had silently died still reported
+    // "connected" because sock.user lingers from the past authentication.
+    const isWsOpen = sock?.ws?.isOpen === true;
+    const isWsConnecting = sock?.ws?.isConnecting === true;
 
-    this.logger.debug(`Session ${sessionId} status check: connectionState=${connectionState}, hasUser=${hasUser}, hasSock=${!!sock}, wsReadyState=${wsReadyState}`);
+    this.logger.debug(`Session ${sessionId} status check: connectionState=${connectionState}, hasUser=${hasUser}, hasSock=${!!sock}, isWsOpen=${isWsOpen}, isWsConnecting=${isWsConnecting}`);
 
     // If no socket at all, definitely disconnected
     if (!sock) {
       return "disconnected";
     }
 
-    // CRITICAL CHECK: If WebSocket is not open, session is disconnected
-    // This catches silently dead connections where sock.user still exists
-    if (wsReadyState !== undefined && !isWsOpen) {
-      this.logger.warn(`⚠️ Session ${sessionId} WebSocket is not open (readyState=${wsReadyState}), marking as disconnected`);
-      // Update connectionState to reflect reality
-      this.connectionStates.set(sessionId, 'disconnected');
+    // A live session REQUIRES an open websocket. A lingering sock.user from a
+    // previous authentication does not count if the ws has since died.
+    if (!isWsOpen) {
+      // Mid-handshake / reconnecting → report as connecting, don't overwrite state.
+      if (isWsConnecting || connectionState === 'reconnecting') {
+        return "connecting";
+      }
+      // Otherwise the socket is dead — reconcile the stale flag and report it.
+      if (connectionState !== 'disconnected') {
+        this.logger.warn(
+          `⚠️ Session ${sessionId} websocket not open (isOpen=false) — marking disconnected`,
+        );
+        this.connectionStates.set(sessionId, 'disconnected');
+      }
       return "disconnected";
     }
 
-    // PRIMARY CHECK: If socket exists, has user, AND WebSocket is open, it's connected
-    // This is the most reliable indicator - Baileys sets sock.user when authenticated
-    if (hasUser && (isWsOpen || wsReadyState === undefined)) {
-      // If we have user and ws is open (or ws check not available), session is working
-      // Fix stale connectionState if necessary
+    // Websocket is open. Authenticated (sock.user set) → connected.
+    if (hasUser) {
       if (connectionState !== 'connected') {
-        this.logger.log(`🔧 Fixing stale connectionState for session ${sessionId}: ${connectionState} -> connected (hasUser=true, ws open)`);
         this.connectionStates.set(sessionId, 'connected');
       }
       return "connected";
     }
 
-    // SECONDARY CHECK: Use connectionStates map
-    if (connectionState === 'connected') {
-      // connectionState says connected but no user yet - likely just connected, waiting for auth
-      return "connecting";
-    }
-
-    if (connectionState === 'reconnecting') {
-      return "connecting";
-    }
-
-    if (connectionState === 'disconnected') {
-      return "disconnected";
-    }
-
-    // Socket exists but not authenticated yet
+    // Websocket open but not yet authenticated — still handshaking.
     return "connecting";
   }
 

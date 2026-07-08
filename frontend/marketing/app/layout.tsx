@@ -6,7 +6,6 @@ import { ThemeProvider } from "@/components/providers/theme-provider";
 import { LanguageProvider } from "@/components/providers/language-provider";
 import { Navbar } from "@/components/navigation/navbar";
 import { Footer } from "@/components/navigation/footer";
-import { WhatsAppSupportButton } from "@/components/ui/whatsapp-support-button";
 import { PostHogProvider } from "@/components/providers/posthog-provider";
 import { MetaPixelProvider } from "@/components/providers/meta-pixel-provider";
 
@@ -158,7 +157,6 @@ export default function RootLayout({
                 <main>{children}</main>
                 <Footer />
                 <DemoChatWidget />
-                <WhatsAppSupportButton />
               </MetaPixelProvider>
             </PostHogProvider>
           </LanguageProvider>

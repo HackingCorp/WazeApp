@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 import { ThemeProvider } from '@/providers/ThemeProvider';
 import { SocketProvider } from '@/providers/SocketProvider';
@@ -28,11 +28,6 @@ export const metadata: Metadata = {
       follow: false,
     },
   },
-  viewport: 'width=device-width, initial-scale=1',
-  themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#059669' },
-    { media: '(prefers-color-scheme: dark)', color: '#10b981' },
-  ],
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
@@ -62,6 +57,17 @@ export const metadata: Metadata = {
     description: 'Comprehensive dashboard for managing AI-powered WhatsApp agents',
     images: ['/og-image.png'],
   },
+};
+
+// Next.js 14 requires viewport and themeColor in a separate viewport export,
+// not inside metadata.
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#059669' },
+    { media: '(prefers-color-scheme: dark)', color: '#10b981' },
+  ],
 };
 
 export default function RootLayout({

@@ -175,6 +175,21 @@ export class VectorSearchService implements OnModuleInit {
     }
 
     try {
+      const collectionName = this.getCollectionName(request.organizationId);
+
+      // Short-circuit if the org has no vector collection yet (e.g. no
+      // knowledge base indexed). Checking first avoids a wasted — and
+      // potentially slow/timing-out — embedding call to Ollama before we'd
+      // hit the fallback anyway.
+      try {
+        await this.qdrantClient.getCollection(collectionName);
+      } catch (collErr) {
+        this.logger.warn(
+          `Vector search: collection missing/empty for organization ${request.organizationId} — using text-search fallback`,
+        );
+        return this.fallbackTextSearch(request);
+      }
+
       // Generate embedding for the query
       const queryEmbedding = await this.generateEmbedding({
         text: request.query,
@@ -186,7 +201,7 @@ export class VectorSearchService implements OnModuleInit {
 
       // Search in Qdrant
       const searchResults = await this.qdrantClient.search(
-        this.getCollectionName(request.organizationId),
+        collectionName,
         {
           vector: queryEmbedding,
           limit: request.limit || 10,

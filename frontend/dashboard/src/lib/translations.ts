@@ -857,7 +857,7 @@ export const dashboardTranslations: Record<string, Translations> = {
       startFreeTrial: 'Start free trial',
       payToActivate: 'Pay to activate',
       legacyFreePrompt: 'Upgrade to a paid plan',
-      legacyFreeDesc: 'You are currently on the legacy Free plan. Start a free trial of any paid plan to unlock advanced features and higher quotas.',
+      legacyFreeDesc: 'You are on the Free plan (100 AI messages/month, 1 agent). Upgrade to a paid plan to unlock advanced features and higher quotas.',
     },
     common: {
       save: 'Save',
@@ -1881,7 +1881,7 @@ export const dashboardTranslations: Record<string, Translations> = {
       startFreeTrial: 'Commencer l\'essai gratuit',
       payToActivate: 'Payer pour activer',
       legacyFreePrompt: 'Passez à un plan payant',
-      legacyFreeDesc: 'Vous êtes actuellement sur le plan Gratuit legacy. Commencez un essai gratuit de n\'importe quel plan payant pour débloquer les fonctionnalités avancées et des quotas plus élevés.',
+      legacyFreeDesc: 'Vous êtes sur le plan Gratuit (100 messages IA/mois, 1 agent). Passez à un plan payant pour débloquer les fonctionnalités avancées et des quotas plus élevés.',
     },
     common: {
       save: 'Sauvegarder',
@@ -2827,7 +2827,7 @@ export const dashboardTranslations: Record<string, Translations> = {
       startFreeTrial: 'Comenzar prueba gratis',
       payToActivate: 'Pagar para activar',
       legacyFreePrompt: 'Cambia a un plan de pago',
-      legacyFreeDesc: 'Actualmente estás en el plan Gratis legacy. Comienza una prueba gratuita de cualquier plan de pago para desbloquear funciones avanzadas y cuotas más altas.',
+      legacyFreeDesc: 'Estás en el plan Gratis (100 mensajes IA/mes, 1 agente). Cambia a un plan de pago para desbloquear funciones avanzadas y cuotas más altas.',
     },
     common: {
       save: 'Guardar',

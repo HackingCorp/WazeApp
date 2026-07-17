@@ -196,6 +196,36 @@ export class QuotaAlertService {
   }
 
   /**
+   * Notification temps réel : appelée au moment exact où le bot cesse de répondre
+   * (quota de messages IA atteint). Envoie immédiatement l'alerte email au
+   * propriétaire — sans attendre le cron horaire — en réutilisant la déduplication
+   * mensuelle existante (pas de double envoi avec le cron). Fire-and-forget.
+   */
+  async notifyQuotaReachedRealtime(
+    organizationId: string | null,
+    userId: string | null,
+    planName: string,
+  ): Promise<void> {
+    try {
+      const quota = organizationId
+        ? await this.quotaEnforcementService.checkWhatsAppMessageQuota(organizationId)
+        : await this.quotaEnforcementService.checkUserWhatsAppMessageQuota(userId!);
+
+      await this.processQuotaAlert(
+        organizationId,
+        userId,
+        quota.percentUsed,
+        quota.current,
+        quota.limit,
+        planName,
+        'WhatsApp',
+      );
+    } catch (error) {
+      this.logger.warn(`Realtime quota email notification failed: ${error.message}`);
+    }
+  }
+
+  /**
    * Process quota and send alert if threshold is reached
    */
   private async processQuotaAlert(

@@ -44,6 +44,7 @@ import { OrderTagParserService } from "../orders/services/order-tag-parser.servi
 import { AppointmentTagParserService } from "../appointments/services/appointment-tag-parser.service";
 import { AvailabilityService } from "../appointments/services/availability.service";
 import { EmailService } from "../email/email.service";
+import { QuotaAlertService } from "../subscriptions/quota-alert.service";
 import { ToolExecutionService, ToolCallRecord } from "../tool-calling/tool-execution.service";
 
 interface WhatsAppMessageEvent {
@@ -293,6 +294,7 @@ export class WhatsAppAIResponderService {
     private configService: ConfigService,
     private eventEmitter: EventEmitter2,
     private quotaEnforcementService: QuotaEnforcementService,
+    private quotaAlertService: QuotaAlertService,
     private emailService: EmailService,
     private vectorSearchService: VectorSearchService,
     private productSearchService: ProductSearchService,
@@ -612,6 +614,7 @@ export class WhatsAppAIResponderService {
         }
       } catch (quotaError) {
         this.logger.warn(`Message quota exceeded during catch-up: ${quotaError.message}`);
+        void this.notifyOwnerQuotaReached(fullSession);
         acknowledge?.(true); // Don't retry — quota won't magically increase
         return;
       }
@@ -759,6 +762,7 @@ export class WhatsAppAIResponderService {
         }
       } catch (quotaError) {
         this.logger.warn(`Message quota exceeded: ${quotaError.message}`);
+        void this.notifyOwnerQuotaReached(session);
         return;
       }
 
@@ -1066,6 +1070,71 @@ export class WhatsAppAIResponderService {
         this.logger.debug(`🧹 Cleaned up ${bufferedMessages.length} message IDs from processingMessages set (delayed)`);
       }, 60_000);
     }
+  }
+
+  /**
+   * Prévient le propriétaire quand son quota de messages IA est atteint et que le
+   * bot cesse de répondre à ses clients (sinon il croit que le bot est cassé).
+   * Deux canaux : un message WhatsApp sur le numéro connecté (le plus visible pour
+   * cette audience) + un email. Dédupliqué par mois pour ne jamais spammer.
+   * Fire-and-forget : ne bloque et ne casse jamais le flux de traitement.
+   */
+  private async notifyOwnerQuotaReached(session: {
+    id: string;
+    phoneNumber?: string | null;
+    organizationId?: string | null;
+    userId?: string | null;
+    plan?: string;
+  }): Promise<void> {
+    const scopeKey = session.organizationId || session.userId;
+    if (!scopeKey) return;
+
+    // Déduplication mensuelle : une seule notification par période de facturation.
+    const month = new Date().toISOString().slice(0, 7); // YYYY-MM
+    const dedupKey = `quota-owner-notif:${scopeKey}:${month}`;
+    try {
+      if (await this.cacheManager.get(dedupKey)) return;
+      await this.cacheManager.set(dedupKey, "1", 31 * 24 * 60 * 60 * 1000);
+    } catch {
+      // Si le cache est indisponible, on continue (au pire un doublon, jamais un spam).
+    }
+
+    // Limite réelle du plan, pour un message correct quel que soit le forfait.
+    let limit = 0;
+    try {
+      const quota = session.organizationId
+        ? await this.quotaEnforcementService.checkWhatsAppMessageQuota(session.organizationId)
+        : await this.quotaEnforcementService.checkUserWhatsAppMessageQuota(session.userId!);
+      limit = quota.limit;
+    } catch {
+      // ignore — on enverra un message générique
+    }
+
+    // 1) Message WhatsApp au propriétaire, sur son propre numéro connecté.
+    if (session.phoneNumber) {
+      const limitLine = limit > 0 ? `votre limite de ${limit} messages IA` : "votre quota de messages IA";
+      try {
+        await this.baileysService.sendMessage(session.id, {
+          to: session.phoneNumber,
+          message:
+            "⚠️ *WazeApp — quota mensuel atteint*\n\n" +
+            `Vous avez atteint ${limitLine} ce mois-ci. Votre assistant ne répond ` +
+            "plus automatiquement à vos clients.\n\n" +
+            "Pour rétablir le service tout de suite, passez à un plan supérieur ou " +
+            "achetez des messages bonus :\n" +
+            "https://app.wazeapp.ai/billing",
+        });
+      } catch (err) {
+        this.logger.warn(`Quota owner WhatsApp notice failed for session ${session.id}: ${err.message}`);
+      }
+    }
+
+    // 2) Email au propriétaire (réutilise déduplication + template existants).
+    await this.quotaAlertService.notifyQuotaReachedRealtime(
+      session.organizationId || null,
+      session.userId || null,
+      session.plan || "FREE",
+    );
   }
 
   private extractMessageText(message: any): string {

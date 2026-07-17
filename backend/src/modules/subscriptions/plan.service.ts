@@ -87,7 +87,7 @@ const DEFAULT_PLANS = [
     featureScheduledCampaigns: true,
     featureEscalation: false,
     featureEcommerce: false,
-    trialDays: 7,
+    trialDays: 0,
     displayOrder: 1,
   },
   {
@@ -128,7 +128,7 @@ const DEFAULT_PLANS = [
     featureScheduledCampaigns: true,
     featureEscalation: true,
     featureEcommerce: true,
-    trialDays: 14,
+    trialDays: 0,
     displayOrder: 2,
   },
   {
@@ -169,7 +169,7 @@ const DEFAULT_PLANS = [
     featureScheduledCampaigns: true,
     featureEscalation: true,
     featureEcommerce: true,
-    trialDays: 14,
+    trialDays: 0,
     displayOrder: 3,
   },
 ];
@@ -221,8 +221,8 @@ export class PlanService implements OnModuleInit, OnModuleDestroy {
         const plan = this.planRepository.create(planData);
         await this.planRepository.save(plan);
         this.logger.log(`Created plan: ${planData.code}`);
-      } else if (existing.trialDays === 0 && planData.trialDays > 0) {
-        // Patch trialDays on existing plans that don't have it set
+      } else if (existing.trialDays !== planData.trialDays) {
+        // Sync trialDays with code (essais supprimés : 0 partout)
         existing.trialDays = planData.trialDays;
         await this.planRepository.save(existing);
         this.logger.log(`Updated trialDays for plan ${planData.code}: ${planData.trialDays} days`);

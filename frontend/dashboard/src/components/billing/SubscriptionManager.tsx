@@ -55,12 +55,9 @@ interface ExchangeRateData {
   symbol: string;
 }
 
-// Trial days per plan
-const TRIAL_DAYS: Record<string, number> = {
-  standard: 7,
-  pro: 14,
-  enterprise: 14,
-};
+// Périodes d'essai supprimées : les inscriptions démarrent sur le plan Free
+// (100 messages IA, 1 session) ; les plans payants s'activent au paiement.
+const TRIAL_DAYS: Record<string, number> = {};
 
 // Plans structure - prices are fetched dynamically from the API
 const getPlans = (t: (key: string) => string): Plan[] => [

@@ -172,6 +172,23 @@ export default function PricingPage() {
 
   const plans = [
     {
+      id: "FREE",
+      name: t("planFree"),
+      description: t("planFreeDesc"),
+      price: { monthly: 0, annually: 0 },
+      features: [
+        { name: t("feature1Agent"), included: true },
+        { name: t("feature100Messages"), included: true },
+        { name: t("feature100MBStorage"), included: true },
+        { name: t("featureProductCatalog"), included: false },
+        { name: t("featureAdvancedAnalytics"), included: false },
+        { name: t("featureWebhooks"), included: false },
+        { name: t("featureAPIAccess"), included: false },
+      ],
+      cta: t("featuresStartTrial"),
+      popular: false,
+    },
+    {
       id: "STANDARD",
       name: t("planStandard"),
       description: t("planStandardDesc"),
@@ -320,7 +337,7 @@ export default function PricingPage() {
           </select>
         </div>
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 mb-20 max-w-5xl mx-auto">
+        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-20 max-w-7xl mx-auto">
           {plans.map((plan, index) => (
             <div
               key={plan.name}

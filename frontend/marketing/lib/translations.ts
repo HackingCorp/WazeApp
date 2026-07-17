@@ -137,7 +137,7 @@ export const translations = {
 
     // CTAs
     ctaStartFree: "Start Free",
-    ctaStartTrial: "Start Trial",
+    ctaStartTrial: "Get Started Free",
     ctaChoosePlan: "Choose Plan",
     ctaContactSales: "Contact Sales",
     
@@ -159,7 +159,7 @@ export const translations = {
     featuresPageTitle: "Powerful Features for Modern",
     featuresPageTitleHighlight: "WhatsApp Automation",
     featuresPageSubtitle: "Everything you need to transform your WhatsApp into an intelligent customer engagement platform. Built for businesses that care about their customers.",
-    featuresStartTrial: "Start Free Trial",
+    featuresStartTrial: "Get Started Free",
     
     // Detailed Features
     detailedFeature24_7: "24/7 Availability",
@@ -333,7 +333,7 @@ export const translations = {
     blogMinRead: "min read",
     blogReadyToStart: "Ready to get started?",
     blogTransformCTA: "Transform your WhatsApp communication with AI-powered automation.",
-    blogStartFreeTrial: "Start Free Trial",
+    blogStartFreeTrial: "Get Started Free",
 
     // Blog Post 1
     blogPost1Title: "5 Ways WhatsApp AI Can Transform Your Customer Service",
@@ -372,7 +372,7 @@ AI captures and analyzes every interaction, providing valuable insights into cus
 
 WhatsApp AI isn't just a trend—it's the future of customer service. Businesses that adopt this technology now will have a significant competitive advantage in the years to come.
 
-Ready to transform your customer service? Start your free trial today.`,
+Ready to transform your customer service? Get started for free today.`,
 
     // Blog Post 2
     blogPost2Title: "Getting Started with WhatsApp Business API",
@@ -574,7 +574,7 @@ Ready to future-proof your business? Try WazeApp free and experience the future 
     useCasesGetStarted: "Get Started",
     useCasesCtaTitle: "Ready to Transform Your Business?",
     useCasesCtaSubtitle: "Join thousands of businesses already using WazeApp to automate their WhatsApp communication.",
-    useCasesCtaButton: "Start Free Trial",
+    useCasesCtaButton: "Get Started Free",
 
     // Login Page
     loginBackToHome: "Back to home",
@@ -751,7 +751,7 @@ Ready to future-proof your business? Try WazeApp free and experience the future 
     
     // CTAs
     ctaStartFree: "Commencer Gratuitement",
-    ctaStartTrial: "Commencer l'Essai",
+    ctaStartTrial: "Commencer gratuitement",
     ctaChoosePlan: "Choisir ce Forfait",
     ctaContactSales: "Contacter les Ventes",
     
@@ -773,7 +773,7 @@ Ready to future-proof your business? Try WazeApp free and experience the future 
     featuresPageTitle: "Fonctionnalités Puissantes pour l'",
     featuresPageTitleHighlight: "Automatisation WhatsApp Moderne",
     featuresPageSubtitle: "Tout ce dont vous avez besoin pour transformer votre WhatsApp en plateforme d'engagement client intelligente. Conçu pour les entreprises qui se soucient de leurs clients.",
-    featuresStartTrial: "Commencer l'Essai Gratuit",
+    featuresStartTrial: "Commencer gratuitement",
     
     // Detailed Features
     detailedFeature24_7: "Disponibilité 24h/7",
@@ -947,7 +947,7 @@ Ready to future-proof your business? Try WazeApp free and experience the future 
     blogMinRead: "min de lecture",
     blogReadyToStart: "Prêt à commencer ?",
     blogTransformCTA: "Transformez votre communication WhatsApp avec l'automatisation alimentée par IA.",
-    blogStartFreeTrial: "Commencer l'Essai Gratuit",
+    blogStartFreeTrial: "Commencer gratuitement",
 
     // Blog Post 1
     blogPost1Title: "5 Façons Dont l'IA WhatsApp Peut Transformer Votre Service Client",
@@ -986,7 +986,7 @@ L'IA capture et analyse chaque interaction, fournissant des insights précieux s
 
 L'IA WhatsApp n'est pas qu'une tendance — c'est l'avenir du service client. Les entreprises qui adoptent cette technologie maintenant auront un avantage concurrentiel significatif dans les années à venir.
 
-Prêt à transformer votre service client ? Commencez votre essai gratuit dès aujourd'hui.`,
+Prêt à transformer votre service client ? Commencez gratuitement dès aujourd'hui.`,
 
     // Blog Post 2
     blogPost2Title: "Débuter avec l'API WhatsApp Business",
@@ -1188,7 +1188,7 @@ Prêt à pérenniser votre entreprise ? Essayez WazeApp gratuitement et expérim
     useCasesGetStarted: "Commencer",
     useCasesCtaTitle: "Prêt à Transformer Votre Entreprise ?",
     useCasesCtaSubtitle: "Rejoignez des milliers d'entreprises qui utilisent déjà WazeApp pour automatiser leur communication WhatsApp.",
-    useCasesCtaButton: "Essai Gratuit",
+    useCasesCtaButton: "Commencer gratuitement",
 
     // Login Page
     loginBackToHome: "Retour a l'accueil",
@@ -1345,7 +1345,7 @@ Prêt à pérenniser votre entreprise ? Essayez WazeApp gratuitement et expérim
     
     // CTAs
     ctaStartFree: "Empezar Gratis",
-    ctaStartTrial: "Empezar Prueba",
+    ctaStartTrial: "Empieza gratis",
     ctaChoosePlan: "Elegir este Plan",
     ctaContactSales: "Contactar Ventas",
     
@@ -1367,7 +1367,7 @@ Prêt à pérenniser votre entreprise ? Essayez WazeApp gratuitement et expérim
     featuresPageTitle: "Características Poderosas para la",
     featuresPageTitleHighlight: "Automatización WhatsApp Moderna",
     featuresPageSubtitle: "Todo lo que necesitas para transformar tu WhatsApp en una plataforma inteligente de participación del cliente. Construido para empresas que se preocupan por sus clientes.",
-    featuresStartTrial: "Comenzar Prueba Gratuita",
+    featuresStartTrial: "Empieza gratis",
     
     // Detailed Features
     detailedFeature24_7: "Disponibilidad 24/7",
@@ -1541,7 +1541,7 @@ Prêt à pérenniser votre entreprise ? Essayez WazeApp gratuitement et expérim
     blogMinRead: "min de lectura",
     blogReadyToStart: "¿Listo para empezar?",
     blogTransformCTA: "Transforma tu comunicación de WhatsApp con automatización impulsada por IA.",
-    blogStartFreeTrial: "Comenzar Prueba Gratuita",
+    blogStartFreeTrial: "Empieza gratis",
 
     // Blog Post 1
     blogPost1Title: "5 Formas en que la IA de WhatsApp Puede Transformar tu Servicio al Cliente",
@@ -1580,7 +1580,7 @@ La IA captura y analiza cada interacción, proporcionando insights valiosos sobr
 
 La IA de WhatsApp no es solo una tendencia—es el futuro del servicio al cliente. Las empresas que adopten esta tecnología ahora tendrán una ventaja competitiva significativa en los años venideros.
 
-¿Listo para transformar tu servicio al cliente? Comienza tu prueba gratuita hoy.`,
+¿Listo para transformar tu servicio al cliente? Empieza gratis hoy.`,
 
     // Blog Post 2
     blogPost2Title: "Comenzando con la API de WhatsApp Business",
@@ -1881,7 +1881,7 @@ El futuro de la comunicación empresarial es conversacional, inteligente y dispo
     
     // CTAs
     ctaStartFree: "Kostenlos starten",
-    ctaStartTrial: "Testversion starten",
+    ctaStartTrial: "Kostenlos starten",
     ctaChoosePlan: "Plan wählen",
     ctaContactSales: "Vertrieb kontaktieren",
 
@@ -1903,7 +1903,7 @@ El futuro de la comunicación empresarial es conversacional, inteligente y dispo
     featuresPageTitle: "Mächtige Features für moderne",
     featuresPageTitleHighlight: "WhatsApp-Automatisierung",
     featuresPageSubtitle: "Alles was du brauchst, um dein WhatsApp in eine intelligente Kunden-Engagement-Plattform zu verwandeln. Entwickelt für Unternehmen, die sich um ihre Kunden kümmern.",
-    featuresStartTrial: "Kostenlose Testversion starten",
+    featuresStartTrial: "Kostenlos starten",
     
     // Detailed Features
     detailedFeature24_7: "24/7 Verfügbarkeit",
@@ -2077,7 +2077,7 @@ El futuro de la comunicación empresarial es conversacional, inteligente y dispo
     blogMinRead: "Min. Lesezeit",
     blogReadyToStart: "Bereit loszulegen?",
     blogTransformCTA: "Transformieren Sie Ihre WhatsApp-Kommunikation mit KI-gestützter Automatisierung.",
-    blogStartFreeTrial: "Kostenlose Testversion starten",
+    blogStartFreeTrial: "Kostenlos starten",
 
     // Blog Post 1
     blogPost1Title: "5 Wege, wie WhatsApp KI Ihren Kundenservice transformieren kann",
@@ -2230,7 +2230,7 @@ El futuro de la comunicación empresarial es conversacional, inteligente y dispo
     
     // CTAs
     ctaStartFree: "Inizia Gratis",
-    ctaStartTrial: "Inizia Prova",
+    ctaStartTrial: "Inizia gratis",
     ctaChoosePlan: "Scegli Piano",
     ctaContactSales: "Contatta Vendite",
     
@@ -2252,7 +2252,7 @@ El futuro de la comunicación empresarial es conversacional, inteligente y dispo
     featuresPageTitle: "Funzionalità Potenti per la",
     featuresPageTitleHighlight: "Automazione WhatsApp Moderna",
     featuresPageSubtitle: "Tutto quello di cui hai bisogno per trasformare il tuo WhatsApp in una piattaforma intelligente di coinvolgimento clienti. Costruito per aziende che si preoccupano dei loro clienti.",
-    featuresStartTrial: "Inizia Prova Gratuita",
+    featuresStartTrial: "Inizia gratis",
     
     // Detailed Features
     detailedFeature24_7: "Disponibilità 24/7",
@@ -2555,7 +2555,7 @@ El futuro de la comunicación empresarial es conversacional, inteligente y dispo
     
     // CTAs
     ctaStartFree: "Começar Gratuitamente",
-    ctaStartTrial: "Começar Teste",
+    ctaStartTrial: "Comece grátis",
     ctaChoosePlan: "Escolher Plano",
     ctaContactSales: "Contatar Vendas",
     
@@ -2577,7 +2577,7 @@ El futuro de la comunicación empresarial es conversacional, inteligente y dispo
     featuresPageTitle: "Recursos Poderosos para",
     featuresPageTitleHighlight: "Automação WhatsApp Moderna",
     featuresPageSubtitle: "Tudo que você precisa para transformar seu WhatsApp numa plataforma inteligente de engajamento do cliente. Construído para empresas que se preocupam com seus clientes.",
-    featuresStartTrial: "Começar Teste Gratuito",
+    featuresStartTrial: "Comece grátis",
     
     // Detailed Features
     detailedFeature24_7: "Disponibilidade 24/7",
@@ -2878,7 +2878,7 @@ El futuro de la comunicación empresarial es conversacional, inteligente y dispo
     
     // CTAs
     ctaStartFree: "免费开始",
-    ctaStartTrial: "开始试用",
+    ctaStartTrial: "免费开始",
     ctaContactSales: "联系销售",
     ctaChoosePlan: "选择此方案",
 
@@ -2900,7 +2900,7 @@ El futuro de la comunicación empresarial es conversacional, inteligente y dispo
     featuresPageTitle: "现代WhatsApp自动化的",
     featuresPageTitleHighlight: "强大功能",
     featuresPageSubtitle: "将您的WhatsApp转化为智能客户参与平台所需的一切。为关爱客户的企业而构建。",
-    featuresStartTrial: "开始免费试用",
+    featuresStartTrial: "免费开始",
     
     // Detailed Features
     detailedFeature24_7: "24/7全天候服务",
@@ -3201,7 +3201,7 @@ El futuro de la comunicación empresarial es conversacional, inteligente y dispo
     
     // CTAs
     ctaStartFree: "無料で始める",
-    ctaStartTrial: "トライアル開始",
+    ctaStartTrial: "無料で始める",
     ctaContactSales: "営業にお問い合わせ",
     ctaChoosePlan: "プランを選択",
 
@@ -3223,7 +3223,7 @@ El futuro de la comunicación empresarial es conversacional, inteligente y dispo
     featuresPageTitle: "モダンなWhatsApp自動化のための",
     featuresPageTitleHighlight: "強力な機能",
     featuresPageSubtitle: "あなたのWhatsAppをインテリジェントな顧客エンゲージメントプラットフォームに変換するためのすべて。顧客を大切にする企業のために構築されています。",
-    featuresStartTrial: "無料トライアル開始",
+    featuresStartTrial: "無料で始める",
     
     // Detailed Features
     detailedFeature24_7: "24/7対応",
@@ -3524,7 +3524,7 @@ El futuro de la comunicación empresarial es conversacional, inteligente y dispo
     
     // CTAs
     ctaStartFree: "ابدأ مجاناً",
-    ctaStartTrial: "ابدأ تجربة",
+    ctaStartTrial: "ابدأ مجانًا",
     ctaContactSales: "اتصل بالمبيعات",
     ctaChoosePlan: "اختر الخطة",
 
@@ -3546,7 +3546,7 @@ El futuro de la comunicación empresarial es conversacional, inteligente y dispo
     featuresPageTitle: "ميزات قوية لـ",
     featuresPageTitleHighlight: "أتمتة واتساب عصرية",
     featuresPageSubtitle: "كل ما تحتاجه لتحويل واتسابك إلى منصة تفاعل عملاء ذكية. مبني للشركات التي تهتم بعملائها.",
-    featuresStartTrial: "ابدأ تجربة مجانية",
+    featuresStartTrial: "ابدأ مجانًا",
     
     // Detailed Features
     detailedFeature24_7: "متاح 24/7",

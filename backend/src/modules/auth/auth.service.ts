@@ -115,51 +115,27 @@ export class AuthService {
       await this.organizationMemberRepository.save(membership);
     }
 
-    // Create subscription with trial — payment setup happens during onboarding (step 3)
-    const selectedPlan = dto.plan?.toUpperCase() || 'STANDARD';
-    const planCode = selectedPlan.toLowerCase();
-    const trialDays = this.planService.getTrialDays(planCode);
+    // Toute inscription démarre sur le plan FREE actif (100 messages IA, 1 session,
+    // 1 base de connaissances) — plus de période d'essai. Si un plan payant a été
+    // choisi sur la page pricing, il est conservé en métadonnée : l'utilisateur est
+    // invité à payer pour l'activer depuis le dashboard.
+    const desiredPlan = dto.plan?.toLowerCase();
+    const planCode = 'free';
 
-    let subscriptionData: Partial<Subscription>;
-    if (trialDays > 0 && selectedPlan !== 'FREE') {
-      const now = new Date();
-      const trialEndsAt = new Date(now);
-      trialEndsAt.setDate(trialEndsAt.getDate() + trialDays);
-
-      subscriptionData = {
-        userId: user.id.toString(),
-        organizationId: organization?.id,
-        plan: planCode as SubscriptionPlan,
-        status: SubscriptionStatus.TRIALING,
-        startsAt: now,
-        trialEndsAt,
-        limits: this.planService.getPlanLimits(planCode),
-        features: this.planService.getPlanFeatures(planCode),
-        metadata: {
-          trialStartedAt: now.toISOString(),
-          trialDays,
-        },
-      };
-    } else {
-      subscriptionData = {
-        userId: user.id.toString(),
-        organizationId: organization?.id,
-        plan: planCode as SubscriptionPlan,
-        startsAt: new Date(),
-        limits: this.planService.getPlanLimits(planCode),
-        features: this.planService.getPlanFeatures(planCode),
-      };
-    }
+    const subscriptionData: Partial<Subscription> = {
+      userId: user.id.toString(),
+      organizationId: organization?.id,
+      plan: planCode as SubscriptionPlan,
+      status: SubscriptionStatus.ACTIVE,
+      startsAt: new Date(),
+      limits: this.planService.getPlanLimits(planCode),
+      features: this.planService.getPlanFeatures(planCode),
+      metadata:
+        desiredPlan && desiredPlan !== 'free' ? { desiredPlan } : undefined,
+    };
 
     const subscription = this.subscriptionRepository.create(subscriptionData);
     await this.subscriptionRepository.save(subscription);
-
-    // Start trial normally (creates invoice + sends welcome email)
-    if (trialDays > 0 && selectedPlan !== 'FREE') {
-      this.trialService.startTrial(subscription).catch(err => {
-        // Log but don't fail registration
-      });
-    }
 
     // Send verification email
     await this.emailService.sendVerificationEmail(
@@ -181,10 +157,11 @@ export class AuthService {
     this.posthogService.identify(user.id, {
       email: user.email,
       name: `${user.firstName} ${user.lastName}`,
-      plan: selectedPlan,
+      plan: planCode,
     });
     this.posthogService.capture(user.id, 'user_registered', {
-      plan: selectedPlan,
+      plan: planCode,
+      desiredPlan: desiredPlan || 'free',
       hasOrganization: !!dto.organizationName,
     });
 

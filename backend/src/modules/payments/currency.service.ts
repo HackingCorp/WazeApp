@@ -385,9 +385,6 @@ export class CurrencyService implements OnModuleInit {
     const pricing: Record<string, Record<string, any>> = {};
 
     for (const [planId, plan] of Object.entries(this.PRICING)) {
-      // Skip FREE plan from public pricing
-      if (planId === 'FREE') continue;
-
       pricing[planId] = {
         ...plan,
         prices: {},

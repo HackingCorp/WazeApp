@@ -332,7 +332,7 @@ function RegisterPageContent() {
                   <div>
                     <p className="text-sm font-medium text-green-700 dark:text-green-300">Inscription gratuite</p>
                     <p className="text-xs text-green-600 dark:text-green-400 mt-1">
-                      Essai gratuit inclus. Aucun paiement requis maintenant.
+                      Plan gratuit inclus : 100 messages IA par mois, sans carte bancaire.
                     </p>
                   </div>
                 </div>

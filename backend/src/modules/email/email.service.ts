@@ -227,6 +227,74 @@ export class EmailService {
   }
 
   /**
+   * Campagne de réactivation : annonce du passage au plan Free permanent.
+   * Envoyée aux anciens comptes d'essai expirés dont le compte vient d'être
+   * réactivé sur le plan Gratuit.
+   */
+  async sendFreeReactivationEmail(email: string, firstName: string, lang: string = 'fr'): Promise<void> {
+    if (!this.transporter) {
+      this.logger.warn(`⚠️ SMTP not configured, skipping reactivation email to ${email}`);
+      return;
+    }
+
+    const dashboardUrl = this.getDashboardUrl();
+    const fr = lang !== 'en';
+    const title = fr ? 'Bonne nouvelle : WazeApp est maintenant gratuit 🎉' : 'Good news: WazeApp is now free 🎉';
+    const greeting = fr ? `Bonjour ${firstName},` : `Hi ${firstName},`;
+    const intro = fr
+      ? "Nous avons une bonne nouvelle : WazeApp propose désormais un plan <strong>Gratuit permanent</strong>, et votre compte vient d'être <strong>réactivé</strong>."
+      : "Great news: WazeApp now offers a <strong>permanent Free plan</strong>, and your account has just been <strong>reactivated</strong>.";
+    const listTitle = fr ? 'Votre plan Gratuit inclut :' : 'Your Free plan includes:';
+    const b1 = fr ? '✅ 100 messages IA par mois' : '✅ 100 AI messages per month';
+    const b2 = fr ? '✅ 1 assistant WhatsApp connecté' : '✅ 1 connected WhatsApp assistant';
+    const b3 = fr ? '✅ Base de connaissances, vocaux et photos compris' : '✅ Knowledge base, voice notes and photos understood';
+    const b4 = fr ? '✅ Sans carte bancaire' : '✅ No credit card required';
+    const outro = fr
+      ? 'Reconnectez-vous et reprenez là où vous vous étiez arrêté — en quelques minutes, votre assistant répond à nouveau à vos clients.'
+      : 'Log back in and pick up where you left off — in a few minutes your assistant is answering your customers again.';
+    const button = fr ? 'Reprendre gratuitement' : 'Resume for free';
+
+    const html = this.baseTemplate({
+      title,
+      preheader: fr ? 'Votre compte WazeApp est réactivé sur le plan Gratuit.' : 'Your WazeApp account is reactivated on the Free plan.',
+      lang,
+      content: `
+<h1 style="margin:0 0 16px 0;font-size:22px;font-weight:700;color:#111827;">${title}</h1>
+<p style="margin:0 0 16px 0;font-size:15px;color:#6b7280;line-height:1.6;">${greeting}</p>
+<p style="margin:0 0 16px 0;font-size:15px;color:#6b7280;line-height:1.6;">${intro}</p>
+<p style="margin:16px 0 8px 0;font-size:15px;font-weight:600;color:#111827;">${listTitle}</p>
+<table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 16px 0;">
+<tr><td style="padding:6px 0;font-size:14px;color:#6b7280;line-height:1.5;">${b1}</td></tr>
+<tr><td style="padding:6px 0;font-size:14px;color:#6b7280;line-height:1.5;">${b2}</td></tr>
+<tr><td style="padding:6px 0;font-size:14px;color:#6b7280;line-height:1.5;">${b3}</td></tr>
+<tr><td style="padding:6px 0;font-size:14px;color:#6b7280;line-height:1.5;">${b4}</td></tr>
+</table>
+<p style="margin:0 0 16px 0;font-size:15px;color:#6b7280;line-height:1.6;">${outro}</p>
+${this.buttonHtml(button, dashboardUrl)}
+      `,
+    });
+
+    try {
+      await this.transporter.sendMail({
+        from: `"${this.getFromName()}" <${this.getFromAddress()}>`,
+        to: email,
+        subject: title,
+        html,
+        text:
+          `${greeting}\n\n` +
+          (fr
+            ? "WazeApp propose désormais un plan Gratuit permanent et votre compte a été réactivé : 100 messages IA/mois, 1 assistant WhatsApp, vocaux et photos compris, sans carte bancaire."
+            : "WazeApp now offers a permanent Free plan and your account has been reactivated: 100 AI messages/month, 1 WhatsApp assistant, voice notes and photos understood, no credit card.") +
+          `\n\n${dashboardUrl}\n\n${fr ? "L'équipe WazeApp" : 'The WazeApp Team'}`,
+      });
+      this.logger.log(`✅ Free reactivation email sent to ${email}`);
+    } catch (error) {
+      this.logger.error(`❌ Failed to send reactivation email to ${email}: ${error.message}`);
+      throw error;
+    }
+  }
+
+  /**
    * Send payment confirmation email
    */
   async sendPaymentConfirmationEmail(

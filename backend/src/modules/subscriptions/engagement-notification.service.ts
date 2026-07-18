@@ -11,6 +11,8 @@ import {
   AgentConversation,
   AgentMessage,
   OrganizationMember,
+  SUBSCRIPTION_LIMITS,
+  SUBSCRIPTION_FEATURES,
 } from '../../common/entities';
 import {
   SubscriptionStatus,
@@ -1137,5 +1139,116 @@ export class EngagementNotificationService {
       },
     };
     await this.subscriptionRepository.save(subscription);
+  }
+
+  // ==================== CAMPAGNE PONCTUELLE : REACTIVATION FREE ====================
+
+  /**
+   * Campagne de réactivation : passe les anciens comptes d'essai expirés
+   * (status=inactive) sur le plan Gratuit permanent et leur envoie un email
+   * d'annonce. Ciblage prudent : uniquement les comptes qui ont DÉJÀ utilisé la
+   * plateforme (lastLoginAt renseigné) — les inscriptions jamais confirmées sont
+   * exclues pour protéger la réputation d'envoi. Idempotent (marque
+   * `free_reactivation_2026` sur la subscription). Envoi throttlé.
+   */
+  async runFreeReactivationCampaign(opts: {
+    dryRun?: boolean;
+    testEmail?: string;
+    throttleMs?: number;
+    limit?: number;
+  }): Promise<{
+    dryRun: boolean;
+    targetCount: number;
+    reactivated: number;
+    emailsSent: number;
+    errors: number;
+    sample: string[];
+  }> {
+    const dryRun = opts.dryRun !== false;
+    const throttleMs = opts.throttleMs ?? 3500;
+    const CAMPAIGN_KEY = 'free_reactivation_2026';
+
+    // Envoi d'un unique email de test (validation du rendu), sans rien modifier.
+    if (opts.testEmail) {
+      await this.emailService.sendFreeReactivationEmail(opts.testEmail, 'Test', 'fr');
+      return { dryRun: true, targetCount: 0, reactivated: 0, emailsSent: 1, errors: 0, sample: [opts.testEmail] };
+    }
+
+    // 1) Cibles : subscriptions inactive/standard dont le propriétaire a déjà utilisé la plateforme.
+    const subs = await this.subscriptionRepository.find({
+      where: { status: SubscriptionStatus.INACTIVE, plan: SubscriptionPlan.STANDARD },
+    });
+    const userIds = subs.map((s) => s.userId).filter((id): id is string => !!id);
+    const users = await this.userRepository.find({
+      where: { id: In(userIds), lastLoginAt: Not(IsNull()), isActive: true },
+    });
+    const usersById = new Map(users.map((u) => [u.id, u]));
+
+    // Dédupliquer par email : une seule action par personne.
+    const seenEmails = new Set<string>();
+    const targets: Array<{ sub: Subscription; user: User }> = [];
+    for (const sub of subs) {
+      if (sub.metadata?.engagementSent?.[CAMPAIGN_KEY]) continue; // déjà traité
+      const user = sub.userId ? usersById.get(sub.userId) : undefined;
+      if (!user?.email) continue;
+      const email = user.email.toLowerCase();
+      if (seenEmails.has(email)) continue;
+      seenEmails.add(email);
+      targets.push({ sub, user });
+    }
+
+    const limited = opts.limit ? targets.slice(0, opts.limit) : targets;
+
+    if (dryRun) {
+      return {
+        dryRun: true,
+        targetCount: limited.length,
+        reactivated: 0,
+        emailsSent: 0,
+        errors: 0,
+        sample: limited.slice(0, 10).map((t) => t.user.email),
+      };
+    }
+
+    // 2) Exécution : réactiver en Free + envoyer l'email, throttlé.
+    let reactivated = 0;
+    let emailsSent = 0;
+    let errors = 0;
+
+    for (const { sub, user } of limited) {
+      try {
+        sub.plan = SubscriptionPlan.FREE;
+        sub.status = SubscriptionStatus.ACTIVE;
+        sub.trialEndsAt = null;
+        sub.limits = SUBSCRIPTION_LIMITS[SubscriptionPlan.FREE] as any;
+        sub.features = SUBSCRIPTION_FEATURES[SubscriptionPlan.FREE] as any;
+        sub.metadata = {
+          ...sub.metadata,
+          reactivatedFreeAt: new Date().toISOString(),
+          engagementSent: {
+            ...sub.metadata?.engagementSent,
+            [CAMPAIGN_KEY]: new Date().toISOString(),
+          },
+        };
+        await this.subscriptionRepository.save(sub);
+        reactivated++;
+
+        await this.emailService.sendFreeReactivationEmail(
+          user.email,
+          user.firstName || user.email.split('@')[0],
+          user.language || 'fr',
+        );
+        emailsSent++;
+      } catch (error) {
+        errors++;
+        this.logger.warn(`Reactivation failed for ${user.email}: ${error.message}`);
+      }
+      if (throttleMs > 0) {
+        await new Promise((r) => setTimeout(r, throttleMs));
+      }
+    }
+
+    this.logger.log(`Free reactivation campaign: ${reactivated} reactivated, ${emailsSent} emails, ${errors} errors`);
+    return { dryRun: false, targetCount: limited.length, reactivated, emailsSent, errors, sample: [] };
   }
 }

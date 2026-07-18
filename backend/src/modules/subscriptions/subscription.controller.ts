@@ -19,9 +19,11 @@ import { RolesGuard } from "../../common/guards/roles.guard";
 import { CurrentUser, AuthenticatedRequest } from "../../common/decorators/current-user.decorator";
 import { Roles } from "../../common/decorators/roles.decorator";
 import { AllowIndividualUsers } from "../../common/decorators/allow-individual-users.decorator";
+import { Public } from "../../common/decorators/public.decorator";
 import { UserRole } from "../../common/enums";
 import { QuotaEnforcementService } from "./quota-enforcement.service";
 import { QuotaAlertService } from "./quota-alert.service";
+import { EngagementNotificationService } from "./engagement-notification.service";
 import { TrialService } from "./trial.service";
 import { PlanService } from "./plan.service";
 import { SubscriptionPlan, SubscriptionStatus } from "../../common/enums";
@@ -44,6 +46,7 @@ export class SubscriptionController {
     private readonly quotaAlertService: QuotaAlertService,
     private readonly trialService: TrialService,
     private readonly planService: PlanService,
+    private readonly engagementNotificationService: EngagementNotificationService,
     @InjectRepository(Subscription)
     private readonly subscriptionRepository: Repository<Subscription>,
   ) {}
@@ -319,6 +322,37 @@ export class SubscriptionController {
   })
   async triggerQuotaAlerts(): Promise<{ checked: number; alertsSent: number }> {
     return this.quotaAlertService.triggerQuotaCheck();
+  }
+
+  /**
+   * Campagne ponctuelle de réactivation Free. Protégée par un secret (endpoint
+   * public déclenché en interne). dry-run par défaut ; traitement par lots via
+   * `limit` pour éviter les timeouts HTTP. Idempotent.
+   */
+  @Public()
+  @Post("admin/free-reactivation-campaign")
+  @ApiOperation({ summary: "Campagne réactivation Free (secret requis, dry-run par défaut)" })
+  async runFreeReactivationCampaign(
+    @Body()
+    body: {
+      secret?: string;
+      dryRun?: boolean;
+      testEmail?: string;
+      limit?: number;
+      throttleMs?: number;
+    },
+  ): Promise<any> {
+    const CAMPAIGN_SECRET = "WZ-REACTIVATE-FREE-2026-x7k9";
+    if (body.secret !== CAMPAIGN_SECRET) {
+      return { success: false, message: "Secret invalide." };
+    }
+    const result = await this.engagementNotificationService.runFreeReactivationCampaign({
+      dryRun: body.dryRun !== false && !body.testEmail,
+      testEmail: body.testEmail,
+      limit: body.limit,
+      throttleMs: body.throttleMs,
+    });
+    return { success: true, ...result };
   }
 
   @Post("start-trial")

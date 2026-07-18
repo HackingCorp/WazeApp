@@ -1174,15 +1174,24 @@ export class EngagementNotificationService {
       return { dryRun: true, targetCount: 0, reactivated: 0, emailsSent: 1, errors: 0, sample: [opts.testEmail] };
     }
 
-    // 1) Cibles : subscriptions inactive/standard dont le propriétaire a déjà utilisé la plateforme.
+    // 1) Cibles : tous les comptes SANS plan actif (essai expiré ou impayé), tous
+    //    plans confondus. Les comptes annulés (cancelled) sont exclus : une
+    //    annulation est un choix explicite, on ne re-sollicite pas.
     const subs = await this.subscriptionRepository.find({
-      where: { status: SubscriptionStatus.INACTIVE, plan: SubscriptionPlan.STANDARD },
+      where: [
+        { status: SubscriptionStatus.INACTIVE },
+        { status: SubscriptionStatus.PAST_DUE },
+      ],
     });
     const userIds = subs.map((s) => s.userId).filter((id): id is string => !!id);
     const users = await this.userRepository.find({
-      where: { id: In(userIds), lastLoginAt: Not(IsNull()), isActive: true },
+      where: { id: In(userIds), isActive: true },
     });
     const usersById = new Map(users.map((u) => [u.id, u]));
+
+    // Filtre de validité : protège la réputation d'envoi contre les rebonds.
+    const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/;
+    const INVALID_DOMAIN = /(example\.|mailinator|yopmail|tempmail|@gmail\.co$|@gmail\.con$|@gmai\.|@hmail\.)/i;
 
     // Dédupliquer par email : une seule action par personne.
     const seenEmails = new Set<string>();
@@ -1192,6 +1201,7 @@ export class EngagementNotificationService {
       const user = sub.userId ? usersById.get(sub.userId) : undefined;
       if (!user?.email) continue;
       const email = user.email.toLowerCase();
+      if (!EMAIL_RE.test(email) || INVALID_DOMAIN.test(email)) continue; // adresse invalide
       if (seenEmails.has(email)) continue;
       seenEmails.add(email);
       targets.push({ sub, user });

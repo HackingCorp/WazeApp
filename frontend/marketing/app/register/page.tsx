@@ -16,6 +16,7 @@ import {
   AlertCircle,
   Building,
   CheckCircle,
+  Phone,
 } from "lucide-react"
 import { api } from "@/lib/api"
 import posthog from "posthog-js"
@@ -31,6 +32,7 @@ function RegisterPageContent() {
     lastName: "",
     email: "",
     password: "",
+    phone: "",
     organizationName: "",
     acceptTerms: false,
   })
@@ -89,7 +91,7 @@ function RegisterPageContent() {
 
     try {
       if (posthog.__loaded) {
-        posthog.capture('register_submitted', { plan: 'STANDARD' })
+        posthog.capture('register_submitted', { plan: 'FREE' })
       }
 
       const response = await api.register({
@@ -97,18 +99,19 @@ function RegisterPageContent() {
         lastName: formData.lastName.trim(),
         email: formData.email.trim(),
         password: formData.password,
+        phone: formData.phone.trim() || undefined,
         organizationName: formData.organizationName.trim() || undefined,
       })
 
       if (response.success) {
         if (posthog.__loaded) {
-          posthog.capture('register_success', { plan: 'STANDARD' })
+          posthog.capture('register_success', { plan: 'FREE' })
         }
 
         // Fire Facebook Pixel CompleteRegistration
         if (typeof window.fbq === 'function') {
           window.fbq('track', 'CompleteRegistration', {
-            content_name: 'STANDARD',
+            content_name: 'FREE',
             currency: 'USD',
             value: 0,
           })
@@ -301,6 +304,24 @@ function RegisterPageContent() {
                   />
                 </div>
                 <p className="mt-1 text-xs text-gray-500">Laissez vide pour un compte personnel</p>
+              </div>
+
+              <div>
+                <label htmlFor="phone" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Numero WhatsApp <span className="text-gray-400 font-normal">(optionnel)</span>
+                </label>
+                <div className="relative">
+                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                  <input
+                    id="phone"
+                    type="tel"
+                    value={formData.phone}
+                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                    className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:border-gray-600"
+                    placeholder="+237 6XX XX XX XX"
+                  />
+                </div>
+                <p className="mt-1 text-xs text-gray-500">Pour recevoir vos alertes et l'aide au demarrage sur WhatsApp</p>
               </div>
 
               <div>

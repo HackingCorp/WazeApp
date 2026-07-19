@@ -634,6 +634,21 @@ export class InvoiceService {
       // Skip invoices for Stripe-managed subscriptions
       if (invoice.subscription?.stripeSubscriptionId) continue;
 
+      // Auto-annuler toute facture qui ne correspond plus à un abonnement payant
+      // ACTIF (compte passé en Free, inactif, annulé, ou abonnement disparu).
+      // Évite les rappels de paiement fantômes envoyés à d'anciens comptes.
+      const linkedSub = invoice.subscription;
+      if (!linkedSub || linkedSub.status !== SubscriptionStatus.ACTIVE || linkedSub.plan === SubscriptionPlan.FREE) {
+        invoice.status = InvoiceStatus.CANCELLED;
+        invoice.metadata = {
+          ...invoice.metadata,
+          cancelledReason: 'no_active_paid_subscription',
+          cancelledAt: new Date().toISOString(),
+        };
+        await this.invoiceRepository.save(invoice);
+        continue;
+      }
+
       // Skip if subscription is already active with a billing date past this invoice's due date
       // This means the user has paid (a newer PAID invoice exists) but this old one wasn't cancelled
       if (
@@ -713,11 +728,20 @@ export class InvoiceService {
 
       if (shouldSendReminder) {
         try {
-          // Get organization owners/admins to send email
-          const recipients = await this.getOrganizationEmailRecipients(invoice.organizationId);
+          // Déterminer les destinataires. IMPORTANT : si la facture n'a pas
+          // d'organizationId, on cible le propriétaire de l'abonnement — surtout
+          // PAS getOrganizationEmailRecipients(null) qui ratisserait tous les
+          // utilisateurs (cause du spam massif corrigé le 2026-07-19).
+          let recipients: User[] = [];
+          if (invoice.organizationId) {
+            recipients = await this.getOrganizationEmailRecipients(invoice.organizationId);
+          } else if (linkedSub.userId) {
+            const owner = await this.userRepository.findOne({ where: { id: linkedSub.userId } });
+            if (owner?.email) recipients = [owner];
+          }
 
           if (recipients.length === 0) {
-            this.logger.warn(`No email recipients found for organization ${invoice.organizationId}, skipping reminder`);
+            this.logger.warn(`No email recipients found for invoice ${invoice.invoiceNumber}, skipping reminder`);
             continue;
           }
 

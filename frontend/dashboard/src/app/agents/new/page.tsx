@@ -86,12 +86,12 @@ export default function NewAgentPage() {
 
   const handleSave = async () => {
     if (!formData.name.trim()) {
-      toast.error('Please enter a name for your agent');
+      toast.error(t('agentForm.errNameRequired'));
       return;
     }
 
     if (!formData.systemPrompt.trim()) {
-      toast.error('Please enter system instructions for your agent');
+      toast.error(t('agentForm.errPromptRequired'));
       return;
     }
 
@@ -115,10 +115,10 @@ export default function NewAgentPage() {
 
       const response = await apiHelpers.agents.create(payload);
       analytics.track('agent_created', { agentId: response.data.id, name: payload.name });
-      toast.success('Agent created successfully!');
+      toast.success(t('agentForm.createdSuccess'));
       router.push(`/agents/${response.data.id}/edit`);
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to create agent');
+      toast.error(error.response?.data?.message || t('agentForm.createFailed'));
     } finally {
       setSaving(false);
     }
@@ -126,7 +126,7 @@ export default function NewAgentPage() {
 
   const handleTest = async () => {
     if (!testMessage.trim()) {
-      toast.error('Please enter a test message');
+      toast.error(t('agentForm.errTestMessageRequired'));
       return;
     }
 
@@ -134,26 +134,28 @@ export default function NewAgentPage() {
     try {
       // Preview mode - simulate response based on current configuration
       // This is a preview since the agent hasn't been created yet
-      const previewResponse = `[Preview Mode] Based on your ${formData.tone} tone and current configuration, the agent would respond to "${testMessage}". To test the actual agent with real AI responses, please save the agent first.`;
+      const previewResponse = t('agentForm.previewResponse')
+        .replace('{tone}', formData.tone)
+        .replace('{message}', testMessage);
 
       await new Promise(resolve => setTimeout(resolve, 1000));
       setTestResponse(previewResponse);
-      toast.success('This is a preview. Save the agent to test with real AI responses.');
+      toast.success(t('agentForm.previewToast'));
     } catch (error) {
-      toast.error('Failed to generate preview');
+      toast.error(t('agentForm.previewFailed'));
     } finally {
       setTesting(false);
     }
   };
 
   const tabs = [
-    { id: 'basic', name: 'Basic Info', icon: Bot },
-    { id: 'personality', name: 'Tone & Instructions', icon: Brain },
-    { id: 'model', name: 'Model Config', icon: Zap },
-    { id: 'knowledge', name: 'Knowledge Base', icon: BookOpen },
-    { id: 'messages', name: 'Messages', icon: MessageSquare },
-    { id: 'advanced', name: 'Advanced', icon: Settings },
-    { id: 'test', name: 'Preview', icon: TestTube },
+    { id: 'basic', name: t('agentForm.tabBasic'), icon: Bot },
+    { id: 'personality', name: t('agentForm.tabPersonality'), icon: Brain },
+    { id: 'model', name: t('agentForm.tabModel'), icon: Zap },
+    { id: 'knowledge', name: t('agentForm.tabKnowledge'), icon: BookOpen },
+    { id: 'messages', name: t('agentForm.tabMessages'), icon: MessageSquare },
+    { id: 'advanced', name: t('agentForm.tabAdvanced'), icon: Settings },
+    { id: 'test', name: t('agentForm.tabPreview'), icon: TestTube },
   ];
 
   const renderTabContent = () => {
@@ -163,25 +165,25 @@ export default function NewAgentPage() {
           <div className="space-y-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Agent Name *
+                {t('agentForm.agentName')} *
               </label>
               <input
                 type="text"
                 value={formData.name}
                 onChange={(e) => updateFormData({ name: e.target.value })}
-                placeholder="e.g., Customer Support Bot"
+                placeholder={t('agentForm.agentNamePlaceholder')}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
               />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Description
+                {t('agentForm.descriptionLabel')}
               </label>
               <textarea
                 value={formData.description}
                 onChange={(e) => updateFormData({ description: e.target.value })}
-                placeholder="Brief description of what this agent does..."
+                placeholder={t('agentForm.descriptionPlaceholder')}
                 rows={3}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
               />
@@ -189,7 +191,7 @@ export default function NewAgentPage() {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Primary Language
+                {t('agentForm.primaryLanguage')}
               </label>
               <select
                 value={formData.primaryLanguage}
@@ -204,7 +206,7 @@ export default function NewAgentPage() {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Avatar URL (optional)
+                {t('agentForm.avatarUrl')}
               </label>
               <input
                 type="url"
@@ -214,7 +216,7 @@ export default function NewAgentPage() {
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
               />
               <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                Optional URL to an avatar image for your agent
+                {t('agentForm.avatarUrlHelp')}
               </p>
             </div>
           </div>
@@ -225,7 +227,7 @@ export default function NewAgentPage() {
           <div className="space-y-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-4">
-                Agent Tone
+                {t('agentForm.agentTone')}
               </label>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {PERSONALITY_PRESETS.map(preset => (
@@ -259,16 +261,16 @@ export default function NewAgentPage() {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                System Prompt *
+                {t('agentForm.systemPrompt')} *
               </label>
               <RichTextEditor
                 value={formData.systemPrompt}
                 onChange={(value) => updateFormData({ systemPrompt: value })}
-                placeholder="Detailed instructions on how the agent should behave, respond, and handle different scenarios..."
+                placeholder={t('agentForm.systemPromptPlaceholder')}
                 height="300px"
               />
               <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                This is the core instruction set that defines your agent's behavior and capabilities
+                {t('agentForm.systemPromptHelp')}
               </p>
             </div>
           </div>
@@ -279,17 +281,17 @@ export default function NewAgentPage() {
           <div className="space-y-6">
             <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
               <h4 className="text-sm font-medium text-blue-900 dark:text-blue-300 mb-1">
-                AI Model Configuration
+                {t('agentForm.modelConfigTitle')}
               </h4>
               <p className="text-sm text-blue-700 dark:text-blue-400">
-                The AI model is automatically selected based on your LLM provider settings. Configure the model parameters below.
+                {t('agentForm.modelConfigDesc')}
               </p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Temperature: {formData.temperature}
+                  {t('agentForm.temperature')}: {formData.temperature}
                 </label>
                 <input
                   type="range"
@@ -301,18 +303,18 @@ export default function NewAgentPage() {
                   className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer"
                 />
                 <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  <span>Focused (0)</span>
-                  <span>Balanced (1)</span>
-                  <span>Creative (2)</span>
+                  <span>{t('agentForm.tempFocused')}</span>
+                  <span>{t('agentForm.tempBalanced')}</span>
+                  <span>{t('agentForm.tempCreative')}</span>
                 </div>
                 <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                  Higher values make the output more random and creative
+                  {t('agentForm.temperatureHelp')}
                 </p>
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Max Tokens
+                  {t('agentForm.maxTokens')}
                 </label>
                 <input
                   type="number"
@@ -323,7 +325,7 @@ export default function NewAgentPage() {
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                 />
                 <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                  Maximum number of tokens to generate in responses (1-32000)
+                  {t('agentForm.maxTokensHelp')}
                 </p>
               </div>
             </div>
@@ -335,16 +337,16 @@ export default function NewAgentPage() {
           <div className="space-y-6">
             <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
               <h4 className="text-sm font-medium text-yellow-900 dark:text-yellow-300 mb-1">
-                Knowledge Base Association
+                {t('agentForm.kbAssocTitle')}
               </h4>
               <p className="text-sm text-yellow-700 dark:text-yellow-400">
-                To add knowledge to your agent, first create a Knowledge Base in the Knowledge Base section, then associate it with your agent after creation.
+                {t('agentForm.kbAssocDesc')}
               </p>
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-4">
-                Knowledge Base IDs (optional)
+                {t('agentForm.kbIdsLabel')}
               </label>
               <textarea
                 value={formData.knowledgeBaseIds.join(', ')}
@@ -352,19 +354,19 @@ export default function NewAgentPage() {
                   const ids = e.target.value.split(',').map(id => id.trim()).filter(id => id);
                   updateFormData({ knowledgeBaseIds: ids });
                 }}
-                placeholder="Enter knowledge base IDs separated by commas (e.g., kb-123, kb-456)"
+                placeholder={t('agentForm.kbIdsPlaceholder')}
                 rows={3}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
               />
               <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                You can add knowledge base IDs here or associate them after creating the agent
+                {t('agentForm.kbIdsHelp')}
               </p>
             </div>
 
             {formData.knowledgeBaseIds.length > 0 && (
               <div>
                 <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Associated Knowledge Bases ({formData.knowledgeBaseIds.length})
+                  {t('agentForm.kbAssociated')} ({formData.knowledgeBaseIds.length})
                 </h4>
                 <div className="space-y-2">
                   {formData.knowledgeBaseIds.map((kbId, index) => (
@@ -382,7 +384,7 @@ export default function NewAgentPage() {
                         }}
                         className="text-red-600 hover:text-red-700 text-sm"
                       >
-                        Remove
+                        {t('agentForm.remove')}
                       </button>
                     </div>
                   ))}
@@ -397,12 +399,12 @@ export default function NewAgentPage() {
           <div className="space-y-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Welcome Message
+                {t('agentForm.welcomeMessage')}
               </label>
               <textarea
                 value={formData.welcomeMessage}
                 onChange={(e) => updateFormData({ welcomeMessage: e.target.value })}
-                placeholder="The first message users see when starting a conversation..."
+                placeholder={t('agentForm.welcomeMessagePlaceholder')}
                 rows={3}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
               />
@@ -410,12 +412,12 @@ export default function NewAgentPage() {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Fallback Message
+                {t('agentForm.fallbackMessage')}
               </label>
               <textarea
                 value={formData.fallbackMessage}
                 onChange={(e) => updateFormData({ fallbackMessage: e.target.value })}
-                placeholder="Message to show when the agent doesn't understand the user..."
+                placeholder={t('agentForm.fallbackMessagePlaceholder')}
                 rows={3}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
               />
@@ -428,29 +430,29 @@ export default function NewAgentPage() {
           <div className="space-y-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Agent Status
+                {t('agentForm.agentStatus')}
               </label>
               <select
                 value={formData.status}
                 onChange={(e) => updateFormData({ status: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
               >
-                <option value="active">Active - Agent can receive and respond to messages</option>
-                <option value="inactive">Inactive - Agent is disabled</option>
-                <option value="training">Training - Agent is being trained</option>
-                <option value="maintenance">Maintenance - Agent is under maintenance</option>
+                <option value="active">{t('agentForm.statusActive')}</option>
+                <option value="inactive">{t('agentForm.statusInactive')}</option>
+                <option value="training">{t('agentForm.statusTraining')}</option>
+                <option value="maintenance">{t('agentForm.statusMaintenance')}</option>
               </select>
               <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                Set the initial status for your agent. You can change this later.
+                {t('agentForm.agentStatusHelp')}
               </p>
             </div>
 
             <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
               <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Additional Settings
+                {t('agentForm.additionalSettings')}
               </h4>
               <p className="text-sm text-gray-500 dark:text-gray-400">
-                Additional configuration options like usage limits, response timeouts, and rate limiting can be configured after creating the agent in the edit view.
+                {t('agentForm.additionalSettingsDesc')}
               </p>
             </div>
           </div>
@@ -461,23 +463,23 @@ export default function NewAgentPage() {
           <div className="space-y-6">
             <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
               <h4 className="text-sm font-medium text-blue-900 dark:text-blue-300 mb-1">
-                Preview Mode
+                {t('agentForm.previewModeTitle')}
               </h4>
               <p className="text-sm text-blue-700 dark:text-blue-400">
-                This is a configuration preview. To test the agent with real AI responses, please save the agent first, then use the test function from the agent's detail page.
+                {t('agentForm.previewModeDesc')}
               </p>
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Test Message (Preview)
+                {t('agentForm.testMessageLabel')}
               </label>
               <div className="flex space-x-3">
                 <input
                   type="text"
                   value={testMessage}
                   onChange={(e) => setTestMessage(e.target.value)}
-                  placeholder="Enter a message to preview configuration..."
+                  placeholder={t('agentForm.testMessagePlaceholder')}
                   className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                 />
                 <button
@@ -485,7 +487,7 @@ export default function NewAgentPage() {
                   disabled={testing || !testMessage.trim()}
                   className="px-4 py-2 bg-primary-600 hover:bg-primary-700 disabled:opacity-50 text-white rounded-lg transition-colors"
                 >
-                  {testing ? 'Previewing...' : 'Preview'}
+                  {testing ? t('agentForm.previewing') : t('agentForm.previewButton')}
                 </button>
               </div>
             </div>
@@ -493,7 +495,7 @@ export default function NewAgentPage() {
             {testResponse && (
               <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
                 <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Configuration Preview:
+                  {t('agentForm.configPreview')}
                 </h4>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
                   {testResponse}
@@ -521,10 +523,10 @@ export default function NewAgentPage() {
           </button>
           <div>
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-              Create New Agent
+              {t('agentForm.createTitle')}
             </h1>
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              Configure your AI agent's personality, knowledge, and behavior
+              {t('agentForm.createSubtitle')}
             </p>
           </div>
         </div>
@@ -536,7 +538,7 @@ export default function NewAgentPage() {
             className="flex items-center px-4 py-2 bg-primary-600 hover:bg-primary-700 disabled:opacity-50 text-white rounded-lg transition-colors"
           >
             <Save className="w-4 h-4 mr-2" />
-            {saving ? 'Saving...' : 'Save Agent'}
+            {saving ? t('agentForm.saving') : t('agentForm.saveAgent')}
           </button>
         </div>
       </div>

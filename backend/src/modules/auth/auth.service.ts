@@ -165,8 +165,15 @@ export class AuthService {
       hasOrganization: !!dto.organizationName,
     });
 
-    // Generate tokens
-    const tokens = await this.generateTokens(user, organization?.id);
+    // Generate tokens. IMPORTANT: passer le rôle OWNER quand une organisation est
+    // créée, sinon le JWT contient un organizationId sans rôle et les routes
+    // protégées par @Roles renvoient 403 ("Insufficient permissions") tant que
+    // l'utilisateur ne s'est pas reconnecté.
+    const tokens = await this.generateTokens(
+      user,
+      organization?.id,
+      organization ? UserRole.OWNER : undefined,
+    );
 
     return {
       ...tokens,

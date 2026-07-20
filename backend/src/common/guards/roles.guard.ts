@@ -34,8 +34,12 @@ export class RolesGuard implements CanActivate {
       throw new ForbiddenException("User not authenticated");
     }
 
-    // If this endpoint allows individual users and user has no role (individual user), allow access
-    if (allowIndividualUsers && !user.role && !user.organizationId) {
+    // Si l'endpoint autorise l'accès personnel (@AllowIndividualUsers) et que
+    // l'utilisateur n'a pas de rôle effectif, on l'autorise — y compris quand un
+    // organizationId est présent mais que le rôle est absent du JWT (ancien token
+    // ou token émis à l'inscription sans rôle). Les services filtrent de toute
+    // façon par userId/organizationId, donc aucun accès cross-tenant.
+    if (allowIndividualUsers && !user.role) {
       return true;
     }
 

@@ -72,10 +72,12 @@ export default function NewAgentPage() {
             0,
         );
 
-        // Current agent count from the agents list length.
+        // Current agent count: only agents that occupy a slot count.
+        // An inactive agent can be deactivated to free a slot, so it is excluded
+        // (mirrors the backend checkAgentLimit which ignores inactive agents).
         const agentsData: any = (agentsRes as any)?.data;
         const currentAgentCount = Array.isArray(agentsData)
-          ? agentsData.length
+          ? agentsData.filter((a: any) => a?.status !== 'inactive').length
           : Number(usageData?.usage?.agents?.current ?? 0);
 
         // maxAgents <= 0 means unlimited -> never block.

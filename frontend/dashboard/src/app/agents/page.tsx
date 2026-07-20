@@ -103,8 +103,15 @@ export default function AgentsPage() {
 
   const currentAgents = agents || [];
 
+  // Only active (non-inactive) agents occupy a slot — an inactive agent can be
+  // deactivated to free a slot, so it doesn't count toward the limit
+  // (mirrors the backend checkAgentLimit).
+  const activeAgentCount = currentAgents.filter(
+    (agent) => agent.status !== 'inactive',
+  ).length;
+
   // Only block when the plan has a finite limit and it's reached.
-  const quotaReached = agentLimit > 0 && currentAgents.length >= agentLimit;
+  const quotaReached = agentLimit > 0 && activeAgentCount >= agentLimit;
 
   const filteredAgents = currentAgents.filter(agent => {
     const matchesSearch = agent.name.toLowerCase().includes(searchQuery.toLowerCase()) ||

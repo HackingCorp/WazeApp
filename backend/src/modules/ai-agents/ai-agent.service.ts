@@ -9,7 +9,7 @@ import {
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository, In, IsNull } from "typeorm";
+import { Repository, In, IsNull, Not } from "typeorm";
 import { encryptApiToolsCredentials, decryptApiToolsCredentials } from "../../common/utils/crypto.util";
 import {
   AiAgent,
@@ -1585,9 +1585,10 @@ CRITICAL: If you cannot ACTUALLY solve the problem with information from your kn
       });
       subscription = organization?.subscriptions?.[0];
 
-      // Count agents for organization
+      // Count only agents that occupy a slot (inactive agents don't count —
+      // the user can deactivate one to free a slot for another).
       currentCount = await this.agentRepository.count({
-        where: { organizationId },
+        where: { organizationId, status: Not(AgentStatus.INACTIVE) },
       });
     } else {
       // For users without organization, get their personal subscription from database
@@ -1597,9 +1598,13 @@ CRITICAL: If you cannot ACTUALLY solve the problem with information from your kn
 
       subscription = userSubscription || { plan: SubscriptionPlan.FREE };
 
-      // Count agents for user
+      // Count only agents that occupy a slot (inactive agents don't count).
       currentCount = await this.agentRepository.count({
-        where: { createdBy: userId, organizationId: IsNull() },
+        where: {
+          createdBy: userId,
+          organizationId: IsNull(),
+          status: Not(AgentStatus.INACTIVE),
+        },
       });
     }
 

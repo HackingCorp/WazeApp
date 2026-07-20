@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Bot,
@@ -12,10 +12,11 @@ import {
   Zap,
   BookOpen,
   TestTube,
+  AlertTriangle,
 } from 'lucide-react';
 import { RichTextEditor } from '@/components/ui/RichTextEditor';
 import { useI18n } from '@/providers/I18nProvider';
-import { apiHelpers } from '@/lib/api';
+import { apiHelpers, api } from '@/lib/api';
 import { analytics } from '@/lib/analytics';
 import toast from 'react-hot-toast';
 import clsx from 'clsx';
@@ -41,9 +42,60 @@ export default function NewAgentPage() {
   const [testing, setTesting] = useState(false);
   const [testMessage, setTestMessage] = useState('');
   const [testResponse, setTestResponse] = useState('');
+  const [quotaReached, setQuotaReached] = useState(false);
+  const [agentLimit, setAgentLimit] = useState(0);
 
   const router = useRouter();
   const { t } = useI18n();
+
+  // Preventive quota guard: check whether the plan's agent limit is reached
+  // before letting the user fill out the whole form for a 403 at the end.
+  // Any API failure is treated as "quota unknown" -> do NOT block (backend still enforces).
+  useEffect(() => {
+    let cancelled = false;
+
+    const checkQuota = async () => {
+      try {
+        const [agentsRes, usageRes] = await Promise.all([
+          api.getAgents().catch(() => null),
+          api.getSubscriptionUsage().catch(() => null),
+        ]);
+
+        if (cancelled) return;
+
+        // maxAgents from usage summary (endpoint returns usage.agents.limit;
+        // fall back to limits.maxAgents if the shape ever differs).
+        const usageData: any = (usageRes as any)?.data ?? usageRes;
+        const maxAgents = Number(
+          usageData?.usage?.agents?.limit ??
+            usageData?.limits?.maxAgents ??
+            0,
+        );
+
+        // Current agent count from the agents list length.
+        const agentsData: any = (agentsRes as any)?.data;
+        const currentAgentCount = Array.isArray(agentsData)
+          ? agentsData.length
+          : Number(usageData?.usage?.agents?.current ?? 0);
+
+        // maxAgents <= 0 means unlimited -> never block.
+        if (maxAgents > 0 && currentAgentCount >= maxAgents) {
+          setAgentLimit(maxAgents);
+          setQuotaReached(true);
+        } else {
+          setQuotaReached(false);
+        }
+      } catch {
+        // Quota unknown: never block the form on our side.
+        if (!cancelled) setQuotaReached(false);
+      }
+    };
+
+    checkQuota();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const PERSONALITY_PRESETS = [
     { id: 'professional', name: t('agentForm.toneProfessional'), description: t('agentForm.toneProfessionalDesc') },
@@ -534,14 +586,35 @@ export default function NewAgentPage() {
         <div className="flex items-center space-x-3">
           <button
             onClick={handleSave}
-            disabled={saving}
-            className="flex items-center px-4 py-2 bg-primary-600 hover:bg-primary-700 disabled:opacity-50 text-white rounded-lg transition-colors"
+            disabled={quotaReached || saving}
+            className={clsx(
+              'flex items-center px-4 py-2 bg-primary-600 hover:bg-primary-700 disabled:opacity-50 text-white rounded-lg transition-colors',
+              quotaReached && 'cursor-not-allowed'
+            )}
           >
             <Save className="w-4 h-4 mr-2" />
             {saving ? t('agentForm.saving') : t('agentForm.saveAgent')}
           </button>
         </div>
       </div>
+
+      {/* Quota reached banner */}
+      {quotaReached && (
+        <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-lg border border-amber-300 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-900/20">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 flex-shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
+            <p className="text-sm text-amber-800 dark:text-amber-300">
+              {t('agentForm.quotaReachedBanner').replace('{{limit}}', String(agentLimit))}
+            </p>
+          </div>
+          <button
+            onClick={() => router.push('/billing')}
+            className="flex-shrink-0 inline-flex items-center justify-center px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium rounded-lg transition-colors"
+          >
+            {t('agentForm.upgradePlan')}
+          </button>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
         {/* Navigation */}

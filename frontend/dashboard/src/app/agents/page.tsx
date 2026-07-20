@@ -52,13 +52,30 @@ export default function AgentsPage() {
   const [selectedAgents, setSelectedAgents] = useState<string[]>([]);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [testingAgent, setTestingAgent] = useState<Agent | null>(null);
+  const [agentLimit, setAgentLimit] = useState(0);
 
   const router = useRouter();
   const { t } = useI18n();
 
   useEffect(() => {
     loadAgents();
+    loadAgentLimit();
   }, []);
+
+  // Fetch the plan's max agents limit (0 / <=0 means unlimited).
+  // Failures are swallowed: agentLimit stays 0 -> never blocks.
+  const loadAgentLimit = async () => {
+    try {
+      const usageRes = await api.getSubscriptionUsage();
+      const usageData: any = (usageRes as any)?.data ?? usageRes;
+      const maxAgents = Number(
+        usageData?.usage?.agents?.limit ?? usageData?.limits?.maxAgents ?? 0,
+      );
+      setAgentLimit(Number.isFinite(maxAgents) ? maxAgents : 0);
+    } catch {
+      setAgentLimit(0);
+    }
+  };
 
   // Socket functionality removed for now to avoid provider issues
 
@@ -85,6 +102,9 @@ export default function AgentsPage() {
 
 
   const currentAgents = agents || [];
+
+  // Only block when the plan has a finite limit and it's reached.
+  const quotaReached = agentLimit > 0 && currentAgents.length >= agentLimit;
 
   const filteredAgents = currentAgents.filter(agent => {
     const matchesSearch = agent.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -218,14 +238,23 @@ export default function AgentsPage() {
             {t('agents.subtitle')}
           </p>
         </div>
-        <div className="mt-4 flex md:mt-0 md:ml-4">
+        <div className="mt-4 flex flex-col items-start md:mt-0 md:ml-4 md:items-end">
           <button
             onClick={() => router.push('/agents/new')}
-            className="inline-flex items-center px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-lg transition-colors duration-200"
+            disabled={quotaReached}
+            className={clsx(
+              'inline-flex items-center px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-lg transition-colors duration-200',
+              quotaReached && 'opacity-50 cursor-not-allowed'
+            )}
           >
             <Plus className="mr-2 h-4 w-4" />
             {t('agents.create')}
           </button>
+          {quotaReached && (
+            <p className="mt-1.5 text-xs text-amber-600 dark:text-amber-400">
+              {t('agentForm.quotaReachedShort').replace('{{limit}}', String(agentLimit))}
+            </p>
+          )}
         </div>
       </div>
 
@@ -427,11 +456,20 @@ export default function AgentsPage() {
             <div className="mt-6">
               <button
                 onClick={() => router.push('/agents/new')}
-                className="inline-flex items-center px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-lg transition-colors duration-200"
+                disabled={quotaReached}
+                className={clsx(
+                  'inline-flex items-center px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-lg transition-colors duration-200',
+                  quotaReached && 'opacity-50 cursor-not-allowed'
+                )}
               >
                 <Plus className="mr-2 h-4 w-4" />
                 {t('agents.create')}
               </button>
+              {quotaReached && (
+                <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">
+                  {t('agentForm.quotaReachedShort').replace('{{limit}}', String(agentLimit))}
+                </p>
+              )}
             </div>
           )}
         </div>

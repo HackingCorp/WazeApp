@@ -1613,8 +1613,15 @@ CRITICAL: If you cannot ACTUALLY solve the problem with information from your kn
     };
 
     if (currentCount >= agentLimits[plan]) {
+      const planNames: Record<string, string> = {
+        [SubscriptionPlan.FREE]: 'Gratuit',
+        [SubscriptionPlan.STANDARD]: 'Standard',
+        [SubscriptionPlan.PRO]: 'Pro',
+        [SubscriptionPlan.ENTERPRISE]: 'Enterprise',
+      };
       throw new ForbiddenException(
-        `AI Agent limit (${agentLimits[plan]}) reached for ${plan} plan`,
+        `Vous avez atteint la limite de ${agentLimits[plan]} agent(s) de votre plan ${planNames[plan] || plan}. ` +
+          `Supprimez un agent existant ou passez à un plan supérieur pour en créer davantage.`,
       );
     }
   }

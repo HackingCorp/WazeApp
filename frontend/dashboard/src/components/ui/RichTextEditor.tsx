@@ -2,6 +2,7 @@
 
 import React, { useMemo, useState, useRef, useCallback } from 'react';
 import dynamic from 'next/dynamic';
+import 'react-quill/dist/quill.snow.css';
 import DOMPurify from 'dompurify';
 import { 
   Bold, 

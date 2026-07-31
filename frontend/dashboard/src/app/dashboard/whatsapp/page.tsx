@@ -1311,16 +1311,24 @@ export default function WhatsAppPage() {
               {/* Agent Assignment Status */}
               <div className="mb-4">
                 {session.agent ? (
-                  <div className="flex items-center space-x-2 p-2 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
-                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                    <span className="text-sm font-medium text-green-800 dark:text-green-200">
-                      {t('whatsapp.agent')}: {session.agent.name}
-                    </span>
-                    {session.agent.status === 'active' && (
-                      <span className="text-xs px-2 py-1 bg-green-100 dark:bg-green-800 text-green-700 dark:text-green-200 rounded-full">
-                        {t('whatsapp.active')}
+                  <div className="flex items-center justify-between p-2 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+                    <div className="flex items-center space-x-2 min-w-0">
+                      <div className="w-2 h-2 bg-green-500 rounded-full flex-shrink-0"></div>
+                      <span className="text-sm font-medium text-green-800 dark:text-green-200 truncate">
+                        {t('whatsapp.agent')}: {session.agent.name}
                       </span>
-                    )}
+                      {session.agent.status === 'active' && (
+                        <span className="text-xs px-2 py-1 bg-green-100 dark:bg-green-800 text-green-700 dark:text-green-200 rounded-full flex-shrink-0">
+                          {t('whatsapp.active')}
+                        </span>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => openAssignAgentModal(session)}
+                      className="ml-2 text-xs px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 transition-colors flex-shrink-0"
+                    >
+                      {t('whatsapp.changeAgent')}
+                    </button>
                   </div>
                 ) : (
                   <div className="flex items-center justify-between p-2 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-800">
@@ -1567,6 +1575,7 @@ export default function WhatsAppPage() {
           }}
           onAssignAgent={handleAssignAgent}
           sessionName={(newlyConnectedSession || selectedSessionForAgent)?.name || ''}
+          currentAgentId={(newlyConnectedSession || selectedSessionForAgent)?.agent?.id}
         />
       )}
     </div>

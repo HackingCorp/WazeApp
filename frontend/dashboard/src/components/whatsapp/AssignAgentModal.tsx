@@ -20,6 +20,7 @@ interface AssignAgentModalProps {
   onAssignAgent: (agentId: string, createKnowledgeBase: boolean) => void;
   onAgentCreated?: () => void;
   sessionName: string;
+  currentAgentId?: string;
 }
 
 export function AssignAgentModal({
@@ -28,6 +29,7 @@ export function AssignAgentModal({
   onAssignAgent,
   onAgentCreated,
   sessionName,
+  currentAgentId,
 }: AssignAgentModalProps) {
   const [agents, setAgents] = useState<Agent[]>([]);
   const [selectedAgentId, setSelectedAgentId] = useState<string>('');
@@ -88,8 +90,12 @@ export function AssignAgentModal({
 
     if (isOpen) {
       fetchAgents();
+      // Pre-select the currently assigned agent so "change" opens on the
+      // current choice; reset the create-agent view.
+      setSelectedAgentId(currentAgentId || '');
+      setShowCreateAgent(false);
     }
-  }, [isOpen]);
+  }, [isOpen, currentAgentId]);
 
   const handleSubmit = async () => {
     if (showCreateAgent) {
@@ -129,7 +135,11 @@ export function AssignAgentModal({
         }
       }
     } else if (selectedAgentId) {
-      onAssignAgent(selectedAgentId, createKnowledgeBase);
+      // Only trigger KB creation (and the follow-up redirect) when the chosen
+      // agent actually lacks one — re-assigning to an agent that already has a
+      // KB must not bounce the user to the documents page.
+      const shouldCreateKb = createKnowledgeBase && !selectedAgent?.hasKnowledgeBase;
+      onAssignAgent(selectedAgentId, shouldCreateKb);
     }
   };
 

@@ -1136,8 +1136,25 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
       this.registerEventHandler(sessionId, "messages.upsert", messagesUpsertHandler);
 
       // Handle message updates (delivery receipts, etc.)
+      // Baileys WAMessageStatus: 0=ERROR 1=PENDING 2=SERVER_ACK 3=DELIVERY_ACK 4=READ 5=PLAYED
+      const statusLabels: Record<number, string> = {
+        0: "ERROR",
+        1: "PENDING",
+        2: "SERVER_ACK (sent ✓)",
+        3: "DELIVERY_ACK (delivered ✓✓)",
+        4: "READ (✓✓ blue)",
+        5: "PLAYED",
+      };
       const messagesUpdateHandler = (updates: any) => {
         updates.forEach((update: any) => {
+          // Log delivery status transitions so non-delivery is observable in logs
+          const status = update?.update?.status;
+          if (status !== undefined && status !== null) {
+            const label = statusLabels[status] || `status=${status}`;
+            this.logger.log(
+              `📬 Delivery update [${sessionId}] msg=${update?.key?.id} to=${update?.key?.remoteJid} → ${label}`,
+            );
+          }
           this.eventEmitter.emit("whatsapp.message.update", {
             sessionId,
             update,
@@ -1613,6 +1630,11 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
       // Format phone number - use onWhatsApp to get correct JID
       let jid = messageDto.to;
       if (!messageDto.to.includes("@")) {
+        // Digits-only version of the requested number (strip +, spaces, etc.)
+        const requestedDigits = messageDto.to.replace(/\D/g, "");
+        // Safe fallback JID built directly from the requested number
+        const fallbackJid = `${requestedDigits}@s.whatsapp.net`;
+
         // Validate number and get correct JID format
         this.logger.log(`🔍 Validating phone number: ${messageDto.to}`);
         try {
@@ -1620,16 +1642,34 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
           this.logger.log(`🔍 onWhatsApp result: ${JSON.stringify(results)}`);
 
           if (results && results.length > 0 && results[0]?.exists && results[0]?.jid) {
-            jid = results[0].jid;
-            this.logger.log(`✅ Resolved ${messageDto.to} to JID: ${jid}`);
+            const resolvedJid = results[0].jid;
+            // Guard against corrupted onWhatsApp responses: some sessions return a
+            // s.whatsapp.net JID whose digits DON'T match the requested number
+            // (a digit is dropped), which silently routes the message to the wrong
+            // recipient. Only trust the resolved JID when its phone digits match.
+            const resolvedDigits = resolvedJid
+              .split("@")[0]
+              .split(":")[0]
+              .replace(/\D/g, "");
+            const isPnJid = resolvedJid.endsWith("@s.whatsapp.net");
+
+            if (isPnJid && resolvedDigits !== requestedDigits) {
+              jid = fallbackJid;
+              this.logger.warn(
+                `⚠️ onWhatsApp returned mismatched JID for ${messageDto.to}: got ${resolvedJid} (digits ${resolvedDigits} ≠ ${requestedDigits}). Using number-based JID instead: ${jid}`,
+              );
+            } else {
+              jid = resolvedJid;
+              this.logger.log(`✅ Resolved ${messageDto.to} to JID: ${jid}`);
+            }
           } else {
             // Fallback to standard format if validation fails
-            jid = `${messageDto.to}@s.whatsapp.net`;
+            jid = fallbackJid;
             this.logger.warn(`⚠️ Could not validate ${messageDto.to} (results: ${JSON.stringify(results)}), using fallback JID: ${jid}`);
           }
         } catch (validationError) {
           // Fallback to standard format
-          jid = `${messageDto.to}@s.whatsapp.net`;
+          jid = fallbackJid;
           this.logger.warn(`⚠️ Failed to validate ${messageDto.to}: ${validationError.message}`);
         }
       } else {

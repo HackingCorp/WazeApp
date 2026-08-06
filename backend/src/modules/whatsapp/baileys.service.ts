@@ -1642,26 +1642,11 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
           this.logger.log(`🔍 onWhatsApp result: ${JSON.stringify(results)}`);
 
           if (results && results.length > 0 && results[0]?.exists && results[0]?.jid) {
-            const resolvedJid = results[0].jid;
-            // Guard against corrupted onWhatsApp responses: some sessions return a
-            // s.whatsapp.net JID whose digits DON'T match the requested number
-            // (a digit is dropped), which silently routes the message to the wrong
-            // recipient. Only trust the resolved JID when its phone digits match.
-            const resolvedDigits = resolvedJid
-              .split("@")[0]
-              .split(":")[0]
-              .replace(/\D/g, "");
-            const isPnJid = resolvedJid.endsWith("@s.whatsapp.net");
-
-            if (isPnJid && resolvedDigits !== requestedDigits) {
-              jid = fallbackJid;
-              this.logger.warn(
-                `⚠️ onWhatsApp returned mismatched JID for ${messageDto.to}: got ${resolvedJid} (digits ${resolvedDigits} ≠ ${requestedDigits}). Using number-based JID instead: ${jid}`,
-              );
-            } else {
-              jid = resolvedJid;
-              this.logger.log(`✅ Resolved ${messageDto.to} to JID: ${jid}`);
-            }
+            // Trust WhatsApp's canonical JID. It may legitimately differ from the
+            // requested digits (e.g. Cameroon accounts registered before the
+            // numbering reform keep their old 8-digit JID), so we must NOT override it.
+            jid = results[0].jid;
+            this.logger.log(`✅ Resolved ${messageDto.to} to JID: ${jid}`);
           } else {
             // Fallback to standard format if validation fails
             jid = fallbackJid;

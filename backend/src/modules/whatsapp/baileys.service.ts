@@ -1661,6 +1661,27 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
         this.logger.log(`📋 Using existing JID format: ${jid}`);
       }
 
+      // WhatsApp LID migration: sending to a phone-number JID (@s.whatsapp.net)
+      // is rejected (delivery ERROR) for LID-migrated accounts. When we have a
+      // known LID mapping for this number, address the recipient by their LID
+      // instead — that path delivers reliably.
+      if (jid.endsWith("@s.whatsapp.net")) {
+        try {
+          const lid = await sock.signalRepository?.lidMapping?.getLIDForPN?.(jid);
+          if (lid) {
+            const lidJid = lid.includes("@") ? lid : `${lid}@lid`;
+            this.logger.log(`🔀 Preferring LID for ${jid} → ${lidJid}`);
+            jid = lidJid;
+          } else {
+            this.logger.warn(
+              `⚠️ No LID mapping for ${jid} — sending to phone JID may fail (LID-migrated account)`,
+            );
+          }
+        } catch (lidError) {
+          this.logger.warn(`⚠️ LID lookup failed for ${jid}: ${lidError?.message}`);
+        }
+      }
+
       // Prepare message based on type
       switch (messageDto.type) {
         case "image":

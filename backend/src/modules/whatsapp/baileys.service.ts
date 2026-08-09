@@ -950,12 +950,17 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
           // Update connection state to connected
           this.connectionStates.set(sessionId, 'connected');
 
+          // Persist the session's own phone number (shown in the dashboard);
+          // sock.user.id is like "2376xxxxxxx:12@s.whatsapp.net"
+          const ownNumber = sock.user?.id?.split(":")[0]?.split("@")[0];
+
           // 🔧 FIX: Update database status to CONNECTED immediately
           try {
             await this.sessionRepository.update(sessionId, {
               status: WhatsAppSessionStatus.CONNECTED,
               isActive: true,
               lastSeenAt: new Date(),
+              ...(ownNumber ? { phoneNumber: ownNumber } : {}),
             });
             this.logger.log(`📝 Database status updated to CONNECTED for session ${sessionId}`);
           } catch (dbError) {
@@ -1349,12 +1354,16 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
           // Update connection state
           this.connectionStates.set(sessionId, 'connected');
 
+          // Persist the session's own phone number (shown in the dashboard)
+          const ownNumber = sock.user?.id?.split(":")[0]?.split("@")[0];
+
           // 🔧 FIX: Update database status to CONNECTED immediately
           try {
             await this.sessionRepository.update(sessionId, {
               status: WhatsAppSessionStatus.CONNECTED,
               isActive: true,
               lastSeenAt: new Date(),
+              ...(ownNumber ? { phoneNumber: ownNumber } : {}),
             });
             this.logger.log(`📝 Database status updated to CONNECTED for session ${sessionId}`);
           } catch (dbError) {

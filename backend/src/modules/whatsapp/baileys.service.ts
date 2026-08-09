@@ -637,6 +637,31 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
         `Connecting session ${sessionId}, forceReset: ${forceReset}`,
       );
 
+      // Guard against duplicate live sockets: two simultaneous connections with
+      // the same creds make WhatsApp close both with 401 "Stream Errored
+      // (conflict)" / device_removed. If a socket is already open and
+      // authenticated, reuse it; if a stale one exists, close it before
+      // creating a new one.
+      const existingSock = this.sessions.get(sessionId);
+      if (existingSock && !forceReset) {
+        if (existingSock.ws?.isOpen === true && existingSock.user) {
+          this.logger.log(
+            `✅ Session ${sessionId} already has a live authenticated socket - reusing it (no duplicate connection)`,
+          );
+          return { needsQR: false };
+        }
+        this.logger.log(
+          `🧹 Closing stale socket for session ${sessionId} before reconnecting`,
+        );
+        this.removeEventHandlers(sessionId, existingSock);
+        try {
+          existingSock.end(undefined);
+        } catch {
+          // stale socket may already be dead
+        }
+        this.sessions.delete(sessionId);
+      }
+
       // If forcing reset or no auth state, clear and reinitialize
       let authState = this.authStates.get(sessionId);
       if (forceReset || !authState) {
@@ -1425,7 +1450,21 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
     });
   }
 
-  async disconnectSession(sessionId: string): Promise<void> {
+  /**
+   * Disconnect a session locally (close the socket).
+   *
+   * IMPORTANT: by default this does NOT call sock.logout() — logout UNLINKS the
+   * device from the WhatsApp account server-side (device_removed), which
+   * destroys the pairing and the encryption state. Internal flows (reconnect,
+   * force-reset, import) must only close the socket. Pass { logout: true }
+   * ONLY for explicit user-initiated "Déconnecter"/delete actions.
+   */
+  async disconnectSession(
+    sessionId: string,
+    options: { logout?: boolean } = {},
+  ): Promise<void> {
+    const doLogout = options.logout === true;
+
     // Cancel any pending reconnection
     this.cancelReconnection(sessionId);
 
@@ -1445,17 +1484,22 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
 
     if (sock) {
       try {
-        await sock.logout();
-        this.logger.log(`Session ${sessionId} logged out from active socket`);
+        if (doLogout) {
+          await sock.logout();
+          this.logger.log(`Session ${sessionId} logged out from active socket (device unlinked)`);
+        } else {
+          sock.end(undefined);
+          this.logger.log(`Session ${sessionId} socket closed (no logout - device stays linked)`);
+        }
       } catch (error) {
         this.logger.warn(
-          `Error during logout for session ${sessionId}:`,
+          `Error during ${doLogout ? 'logout' : 'close'} for session ${sessionId}:`,
           error,
         );
       }
 
       this.sessions.delete(sessionId);
-    } else {
+    } else if (doLogout) {
       // If no active session but we still want to logout from WhatsApp servers,
       // we need to create a temporary connection to send the logout command
       this.logger.log(

@@ -358,9 +358,10 @@ export class WhatsAppService {
       }
     }
 
-    // Disconnect session first (don't fail if already disconnected)
+    // Disconnect session first (don't fail if already disconnected).
+    // logout:true — user is deleting the session, unlink the device for real.
     try {
-      await this.baileysService.disconnectSession(id);
+      await this.baileysService.disconnectSession(id, { logout: true });
     } catch (error) {
       this.logger.warn(`Failed to disconnect session ${id} during deletion (may already be disconnected):`, error);
       // Continue with deletion even if disconnect fails
@@ -455,7 +456,8 @@ export class WhatsAppService {
   ): Promise<{ message: string }> {
     const session = await this.findOne(id, userId, organizationId);
 
-    await this.baileysService.disconnectSession(id);
+    // logout:true — explicit user "Déconnecter", unlink the device for real.
+    await this.baileysService.disconnectSession(id, { logout: true });
 
     await this.sessionRepository.update(id, {
       status: WhatsAppSessionStatus.DISCONNECTED,

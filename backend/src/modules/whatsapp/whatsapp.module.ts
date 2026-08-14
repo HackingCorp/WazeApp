@@ -123,6 +123,7 @@ import { ToolCallingModule } from "../tool-calling/tool-calling.module";
     WhatsAppGateway,
     WhatsAppSessionMonitorService,
     PendingMessageQueueService,
+    MessageDeliveryService,
   ],
 })
 export class WhatsAppModule {}

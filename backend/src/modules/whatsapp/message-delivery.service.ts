@@ -45,6 +45,11 @@ export interface OutboundRecord {
   /** True once a retry has been scheduled, so we never loop. */
   retried?: boolean;
   sentAt: number;
+  /** Last delivery state seen for this message. */
+  status?: "sent" | "delivered" | "read" | "failed";
+  deliveredAt?: number;
+  readAt?: number;
+  failedAt?: number;
 }
 
 export interface DeliveryHealth {
@@ -105,7 +110,7 @@ export class MessageDeliveryService {
   async recordSent(record: Omit<OutboundRecord, "sentAt">, messageId: string): Promise<void> {
     if (!messageId) return;
     try {
-      const value: OutboundRecord = { ...record, sentAt: Date.now() };
+      const value: OutboundRecord = { ...record, sentAt: Date.now(), status: "sent" };
       await this.redis.set(
         `${OUT_PREFIX}${messageId}`,
         JSON.stringify(value),
@@ -125,6 +130,69 @@ export class MessageDeliveryService {
     } catch {
       return null;
     }
+  }
+
+  /**
+   * Persist the delivery state onto the tracked record so it can be queried
+   * back — API callers get no AgentMessage row, so this is their only source
+   * of truth for whether a message actually landed.
+   */
+  private async updateOutboundStatus(
+    messageId: string,
+    outbound: OutboundRecord | null,
+    status: NonNullable<OutboundRecord["status"]>,
+  ): Promise<void> {
+    if (!outbound) return;
+    const now = Date.now();
+    const next: OutboundRecord = { ...outbound, status };
+    if (status === "delivered") next.deliveredAt = outbound.deliveredAt || now;
+    if (status === "read") {
+      next.deliveredAt = outbound.deliveredAt || now;
+      next.readAt = now;
+    }
+    if (status === "failed") next.failedAt = now;
+
+    try {
+      const ttl = await this.redis.ttl(`${OUT_PREFIX}${messageId}`);
+      await this.redis.set(
+        `${OUT_PREFIX}${messageId}`,
+        JSON.stringify(next),
+        "EX",
+        ttl > 0 ? ttl : OUT_TTL_SECONDS,
+      );
+    } catch (error) {
+      this.logger.warn(`Failed to update status for ${messageId}: ${error.message}`);
+    }
+  }
+
+  /**
+   * Delivery state of a previously sent message, within the 24h tracking
+   * window. Returns null once the record has expired.
+   */
+  async getMessageStatus(messageId: string): Promise<{
+    messageId: string;
+    sessionId: string;
+    to: string;
+    status: string;
+    sentAt: string;
+    deliveredAt: string | null;
+    readAt: string | null;
+    failedAt: string | null;
+  } | null> {
+    const outbound = await this.getOutbound(messageId);
+    if (!outbound) return null;
+
+    const iso = (v?: number) => (v ? new Date(v).toISOString() : null);
+    return {
+      messageId,
+      sessionId: outbound.sessionId,
+      to: outbound.to,
+      status: outbound.status || "sent",
+      sentAt: new Date(outbound.sentAt).toISOString(),
+      deliveredAt: iso(outbound.deliveredAt),
+      readAt: iso(outbound.readAt),
+      failedAt: iso(outbound.failedAt),
+    };
   }
 
   /**
@@ -158,6 +226,7 @@ export class MessageDeliveryService {
 
     if (status === WA_STATUS.ERROR) {
       await this.bump(sessionId, "failed");
+      await this.updateOutboundStatus(messageId, outbound, "failed");
       await this.markMessage(messageId, MessageStatus.FAILED);
       this.logger.warn(
         `❌ Delivery FAILED [${sessionId}] msg=${messageId}${outbound ? ` to=${outbound.to}` : ""}`,
@@ -174,11 +243,13 @@ export class MessageDeliveryService {
 
     if (status >= WA_STATUS.READ) {
       await this.bump(sessionId, "read");
+      await this.updateOutboundStatus(messageId, outbound, "read");
       await this.markMessage(messageId, MessageStatus.READ);
       return;
     }
 
     await this.bump(sessionId, "delivered");
+    await this.updateOutboundStatus(messageId, outbound, "delivered");
     await this.markMessage(messageId, MessageStatus.DELIVERED);
   }
 

@@ -1,4 +1,4 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { BadRequestException, Injectable, Logger } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { ConfigService } from "@nestjs/config";
@@ -26,10 +26,14 @@ export type ColdContactPolicy = "off" | "warn" | "limit" | "block";
 const COLD_PREFIX = "wa:cold:";
 const COLD_TTL_SECONDS = 2 * 24 * 3600;
 
-export class ColdContactBlockedError extends Error {
+/**
+ * Extends BadRequestException so every caller — REST, external API, queue —
+ * surfaces a 400 with a usable code instead of a generic 500.
+ */
+export class ColdContactBlockedError extends BadRequestException {
   readonly code = "COLD_CONTACT_BLOCKED";
   constructor(message: string) {
-    super(message);
+    super({ statusCode: 400, message, error: "COLD_CONTACT_BLOCKED" });
     this.name = "ColdContactBlockedError";
   }
 }

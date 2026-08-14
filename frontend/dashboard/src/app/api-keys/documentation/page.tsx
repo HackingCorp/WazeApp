@@ -650,6 +650,104 @@ export default function ApiDocumentationPage() {
           </div>
         </section>
 
+        {/* Delivery tracking */}
+        <section className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">Suivi de livraison</h2>
+
+          <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+            <p className="text-blue-800 dark:text-blue-200 text-sm">
+              <strong>Important :</strong> une réponse <code>200</code> à l&apos;envoi signifie que WhatsApp a
+              <strong> accepté</strong> le message, pas qu&apos;il a été <strong>livré</strong>. La livraison est
+              confirmée de façon <strong>asynchrone</strong>, quelques secondes plus tard. Un message peut être
+              accepté puis échouer à la livraison : c&apos;est le cas typique d&apos;un numéro qui n&apos;a jamais
+              écrit à votre session. Utilisez les endpoints ci-dessous pour connaître le sort réel de vos messages.
+            </p>
+          </div>
+
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2 flex items-center gap-2">
+                <span className="px-2 py-1 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 text-xs font-bold rounded">GET</span>
+                /messages/:messageId/status
+              </h3>
+              <p className="text-gray-600 dark:text-gray-300 mb-3">
+                Statut de livraison d&apos;un message envoyé. Le <code>messageId</code> est celui renvoyé par
+                l&apos;envoi. Disponible pendant <strong>24 heures</strong> après l&apos;envoi.
+              </p>
+              <pre className="bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto text-sm">
+{`{
+  "messageId": "3EB0083D9979E67E225D62",
+  "sessionId": "8d1b14a0-93fe-40fb-a99b-8f2092199b48",
+  "to": "237673261308",
+  "status": "delivered",
+  "sentAt": "2026-08-14T06:55:05.000Z",
+  "deliveredAt": "2026-08-14T06:55:06.000Z",
+  "readAt": null,
+  "failedAt": null
+}`}
+              </pre>
+              <div className="mt-3 overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-gray-200 dark:border-gray-700">
+                      <th className="text-left py-2 px-3 font-medium text-gray-900 dark:text-white">status</th>
+                      <th className="text-left py-2 px-3 font-medium text-gray-900 dark:text-white">Signification</th>
+                    </tr>
+                  </thead>
+                  <tbody className="text-gray-600 dark:text-gray-300">
+                    <tr className="border-b border-gray-100 dark:border-gray-700">
+                      <td className="py-2 px-3"><code>sent</code></td>
+                      <td className="py-2 px-3">Accepté par WhatsApp, livraison pas encore confirmée</td>
+                    </tr>
+                    <tr className="border-b border-gray-100 dark:border-gray-700">
+                      <td className="py-2 px-3"><code>delivered</code></td>
+                      <td className="py-2 px-3">Reçu sur le téléphone du destinataire (✓✓)</td>
+                    </tr>
+                    <tr className="border-b border-gray-100 dark:border-gray-700">
+                      <td className="py-2 px-3"><code>read</code></td>
+                      <td className="py-2 px-3">Lu par le destinataire (✓✓ bleu)</td>
+                    </tr>
+                    <tr>
+                      <td className="py-2 px-3"><code>failed</code></td>
+                      <td className="py-2 px-3">
+                        Non livré. Souvent un destinataire qui n&apos;a jamais écrit à votre session, ou un numéro
+                        injoignable. Un réessai automatique est déjà tenté en interne.
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div className="pt-6 border-t border-gray-200 dark:border-gray-700">
+              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2 flex items-center gap-2">
+                <span className="px-2 py-1 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 text-xs font-bold rounded">GET</span>
+                /delivery-health
+              </h3>
+              <p className="text-gray-600 dark:text-gray-300 mb-3">
+                Compteurs de livraison du jour pour la session liée à votre clé. À surveiller : si
+                <code> deliveryRate</code> s&apos;effondre alors que la session est connectée, vos messages ne
+                partent plus réellement — inutile de continuer à envoyer.
+              </p>
+              <pre className="bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto text-sm">
+{`{
+  "sessionId": "8d1b14a0-93fe-40fb-a99b-8f2092199b48",
+  "sent": 128,
+  "delivered": 96,
+  "read": 24,
+  "failed": 8,
+  "deliveryRate": 0.9375,
+  "degraded": false
+}`}
+              </pre>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+                <code>deliveryRate</code> vaut <code>null</code> tant que le volume du jour est trop faible pour
+                être significatif. <code>degraded: true</code> signale une session connectée qui ne livre plus.
+              </p>
+            </div>
+          </div>
+        </section>
+
         {/* Rate Limits */}
         <section className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">Limites</h2>
@@ -721,6 +819,14 @@ export default function ApiDocumentationPage() {
                   <td className="py-3 px-4">400</td>
                   <td className="py-3 px-4">La session WhatsApp liée n'est pas connectée</td>
                 </tr>
+                <tr className="border-b border-gray-100 dark:border-gray-700">
+                  <td className="py-3 px-4"><code>COLD_CONTACT_BLOCKED</code></td>
+                  <td className="py-3 px-4">400</td>
+                  <td className="py-3 px-4">
+                    Le destinataire n&apos;a jamais écrit à cette session et le quota quotidien de contacts
+                    froids est atteint. Protection anti-restriction WhatsApp — voir Bonnes pratiques.
+                  </td>
+                </tr>
                 <tr>
                   <td className="py-3 px-4"><code>RATE_LIMITED</code></td>
                   <td className="py-3 px-4">429</td>
@@ -734,18 +840,74 @@ export default function ApiDocumentationPage() {
         {/* Best Practices */}
         <section className="bg-amber-50 dark:bg-amber-900/20 rounded-xl border border-amber-200 dark:border-amber-800 p-6">
           <h2 className="text-xl font-semibold text-amber-800 dark:text-amber-200 mb-4">Bonnes pratiques</h2>
-          <ul className="space-y-2 text-amber-700 dark:text-amber-300">
+          <div className="mb-5 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+            <p className="text-red-800 dark:text-red-200 text-sm">
+              <strong>La règle qui compte avant toutes les autres :</strong> écrire à des personnes qui ne vous
+              ont jamais écrit est <strong>la première cause de restriction puis de bannissement</strong> d&apos;un
+              numéro WhatsApp. Le déclencheur est le <strong>volume</strong> : de l&apos;ordre de 15 à 20 contacts
+              froids dans une journée suffit. Un numéro banni n&apos;est pas récupérable — construisez votre
+              activité sur des conversations entrantes.
+            </p>
+          </div>
+
+          <ul className="space-y-3 text-amber-700 dark:text-amber-300">
             <li className="flex items-start gap-2">
-              <span className="mt-1">1.</span>
-              <span><strong>Délai entre messages:</strong> Respectez un délai minimum de 3 secondes entre les messages pour éviter les blocages WhatsApp</span>
+              <span className="mt-1 font-semibold">1.</span>
+              <span>
+                <strong>Privilégiez l&apos;entrant :</strong> faites en sorte que le client écrive en premier
+                (lien <code>wa.me</code> sur votre site et vos publicités, QR code, bouton &laquo;&nbsp;Contactez-nous
+                sur WhatsApp&nbsp;&raquo;). Répondre à quelqu&apos;un qui vous a écrit est sans risque et se livre
+                de façon fiable.
+              </span>
             </li>
             <li className="flex items-start gap-2">
-              <span className="mt-1">2.</span>
-              <span><strong>Validation des contacts:</strong> Validez les numéros WhatsApp avant d'envoyer des campagnes</span>
+              <span className="mt-1 font-semibold">2.</span>
+              <span>
+                <strong>Limitez les contacts froids :</strong> si vous devez initier, restez sous une dizaine par
+                jour et par session, espacez-les, et arrêtez si le taux de réponse est faible. Un
+                <code> COLD_CONTACT_BLOCKED</code> n&apos;est pas un bug : c&apos;est la protection qui préserve
+                votre numéro.
+              </span>
             </li>
             <li className="flex items-start gap-2">
-              <span className="mt-1">3.</span>
-              <span><strong>Gestion des erreurs:</strong> Vérifiez toujours le statut de la réponse et gérez les erreurs</span>
+              <span className="mt-1 font-semibold">3.</span>
+              <span>
+                <strong>Ne confondez pas accepté et livré :</strong> un <code>200</code> à l&apos;envoi ne garantit
+                rien. Vérifiez <code>GET /messages/:messageId/status</code> quelques secondes après, et traitez
+                <code> failed</code> comme un échec réel (ne renvoyez pas en boucle : cela aggrave le risque).
+              </span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="mt-1 font-semibold">4.</span>
+              <span>
+                <strong>Surveillez la santé de la session :</strong> interrogez <code>GET /delivery-health</code>
+                régulièrement. Une session <code>connected</code> peut cesser de livrer&nbsp;; si
+                <code> degraded</code> passe à <code>true</code>, suspendez vos envois et reconnectez la session
+                plutôt que d&apos;insister.
+              </span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="mt-1 font-semibold">5.</span>
+              <span>
+                <strong>Rythme humain :</strong> gardez au moins 3 secondes entre deux messages et évitez les
+                rafales à heure fixe. La plateforme ajoute déjà un indicateur de saisie et une pause variable,
+                mais un envoi massif et régulier reste détectable.
+              </span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="mt-1 font-semibold">6.</span>
+              <span>
+                <strong>Idempotence :</strong> envoyez toujours une <code>idempotencyKey</code> sur vos appels
+                d&apos;envoi. En cas de rejeu réseau, elle évite d&apos;expédier deux fois le même message au
+                client.
+              </span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="mt-1 font-semibold">7.</span>
+              <span>
+                <strong>Validez avant les campagnes :</strong> vérifiez que les numéros existent sur WhatsApp
+                avant un envoi de masse, et retirez de vos listes tout contact dont les messages échouent.
+              </span>
             </li>
           </ul>
         </section>

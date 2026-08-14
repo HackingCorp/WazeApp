@@ -36,6 +36,7 @@ import { CampaignService } from './campaign.service';
 import { WebhookService } from './webhook.service';
 import { BaileysService } from '../whatsapp/baileys.service';
 import { PendingMessageQueueService } from '../whatsapp/pending-message-queue.service';
+import { MessageDeliveryService } from '../whatsapp/message-delivery.service';
 import {
   ExternalSendMessageDto,
   CreateCampaignDto,
@@ -65,6 +66,7 @@ export class ExternalApiController {
     private webhookService: WebhookService,
     private baileysService: BaileysService,
     private pendingMessageQueueService: PendingMessageQueueService,
+    private deliveryService: MessageDeliveryService,
     @InjectQueue('broadcast')
     private broadcastQueue: Queue,
     @InjectRepository(WhatsAppSession)
@@ -985,6 +987,63 @@ export class ExternalApiController {
   // ==========================================
   // HEALTH CHECK
   // ==========================================
+
+  @Get('messages/:messageId/status')
+  @ApiOperation({
+    summary:
+      'Delivery status of a sent message (sent / delivered / read / failed) within a 24h window',
+  })
+  @ApiHeader({ name: 'X-API-Key', required: true })
+  @ApiResponse({ status: 200, description: 'Delivery status retrieved' })
+  @ApiResponse({ status: 404, description: 'Unknown or expired message id' })
+  async getMessageStatus(
+    @Param('messageId') messageId: string,
+    @Headers('x-api-key') apiKey: string,
+    @Ip() clientIp: string,
+  ) {
+    const { sessionId } = await this.apiKeyService.validateApiKey(
+      apiKey,
+      undefined,
+      clientIp,
+    );
+
+    const status = await this.deliveryService.getMessageStatus(messageId);
+    if (!status) {
+      throw new NotFoundException(
+        'Unknown message id, or it is older than the 24h tracking window',
+      );
+    }
+    // An API key is bound to a session; never leak another session's traffic.
+    if (sessionId && status.sessionId !== sessionId) {
+      throw new NotFoundException('Unknown message id for this API key');
+    }
+
+    return status;
+  }
+
+  @Get('delivery-health')
+  @ApiOperation({
+    summary:
+      "Today's delivery counters for the key's session (sent / delivered / read / failed)",
+  })
+  @ApiHeader({ name: 'X-API-Key', required: true })
+  @ApiResponse({ status: 200, description: 'Delivery health retrieved' })
+  async getDeliveryHealth(
+    @Headers('x-api-key') apiKey: string,
+    @Ip() clientIp: string,
+  ) {
+    const { sessionId } = await this.apiKeyService.validateApiKey(
+      apiKey,
+      undefined,
+      clientIp,
+    );
+
+    if (!sessionId) {
+      throw new BadRequestException('This API key is not bound to a WhatsApp session');
+    }
+
+    return this.deliveryService.getHealth(sessionId);
+  }
 
   @Get('health')
   @ApiOperation({ summary: 'Check API health and validate key' })

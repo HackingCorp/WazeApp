@@ -77,24 +77,34 @@ export class OutboundGuardService {
    * A contact is "warm" as soon as it has ever sent us a message on this
    * session — that inbound message is what makes replying safe.
    */
-  private async hasInboundHistory(sessionId: string, digits: string): Promise<boolean> {
-    if (!digits) return false;
+  private async hasInboundHistory(
+    sessionId: string,
+    digits: string,
+    lidDigits?: string,
+  ): Promise<boolean> {
+    if (!digits && !lidDigits) return false;
 
-    // The number is stored inconsistently across call sites (clientPhoneNumber
-    // on some paths, externalId on others, with or without country code), so
-    // match on trailing digits over both columns rather than exact equality.
-    const tail = `%${digits.slice(-9)}`;
-    const conversations = await this.conversationRepository
+    // The identifier is stored inconsistently: some conversations key on the
+    // phone number, many others on the contact's LID (WhatsApp's per-account
+    // id). Matching only the phone number reports established contacts as
+    // cold, so both identifiers are compared, over both columns.
+    const identifiers = [digits, lidDigits]
+      .filter((v) => v && v.length >= 6)
+      .map((v) => `%${v.slice(-9)}`);
+    if (!identifiers.length) return false;
+
+    const qb = this.conversationRepository
       .createQueryBuilder("conv")
       .select(["conv.id"])
       .where("conv.sessionId = :sessionId", { sessionId })
       .andWhere(
-        "(regexp_replace(COALESCE(conv.clientPhoneNumber, ''), '\\D', '', 'g') LIKE :tail" +
-          " OR regexp_replace(COALESCE(conv.externalId, ''), '\\D', '', 'g') LIKE :tail)",
-        { tail },
+        `(regexp_replace(COALESCE(conv.clientPhoneNumber, ''), '\\D', '', 'g') LIKE ANY(:ids)
+          OR regexp_replace(COALESCE(conv.externalId, ''), '\\D', '', 'g') LIKE ANY(:ids))`,
+        { ids: identifiers },
       )
-      .limit(20)
-      .getMany();
+      .limit(20);
+
+    const conversations = await qb.getMany();
 
     if (!conversations.length) return false;
 
@@ -133,18 +143,24 @@ export class OutboundGuardService {
    * Throws ColdContactBlockedError when the configured policy refuses it;
    * the caller surfaces that as a normal send failure.
    */
-  async assertCanSend(sessionId: string, to: string): Promise<void> {
+  async assertCanSend(sessionId: string, to: string, resolvedJid?: string): Promise<void> {
     const policy = this.policy;
     if (policy === "off") return;
 
     const digits = String(to || "").replace(/\D/g, "");
-    // Groups, broadcasts and LID-addressed targets carry no phone number to
-    // reason about; leave them alone.
-    if (!digits || String(to).includes("@g.us") || String(to).includes("@lid")) return;
+    // Groups and broadcasts carry no contact to reason about.
+    if (String(to).includes("@g.us") || String(resolvedJid || "").includes("@g.us")) return;
+    if (!digits) return;
+
+    // The recipient is usually addressed by LID, which is also how most
+    // conversations are keyed — so it is the more reliable lookup of the two.
+    const lidDigits = String(resolvedJid || "").includes("@lid")
+      ? String(resolvedJid).split("@")[0].split(":")[0].replace(/\D/g, "")
+      : "";
 
     let warm = false;
     try {
-      warm = await this.hasInboundHistory(sessionId, digits);
+      warm = await this.hasInboundHistory(sessionId, digits, lidDigits);
     } catch (error) {
       // A lookup failure must never stop a legitimate reply.
       this.logger.warn(`Cold-contact lookup failed for ${digits}: ${error.message}`);

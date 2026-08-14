@@ -17,7 +17,7 @@ import { WhatsAppSession } from "@/common/entities";
 import { WhatsAppSessionStatus } from "@/common/enums";
 import { usePostgresAuthState, PostgresAuthStateResult } from "./postgres-auth-state";
 import { MessageDeliveryService } from "./message-delivery.service";
-import { OutboundGuardService } from "./outbound-guard.service";
+import { OutboundGuardService, ColdContactBlockedError } from "./outbound-guard.service";
 
 interface WhatsAppError extends Error {
   code?: string;
@@ -1726,12 +1726,6 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
       throw customError;
     }
 
-    // Refuse to burn the number on strangers: messaging contacts who never
-    // wrote to us is the main trigger for a WhatsApp restriction.
-    if (!options.skipGuard) {
-      await this.outboundGuard.assertCanSend(sessionId, messageDto.to);
-    }
-
     try {
       let message: any;
 
@@ -1791,6 +1785,14 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
         } catch (lidError) {
           this.logger.warn(`⚠️ LID lookup failed for ${jid}: ${lidError?.message}`);
         }
+      }
+
+      // Refuse to burn the number on strangers: messaging contacts who never
+      // wrote to us is the main trigger for a WhatsApp restriction. Checked
+      // once the JID is resolved, since conversations are usually keyed by the
+      // recipient's LID rather than their phone number.
+      if (!options.skipGuard) {
+        await this.outboundGuard.assertCanSend(sessionId, messageDto.to, jid);
       }
 
       // Prepare message based on type
@@ -1893,6 +1895,13 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
         status: statusMap[sentMessage?.status] || "sent",
       };
     } catch (error) {
+      // A guard refusal is a deliberate decision, not a send failure: let it
+      // through untouched so callers keep the 400 and its code, and it never
+      // gets rewritten by the keyword heuristics below.
+      if (error instanceof ColdContactBlockedError) {
+        throw error;
+      }
+
       this.logger.error(
         `Failed to send message from session ${sessionId}:`,
         error,

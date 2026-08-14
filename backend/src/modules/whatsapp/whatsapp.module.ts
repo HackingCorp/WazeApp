@@ -20,6 +20,8 @@ import { UnansweredMessageService } from "./unanswered-message.service";
 import { UnansweredMessageProcessor } from "./unanswered-message.processor";
 import { PendingMessageQueueService } from "./pending-message-queue.service";
 import { PendingMessageProcessor } from "./pending-message.processor";
+import { MessageDeliveryService } from "./message-delivery.service";
+import { OutboundGuardService } from "./outbound-guard.service";
 import { EmailModule } from "../email/email.module";
 import {
   WhatsAppSession,
@@ -111,6 +113,8 @@ import { ToolCallingModule } from "../tool-calling/tool-calling.module";
     UnansweredMessageProcessor,
     PendingMessageQueueService,
     PendingMessageProcessor,
+    MessageDeliveryService,
+    OutboundGuardService,
   ],
   exports: [
     WhatsAppService,

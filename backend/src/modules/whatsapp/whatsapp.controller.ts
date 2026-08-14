@@ -17,6 +17,7 @@ import {
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { Throttle } from "@nestjs/throttler";
+import { MessageDeliveryService } from "./message-delivery.service";
 import {
   ApiTags,
   ApiOperation,
@@ -72,6 +73,7 @@ export class WhatsAppController {
     private baileysService: BaileysService,
     private visionService: VisionService,
     private configService: ConfigService,
+    private deliveryService: MessageDeliveryService,
   ) {
     this.redis = new Redis({
       host: this.configService.get('REDIS_HOST', 'localhost'),
@@ -333,6 +335,21 @@ export class WhatsAppController {
       status: result.status as MessageResponseDto['status'],
       timestamp: new Date(),
     };
+  }
+
+  @Get("sessions/:id/delivery-health")
+  @ApiOperation({
+    summary:
+      "Delivery health for a session (today): sent/delivered/read/failed and the resulting rate",
+  })
+  @ApiResponse({ status: 200, description: "Delivery health retrieved" })
+  async getDeliveryHealth(
+    @Param("id", ParseUUIDPipe) id: string,
+    @CurrentUser() user: AuthenticatedRequest,
+  ) {
+    // Ownership check — findOne throws when the session is not the caller's.
+    await this.whatsappService.findOne(id, user.userId, user.organizationId || null);
+    return this.deliveryService.getHealth(id);
   }
 
   @Get("sessions/:id/stats")

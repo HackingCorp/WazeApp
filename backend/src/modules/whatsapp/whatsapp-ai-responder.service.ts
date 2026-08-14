@@ -2606,11 +2606,18 @@ RÈGLES IMAGES:
         // Convert markdown to WhatsApp format (use clean text without image tags)
         const whatsappMessage = this.convertToWhatsAppFormat(sanitizedText);
 
-        await this.baileysService.sendMessage(session.id, {
+        const sendResult = await this.baileysService.sendMessage(session.id, {
           to: fromNumber,
           message: whatsappMessage,
           type: "text",
         });
+
+        // Keep the WhatsApp id on the row so delivery receipts (✓✓, read, or
+        // an undelivered error) can be applied to it later.
+        if (sendResult?.messageId) {
+          savedAiMessage.externalMessageId = sendResult.messageId;
+          await this.messageRepository.save(savedAiMessage);
+        }
 
         // Track sent message for usage statistics
         await this.trackSentMessage(session.organizationId);

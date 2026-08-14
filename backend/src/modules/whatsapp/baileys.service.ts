@@ -1,6 +1,6 @@
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { EventEmitter2 } from "@nestjs/event-emitter";
+import { EventEmitter2, OnEvent } from "@nestjs/event-emitter";
 import { Cron } from "@nestjs/schedule";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
@@ -16,11 +16,23 @@ const baileysLogger = pino({ level: "silent" });
 import { WhatsAppSession } from "@/common/entities";
 import { WhatsAppSessionStatus } from "@/common/enums";
 import { usePostgresAuthState, PostgresAuthStateResult } from "./postgres-auth-state";
+import { MessageDeliveryService } from "./message-delivery.service";
+import { OutboundGuardService } from "./outbound-guard.service";
 
 interface WhatsAppError extends Error {
   code?: string;
   recoverable?: boolean;
   action?: string;
+}
+
+interface SendMessageOptions {
+  /**
+   * Force one addressing scheme instead of the default (prefer LID when a
+   * mapping exists). Used when replaying a message that came back undelivered.
+   */
+  forceAddressing?: "pn" | "lid";
+  /** Skip the cold-contact guard — a retry already passed it once. */
+  skipGuard?: boolean;
 }
 
 // Baileys v7 requires dynamic imports (ESM)
@@ -101,6 +113,8 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
     private eventEmitter: EventEmitter2,
     @InjectRepository(WhatsAppSession)
     private sessionRepository: Repository<WhatsAppSession>,
+    private deliveryService: MessageDeliveryService,
+    private outboundGuard: OutboundGuardService,
   ) {
     // Initialize Redis for throughput limiting
     this.redis = new Redis({
@@ -1641,9 +1655,47 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
     return results;
   }
 
+  /**
+   * Replay a message that WhatsApp reported as undelivered, once, through the
+   * other addressing scheme.
+   *
+   * A LID/phone-number desync makes one of the two paths fail while the other
+   * still works (Baileys #2633-class failures); a recipient that is genuinely
+   * unreachable just fails again and the retry stops there.
+   */
+  @OnEvent("whatsapp.delivery.retry")
+  async handleDeliveryRetry(payload: {
+    sessionId: string;
+    to: string;
+    jid: string;
+    payload: SendMessageDto;
+    originalMessageId: string;
+  }): Promise<void> {
+    const { sessionId, jid, payload: dto, originalMessageId } = payload || ({} as any);
+    if (!sessionId || !dto) return;
+
+    // Failed over a LID → retry addressing the phone number, and vice versa.
+    const forceAddressing: "pn" | "lid" = jid?.includes("@lid") ? "pn" : "lid";
+
+    try {
+      const result = await this.sendMessage(sessionId, dto, {
+        forceAddressing,
+        skipGuard: true,
+      });
+      this.logger.log(
+        `🔁 Retried ${originalMessageId} via ${forceAddressing} addressing → ${result.messageId}`,
+      );
+    } catch (error) {
+      this.logger.warn(
+        `🔁 Retry of ${originalMessageId} via ${forceAddressing} failed: ${error.message}`,
+      );
+    }
+  }
+
   async sendMessage(
     sessionId: string,
     messageDto: SendMessageDto,
+    options: SendMessageOptions = {},
   ): Promise<{ messageId: string; status: string }> {
     const sock = this.sessions.get(sessionId);
 
@@ -1672,6 +1724,12 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
       customError.recoverable = true;
       customError.action = 'WAIT_AND_RETRY';
       throw customError;
+    }
+
+    // Refuse to burn the number on strangers: messaging contacts who never
+    // wrote to us is the main trigger for a WhatsApp restriction.
+    if (!options.skipGuard) {
+      await this.outboundGuard.assertCanSend(sessionId, messageDto.to);
     }
 
     try {
@@ -1718,7 +1776,7 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
       // is rejected (delivery ERROR) for LID-migrated accounts. When we have a
       // known LID mapping for this number, address the recipient by their LID
       // instead — that path delivers reliably.
-      if (jid.endsWith("@s.whatsapp.net")) {
+      if (jid.endsWith("@s.whatsapp.net") && options.forceAddressing !== "pn") {
         try {
           const lid = await sock.signalRepository?.lidMapping?.getLIDForPN?.(jid);
           if (lid) {
@@ -1787,12 +1845,30 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
       // Log message content for debugging
       this.logger.log(`📨 Sending message to ${jid}: ${JSON.stringify(message).substring(0, 200)}...`);
 
+      // Type before sending so the cadence looks human rather than scripted.
+      await this.outboundGuard.humanPacing(sock, jid, messageDto.message);
+
       // Send message
       const sentMessage = await sock.sendMessage(jid, message);
 
       // Log full response for debugging
       this.logger.log(`✅ Message sent successfully!`);
       this.logger.log(`📩 Response: messageId=${sentMessage?.key?.id}, remoteJid=${sentMessage?.key?.remoteJid}, status=${sentMessage?.status}`);
+
+      // Remember the outbound message so its delivery receipt can be matched
+      // back to it — without this a message that never arrives looks "sent".
+      if (sentMessage?.key?.id) {
+        await this.deliveryService.recordSent(
+          {
+            sessionId,
+            jid,
+            to: messageDto.to,
+            payload: { ...messageDto },
+            retried: options.forceAddressing !== undefined,
+          },
+          sentMessage.key.id,
+        );
+      }
 
       // Track this message ID as system-sent (to distinguish from phone-sent messages)
       if (sentMessage?.key?.id) {

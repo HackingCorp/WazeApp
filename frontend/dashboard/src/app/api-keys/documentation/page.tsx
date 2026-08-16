@@ -49,6 +49,37 @@ Format de clé recommandé: <type>-<id>-<étape>, ex: colis-12345-rappel-7, comm
 ### POST /validate-numbers  (permission: send:message)
 Valider si des numéros sont enregistrés sur WhatsApp. Maximum 100 numéros par requête.
 
+## VÉRIFICATION AVANT ENVOI (obligatoire)
+Avant d'envoyer un message à un numéro issu de VOTRE base, vérifiez s'il a déjà écrit à votre session.
+Écrire à quelqu'un qui ne vous a jamais contacté est la première cause de restriction puis de bannissement
+du numéro WhatsApp (un numéro banni n'est pas récupérable). L'API n'interdit pas ces envois: la décision
+vous appartient, mais elle doit être prise en connaissance de cause.
+
+### GET /contacts/status?phone=237671713083
+Réponse:
+{ "phone": "237671713083", "hasWritten": false, "inboundCount": 0, "lastInboundAt": null, "safeToMessage": false }
+safeToMessage=false => ce numéro ne vous a jamais écrit (contact à froid): à éviter.
+
+### POST /contacts/status  (lot, 200 numéros max)
+Requête: { "phones": ["237671713083", "237691371922"] }
+Réponse: { "results": [...], "total": 2, "neverWrote": 1 }
+
+Codes OTP et notifications transactionnelles: ce sont les envois les plus risqués car ils partent presque
+toujours vers des numéros qui n'ont jamais écrit. Si hasWritten=false, passez par un canal SMS.
+
+## Suivi de livraison
+Une réponse 200 à l'envoi signifie que WhatsApp a ACCEPTÉ le message, pas qu'il a été LIVRÉ.
+La livraison est confirmée de façon asynchrone quelques secondes plus tard.
+
+### GET /messages/:messageId/status   (fenêtre de 24h)
+{ "messageId": "...", "status": "delivered", "sentAt": "...", "deliveredAt": "...", "readAt": null, "failedAt": null }
+status: sent (accepté) | delivered (reçu ✓✓) | read (lu) | failed (non livré)
+
+### GET /delivery-health
+Compteurs du jour pour la session liée à la clé:
+{ "sent": 128, "delivered": 96, "read": 24, "failed": 8, "deliveryRate": 0.9375, "degraded": false }
+degraded=true => la session est connectée mais ne livre plus: suspendez les envois.
+
 ## Contacts
 - GET /contacts — lister les contacts
 - POST /contacts — créer un contact
@@ -70,10 +101,22 @@ Valider si des numéros sont enregistrés sur WhatsApp. Maximum 100 numéros par
 Respectez un délai minimum de 3 secondes entre les messages. Limite par destinataire: 100 messages/heure.
 
 ## Bonnes pratiques
-1. Délai minimum de 3s entre les messages.
-2. Validez les numéros WhatsApp avant les campagnes.
-3. Vérifiez toujours le statut de la réponse et gérez les erreurs.
-4. Envoyez toujours une idempotencyKey stable pour les notifications automatisées (rappels, confirmations).
+La règle qui compte avant toutes les autres: écrire à des personnes qui ne vous ont jamais écrit est la
+première cause de restriction puis de bannissement d'un numéro WhatsApp. Le déclencheur est le VOLUME:
+de l'ordre de 15 à 20 contacts froids dans une journée suffit.
+
+1. Vérifiez avant d'envoyer: pour tout numéro venant de votre base, appelez GET /contacts/status
+   (ou le lot via POST) et n'envoyez que si safeToMessage=true.
+2. Privilégiez l'entrant: faites en sorte que le client écrive en premier (lien wa.me sur votre site et
+   vos publicités, QR code, bouton "Contactez-nous sur WhatsApp"). Répondre est sans risque.
+3. Si vous devez malgré tout initier: restez sous une dizaine de contacts froids par jour et par session,
+   espacez-les, et arrêtez si le taux de réponse est faible.
+4. Ne confondez pas accepté et livré: vérifiez GET /messages/:messageId/status quelques secondes après
+   l'envoi, et traitez "failed" comme un échec réel (ne renvoyez pas en boucle).
+5. Surveillez la santé de la session via GET /delivery-health; si degraded=true, suspendez les envois.
+6. Rythme humain: au moins 3 secondes entre deux messages, évitez les rafales à heure fixe.
+7. Envoyez toujours une idempotencyKey stable pour les notifications automatisées (rappels, confirmations).
+8. Validez les numéros WhatsApp avant les campagnes et retirez les contacts dont les messages échouent.
 `;
 
 export default function ApiDocumentationPage() {
@@ -650,6 +693,85 @@ export default function ApiDocumentationPage() {
           </div>
         </section>
 
+        {/* Cold contact check — required before sending */}
+        <section className="bg-white dark:bg-gray-800 rounded-xl border-2 border-red-300 dark:border-red-800 p-6">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+            Vérification avant envoi <span className="text-red-600 dark:text-red-400">(obligatoire)</span>
+          </h2>
+
+          <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+            <p className="text-red-800 dark:text-red-200 text-sm">
+              <strong>Avant d&apos;envoyer un message à un numéro issu de votre propre base, vous devez
+              vérifier s&apos;il a déjà écrit à votre session WhatsApp.</strong> Écrire à quelqu&apos;un qui ne
+              vous a jamais contacté est la <strong>première cause de restriction puis de bannissement</strong>
+              du numéro WhatsApp — et un numéro banni n&apos;est pas récupérable. L&apos;API n&apos;interdit pas
+              ces envois : la décision vous appartient, mais elle doit être prise en connaissance de cause.
+            </p>
+          </div>
+
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2 flex items-center gap-2">
+                <span className="px-2 py-1 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 text-xs font-bold rounded">GET</span>
+                /contacts/status?phone=237671713083
+              </h3>
+              <p className="text-gray-600 dark:text-gray-300 mb-3">
+                Indique si ce numéro a déjà écrit à votre session. À appeler avant chaque envoi vers un
+                numéro qui ne vient pas d&apos;une conversation entrante.
+              </p>
+              <pre className="bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto text-sm">
+{`{
+  "phone": "237671713083",
+  "hasWritten": false,
+  "inboundCount": 0,
+  "lastInboundAt": null,
+  "safeToMessage": false
+}`}
+              </pre>
+              <p className="text-sm text-gray-600 dark:text-gray-300 mt-2">
+                <code>safeToMessage: false</code> = ce numéro ne vous a jamais écrit. Lui envoyer un message
+                est un <strong>contact à froid</strong> : à éviter, ou à réserver à de très faibles volumes.
+              </p>
+            </div>
+
+            <div className="pt-6 border-t border-gray-200 dark:border-gray-700">
+              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2 flex items-center gap-2">
+                <span className="px-2 py-1 bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 text-xs font-bold rounded">POST</span>
+                /contacts/status
+              </h3>
+              <p className="text-gray-600 dark:text-gray-300 mb-3">
+                Même vérification pour un lot de numéros (200 maximum par appel) — pratique pour filtrer une
+                liste issue de votre base avant une campagne.
+              </p>
+              <pre className="bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto text-sm">
+{`// Requête
+{ "phones": ["237671713083", "237691371922"] }
+
+// Réponse
+{
+  "results": [
+    { "phone": "237671713083", "hasWritten": false, "inboundCount": 0,
+      "lastInboundAt": null, "safeToMessage": false },
+    { "phone": "237691371922", "hasWritten": true, "inboundCount": 14,
+      "lastInboundAt": "2026-08-15T09:12:44.000Z", "safeToMessage": true }
+  ],
+  "total": 2,
+  "neverWrote": 1
+}`}
+              </pre>
+            </div>
+
+            <div className="p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+              <p className="text-amber-800 dark:text-amber-200 text-sm">
+                <strong>Cas des codes OTP et notifications transactionnelles :</strong> ce sont les envois les
+                plus risqués, car ils partent presque toujours vers des numéros qui n&apos;ont jamais écrit.
+                Si <code>hasWritten</code> vaut <code>false</code>, faites passer ces messages par un
+                <strong> canal SMS</strong> plutôt que par WhatsApp.
+              </p>
+            </div>
+          </div>
+        </section>
+
         {/* Delivery tracking */}
         <section className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">Suivi de livraison</h2>
@@ -819,14 +941,6 @@ export default function ApiDocumentationPage() {
                   <td className="py-3 px-4">400</td>
                   <td className="py-3 px-4">La session WhatsApp liée n'est pas connectée</td>
                 </tr>
-                <tr className="border-b border-gray-100 dark:border-gray-700">
-                  <td className="py-3 px-4"><code>COLD_CONTACT_BLOCKED</code></td>
-                  <td className="py-3 px-4">400</td>
-                  <td className="py-3 px-4">
-                    Le destinataire n&apos;a jamais écrit à cette session et le quota quotidien de contacts
-                    froids est atteint. Protection anti-restriction WhatsApp — voir Bonnes pratiques.
-                  </td>
-                </tr>
                 <tr>
                   <td className="py-3 px-4"><code>RATE_LIMITED</code></td>
                   <td className="py-3 px-4">429</td>
@@ -854,6 +968,15 @@ export default function ApiDocumentationPage() {
             <li className="flex items-start gap-2">
               <span className="mt-1 font-semibold">1.</span>
               <span>
+                <strong>Vérifiez avant d&apos;envoyer :</strong> pour tout numéro venant de votre base,
+                appelez <code>GET /contacts/status</code> (ou le lot via <code>POST</code>) et n&apos;envoyez
+                que si <code>safeToMessage</code> vaut <code>true</code>. C&apos;est la seule mesure qui
+                protège réellement votre numéro.
+              </span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="mt-1 font-semibold">2.</span>
+              <span>
                 <strong>Privilégiez l&apos;entrant :</strong> faites en sorte que le client écrive en premier
                 (lien <code>wa.me</code> sur votre site et vos publicités, QR code, bouton &laquo;&nbsp;Contactez-nous
                 sur WhatsApp&nbsp;&raquo;). Répondre à quelqu&apos;un qui vous a écrit est sans risque et se livre
@@ -861,16 +984,14 @@ export default function ApiDocumentationPage() {
               </span>
             </li>
             <li className="flex items-start gap-2">
-              <span className="mt-1 font-semibold">2.</span>
+              <span className="mt-1 font-semibold">3.</span>
               <span>
-                <strong>Limitez les contacts froids :</strong> si vous devez initier, restez sous une dizaine par
-                jour et par session, espacez-les, et arrêtez si le taux de réponse est faible. Un
-                <code> COLD_CONTACT_BLOCKED</code> n&apos;est pas un bug : c&apos;est la protection qui préserve
-                votre numéro.
+                <strong>Si vous devez malgré tout initier :</strong> restez sous une dizaine de contacts froids
+                par jour et par session, espacez-les, et arrêtez si le taux de réponse est faible.
               </span>
             </li>
             <li className="flex items-start gap-2">
-              <span className="mt-1 font-semibold">3.</span>
+              <span className="mt-1 font-semibold">4.</span>
               <span>
                 <strong>Ne confondez pas accepté et livré :</strong> un <code>200</code> à l&apos;envoi ne garantit
                 rien. Vérifiez <code>GET /messages/:messageId/status</code> quelques secondes après, et traitez
@@ -878,7 +999,7 @@ export default function ApiDocumentationPage() {
               </span>
             </li>
             <li className="flex items-start gap-2">
-              <span className="mt-1 font-semibold">4.</span>
+              <span className="mt-1 font-semibold">5.</span>
               <span>
                 <strong>Surveillez la santé de la session :</strong> interrogez <code>GET /delivery-health</code>
                 régulièrement. Une session <code>connected</code> peut cesser de livrer&nbsp;; si
@@ -887,7 +1008,7 @@ export default function ApiDocumentationPage() {
               </span>
             </li>
             <li className="flex items-start gap-2">
-              <span className="mt-1 font-semibold">5.</span>
+              <span className="mt-1 font-semibold">6.</span>
               <span>
                 <strong>Rythme humain :</strong> gardez au moins 3 secondes entre deux messages et évitez les
                 rafales à heure fixe. La plateforme ajoute déjà un indicateur de saisie et une pause variable,
@@ -895,7 +1016,7 @@ export default function ApiDocumentationPage() {
               </span>
             </li>
             <li className="flex items-start gap-2">
-              <span className="mt-1 font-semibold">6.</span>
+              <span className="mt-1 font-semibold">7.</span>
               <span>
                 <strong>Idempotence :</strong> envoyez toujours une <code>idempotencyKey</code> sur vos appels
                 d&apos;envoi. En cas de rejeu réseau, elle évite d&apos;expédier deux fois le même message au
@@ -903,7 +1024,7 @@ export default function ApiDocumentationPage() {
               </span>
             </li>
             <li className="flex items-start gap-2">
-              <span className="mt-1 font-semibold">7.</span>
+              <span className="mt-1 font-semibold">8.</span>
               <span>
                 <strong>Validez avant les campagnes :</strong> vérifiez que les numéros existent sur WhatsApp
                 avant un envoi de masse, et retirez de vos listes tout contact dont les messages échouent.

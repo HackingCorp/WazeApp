@@ -37,6 +37,7 @@ import { WebhookService } from './webhook.service';
 import { BaileysService } from '../whatsapp/baileys.service';
 import { PendingMessageQueueService } from '../whatsapp/pending-message-queue.service';
 import { MessageDeliveryService } from '../whatsapp/message-delivery.service';
+import { OutboundGuardService } from '../whatsapp/outbound-guard.service';
 import {
   ExternalSendMessageDto,
   CreateCampaignDto,
@@ -67,6 +68,7 @@ export class ExternalApiController {
     private baileysService: BaileysService,
     private pendingMessageQueueService: PendingMessageQueueService,
     private deliveryService: MessageDeliveryService,
+    private outboundGuard: OutboundGuardService,
     @InjectQueue('broadcast')
     private broadcastQueue: Queue,
     @InjectRepository(WhatsAppSession)
@@ -987,6 +989,67 @@ export class ExternalApiController {
   // ==========================================
   // HEALTH CHECK
   // ==========================================
+
+  @Get('contacts/status')
+  @ApiOperation({
+    summary:
+      "Whether a number already wrote to your WhatsApp session — check this before messaging a number from your own database",
+  })
+  @ApiHeader({ name: 'X-API-Key', required: true })
+  @ApiQuery({ name: 'phone', required: true, description: 'Recipient, digits only (e.g. 237671713083)' })
+  @ApiResponse({ status: 200, description: 'Contact status retrieved' })
+  async getContactStatus(
+    @Query('phone') phone: string,
+    @Headers('x-api-key') apiKey: string,
+    @Ip() clientIp: string,
+  ) {
+    const { sessionId } = await this.apiKeyService.validateApiKey(apiKey, undefined, clientIp);
+    if (!sessionId) {
+      throw new BadRequestException('This API key is not bound to a WhatsApp session');
+    }
+    if (!phone) {
+      throw new BadRequestException('Query parameter "phone" is required');
+    }
+
+    const status = await this.outboundGuard.getContactStatus(sessionId, phone);
+    return {
+      ...status,
+      // Messaging someone who never wrote in is what gets a number restricted.
+      safeToMessage: status.hasWritten,
+    };
+  }
+
+  @Post('contacts/status')
+  @ApiOperation({
+    summary: 'Same check for a batch of numbers (max 200 per call)',
+  })
+  @ApiHeader({ name: 'X-API-Key', required: true })
+  @ApiResponse({ status: 200, description: 'Contact statuses retrieved' })
+  async getContactStatuses(
+    @Body() body: { phones?: string[] },
+    @Headers('x-api-key') apiKey: string,
+    @Ip() clientIp: string,
+  ) {
+    const { sessionId } = await this.apiKeyService.validateApiKey(apiKey, undefined, clientIp);
+    if (!sessionId) {
+      throw new BadRequestException('This API key is not bound to a WhatsApp session');
+    }
+
+    const phones = Array.isArray(body?.phones) ? body.phones : [];
+    if (!phones.length) {
+      throw new BadRequestException('Body must contain a non-empty "phones" array');
+    }
+    if (phones.length > 200) {
+      throw new BadRequestException('At most 200 numbers per call');
+    }
+
+    const statuses = await this.outboundGuard.getContactStatuses(sessionId, phones);
+    return {
+      results: statuses.map((s) => ({ ...s, safeToMessage: s.hasWritten })),
+      total: statuses.length,
+      neverWrote: statuses.filter((s) => !s.hasWritten).length,
+    };
+  }
 
   @Get('messages/:messageId/status')
   @ApiOperation({

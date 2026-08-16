@@ -124,6 +124,7 @@ import { ToolCallingModule } from "../tool-calling/tool-calling.module";
     WhatsAppSessionMonitorService,
     PendingMessageQueueService,
     MessageDeliveryService,
+    OutboundGuardService,
   ],
 })
 export class WhatsAppModule {}

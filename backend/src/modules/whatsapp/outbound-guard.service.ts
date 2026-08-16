@@ -151,12 +151,25 @@ export class OutboundGuardService {
     };
   }
 
-  /** Same lookup over several numbers, for partners checking a batch. */
+  /**
+   * Same lookup over several numbers, for partners checking a batch.
+   *
+   * Each number costs a few queries, so they run in small waves rather than
+   * all at once — a 200-number batch fired in parallel would exhaust the
+   * connection pool and stall unrelated traffic.
+   */
   async getContactStatuses(sessionId: string, phones: string[]): Promise<ContactStatus[]> {
     const unique = [...new Set(phones.map((p) => OutboundGuardService.normalise(p)))].filter(
       Boolean,
     );
-    return Promise.all(unique.map((p) => this.getContactStatus(sessionId, p)));
+
+    const CHUNK = 10;
+    const out: ContactStatus[] = [];
+    for (let i = 0; i < unique.length; i += CHUNK) {
+      const wave = unique.slice(i, i + CHUNK);
+      out.push(...(await Promise.all(wave.map((p) => this.getContactStatus(sessionId, p)))));
+    }
+    return out;
   }
 
   private async bumpCold(sessionId: string): Promise<number> {

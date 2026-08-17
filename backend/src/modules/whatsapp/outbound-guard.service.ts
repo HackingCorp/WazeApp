@@ -158,16 +158,27 @@ export class OutboundGuardService {
    * all at once — a 200-number batch fired in parallel would exhaust the
    * connection pool and stall unrelated traffic.
    */
-  async getContactStatuses(sessionId: string, phones: string[]): Promise<ContactStatus[]> {
-    const unique = [...new Set(phones.map((p) => OutboundGuardService.normalise(p)))].filter(
-      Boolean,
-    );
+  async getContactStatuses(
+    sessionId: string,
+    phones: string[],
+    knownLids: (string | undefined)[] = [],
+  ): Promise<ContactStatus[]> {
+    // Keep each number paired with the LID resolved for it before de-duplicating.
+    const byPhone = new Map<string, string | undefined>();
+    phones.forEach((p, i) => {
+      const digits = OutboundGuardService.normalise(p);
+      if (!digits) return;
+      if (!byPhone.get(digits)) byPhone.set(digits, knownLids[i]);
+    });
 
+    const entries = [...byPhone.entries()];
     const CHUNK = 10;
     const out: ContactStatus[] = [];
-    for (let i = 0; i < unique.length; i += CHUNK) {
-      const wave = unique.slice(i, i + CHUNK);
-      out.push(...(await Promise.all(wave.map((p) => this.getContactStatus(sessionId, p)))));
+    for (let i = 0; i < entries.length; i += CHUNK) {
+      const wave = entries.slice(i, i + CHUNK);
+      out.push(
+        ...(await Promise.all(wave.map(([p, lid]) => this.getContactStatus(sessionId, p, lid)))),
+      );
     }
     return out;
   }

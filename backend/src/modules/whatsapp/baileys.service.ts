@@ -1715,6 +1715,33 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
     }
   }
 
+  /**
+   * The contact's LID for a phone number, from the live session's mapping.
+   *
+   * Conversations are overwhelmingly keyed by LID rather than by phone number,
+   * and the stored contact row that would link the two is often missing — so
+   * looking a contact up by phone alone reports established customers as
+   * unknown. Returns digits only, or null when the session is offline or the
+   * mapping is unknown.
+   */
+  async resolveLidForPhone(sessionId: string, phone: string): Promise<string | null> {
+    const digits = String(phone || "").replace(/\D/g, "");
+    if (!digits) return null;
+
+    const sock = this.sessions.get(sessionId);
+    if (!sock) return null;
+
+    try {
+      const jid = `${digits}@s.whatsapp.net`;
+      const lid = await sock.signalRepository?.lidMapping?.getLIDForPN?.(jid);
+      if (!lid) return null;
+      return String(lid).split("@")[0].split(":")[0].replace(/\D/g, "") || null;
+    } catch (error) {
+      this.logger.warn(`LID resolution failed for ${digits}: ${error.message}`);
+      return null;
+    }
+  }
+
   async sendMessage(
     sessionId: string,
     messageDto: SendMessageDto,

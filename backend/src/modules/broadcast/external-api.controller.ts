@@ -1011,7 +1011,10 @@ export class ExternalApiController {
       throw new BadRequestException('Query parameter "phone" is required');
     }
 
-    const status = await this.outboundGuard.getContactStatus(sessionId, phone);
+    // Conversations are keyed by the contact's LID far more often than by
+    // their phone number, so resolve it from the live session first.
+    const lid = await this.baileysService.resolveLidForPhone(sessionId, phone);
+    const status = await this.outboundGuard.getContactStatus(sessionId, phone, lid || undefined);
     return {
       ...status,
       // Messaging someone who never wrote in is what gets a number restricted.
@@ -1043,7 +1046,14 @@ export class ExternalApiController {
       throw new BadRequestException('At most 200 numbers per call');
     }
 
-    const statuses = await this.outboundGuard.getContactStatuses(sessionId, phones);
+    const lids = await Promise.all(
+      phones.map((p) => this.baileysService.resolveLidForPhone(sessionId, p).catch(() => null)),
+    );
+    const statuses = await this.outboundGuard.getContactStatuses(
+      sessionId,
+      phones,
+      lids.map((l) => l || undefined),
+    );
     return {
       results: statuses.map((s) => ({ ...s, safeToMessage: s.hasWritten })),
       total: statuses.length,

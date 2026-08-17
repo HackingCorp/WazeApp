@@ -11,8 +11,13 @@ import Redis from "ioredis";
 import pino from "pino";
 import { SendMessageDto } from "./dto/whatsapp.dto";
 
-// Silent pino logger to prevent Baileys from dumping credentials/pre-keys to stdout
-const baileysLogger = pino({ level: "silent" });
+// Baileys is silenced by default because its debug/trace output dumps
+// credentials and pre-keys to stdout. Raise WHATSAPP_BAILEYS_LOG_LEVEL to
+// "error" or "warn" to surface Signal/decryption failures while diagnosing
+// missing inbound messages — those levels carry no key material.
+const baileysLogger = pino({
+  level: process.env.WHATSAPP_BAILEYS_LOG_LEVEL || "silent",
+});
 import { WhatsAppSession } from "@/common/entities";
 import { WhatsAppSessionStatus } from "@/common/enums";
 import { usePostgresAuthState, PostgresAuthStateResult } from "./postgres-auth-state";
@@ -1150,7 +1155,25 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
       // Handle messages (for webhook events) — registered for proper cleanup on reconnect
       const messagesUpsertHandler = ({ messages, type }: any) => {
         // Only process real-time messages (notify), skip historical/catch-up (append)
-        if (type !== "notify") return;
+        if (type !== "notify") {
+          this.logger.debug?.(
+            `📥 Skipping ${messages?.length || 0} message(s) of type "${type}" for session ${sessionId}`,
+          );
+          return;
+        }
+
+        messages.forEach((message: any) => {
+          // An inbound message whose payload is empty never decrypted. It used
+          // to be dropped without a trace, which makes a session look idle when
+          // it is in fact receiving traffic it cannot read.
+          if (!message.key?.fromMe && !message.message) {
+            this.logger.warn(
+              `📥 Undecryptable inbound message on session ${sessionId} from ${message.key?.remoteJid} ` +
+                `(id=${message.key?.id}) — Signal session out of sync; set WHATSAPP_BAILEYS_LOG_LEVEL=error for details`,
+            );
+            return;
+          }
+        });
 
         messages.forEach((message: any) => {
           if (message.key.fromMe && message.message) {

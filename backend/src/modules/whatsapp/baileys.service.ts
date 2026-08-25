@@ -1731,11 +1731,31 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
     const sock = this.sessions.get(sessionId);
     if (!sock) return null;
 
-    try {
-      const jid = `${digits}@s.whatsapp.net`;
+    const lidFromJid = async (jid: string): Promise<string | null> => {
       const lid = await sock.signalRepository?.lidMapping?.getLIDForPN?.(jid);
       if (!lid) return null;
       return String(lid).split("@")[0].split(":")[0].replace(/\D/g, "") || null;
+    };
+
+    try {
+      const direct = await lidFromJid(`${digits}@s.whatsapp.net`);
+      if (direct) return direct;
+
+      // The requested digits may not be the account's canonical JID (e.g.
+      // Cameroon numbers registered before the numbering reform keep their
+      // old 8-digit JID), so ask WhatsApp for the canonical identity and
+      // retry the mapping with it.
+      const results = await sock.onWhatsApp(digits);
+      const hit = results?.[0];
+      if (!hit?.exists) return null;
+      if (hit.lid) {
+        const fromResult = String(hit.lid).split("@")[0].split(":")[0].replace(/\D/g, "");
+        if (fromResult) return fromResult;
+      }
+      if (hit.jid && hit.jid !== `${digits}@s.whatsapp.net`) {
+        return await lidFromJid(hit.jid);
+      }
+      return null;
     } catch (error) {
       this.logger.warn(`LID resolution failed for ${digits}: ${error.message}`);
       return null;

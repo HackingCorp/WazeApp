@@ -150,15 +150,24 @@ export class BroadcastProcessor {
     await this.messageRepository.save(message);
 
     try {
-      // Format phone number with country code
-      let phoneNumber = contact.phoneNumber.replace(/[\s\-\+\(\)]/g, '');
+      // LID-only contacts (WhatsApp never revealed their phone number) are
+      // stored as lid_<digits>: address them directly by their LID JID —
+      // there is no phone number to normalise.
+      const lidMatch = contact.phoneNumber.match(/^lid_?(\d+)$/);
+      let phoneNumber: string;
+      if (lidMatch) {
+        phoneNumber = `${lidMatch[1]}@lid`;
+      } else {
+        // Format phone number with country code
+        phoneNumber = contact.phoneNumber.replace(/[\s\-\+\(\)]/g, '');
 
-      // Add country code if missing - use configurable default (defaults to '237' for Cameroon)
-      const defaultCountryCode = this.configService.get('DEFAULT_COUNTRY_CODE') || '237';
-      if (phoneNumber.startsWith('0')) {
-        phoneNumber = defaultCountryCode + phoneNumber.substring(1);
-      } else if (phoneNumber.length < 10) {
-        phoneNumber = defaultCountryCode + phoneNumber;
+        // Add country code if missing - use configurable default (defaults to '237' for Cameroon)
+        const defaultCountryCode = this.configService.get('DEFAULT_COUNTRY_CODE') || '237';
+        if (phoneNumber.startsWith('0')) {
+          phoneNumber = defaultCountryCode + phoneNumber.substring(1);
+        } else if (phoneNumber.length < 10) {
+          phoneNumber = defaultCountryCode + phoneNumber;
+        }
       }
 
       // Check if campaign has custom media files uploaded

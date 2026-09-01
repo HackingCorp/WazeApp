@@ -124,8 +124,12 @@ export function MobileMoneyModal({
 
   const getCleanPhoneNumber = () => {
     let clean = phoneNumber.replace(/\D/g, '');
-    // Add country code if not present
-    if (!clean.startsWith('237')) {
+    // Prefix the country code only for local formats: every international
+    // prefix also starts with a digit 2, so "doesn't start with 237" would
+    // corrupt foreign numbers (+242… → 237242…).
+    if (clean.startsWith('0')) {
+      clean = '237' + clean.substring(1);
+    } else if (clean.length === 9 && clean.startsWith('6')) {
       clean = '237' + clean;
     }
     return clean;

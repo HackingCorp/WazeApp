@@ -214,7 +214,20 @@ export class PendingMessageQueueService {
         new Date(a.data.createdAt).getTime() - new Date(b.data.createdAt).getTime()
       );
 
-      // Promote all jobs with staggered delays (3 seconds apart)
+      // A freshly (re)connected device that immediately blasts its whole
+      // backlog looks like a spam bot to WhatsApp — the server answers with a
+      // 503 stream error then a 403 that unlinks the device, and on the next
+      // reconnect the same burst re-triggers the block (self-reinforcing loop).
+      // So let the connection settle before the first send, and space the
+      // backlog out generously with jitter instead of a tight 3s cadence.
+      const graceMs = Number(
+        this.configService.get('PENDING_RECONNECT_GRACE_MS', 45000),
+      );
+      const staggerMs = Number(
+        this.configService.get('PENDING_RECONNECT_STAGGER_MS', 8000),
+      );
+
+      // Promote all jobs with a settling grace + staggered, jittered delays
       let scheduledCount = 0;
       for (let i = 0; i < pendingJobs.length; i++) {
         const job = pendingJobs[i];
@@ -251,8 +264,10 @@ export class PendingMessageQueueService {
             continue;
           }
 
-          // Move to ready state with staggered delay
-          const delay = scheduledCount * 3000; // 3 seconds between each message
+          // Settling grace before the first send, then spaced sends with a
+          // small random jitter so the cadence never looks mechanical.
+          const jitter = Math.floor(Math.random() * 2000);
+          const delay = graceMs + scheduledCount * staggerMs + jitter;
 
           // Add with new job ID to prevent duplicates
           await this.pendingMessageQueue.add('send-pending', {

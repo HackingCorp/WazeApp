@@ -220,6 +220,22 @@ export class PendingMessageProcessor {
         return this.deferJob(job, `Session ${sessionId} not connected (status: ${sessionStatus})`);
       }
 
+      // Settling grace: a device that just (re)connected must not immediately
+      // blast its backlog — WhatsApp reads the burst as spam and answers with a
+      // 503 then a 403 that unlinks the device, re-triggering on every
+      // reconnect. Hold sends until the connection has been up long enough.
+      const graceMs = Number(
+        this.configService.get('PENDING_RECONNECT_GRACE_MS', 45000),
+      );
+      const connectedForMs = this.baileysService.getConnectedForMs(sessionId);
+      if (connectedForMs !== null && connectedForMs < graceMs) {
+        this.logger.warn(
+          `Session ${sessionId} connected ${Math.round(connectedForMs / 1000)}s ago ` +
+          `(< ${Math.round(graceMs / 1000)}s settling window). Deferring message ${id}...`,
+        );
+        return this.deferJob(job, `Session ${sessionId} still settling after reconnect`);
+      }
+
       // Send the message with timeout protection
       const result = await this.sendWithTimeout(sessionId, {
         to,

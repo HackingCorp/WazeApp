@@ -86,6 +86,10 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
 
   // Track real connection state (connected, disconnected, reconnecting)
   private connectionStates = new Map<string, 'connected' | 'disconnected' | 'reconnecting'>();
+  // Epoch ms of the most recent successful connection, per session. Used to
+  // enforce a settling grace before flushing queued sends (avoids the fresh
+  // connection → burst → WhatsApp 403 unlink loop).
+  private connectedAtBySession = new Map<string, number>();
 
   // Track message IDs sent by the system (API/operator) to distinguish from phone-sent messages
   private sentBySystemIds = new Set<string>();
@@ -968,6 +972,7 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
 
           // Update connection state to connected
           this.connectionStates.set(sessionId, 'connected');
+          this.connectedAtBySession.set(sessionId, Date.now());
 
           // Persist the session's own phone number (shown in the dashboard);
           // sock.user.id is like "2376xxxxxxx:12@s.whatsapp.net"
@@ -1390,6 +1395,7 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
 
           // Update connection state
           this.connectionStates.set(sessionId, 'connected');
+          this.connectedAtBySession.set(sessionId, Date.now());
 
           // Persist the session's own phone number (shown in the dashboard)
           const ownNumber = sock.user?.id?.split(":")[0]?.split("@")[0];
@@ -2031,6 +2037,17 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
       // Generic error - re-throw with original message
       throw error;
     }
+  }
+
+  /**
+   * Milliseconds elapsed since this session last became connected, or null if
+   * it is not currently connected. Callers use this to hold back outbound
+   * traffic during the post-connection settling window.
+   */
+  getConnectedForMs(sessionId: string): number | null {
+    if (this.getSessionStatus(sessionId) !== "connected") return null;
+    const since = this.connectedAtBySession.get(sessionId);
+    return since ? Date.now() - since : null;
   }
 
   getSessionStatus(

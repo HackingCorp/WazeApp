@@ -9,17 +9,23 @@ import { PendingMessage } from './pending-message-queue.service';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 
 /**
- * Max times a job can be deferred due to session disconnection.
- * At 2-minute intervals, 30 deferrals = ~1 hour of waiting.
- * After that, the message is permanently failed.
+ * Delay between two deferrals while a session stays disconnected.
  */
-const MAX_DEFERRALS = 30;
+const DEFER_INTERVAL_MS = 120000; // 2 minutes
 
 /**
  * Absolute maximum age for a pending message (24 hours).
- * After this, the message is permanently failed regardless of deferral count.
+ * A queued message is retried for a full 24h across disconnections before it
+ * is permanently failed — this age limit is the ONLY real cutoff.
  */
 const MAX_MESSAGE_AGE_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Deferral cap, derived so it can never trip before the 24h age limit
+ * (24h / 2min = 720, plus a small buffer). It is only a safety net against a
+ * runaway re-queue loop, not an earlier expiry.
+ */
+const MAX_DEFERRALS = Math.ceil(MAX_MESSAGE_AGE_MS / DEFER_INTERVAL_MS) + 10;
 
 /**
  * Timeout for sendMessage calls (30 seconds).
@@ -156,7 +162,7 @@ export class PendingMessageProcessor {
       },
     }, {
       jobId: deferredJobId,
-      delay: 120000, // 2 minutes
+      delay: DEFER_INTERVAL_MS,
       attempts: 3, // Real retries for actual send errors
       backoff: { type: 'exponential', delay: 5000 },
       removeOnComplete: true,

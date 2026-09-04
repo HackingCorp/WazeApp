@@ -1811,6 +1811,28 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
         this.logger.warn(`🛡️ ${settlingError.message} [${sessionId}]`);
         throw settlingError;
       }
+
+      // Warm-up pacing: past the settling window, deferred jobs on their own
+      // 2-min timers can still bunch up (the per-minute throttle allows 30/min
+      // — the pace that got the account flagged). For the first minutes after
+      // a (re)connection, enforce a minimum gap between two outbound messages
+      // via an atomic Redis gate, whatever path the send came from.
+      const warmupMs = Number(this.configService.get("PENDING_RECONNECT_WARMUP_MS", 600000));
+      const minGapMs = Number(this.configService.get("PENDING_RECONNECT_MIN_GAP_MS", 8000));
+      if (connectedForMs !== null && connectedForMs < warmupMs) {
+        const gate = await this.redis.set(`warmup:lastsend:${sessionId}`, "1", "PX", minGapMs, "NX");
+        if (gate !== "OK") {
+          const pacingError: WhatsAppError = new Error(
+            `Session is not connected long enough for this send rate (warm-up: ` +
+            `min ${Math.round(minGapMs / 1000)}s between messages during ${Math.round(warmupMs / 60000)}min after reconnect)`,
+          );
+          pacingError.code = "SETTLING";
+          pacingError.recoverable = true;
+          pacingError.action = "WAIT_AND_RETRY";
+          this.logger.warn(`🛡️ ${pacingError.message} [${sessionId}]`);
+          throw pacingError;
+        }
+      }
     }
 
     // Per-session throughput limiting (max messages per minute)

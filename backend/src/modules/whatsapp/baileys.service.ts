@@ -38,6 +38,8 @@ interface SendMessageOptions {
   forceAddressing?: "pn" | "lid";
   /** Skip the cold-contact guard — a retry already passed it once. */
   skipGuard?: boolean;
+  /** Skip the post-reconnection settling window (internal retries only). */
+  skipSettlingGuard?: boolean;
 }
 
 // Baileys v7 requires dynamic imports (ESM)
@@ -792,6 +794,10 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
           this.logger.log(
             `Connection closed for session ${sessionId}, statusCode: ${statusCode}, isDeviceRemoved: ${isDeviceRemoved}, isPermanent: ${isPermanentError}`,
           );
+
+          // Forget the connection timestamp so the settling window restarts
+          // from zero on the next (re)connection.
+          this.connectedAtBySession.delete(sessionId);
 
           if (isDeviceRemoved || isForbidden) {
             // 401/device_removed or 403/forbidden: Clear credentials and require new QR scan
@@ -1786,6 +1792,27 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
       throw new Error(`Session is not connected (status: ${status}). Please reconnect WhatsApp.`);
     }
 
+    // Post-reconnection settling window, enforced at the single choke point
+    // every outbound path goes through: a freshly (re)linked device that sends
+    // right away gets flagged by WhatsApp (503 then 403 device unlink). The
+    // error message deliberately contains "not connected" so existing
+    // disconnection fallbacks queue the message as pending instead of failing.
+    if (!options.skipSettlingGuard) {
+      const graceMs = Number(this.configService.get("PENDING_RECONNECT_GRACE_MS", 45000));
+      const connectedForMs = this.getConnectedForMs(sessionId);
+      if (connectedForMs !== null && connectedForMs < graceMs) {
+        const settlingError: WhatsAppError = new Error(
+          `Session is not connected long enough (status: settling, ` +
+          `${Math.round(connectedForMs / 1000)}s/${Math.round(graceMs / 1000)}s) — deferred to protect the account`,
+        );
+        settlingError.code = "SETTLING";
+        settlingError.recoverable = true;
+        settlingError.action = "WAIT_AND_RETRY";
+        this.logger.warn(`🛡️ ${settlingError.message} [${sessionId}]`);
+        throw settlingError;
+      }
+    }
+
     // Per-session throughput limiting (max messages per minute)
     const throughputKey = `throughput:session:${sessionId}`;
     const sendCount = await this.redis.incr(throughputKey);
@@ -2047,7 +2074,14 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
   getConnectedForMs(sessionId: string): number | null {
     if (this.getSessionStatus(sessionId) !== "connected") return null;
     const since = this.connectedAtBySession.get(sessionId);
-    return since ? Date.now() - since : null;
+    if (!since) {
+      // Connected through a path that didn't stamp the timestamp (state
+      // reconciliation, auto-reconnect…). Treat it as freshly connected so a
+      // full settling window is enforced — never assume it has been up long.
+      this.connectedAtBySession.set(sessionId, Date.now());
+      return 0;
+    }
+    return Date.now() - since;
   }
 
   getSessionStatus(

@@ -1202,6 +1202,22 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
               })}`,
             );
 
+            // An inbound message is the one place WhatsApp discloses both
+            // identities of a LID contact (remoteJidAlt carries the phone
+            // number). Record the pair so contact-status lookups keep working
+            // when the session is offline.
+            const inboundJid = String(message.key.remoteJid || "");
+            const inboundAlt = String((message.key as any).remoteJidAlt || "");
+            if (inboundJid.includes("@lid") && inboundAlt.includes("@s.whatsapp.net")) {
+              this.outboundGuard
+                .learnLidMapping(
+                  sessionId,
+                  inboundAlt.split("@")[0].split(":")[0],
+                  inboundJid.split("@")[0].split(":")[0],
+                )
+                .catch(() => {});
+            }
+
             this.eventEmitter.emit("whatsapp.message.received", {
               sessionId,
               message,

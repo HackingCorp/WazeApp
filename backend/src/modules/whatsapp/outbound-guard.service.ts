@@ -77,10 +77,54 @@ export class OutboundGuardService {
         )
         .limit(1)
         .getOne();
-      return OutboundGuardService.normalise(contact?.lid || "");
+      const fromContact = OutboundGuardService.normalise(contact?.lid || "");
+      if (fromContact) return fromContact;
+
+      // Most contacts are stored LID-first (phoneNumber = "lid_<digits>"), so
+      // the row above never matches on the phone number. The mapping learned
+      // from previous sends is the only offline link between the two.
+      return await this.readLearnedLid(sessionId, digits);
     } catch (error) {
       this.logger.warn(`LID lookup failed for ${digits}: ${error.message}`);
       return "";
+    }
+  }
+
+  /**
+   * Phone ⇄ LID mappings learned while sending. WhatsApp only reveals a
+   * contact's LID on a live session, so it is cached here to keep
+   * getContactStatus() accurate while the session is down.
+   */
+  private learnedKey(sessionId: string, digits: string): string {
+    return `lidmap:${sessionId}:${digits.slice(-9)}`;
+  }
+
+  private async readLearnedLid(sessionId: string, digits: string): Promise<string> {
+    try {
+      const v = await this.redis.get(this.learnedKey(sessionId, digits));
+      return OutboundGuardService.normalise(v || "");
+    } catch {
+      return "";
+    }
+  }
+
+  /** Record a phone ⇄ LID pair observed on a live session (inbound or outbound). */
+  async learnLidMapping(sessionId: string, phone: string, lid: string): Promise<void> {
+    await this.rememberLid(
+      sessionId,
+      OutboundGuardService.normalise(phone),
+      OutboundGuardService.normalise(lid),
+    );
+  }
+
+  private async rememberLid(sessionId: string, digits: string, lidDigits: string): Promise<void> {
+    if (!digits || !lidDigits) return;
+    try {
+      // Kept for a year: a contact's LID does not change, and the value is
+      // only useful for as long as the conversation history exists.
+      await this.redis.set(this.learnedKey(sessionId, digits), lidDigits, "EX", 31536000);
+    } catch {
+      // Best effort — never let cache writes affect delivery.
     }
   }
 
@@ -211,6 +255,10 @@ export class OutboundGuardService {
     const lidDigits = String(resolvedJid || "").includes("@lid")
       ? OutboundGuardService.normalise(String(resolvedJid).split("@")[0].split(":")[0])
       : "";
+
+    // The live session just resolved this number to a LID — persist the pair so
+    // contacts/status stays correct once the session is gone.
+    await this.rememberLid(sessionId, digits, lidDigits);
 
     try {
       const status = await this.getContactStatus(sessionId, digits, lidDigits);

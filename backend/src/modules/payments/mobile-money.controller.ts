@@ -50,6 +50,40 @@ import {
   NkapPayCreditsDto,
 } from './dto/payment.dto';
 
+
+const UUID_RE = '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}';
+const REFERENCE_RE = new RegExp(
+  `^WAZEAPP-(${UUID_RE}|[^-]+)-(STANDARD|PRO|ENTERPRISE|CREDITS|INVOICE)(?:-(.*))?$`,
+  'i',
+);
+
+/**
+ * Split a merchant reference without breaking the UUIDs inside it.
+ * The tail is returned as segments, UUIDs kept whole, so the positional
+ * lookups (orgId, creditAmount, invoiceId) keep working.
+ */
+export function parseMerchantReference(
+  ref: string,
+): { userId: string; kind: string; tail: string[] } | null {
+  const m = REFERENCE_RE.exec(String(ref || '').trim());
+  if (!m) return null;
+  const tail: string[] = [];
+  let rest = m[3] || '';
+  const uuidHead = new RegExp(`^(${UUID_RE})(?:-|$)`);
+  while (rest) {
+    const u = uuidHead.exec(rest);
+    if (u) {
+      tail.push(u[1]);
+      rest = rest.slice(u[0].length);
+      continue;
+    }
+    const i = rest.indexOf('-');
+    tail.push(i === -1 ? rest : rest.slice(0, i));
+    rest = i === -1 ? '' : rest.slice(i + 1);
+  }
+  return { userId: m[1], kind: m[2].toUpperCase(), tail };
+}
+
 export class MobileMoneyPaymentDto {
   @IsIn(['STANDARD', 'PRO', 'ENTERPRISE'])
   plan: 'STANDARD' | 'PRO' | 'ENTERPRISE';
@@ -992,16 +1026,17 @@ export class MobileMoneyController {
       return { status: 'ok', received: true };
     }
 
-    // Same convention as the other providers:
-    // WAZEAPP-{userId}-{plan}-{timestamp} or WAZEAPP-{userId}-INVOICE-{invoiceId}-...
-    const parts = merchantRef.split('-');
-    if (parts.length < 3 || parts[0] !== 'WAZEAPP') {
+    // WAZEAPP-{userId}-{PLAN|CREDITS|INVOICE}-{...}. The ids are UUIDs, so the
+    // reference cannot simply be split on "-": that yields "7ac9" where the
+    // plan should be, and every case below falls through in silence.
+    const parsed = parseMerchantReference(merchantRef);
+    if (!parsed) {
       this.logger.warn(`Nkap Pay merchant_reference not recognised: ${merchantRef}`);
       return { status: 'ok', received: true };
     }
-
-    const userId = parts[1];
-    const planOrInvoice = parts[2].toUpperCase();
+    const { userId, kind: planOrInvoice, tail } = parsed;
+    // What the legacy positional code expected after the kind segment.
+    const parts = ['WAZEAPP', userId, planOrInvoice, ...tail];
 
     // Webhooks may be delivered more than once; replaying an upgrade would
     // extend the subscription twice.

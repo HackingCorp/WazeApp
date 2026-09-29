@@ -12,6 +12,7 @@ import {
   UnauthorizedException,
   BadRequestException,
   RawBodyRequest,
+  HttpException,
   Req,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
@@ -33,6 +34,7 @@ import { Public } from '../../common/decorators/public.decorator';
 import { S3PService, S3PPaymentRequest, S3PPaymentResponse } from './s3p.service';
 import { S3PReconciliationService } from './s3p-reconciliation.service';
 import { EnkapService } from './enkap.service';
+import { NkapPayService, NkapPayStatus } from './nkappay.service';
 import { CurrencyService } from './currency.service';
 import { SubscriptionUpgradeService, PaymentDetails } from './subscription-upgrade.service';
 import { InvoiceService } from '../subscriptions/invoice.service';
@@ -42,6 +44,7 @@ import {
   EnkapPaymentDto,
   VerifyS3PPaymentDto,
   CheckEnkapStatusDto,
+  NkapPayPaymentDto,
 } from './dto/payment.dto';
 
 export class MobileMoneyPaymentDto {
@@ -113,6 +116,7 @@ export class MobileMoneyController {
     private readonly s3pService: S3PService,
     private readonly s3pReconciliation: S3PReconciliationService,
     private readonly enkapService: EnkapService,
+    private readonly nkapPayService: NkapPayService,
     private readonly currencyService: CurrencyService,
     private readonly subscriptionUpgradeService: SubscriptionUpgradeService,
     private readonly invoiceService: InvoiceService,
@@ -758,6 +762,207 @@ export class MobileMoneyController {
         success: false,
         error: error.message,
       };
+    }
+  }
+
+  // ==========================================
+  // NKAP PAY (LtcPay aggregator)
+  // Distinct from E-nkap above: one key/secret API fronting TouchPay,
+  // E-nkap and Stripe, choosing the provider per country itself.
+  // ==========================================
+
+  @Post('nkappay/initiate')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Initiate a Nkap Pay payment (Mobile Money or hosted card)' })
+  @ApiBody({ type: NkapPayPaymentDto })
+  @ApiResponse({
+    status: HttpStatus.CREATED,
+    description: 'Payment created — redirect the customer to paymentUrl',
+  })
+  async initiateNkapPayPayment(
+    @Body() dto: NkapPayPaymentDto,
+    @CurrentUser() user: User,
+  ): Promise<any> {
+    const result = await this.nkapPayService.createPayment({
+      amount: dto.amount,
+      currency: dto.currency,
+      merchantReference: dto.merchantReference,
+      description: dto.description,
+      paymentMethod: dto.paymentMethod,
+      paymentMode: dto.paymentMode,
+      country: dto.country,
+      operator: dto.operator,
+      customerPhone: dto.customerPhone,
+      customerInfo: dto.customerInfo,
+      returnUrl: dto.returnUrl,
+      callbackUrl: dto.callbackUrl,
+      displayAmount: dto.displayAmount,
+      displayCurrency: dto.displayCurrency,
+      metadata: { ...(dto.metadata || {}), userId: user?.id },
+    });
+
+    if (!result.success) {
+      // A refusal that the customer must act on (402) is not a server fault:
+      // surface it as-is so the UI can show failureReason rather than retry.
+      throw new HttpException(
+        {
+          message: result.error,
+          failureCode: result.failureCode,
+          operatorReference: result.operatorReference,
+          retryable: result.retryable ?? false,
+          retryAfter: result.retryAfter,
+        },
+        result.retryable ? HttpStatus.SERVICE_UNAVAILABLE : HttpStatus.PAYMENT_REQUIRED,
+      );
+    }
+
+    return result;
+  }
+
+  @Get('nkappay/status')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Check a Nkap Pay payment status (re-verified live upstream)' })
+  @ApiResponse({ status: HttpStatus.OK, description: 'Payment status retrieved' })
+  async checkNkapPayStatus(@Query('reference') reference: string): Promise<any> {
+    if (!reference) {
+      throw new HttpException('reference is required', HttpStatus.BAD_REQUEST);
+    }
+    return await this.nkapPayService.getPayment(reference);
+  }
+
+  @Get('nkappay/countries')
+  @Public()
+  @ApiOperation({ summary: 'Countries, operators, currencies and limits supported by Nkap Pay' })
+  @ApiResponse({ status: HttpStatus.OK, description: 'Country list retrieved' })
+  async getNkapPayCountries(
+    @Query('include_unavailable') includeUnavailable?: string,
+  ): Promise<any> {
+    return await this.nkapPayService.getCountries(includeUnavailable === 'true');
+  }
+
+  @Get('nkappay/fees')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Exact fee rate per country and operator' })
+  @ApiResponse({ status: HttpStatus.OK, description: 'Fee grid retrieved' })
+  async getNkapPayFees(): Promise<any> {
+    return await this.nkapPayService.getFees();
+  }
+
+  @Post('nkappay/webhook')
+  @Public()
+  @ApiOperation({ summary: 'Nkap Pay webhook — processes payment and upgrades subscription' })
+  @ApiResponse({ status: HttpStatus.OK, description: 'Webhook processed' })
+  async nkapPayWebhook(
+    @Req() req: RawBodyRequest<Request>,
+    @Body() body: any,
+    @Headers('x-ltcpay-signature') signature?: string,
+    @Headers('x-ltcpay-delivery-id') deliveryId?: string,
+  ): Promise<any> {
+    this.logger.log(
+      `Nkap Pay webhook received (delivery ${deliveryId || 'n/a'}): ${JSON.stringify(body)}`,
+    );
+
+    const rawBody = req.rawBody || Buffer.from(JSON.stringify(body), 'utf8');
+    if (!this.nkapPayService.verifyWebhookSignature(rawBody, signature)) {
+      this.logger.warn('Nkap Pay webhook rejected: invalid or missing signature');
+      throw new UnauthorizedException('Invalid webhook signature');
+    }
+
+    const data = body?.data || {};
+    const status: NkapPayStatus = data.status;
+
+    // Always ack: the sender retries 5 times on anything that is not 2xx, and a
+    // status we do not act on is still a delivery we accepted.
+    if (status !== 'COMPLETED') {
+      this.logger.log(
+        `Nkap Pay payment ${data.reference} is ${status}` +
+          (data.failure_code ? ` (${data.failure_code}: ${data.failure_reason})` : ''),
+      );
+      return { status: 'ok', received: true };
+    }
+
+    const merchantRef: string | undefined = data.merchant_reference;
+    const transactionId: string =
+      data.provider_transaction_id || data.payment_id || data.reference;
+
+    if (!merchantRef) {
+      this.logger.warn(`Nkap Pay webhook without merchant_reference: ${data.reference}`);
+      return { status: 'ok', received: true };
+    }
+
+    // Same convention as the other providers:
+    // WAZEAPP-{userId}-{plan}-{timestamp} or WAZEAPP-{userId}-INVOICE-{invoiceId}-...
+    const parts = merchantRef.split('-');
+    if (parts.length < 3 || parts[0] !== 'WAZEAPP') {
+      this.logger.warn(`Nkap Pay merchant_reference not recognised: ${merchantRef}`);
+      return { status: 'ok', received: true };
+    }
+
+    const userId = parts[1];
+    const planOrInvoice = parts[2].toUpperCase();
+
+    // Webhooks may be delivered more than once; replaying an upgrade would
+    // extend the subscription twice.
+    const existingSubscription = await this.subscriptionUpgradeService.getSubscription(userId);
+    if (existingSubscription?.metadata?.lastPayment?.transactionId === transactionId) {
+      this.logger.warn(`Nkap Pay duplicate webhook for ${transactionId}, skipping`);
+      return { status: 'ok', received: true };
+    }
+
+    if (planOrInvoice === 'INVOICE' && parts.length >= 4) {
+      const invoiceId = parts[3];
+      try {
+        await this.invoiceService.markAsPaid(
+          invoiceId,
+          data.method === 'BANK_CARD' ? 'card' : 'mobile_money',
+          transactionId,
+        );
+        this.logger.log(`Invoice ${invoiceId} marked as paid via Nkap Pay`);
+      } catch (invoiceError) {
+        this.logger.error(`Failed to mark invoice as paid: ${invoiceError.message}`);
+      }
+      return { status: 'ok', received: true };
+    }
+
+    if (['STANDARD', 'PRO', 'ENTERPRISE'].includes(planOrInvoice)) {
+      const paymentDetails: PaymentDetails = {
+        transactionId,
+        ptn: data.reference,
+        plan: planOrInvoice as 'STANDARD' | 'PRO' | 'ENTERPRISE',
+        amount: data.amount || 0,
+        currency: data.currency || 'XAF',
+        billingPeriod: 'monthly',
+        paymentMethod: data.method === 'BANK_CARD' ? 'card' : 'mobile_money',
+        paymentProvider: 'nkappay',
+      };
+
+      const orgId = parts.length >= 5 ? parts[3] : undefined;
+      const upgradeResult = orgId
+        ? await this.subscriptionUpgradeService.upgradeOrganizationSubscription(orgId, paymentDetails)
+        : await this.subscriptionUpgradeService.upgradeUserSubscription(userId, paymentDetails);
+
+      this.logger.log(`Nkap Pay subscription upgrade: ${JSON.stringify(upgradeResult)}`);
+    }
+
+    return { status: 'ok', received: true };
+  }
+
+  @Get('nkappay/ping')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Check Nkap Pay credentials and merchant configuration' })
+  async pingNkapPay(): Promise<any> {
+    if (!this.nkapPayService.isConfigured()) {
+      return { connected: false, error: 'NKAPPAY_API_KEY / NKAPPAY_API_SECRET not configured' };
+    }
+    try {
+      const merchant = await this.nkapPayService.getMerchantInfo();
+      return { connected: true, merchant };
+    } catch (error) {
+      return { connected: false, error: error.message };
     }
   }
 }

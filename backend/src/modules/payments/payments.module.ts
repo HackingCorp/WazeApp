@@ -5,6 +5,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { S3PService } from './s3p.service';
 import { S3PReconciliationService } from './s3p-reconciliation.service';
 import { EnkapService } from './enkap.service';
+import { NkapPayService } from './nkappay.service';
 import { CurrencyService } from './currency.service';
 import { SubscriptionUpgradeService } from './subscription-upgrade.service';
 import { StripeService } from './stripe.service';
@@ -28,7 +29,7 @@ import { SubscriptionModule } from '../subscriptions/subscription.module';
     forwardRef(() => SubscriptionModule), // Import SubscriptionModule for PlanService
   ],
   controllers: [MobileMoneyController, PricingController, StripeController],
-  providers: [S3PService, S3PReconciliationService, EnkapService, CurrencyService, SubscriptionUpgradeService, StripeService],
-  exports: [S3PService, S3PReconciliationService, EnkapService, CurrencyService, SubscriptionUpgradeService, StripeService],
+  providers: [S3PService, S3PReconciliationService, EnkapService, NkapPayService, CurrencyService, SubscriptionUpgradeService, StripeService],
+  exports: [S3PService, S3PReconciliationService, EnkapService, NkapPayService, CurrencyService, SubscriptionUpgradeService, StripeService],
 })
 export class PaymentsModule {}

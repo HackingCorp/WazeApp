@@ -18,7 +18,7 @@ export interface PaymentDetails {
   currency: string;
   billingPeriod: 'monthly' | 'annually';
   paymentMethod: 'mobile_money' | 'card' | 'bank_transfer';
-  paymentProvider: 's3p' | 'enkap' | 'stripe';
+  paymentProvider: 's3p' | 'enkap' | 'stripe' | 'nkappay';
 }
 
 export interface UpgradeResult {

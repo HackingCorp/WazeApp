@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsString, IsNumber, IsEmail, IsOptional, IsArray, ValidateNested, IsEnum, Min } from 'class-validator';
+import { IsString, IsNumber, IsEmail, IsOptional, IsArray, ValidateNested, IsEnum, IsIn, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export enum PaymentType {
@@ -138,4 +138,113 @@ export class CheckEnkapStatusDto {
   @ApiProperty({ description: 'Transaction ID E-nkap', example: 'TX-123456' })
   @IsString()
   txid: string;
+}
+
+export class NkapPayCustomerInfoDto {
+  @ApiPropertyOptional({ description: 'Nom du client', example: 'Jean-Pierre Mbarga' })
+  @IsOptional()
+  @IsString()
+  name?: string;
+
+  @ApiPropertyOptional({ description: 'Email du client', example: 'client@example.com' })
+  @IsOptional()
+  @IsString()
+  email?: string;
+
+  @ApiPropertyOptional({ description: 'Téléphone du client (E.164)', example: '237670123456' })
+  @IsOptional()
+  @IsString()
+  phone?: string;
+}
+
+export class NkapPayPaymentDto {
+  @ApiProperty({ description: 'Montant en unité entière (5000 = 5 000 XAF)', example: 5000 })
+  @IsNumber()
+  @Min(100)
+  amount: number;
+
+  @ApiPropertyOptional({
+    description: 'Devise de règlement. Auto-détectée depuis le pays si omise.',
+    example: 'XAF',
+  })
+  @IsOptional()
+  @IsString()
+  currency?: string;
+
+  @ApiPropertyOptional({ description: 'Votre référence de commande interne' })
+  @IsOptional()
+  @IsString()
+  merchantReference?: string;
+
+  @ApiPropertyOptional({ description: 'Description affichée au client' })
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+  @ApiPropertyOptional({
+    description: 'MOBILE_MONEY ou BANK_CARD. Omettre pour laisser le client choisir.',
+    enum: ['MOBILE_MONEY', 'BANK_CARD'],
+  })
+  @IsOptional()
+  @IsIn(['MOBILE_MONEY', 'BANK_CARD'])
+  paymentMethod?: 'MOBILE_MONEY' | 'BANK_CARD';
+
+  @ApiPropertyOptional({
+    description: 'SDK, DIRECT_API ou STRIPE. Auto-détecté si operator + customerPhone fournis.',
+    enum: ['SDK', 'DIRECT_API', 'STRIPE'],
+  })
+  @IsOptional()
+  @IsIn(['SDK', 'DIRECT_API', 'STRIPE'])
+  paymentMode?: 'SDK' | 'DIRECT_API' | 'STRIPE';
+
+  @ApiPropertyOptional({ description: 'Code pays ISO 3166-1 alpha-2', example: 'CM' })
+  @IsOptional()
+  @IsString()
+  country?: string;
+
+  @ApiPropertyOptional({
+    description: 'Code opérateur. Requis si paymentMode = DIRECT_API.',
+    example: 'MTN',
+  })
+  @IsOptional()
+  @IsString()
+  operator?: string;
+
+  @ApiPropertyOptional({
+    description: 'Numéro du client. Requis si paymentMode = DIRECT_API.',
+    example: '237670000000',
+  })
+  @IsOptional()
+  @IsString()
+  customerPhone?: string;
+
+  @ApiPropertyOptional({ description: 'Infos client', type: NkapPayCustomerInfoDto })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => NkapPayCustomerInfoDto)
+  customerInfo?: NkapPayCustomerInfoDto;
+
+  @ApiPropertyOptional({ description: 'URL de redirection après paiement' })
+  @IsOptional()
+  @IsString()
+  returnUrl?: string;
+
+  @ApiPropertyOptional({ description: 'Webhook spécifique à ce paiement' })
+  @IsOptional()
+  @IsString()
+  callbackUrl?: string;
+
+  @ApiPropertyOptional({ description: 'Montant indicatif affiché (jamais débité)', example: 50 })
+  @IsOptional()
+  @IsNumber()
+  displayAmount?: number;
+
+  @ApiPropertyOptional({ description: 'Devise du montant indicatif', example: 'EUR' })
+  @IsOptional()
+  @IsString()
+  displayCurrency?: string;
+
+  @ApiPropertyOptional({ description: 'Métadonnées libres renvoyées dans les webhooks' })
+  @IsOptional()
+  metadata?: Record<string, any>;
 }

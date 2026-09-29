@@ -12,7 +12,7 @@ interface MessageCreditsPurchaseModalProps {
   onSuccess: () => void;
 }
 
-type PaymentProvider = 'mtn' | 'orange' | 'enkap' | 'stripe';
+type PaymentProvider = 'nkappay' | 'mtn' | 'orange' | 'enkap' | 'stripe';
 type PaymentStatus = 'idle' | 'processing' | 'pending' | 'success' | 'failed';
 
 interface PricingInfo {
@@ -176,12 +176,48 @@ export function MessageCreditsPurchaseModal({
 
   const handleInitiatePayment = async () => {
     if (!provider || !calculatedPrice) return;
-    if (provider !== 'enkap' && provider !== 'stripe' && !phoneNumber) return;
+    if (provider !== 'nkappay' && provider !== 'enkap' && provider !== 'stripe' && !phoneNumber) return;
 
     setStatus('processing');
     setError(null);
 
     try {
+      if (provider === 'nkappay') {
+        // Priced by the backend from the credit count; the page never sends a total.
+        const response = await api.buyCreditsViaNkapPay({
+          creditAmount: amount,
+          returnUrl: `${window.location.origin}/billing?payment=nkappay&credits=${amount}`,
+        });
+
+        if (!response.success || !response.data) {
+          setStatus('failed');
+          setError(response.error || "Erreur lors de l'initiation du paiement");
+          return;
+        }
+
+        const data = response.data;
+        if (!data.paymentUrl) {
+          setStatus('failed');
+          setError('URL de paiement non disponible');
+          return;
+        }
+
+        const ALLOWED_PAYMENT_HOSTS = ['pay.ltcgroup.site', 'checkout.stripe.com'];
+        try {
+          const paymentHost = new URL(data.paymentUrl).hostname;
+          if (!ALLOWED_PAYMENT_HOSTS.some(h => paymentHost === h || paymentHost.endsWith('.' + h))) {
+            throw new Error('Unexpected payment redirect');
+          }
+        } catch {
+          setStatus('failed');
+          setError('URL de paiement invalide');
+          return;
+        }
+
+        window.location.href = data.paymentUrl;
+        return;
+      }
+
       if (provider === 'stripe') {
         // Initiate Stripe payment for credits
         const response = await api.createStripeCreditCheckout({
@@ -567,6 +603,23 @@ export function MessageCreditsPurchaseModal({
                 </label>
                 <div className="grid grid-cols-2 gap-3">
                   <button
+                    onClick={() => setProvider('nkappay')}
+                    className={clsx(
+                      'p-3 rounded-xl border-2 transition-all flex flex-col items-center gap-2 relative',
+                      provider === 'nkappay'
+                        ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20'
+                        : 'border-emerald-300 dark:border-emerald-700 hover:border-emerald-500'
+                    )}
+                  >
+                    <span className="absolute -top-2 right-2 text-[9px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-emerald-500 text-white">
+                      Recommandé
+                    </span>
+                    <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-green-600 rounded-full flex items-center justify-center">
+                      <Smartphone className="w-5 h-5 text-white" />
+                    </div>
+                    <span className="text-xs font-medium text-gray-900 dark:text-white">Nkap Pay</span>
+                  </button>
+                  <button
                     onClick={() => setProvider('mtn')}
                     className={clsx(
                       'p-3 rounded-xl border-2 transition-all flex flex-col items-center gap-2',
@@ -622,7 +675,7 @@ export function MessageCreditsPurchaseModal({
               </div>
 
               {/* Phone Number Input - Only for Mobile Money */}
-              {provider && provider !== 'enkap' && provider !== 'stripe' && (
+              {provider && provider !== 'nkappay' && provider !== 'enkap' && provider !== 'stripe' && (
                 <div className="mb-6">
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Numéro de téléphone
@@ -685,16 +738,16 @@ export function MessageCreditsPurchaseModal({
               {/* Submit Button */}
               <button
                 onClick={handleInitiatePayment}
-                disabled={!provider || (provider !== 'enkap' && provider !== 'stripe' && phoneNumber.replace(/\D/g, '').length < 9)}
+                disabled={!provider || (provider !== 'nkappay' && provider !== 'enkap' && provider !== 'stripe' && phoneNumber.replace(/\D/g, '').length < 9)}
                 className={clsx(
                   'w-full py-3.5 rounded-xl font-semibold transition-all flex items-center justify-center gap-2',
-                  provider && (provider === 'enkap' || provider === 'stripe' || phoneNumber.replace(/\D/g, '').length >= 9)
+                  provider && (provider === 'nkappay' || provider === 'enkap' || provider === 'stripe' || phoneNumber.replace(/\D/g, '').length >= 9)
                     ? 'bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-600 hover:to-green-600 text-white shadow-lg shadow-emerald-500/25'
                     : 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed'
                 )}
               >
-                {provider === 'enkap' || provider === 'stripe' ? <CreditCard className="w-5 h-5" /> : <Gift className="w-5 h-5" />}
-                {provider === 'stripe' ? 'Payer via Stripe' : provider === 'enkap' ? 'Payer par carte' : 'Acheter'} {amount.toLocaleString()} messages - {calculatedPrice?.xaf.toLocaleString()} FCFA
+                {provider === 'nkappay' ? <Smartphone className="w-5 h-5" /> : provider === 'enkap' || provider === 'stripe' ? <CreditCard className="w-5 h-5" /> : <Gift className="w-5 h-5" />}
+                {provider === 'nkappay' ? 'Payer via Nkap Pay' : provider === 'stripe' ? 'Payer via Stripe' : provider === 'enkap' ? 'Payer par carte' : 'Acheter'} {amount.toLocaleString()} messages - {calculatedPrice?.xaf.toLocaleString()} FCFA
               </button>
             </>
           )}

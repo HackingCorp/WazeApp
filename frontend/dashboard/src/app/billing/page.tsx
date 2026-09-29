@@ -154,6 +154,32 @@ export default function BillingPage() {
       const url = new URL(window.location.href);
       url.searchParams.delete('payment');
       window.history.replaceState({}, '', url.pathname);
+    } else if (paymentStatus === 'nkappay') {
+      // Back from the Nkap Pay hosted page. The webhook is what activates the
+      // plan or credits, so this only acknowledges and refreshes a little later.
+      const credits = searchParams.get('credits');
+      toast.success(
+        credits
+          ? `Paiement Nkap Pay reçu — ${Number(credits).toLocaleString('fr-FR')} messages seront crédités dans quelques instants.`
+          : plan
+            ? t('billing.paymentReceived').replace('{{plan}}', plan.toUpperCase())
+            : 'Paiement Nkap Pay reçu — activation en cours.',
+        { duration: 6000 },
+      );
+
+      setTimeout(() => {
+        refreshAuth();
+        fetchInvoices();
+        api.getBillingSummary().then(res => {
+          if (res.success) setSummary(res.data);
+        }).catch(() => {});
+      }, 4000);
+
+      const url = new URL(window.location.href);
+      url.searchParams.delete('payment');
+      url.searchParams.delete('plan');
+      url.searchParams.delete('credits');
+      window.history.replaceState({}, '', url.pathname);
     } else if (paymentStatus === 'success' && plan) {
       toast.success(t('billing.paymentReceived').replace('{{plan}}', plan.toUpperCase()), {
         duration: 5000,

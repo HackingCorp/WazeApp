@@ -35,6 +35,7 @@ import { S3PService, S3PPaymentRequest, S3PPaymentResponse } from './s3p.service
 import { S3PReconciliationService } from './s3p-reconciliation.service';
 import { EnkapService } from './enkap.service';
 import { NkapPayService, NkapPayStatus } from './nkappay.service';
+import { NkapPayCheckoutService, PlanCode, BillingPeriod } from './nkappay-checkout.service';
 import { CurrencyService } from './currency.service';
 import { SubscriptionUpgradeService, PaymentDetails } from './subscription-upgrade.service';
 import { InvoiceService } from '../subscriptions/invoice.service';
@@ -45,6 +46,8 @@ import {
   VerifyS3PPaymentDto,
   CheckEnkapStatusDto,
   NkapPayPaymentDto,
+  NkapPaySubscriptionDto,
+  NkapPayCreditsDto,
 } from './dto/payment.dto';
 
 export class MobileMoneyPaymentDto {
@@ -117,6 +120,7 @@ export class MobileMoneyController {
     private readonly s3pReconciliation: S3PReconciliationService,
     private readonly enkapService: EnkapService,
     private readonly nkapPayService: NkapPayService,
+    private readonly nkapPayCheckout: NkapPayCheckoutService,
     private readonly currencyService: CurrencyService,
     private readonly subscriptionUpgradeService: SubscriptionUpgradeService,
     private readonly invoiceService: InvoiceService,
@@ -820,6 +824,77 @@ export class MobileMoneyController {
     return result;
   }
 
+  @Post('nkappay/subscribe')
+  @UseGuards(JwtAuthGuard)
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Pay for a plan through Nkap Pay (amount priced server-side)',
+  })
+  @ApiBody({ type: NkapPaySubscriptionDto })
+  async subscribeViaNkapPay(
+    @Body() dto: NkapPaySubscriptionDto,
+    @CurrentUser() user: User,
+  ): Promise<any> {
+    const result = await this.nkapPayCheckout.createSubscriptionPayment(
+      user,
+      dto.planCode as PlanCode,
+      (dto.billingPeriod || 'monthly') as BillingPeriod,
+      {
+        country: dto.country,
+        operator: dto.operator,
+        customerPhone: dto.customerPhone,
+        paymentMethod: dto.paymentMethod,
+        returnUrl: dto.returnUrl,
+      },
+    );
+
+    if (!result.success) {
+      throw new HttpException(
+        {
+          message: result.error,
+          failureCode: result.failureCode,
+          retryable: result.retryable ?? false,
+          retryAfter: result.retryAfter,
+        },
+        result.retryable ? HttpStatus.SERVICE_UNAVAILABLE : HttpStatus.PAYMENT_REQUIRED,
+      );
+    }
+    return result;
+  }
+
+  @Post('nkappay/credits')
+  @UseGuards(JwtAuthGuard)
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Buy message credits through Nkap Pay (priced server-side)' })
+  @ApiBody({ type: NkapPayCreditsDto })
+  async buyCreditsViaNkapPay(
+    @Body() dto: NkapPayCreditsDto,
+    @CurrentUser() user: User,
+  ): Promise<any> {
+    const result = await this.nkapPayCheckout.createCreditsPayment(user, dto.creditAmount, {
+      country: dto.country,
+      operator: dto.operator,
+      customerPhone: dto.customerPhone,
+      paymentMethod: dto.paymentMethod,
+      returnUrl: dto.returnUrl,
+    });
+
+    if (!result.success) {
+      throw new HttpException(
+        {
+          message: result.error,
+          failureCode: result.failureCode,
+          retryable: result.retryable ?? false,
+          retryAfter: result.retryAfter,
+        },
+        result.retryable ? HttpStatus.SERVICE_UNAVAILABLE : HttpStatus.PAYMENT_REQUIRED,
+      );
+    }
+    return result;
+  }
+
   @Get('nkappay/status')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
@@ -927,14 +1002,52 @@ export class MobileMoneyController {
       return { status: 'ok', received: true };
     }
 
+    // WAZEAPP-{userId}-CREDITS-{orgId}-{creditAmount}-{timestamp}
+    if (planOrInvoice === 'CREDITS' && parts.length >= 5) {
+      const orgId = parts[3];
+      const creditAmount = parseInt(parts[4], 10);
+      if (!orgId || !Number.isFinite(creditAmount) || creditAmount <= 0) {
+        this.logger.warn(`Nkap Pay credits reference malformed: ${merchantRef}`);
+        return { status: 'ok', received: true };
+      }
+      await this.nkapPayCheckout.grantCredits(
+        orgId,
+        creditAmount,
+        transactionId,
+        data.reference,
+      );
+      return { status: 'ok', received: true };
+    }
+
     if (['STANDARD', 'PRO', 'ENTERPRISE'].includes(planOrInvoice)) {
+      const plan = planOrInvoice as 'STANDARD' | 'PRO' | 'ENTERPRISE';
+      const billingPeriod: 'monthly' | 'annually' = 'monthly';
+      const currency = data.currency || 'XAF';
+
+      // The reference states what was bought and reaches us through the
+      // customer; only the amount comes straight from the provider. Checking
+      // one against the other is what stops a hand-made reference from buying
+      // Enterprise for the price of a coffee.
+      const amountOk = await this.nkapPayCheckout.verifyPaidAmount(
+        plan,
+        billingPeriod,
+        data.amount || 0,
+        currency,
+      );
+      if (!amountOk) {
+        this.logger.error(
+          `Nkap Pay underpaid ${plan}: ${data.amount} ${currency} on ${merchantRef} — upgrade refused`,
+        );
+        return { status: 'ok', received: true };
+      }
+
       const paymentDetails: PaymentDetails = {
         transactionId,
         ptn: data.reference,
-        plan: planOrInvoice as 'STANDARD' | 'PRO' | 'ENTERPRISE',
+        plan,
         amount: data.amount || 0,
-        currency: data.currency || 'XAF',
-        billingPeriod: 'monthly',
+        currency,
+        billingPeriod,
         paymentMethod: data.method === 'BANK_CARD' ? 'card' : 'mobile_money',
         paymentProvider: 'nkappay',
       };

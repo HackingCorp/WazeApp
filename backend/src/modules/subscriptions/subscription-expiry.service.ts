@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, LessThanOrEqual, In, Not } from 'typeorm';
+import { Repository, LessThanOrEqual, Between, In, Not } from 'typeorm';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { Subscription, Invoice, InvoiceStatus, User, OrganizationMember } from '../../common/entities';
 import { SubscriptionStatus, SubscriptionPlan, UserRole } from '../../common/enums';
@@ -12,6 +12,9 @@ import { EmailService } from '../email/email.service';
  * During this period, the user receives daily reminders but keeps their plan features.
  */
 const GRACE_PERIOD_DAYS = 14;
+
+/** Days before the billing date at which a renewal reminder goes out (descending). */
+const RENEWAL_REMINDER_DAYS = [7, 3, 1];
 
 @Injectable()
 export class SubscriptionExpiryService {
@@ -97,6 +100,78 @@ export class SubscriptionExpiryService {
 
     if (markedCount > 0) {
       this.logger.log(`Marked ${markedCount} subscription(s) as PAST_DUE`);
+    }
+  }
+
+  /**
+   * Cron 0: Remind before the billing date, at J-7, J-3 and J-1.
+   *
+   * Runs daily at 9AM. Renewal is a manual payment (Mobile Money or card
+   * through Nkap Pay), so without this the first thing a customer hears is
+   * the past-due notice. Each step is recorded on the subscription so a day
+   * the cron runs twice, or a restart, does not resend it.
+   */
+  @Cron('0 9 * * *')
+  async sendRenewalReminders(): Promise<void> {
+    const now = new Date();
+    const horizon = new Date(now);
+    horizon.setDate(horizon.getDate() + RENEWAL_REMINDER_DAYS[0] + 1);
+
+    const upcoming = await this.subscriptionRepository.find({
+      where: {
+        status: SubscriptionStatus.ACTIVE,
+        plan: Not(SubscriptionPlan.FREE),
+        nextBillingDate: Between(now, horizon),
+      },
+    });
+
+    let sent = 0;
+    for (const subscription of upcoming) {
+      if (!subscription.nextBillingDate) continue;
+
+      const daysLeft = Math.ceil(
+        (subscription.nextBillingDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
+      );
+      // The step is the smallest threshold still ahead: 6 days left is the
+      // J-7 mail, 2 days left the J-3 one. Once a step is stamped it is never
+      // resent, so the next mail waits for the next threshold.
+      const step = [...RENEWAL_REMINDER_DAYS].reverse().find((d) => daysLeft <= d);
+      if (!step) continue;
+
+      const periodKey = subscription.nextBillingDate.toISOString().slice(0, 10);
+      const already: Record<string, string> = subscription.metadata?.renewalReminders || {};
+      const stampKey = `${periodKey}:J-${step}`;
+      if (already[stampKey]) continue;
+
+      if (await this.hasPaidInvoiceForCurrentPeriod(subscription)) continue;
+
+      const recipients = await this.getSubscriptionRecipients(subscription);
+      for (const user of recipients) {
+        try {
+          await this.emailService.sendSubscriptionRenewalReminderEmail(
+            user.email,
+            user.firstName || user.email.split('@')[0],
+            {
+              planName: subscription.plan,
+              nextBillingDate: subscription.nextBillingDate,
+              daysLeft: Math.max(1, daysLeft),
+            },
+          );
+          sent++;
+        } catch (error) {
+          this.logger.error(`Failed to send renewal reminder for subscription ${subscription.id}: ${error.message}`);
+        }
+      }
+
+      subscription.metadata = {
+        ...subscription.metadata,
+        renewalReminders: { ...already, [stampKey]: now.toISOString() },
+      };
+      await this.subscriptionRepository.save(subscription);
+    }
+
+    if (sent > 0) {
+      this.logger.log(`Sent ${sent} renewal reminder(s)`);
     }
   }
 

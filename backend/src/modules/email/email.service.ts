@@ -619,6 +619,43 @@ ${this.buttonHtml(button, dashboardUrl)}
   }
 
   /**
+   * Heads-up before a subscription reaches its billing date. Nkap Pay has no
+   * automatic renewal, so this is what stands in for the card being charged.
+   */
+  async sendSubscriptionRenewalReminderEmail(
+    email: string,
+    firstName: string,
+    details: {
+      planName: string;
+      nextBillingDate: Date;
+      daysLeft: number;
+    },
+  ): Promise<void> {
+    const dashboardUrl = this.getDashboardUrl();
+    const billingUrl = `${dashboardUrl}/billing`;
+    const html = this.getSubscriptionRenewalReminderEmailTemplate(firstName, details, billingUrl);
+    const when = details.daysLeft <= 1 ? 'demain' : `dans ${details.daysLeft} jours`;
+
+    if (!this.transporter) {
+      this.logger.warn(`SMTP not configured, skipping renewal reminder to ${email}`);
+      return;
+    }
+
+    try {
+      await this.transporter.sendMail({
+        from: `"${this.getFromName()}" <${this.getFromAddress()}>`,
+        to: email,
+        subject: `Votre abonnement ${details.planName} arrive a echeance ${when}`,
+        html,
+        text: `Bonjour ${firstName},\n\nVotre abonnement ${details.planName} arrive a echeance le ${details.nextBillingDate.toLocaleDateString('fr-FR')}.\n\nLe renouvellement n'est pas automatique : renouvelez-le en Mobile Money ou par carte depuis votre espace facturation pour eviter toute interruption.\n\nRenouveler: ${billingUrl}\n\nL'equipe WazeApp`,
+      });
+      this.logger.log(`Renewal reminder (J-${details.daysLeft}) sent to ${email}`);
+    } catch (error) {
+      this.logger.error(`Failed to send renewal reminder to ${email}: ${error.message}`);
+    }
+  }
+
+  /**
    * Send email when subscription is downgraded to FREE after grace period
    */
   async sendSubscriptionDowngradedEmail(
@@ -1422,6 +1459,39 @@ Passé ce délai, votre compte sera automatiquement rétrogradé vers le plan gr
 et vous perdrez l'accès aux fonctionnalités du plan ${details.planName}.
 </p>
 ${this.buttonHtml('Payer maintenant', billingUrl)}
+      `,
+    });
+  }
+
+  private getSubscriptionRenewalReminderEmailTemplate(
+    firstName: string,
+    details: { planName: string; nextBillingDate: Date; daysLeft: number },
+    billingUrl: string,
+  ): string {
+    const dateLabel = details.nextBillingDate.toLocaleDateString('fr-FR');
+    const urgency = details.daysLeft <= 1 ? 'error' : details.daysLeft <= 3 ? 'warning' : 'info';
+    const when = details.daysLeft <= 1 ? 'demain' : `dans ${details.daysLeft} jours`;
+    return this.baseTemplate({
+      title: 'Renouvellement a prevoir',
+      preheader: `Votre abonnement ${details.planName} arrive a echeance ${when}`,
+      accentColor: details.daysLeft <= 1 ? '#ef4444' : '#10b981',
+      content: `
+<h1 style="margin:0 0 16px 0;font-size:22px;font-weight:700;color:#111827;">Votre abonnement arrive à échéance ${when}</h1>
+<p style="margin:0 0 16px 0;font-size:15px;color:#6b7280;line-height:1.6;">
+Bonjour <strong style="color:#111827;">${firstName}</strong>,
+</p>
+${this.alertBoxHtml(`Votre abonnement ${details.planName} arrive à échéance le ${dateLabel}.`, urgency)}
+<p style="margin:0 0 16px 0;font-size:15px;color:#6b7280;line-height:1.6;">
+Le renouvellement n'est pas automatique. Pour conserver vos agents, vos quotas et vos
+sessions WhatsApp sans interruption, renouvelez-le avant cette date en
+<strong style="color:#111827;">Mobile Money</strong> (MTN, Orange, Wave…) ou
+<strong style="color:#111827;">par carte</strong>.
+</p>
+<p style="margin:0 0 16px 0;font-size:15px;color:#6b7280;line-height:1.6;">
+Après l'échéance, vous disposez encore de quelques jours de délai avant que le compte
+ne repasse au plan gratuit.
+</p>
+${this.buttonHtml('Renouveler maintenant', billingUrl)}
       `,
     });
   }

@@ -248,3 +248,76 @@ export class NkapPayPaymentDto {
   @IsOptional()
   metadata?: Record<string, any>;
 }
+
+/**
+ * Buy a plan through Nkap Pay. The amount is deliberately absent: it is read
+ * from the plan in the database, so the caller cannot choose what to pay.
+ */
+export class NkapPaySubscriptionDto {
+  @ApiProperty({ description: 'Plan acheté', enum: ['STANDARD', 'PRO', 'ENTERPRISE'] })
+  @IsIn(['STANDARD', 'PRO', 'ENTERPRISE'])
+  planCode: 'STANDARD' | 'PRO' | 'ENTERPRISE';
+
+  @ApiPropertyOptional({ description: 'Périodicité', enum: ['monthly', 'annually'] })
+  @IsOptional()
+  @IsIn(['monthly', 'annually'])
+  billingPeriod?: 'monthly' | 'annually';
+
+  @ApiPropertyOptional({ description: 'Code pays ISO 3166-1 alpha-2', example: 'CM' })
+  @IsOptional()
+  @IsString()
+  country?: string;
+
+  @ApiPropertyOptional({ description: 'Code opérateur Mobile Money', example: 'MTN' })
+  @IsOptional()
+  @IsString()
+  operator?: string;
+
+  @ApiPropertyOptional({ description: 'Numéro du payeur', example: '237670000000' })
+  @IsOptional()
+  @IsString()
+  customerPhone?: string;
+
+  @ApiPropertyOptional({ description: 'MOBILE_MONEY ou BANK_CARD', enum: ['MOBILE_MONEY', 'BANK_CARD'] })
+  @IsOptional()
+  @IsIn(['MOBILE_MONEY', 'BANK_CARD'])
+  paymentMethod?: 'MOBILE_MONEY' | 'BANK_CARD';
+
+  @ApiPropertyOptional({ description: 'URL de retour après paiement' })
+  @IsOptional()
+  @IsString()
+  returnUrl?: string;
+}
+
+/** Buy message credits through Nkap Pay. Priced server-side, like the plans. */
+export class NkapPayCreditsDto {
+  @ApiProperty({ description: 'Nombre de messages achetés', example: 5000 })
+  @IsNumber()
+  @Min(1000)
+  creditAmount: number;
+
+  @ApiPropertyOptional({ description: 'Code pays ISO 3166-1 alpha-2', example: 'CM' })
+  @IsOptional()
+  @IsString()
+  country?: string;
+
+  @ApiPropertyOptional({ description: 'Code opérateur Mobile Money', example: 'MTN' })
+  @IsOptional()
+  @IsString()
+  operator?: string;
+
+  @ApiPropertyOptional({ description: 'Numéro du payeur', example: '237670000000' })
+  @IsOptional()
+  @IsString()
+  customerPhone?: string;
+
+  @ApiPropertyOptional({ description: 'MOBILE_MONEY ou BANK_CARD', enum: ['MOBILE_MONEY', 'BANK_CARD'] })
+  @IsOptional()
+  @IsIn(['MOBILE_MONEY', 'BANK_CARD'])
+  paymentMethod?: 'MOBILE_MONEY' | 'BANK_CARD';
+
+  @ApiPropertyOptional({ description: 'URL de retour après paiement' })
+  @IsOptional()
+  @IsString()
+  returnUrl?: string;
+}

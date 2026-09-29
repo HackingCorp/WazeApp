@@ -463,9 +463,20 @@ export default function DashboardPage() {
                   onClick={async () => {
                     setRenewLoading(true);
                     try {
-                      const res = await apiHelpers.stripe.renewSubscriptionNow();
-                      if (res.success && res.data?.url) {
-                        window.location.href = res.data.url;
+                      // Manual renewal through Nkap Pay: the current plan is
+                      // re-bought for one more period, priced by the backend.
+                      const planCode = String(user?.organization?.plan || '').toUpperCase();
+                      if (!['STANDARD', 'PRO', 'ENTERPRISE'].includes(planCode)) {
+                        window.location.href = '/billing';
+                        return;
+                      }
+                      const res = await apiHelpers.nkappay.subscribe({
+                        planCode: planCode as 'STANDARD' | 'PRO' | 'ENTERPRISE',
+                        billingPeriod: 'monthly',
+                        returnUrl: `${window.location.origin}/billing?payment=nkappay&plan=${planCode.toLowerCase()}`,
+                      });
+                      if (res.success && res.data?.paymentUrl) {
+                        window.location.href = res.data.paymentUrl;
                       } else if (/Too Many Requests|Throttler/i.test(res.error || '')) {
                         alert('Trop de tentatives. Patientez une minute avant de réessayer.');
                       } else {

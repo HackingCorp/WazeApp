@@ -28,7 +28,7 @@ interface PaymentModalProps {
 
 const MOBILE_MONEY_CURRENCIES = ['XAF', 'XOF'];
 
-type PaymentMethod = 'mobile' | 'card' | 'stripe' | null;
+type PaymentMethod = 'nkappay' | 'mobile' | 'card' | 'stripe' | null;
 type MobileProvider = 'mtn' | 'orange';
 type PaymentStatus = 'idle' | 'processing' | 'pending' | 'success' | 'failed' | 'redirecting';
 
@@ -377,6 +377,73 @@ export function PaymentModal({
   };
 
   // ============================================
+  // NKAP PAY (Mobile Money + carte, page hébergée)
+  // ============================================
+  // The amount is not sent: the backend prices the plan itself, so the page
+  // cannot be talked into charging less than the plan costs.
+  const handleNkapPayPayment = async () => {
+    if (!plan) return;
+
+    if (plan.isInvoice) {
+      setStatus('failed');
+      setError("Le paiement de facture via Nkap Pay n'est pas encore disponible. Utilisez un autre moyen ci-dessous.");
+      return;
+    }
+
+    setPaymentMethod('nkappay');
+    setStatus('processing');
+    setError(null);
+
+    try {
+      const response = await api.subscribeViaNkapPay({
+        planCode: plan.id.toUpperCase() as 'STANDARD' | 'PRO' | 'ENTERPRISE',
+        billingPeriod,
+        returnUrl: `${window.location.origin}/billing?payment=nkappay&plan=${plan.id}`,
+      });
+
+      if (!response.success || !response.data) {
+        setStatus('failed');
+        setError(response.error || "Erreur lors de l'initiation du paiement");
+        return;
+      }
+
+      const data = response.data;
+      if (data.reference) setTransactionRef(data.reference);
+
+      if (!data.paymentUrl) {
+        setStatus('failed');
+        setError('URL de paiement non disponible');
+        return;
+      }
+
+      // Nkap Pay hosts the page itself, or hands off to Stripe Checkout.
+      const ALLOWED_PAYMENT_HOSTS = ['pay.ltcgroup.site', 'checkout.stripe.com'];
+      try {
+        const paymentHost = new URL(data.paymentUrl).hostname;
+        if (!ALLOWED_PAYMENT_HOSTS.some(h => paymentHost === h || paymentHost.endsWith('.' + h))) {
+          throw new Error('Unexpected payment redirect');
+        }
+      } catch {
+        setStatus('failed');
+        setError('URL de paiement invalide');
+        return;
+      }
+
+      setPaymentUrl(data.paymentUrl);
+      setStatus('redirecting');
+      setTimeout(() => {
+        window.location.href = data.paymentUrl as string;
+      }, 1500);
+    } catch (err) {
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Nkap Pay payment error:', err);
+      }
+      setStatus('failed');
+      setError('Une erreur est survenue. Veuillez reessayer.');
+    }
+  };
+
+  // ============================================
   // STRIPE INTERNATIONAL CARD PAYMENT
   // ============================================
   const handleStripePayment = async () => {
@@ -447,6 +514,7 @@ export function PaymentModal({
             )}
             <h2 className="text-xl font-bold text-white">
               {!paymentMethod ? 'Choisir le mode de paiement' :
+               paymentMethod === 'nkappay' ? 'Paiement Nkap Pay' :
                paymentMethod === 'mobile' ? 'Paiement Mobile Money' :
                paymentMethod === 'stripe' ? 'Carte Internationale (Stripe)' : 'Paiement par Carte'}
             </h2>
@@ -481,7 +549,7 @@ export function PaymentModal({
                 Redirection vers la page de paiement...
               </h3>
               <p className="text-gray-500 dark:text-gray-400">
-                Vous allez être redirigé vers E-nkap pour finaliser votre paiement
+                Vous allez être redirigé vers {paymentMethod === 'nkappay' ? 'Nkap Pay' : paymentMethod === 'stripe' ? 'Stripe' : 'E-nkap'} pour finaliser votre paiement
               </p>
             </div>
           )}
@@ -559,6 +627,36 @@ export function PaymentModal({
               </div>
 
               <div className="space-y-3">
+                {/* Nkap Pay — primary path: Mobile Money and cards on one hosted page */}
+                <button
+                  onClick={handleNkapPayPayment}
+                  className="w-full p-4 rounded-xl border-2 border-emerald-400 dark:border-emerald-500 bg-emerald-50/60 dark:bg-emerald-900/10 hover:border-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-all flex items-center gap-4 group"
+                >
+                  <div className="w-14 h-14 bg-gradient-to-br from-emerald-500 to-green-600 rounded-xl flex items-center justify-center">
+                    <Smartphone className="w-7 h-7 text-white" />
+                  </div>
+                  <div className="text-left flex-1">
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-semibold text-gray-900 dark:text-white">
+                        Mobile Money &amp; Carte
+                      </h3>
+                      <span className="text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full bg-emerald-500 text-white">
+                        Recommandé
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      MTN, Orange, Wave, Visa, Mastercard — via Nkap Pay
+                    </p>
+                  </div>
+                  <div className="flex gap-1">
+                    <Image src="/images/payments/mtn.svg" alt="MTN" width={28} height={28} className="w-7 h-7 rounded-full" />
+                    <Image src="/images/payments/orange-money.svg" alt="Orange Money" width={28} height={28} className="w-7 h-7 rounded-full" />
+                    <Image src="/images/payments/visa.svg" alt="Visa" width={36} height={22} className="h-5 w-auto rounded self-center" />
+                  </div>
+                </button>
+
+                <p className="text-xs text-gray-400 dark:text-gray-500 pt-1">Autres moyens de paiement</p>
+
                 {showMobileMoney && (
                   <>
                     {/* Mobile Money Option */}

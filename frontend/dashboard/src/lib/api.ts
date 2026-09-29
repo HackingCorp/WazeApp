@@ -21,6 +21,23 @@ interface ApiResponse<T = any> {
   limit?: number;
 }
 
+/** What /payments/nkappay/subscribe and /credits return once the payment is open. */
+export interface NkapPayPaymentResult {
+  success: boolean;
+  paymentId?: string;
+  reference?: string;
+  amount?: string;
+  fee?: string;
+  currency?: string;
+  status?: string;
+  /** REDIRECT or STRIPE → paymentUrl to open; DIRECT_API → the customer approves on the handset. */
+  paymentMode?: 'SDK' | 'DIRECT_API' | 'STRIPE' | 'REDIRECT';
+  paymentUrl?: string;
+  planCode?: string;
+  billingPeriod?: string;
+  creditAmount?: number;
+}
+
 class ApiClient {
   private baseURL: string;
   private token: string | null = null;
@@ -1648,6 +1665,47 @@ class ApiClient {
     return this.request(`/payments/enkap/status?txid=${txid}`);
   }
 
+  // ==========================================
+  // Nkap Pay (LtcPay) — priced server-side: the caller names the plan or the
+  // number of credits, never the amount.
+  // ==========================================
+  async subscribeViaNkapPay(data: {
+    planCode: 'STANDARD' | 'PRO' | 'ENTERPRISE';
+    billingPeriod?: 'monthly' | 'annually';
+    country?: string;
+    operator?: string;
+    customerPhone?: string;
+    paymentMethod?: 'MOBILE_MONEY' | 'BANK_CARD';
+    returnUrl?: string;
+  }): Promise<ApiResponse<NkapPayPaymentResult>> {
+    return this.request('/payments/nkappay/subscribe', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async buyCreditsViaNkapPay(data: {
+    creditAmount: number;
+    country?: string;
+    operator?: string;
+    customerPhone?: string;
+    paymentMethod?: 'MOBILE_MONEY' | 'BANK_CARD';
+    returnUrl?: string;
+  }): Promise<ApiResponse<NkapPayPaymentResult>> {
+    return this.request('/payments/nkappay/credits', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async checkNkapPayStatus(reference: string) {
+    return this.request(`/payments/nkappay/status?reference=${encodeURIComponent(reference)}`);
+  }
+
+  async getNkapPayCountries() {
+    return this.request('/payments/nkappay/countries');
+  }
+
   // Get subscription usage summary
   async getSubscriptionUsage() {
     return this.request('/subscriptions/usage-summary');
@@ -1930,6 +1988,12 @@ export const apiHelpers = {
     createCreditCheckout: (data: Parameters<typeof api.createStripeCreditCheckout>[0]) => api.createStripeCreditCheckout(data),
     getConfig: () => api.getStripeConfig(),
     renewSubscriptionNow: () => api.renewSubscriptionNow(),
+  },
+  nkappay: {
+    subscribe: (data: Parameters<typeof api.subscribeViaNkapPay>[0]) => api.subscribeViaNkapPay(data),
+    buyCredits: (data: Parameters<typeof api.buyCreditsViaNkapPay>[0]) => api.buyCreditsViaNkapPay(data),
+    checkStatus: (reference: string) => api.checkNkapPayStatus(reference),
+    getCountries: () => api.getNkapPayCountries(),
   },
 };
 

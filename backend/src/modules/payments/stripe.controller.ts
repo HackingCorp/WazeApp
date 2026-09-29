@@ -14,7 +14,7 @@ import {
   RawBodyRequest,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
-import { ThrottlerGuard, Throttle } from '@nestjs/throttler';
+import { Throttle } from '@nestjs/throttler';
 import { Request, Response } from 'express';
 import { StripeService } from './stripe.service';
 import { CreateCheckoutSessionDto, CreatePortalSessionDto, CreateCreditCheckoutDto } from './dto/stripe.dto';
@@ -41,7 +41,7 @@ export class StripeController {
   ) {}
 
   @Post('checkout-session')
-  @UseGuards(JwtAuthGuard, ThrottlerGuard)
+  @UseGuards(JwtAuthGuard)
   @Throttle({ default: { limit: 5, ttl: 60000 } })
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Create Stripe checkout session for subscription' })
@@ -117,7 +117,7 @@ export class StripeController {
   }
 
   @Post('credit-checkout')
-  @UseGuards(JwtAuthGuard, ThrottlerGuard)
+  @UseGuards(JwtAuthGuard)
   @Throttle({ default: { limit: 5, ttl: 60000 } })
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Create Stripe checkout session for message credits' })
@@ -145,7 +145,7 @@ export class StripeController {
   }
 
   @Post('renew-now')
-  @UseGuards(JwtAuthGuard, ThrottlerGuard)
+  @UseGuards(JwtAuthGuard)
   @Throttle({ default: { limit: 3, ttl: 60000 } })
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Cancel current subscription and create new checkout for immediate renewal' })

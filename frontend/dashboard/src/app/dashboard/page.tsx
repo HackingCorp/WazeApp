@@ -466,6 +466,8 @@ export default function DashboardPage() {
                       const res = await apiHelpers.stripe.renewSubscriptionNow();
                       if (res.success && res.data?.url) {
                         window.location.href = res.data.url;
+                      } else if (/Too Many Requests|Throttler/i.test(res.error || '')) {
+                        alert('Trop de tentatives. Patientez une minute avant de réessayer.');
                       } else {
                         alert(res.error || 'Impossible de renouveler. Veuillez réessayer.');
                       }

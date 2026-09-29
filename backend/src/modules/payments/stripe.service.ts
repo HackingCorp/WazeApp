@@ -62,6 +62,33 @@ export class StripeService {
   }
 
   /**
+   * Open a Checkout session, turning Stripe's account-level refusals into
+   * something the dashboard can display.
+   *
+   * When the Stripe account itself is restricted ("cannot currently make live
+   * charges"), nothing the customer does will help — the raw error surfaced as
+   * an opaque 500, so the renewal button looked broken rather than blocked.
+   */
+  private async openCheckoutSession(
+    stripe: Stripe,
+    params: Stripe.Checkout.SessionCreateParams,
+  ): Promise<Stripe.Checkout.Session> {
+    try {
+      return await stripe.checkout.sessions.create(params);
+    } catch (error) {
+      const message = String(error?.message || '');
+      if (/cannot currently make live charges|account is not activated|capability/i.test(message)) {
+        this.logger.error(`Stripe account cannot accept payments: ${message}`);
+        throw new BadRequestException(
+          'Les paiements sont momentanement indisponibles : le compte Stripe de la plateforme ' +
+            "n'est pas autorise a encaisser. Contactez le support, aucun debit n'a eu lieu.",
+        );
+      }
+      throw error;
+    }
+  }
+
+  /**
    * Get or create a Stripe customer for a user
    */
   async getOrCreateCustomer(userId: string, email: string, name?: string): Promise<string> {
@@ -230,7 +257,7 @@ export class StripeService {
       },
     };
 
-    const session = await stripe.checkout.sessions.create(sessionCreateParams);
+    const session = await this.openCheckoutSession(stripe, sessionCreateParams);
 
     if (!session.url) {
       throw new BadRequestException('Stripe did not return a checkout URL');
@@ -275,7 +302,7 @@ export class StripeService {
       }
     }
 
-    const session = await stripe.checkout.sessions.create({
+    const session = await this.openCheckoutSession(stripe, {
       ...(existingCustomerId
         ? { customer: existingCustomerId }
         : { customer_email: user.email }),

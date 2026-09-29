@@ -8,7 +8,7 @@ import {
 import { JwtService } from "@nestjs/jwt";
 import { ConfigService } from "@nestjs/config";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
+import { Repository, In } from "typeorm";
 import { randomBytes, randomUUID, createHash } from "crypto";
 import * as bcrypt from "bcryptjs";
 import {
@@ -657,14 +657,25 @@ export class AuthService {
       currentOrganizationId = primaryMembership.organization.id;
     }
 
-    // Check if user has a Stripe-backed subscription (completed checkout)
-    const subscription = await this.subscriptionRepository.findOne({
-      where: currentOrganizationId
-        ? { organizationId: currentOrganizationId }
-        : { userId },
-      order: { createdAt: 'DESC' },
-    });
-    const subscriptionActive = !!(subscription?.stripeSubscriptionId);
+    // The subscription that currently applies: a live one first, else the
+    // most recent so the plan name still shows after an expiry.
+    const owner = currentOrganizationId ? { organizationId: currentOrganizationId } : { userId };
+    const subscription =
+      (await this.subscriptionRepository.findOne({
+        where: { ...owner, status: In([SubscriptionStatus.ACTIVE, SubscriptionStatus.TRIALING]) },
+        order: { createdAt: 'DESC' },
+      })) ||
+      (await this.subscriptionRepository.findOne({ where: owner, order: { createdAt: 'DESC' } }));
+
+    // "Active" is about the subscription itself, not who bills it: a plan paid
+    // by Mobile Money or Nkap Pay is as active as one charged by Stripe. Tying
+    // this to stripeSubscriptionId showed "Free" to every non-Stripe customer.
+    const now = new Date();
+    const subscriptionActive =
+      !!subscription &&
+      [SubscriptionStatus.ACTIVE, SubscriptionStatus.TRIALING].includes(subscription.status) &&
+      String(subscription.plan).toLowerCase() !== 'free' &&
+      (!subscription.endsAt || new Date(subscription.endsAt) > now);
     const hasStripeSubscription = !!(subscription?.stripeSubscriptionId);
     const subscriptionPlan = subscription?.plan || 'free';
 

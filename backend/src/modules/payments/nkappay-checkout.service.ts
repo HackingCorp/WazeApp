@@ -1,7 +1,7 @@
 import { Injectable, Logger, BadRequestException, HttpException, HttpStatus } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Plan, Organization, MessageCredit } from '../../common/entities';
+import { Plan, Organization, MessageCredit, User } from '../../common/entities';
 import { MessageCreditStatus } from '../../common/entities/message-credit.entity';
 import { MESSAGE_CREDIT_CONFIG } from '../subscriptions/message-credits.service';
 import { CurrencyService } from './currency.service';
@@ -80,6 +80,8 @@ export class NkapPayCheckoutService {
     private readonly organizationRepository: Repository<Organization>,
     @InjectRepository(MessageCredit)
     private readonly messageCreditRepository: Repository<MessageCredit>,
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
     private readonly nkapPayService: NkapPayService,
     private readonly currencyService: CurrencyService,
   ) {}
@@ -171,6 +173,22 @@ export class NkapPayCheckoutService {
       );
     }
     return { country, currency: await this.currencyFor(country) };
+  }
+
+  /**
+   * Keep the country a customer picked for their first payment, so the
+   * selector never has to ask again. Only fills a blank: a country the
+   * profile already states is theirs to change from their settings.
+   */
+  private async rememberCountry(customer: PaymentCustomer, chosen: string | undefined, settled: string): Promise<void> {
+    if (!chosen || customer.country || !customer.id) return;
+    try {
+      await this.userRepository.update({ id: customer.id }, { country: settled });
+      customer.country = settled;
+      this.logger.log(`Saved payment country ${settled} on user ${customer.id}`);
+    } catch (error) {
+      this.logger.warn(`Could not save country ${settled} on user ${customer.id}: ${error.message}`);
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -300,6 +318,7 @@ export class NkapPayCheckoutService {
       `Nkap Pay ${planCode} ${billingPeriod} for org ${organizationId} (${country}): ${amount} ${currency} ` +
         `(${result.success ? result.reference : `refused: ${result.error}`})`,
     );
+    if (result.success) await this.rememberCountry(customer, options.country, country);
 
     return { ...result, planCode, billingPeriod };
   }
@@ -346,6 +365,7 @@ export class NkapPayCheckoutService {
       `Nkap Pay ${creditAmount} credits for org ${organizationId} (${country}): ${amount} ${currency} ` +
         `(${result.success ? result.reference : `refused: ${result.error}`})`,
     );
+    if (result.success) await this.rememberCountry(customer, options.country, country);
 
     return { ...result, creditAmount };
   }

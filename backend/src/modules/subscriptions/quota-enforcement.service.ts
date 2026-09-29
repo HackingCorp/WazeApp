@@ -204,7 +204,14 @@ export class QuotaEnforcementService {
     );
     const totalUsage = current + (additionalTokens || 0);
 
-    return this.buildQuotaCheck(totalUsage, limit, "monthly LLM tokens");
+    // Nothing in the response path consults this check: the AI keeps
+    // answering whatever the figure says. Reporting it as a hard block
+    // ("allowed: false", "limit exceeded") therefore describes a blocking
+    // that never happens, and would cut every active tenant off the day it
+    // gets wired in — plan limits sit far below real consumption. Keep the
+    // numbers, drop the verdict.
+    const check = this.buildQuotaCheck(totalUsage, limit, "monthly LLM tokens");
+    return { ...check, allowed: true, message: undefined };
   }
 
   async checkVectorSearchQuota(organizationId: string): Promise<QuotaCheck> {

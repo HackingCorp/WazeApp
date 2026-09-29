@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import { X, Smartphone, Loader2, CheckCircle, XCircle, AlertCircle, Plus, Minus, MessageSquare, Clock, Gift, CreditCard } from 'lucide-react';
 import { api, apiHelpers } from '@/lib/api';
+import { useAuth } from '@/providers/AuthProvider';
 import clsx from 'clsx';
 
 interface MessageCreditsPurchaseModalProps {
@@ -30,6 +31,23 @@ export function MessageCreditsPurchaseModal({
   const [amount, setAmount] = useState(1000);
   const [phoneNumber, setPhoneNumber] = useState('');
   const [provider, setProvider] = useState<PaymentProvider | null>(null);
+  // Nkap Pay settles in the customer's currency without converting: the country
+  // must be chosen before the payment is created.
+  const { user: authUser } = useAuth();
+  const [nkapCountries, setNkapCountries] = useState<Array<{ code: string; name: string; currency: string; flag_emoji?: string; phone_prefix?: string }>>([]);
+  const [nkapCountry, setNkapCountry] = useState<string>('');
+  useEffect(() => {
+    if (!isOpen) return;
+    api.getNkapPayCountries().then((res) => {
+      const list = Array.isArray(res.data) ? res.data : [];
+      setNkapCountries(list);
+      const profile = (authUser as any) || {};
+      const fromProfile = String(profile.country || '').toUpperCase();
+      const digits = String(profile.phone || '').replace(/\D/g, '');
+      const fromPhone = list.find((c) => c.phone_prefix && digits.startsWith(c.phone_prefix))?.code;
+      setNkapCountry(list.some((c) => c.code === fromProfile) ? fromProfile : fromPhone || '');
+    }).catch(() => {});
+  }, [isOpen, authUser]);
   const [status, setStatus] = useState<PaymentStatus>('idle');
   const [error, setError] = useState<string | null>(null);
   const [ptn, setPtn] = useState<string | null>(null);
@@ -184,8 +202,14 @@ export function MessageCreditsPurchaseModal({
     try {
       if (provider === 'nkappay') {
         // Priced by the backend from the credit count; the page never sends a total.
+        if (!nkapCountry) {
+          setStatus('failed');
+          setError('Choisissez le pays depuis lequel vous payez.');
+          return;
+        }
         const response = await api.buyCreditsViaNkapPay({
           creditAmount: amount,
+          country: nkapCountry,
           returnUrl: `${window.location.origin}/billing?payment=nkappay&credits=${amount}`,
         });
 
@@ -674,6 +698,27 @@ export function MessageCreditsPurchaseModal({
                 </div>
               </div>
 
+              {provider === 'nkappay' && (
+                <div className="mb-6">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Pays de paiement
+                  </label>
+                  <select
+                    value={nkapCountry}
+                    onChange={(e) => setNkapCountry(e.target.value)}
+                    className="w-full px-3 py-2.5 rounded-xl border-2 border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:border-emerald-500 focus:outline-none"
+                  >
+                    <option value="">— Choisir le pays —</option>
+                    {nkapCountries.map((c) => (
+                      <option key={c.code} value={c.code}>
+                        {c.flag_emoji ? `${c.flag_emoji} ` : ''}{c.name} ({c.currency})
+                      </option>
+                    ))}
+                  </select>
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Le montant sera facturé dans la devise de ce pays.</p>
+                </div>
+              )}
+
               {/* Phone Number Input - Only for Mobile Money */}
               {provider && provider !== 'nkappay' && provider !== 'enkap' && provider !== 'stripe' && (
                 <div className="mb-6">
@@ -738,7 +783,7 @@ export function MessageCreditsPurchaseModal({
               {/* Submit Button */}
               <button
                 onClick={handleInitiatePayment}
-                disabled={!provider || (provider !== 'nkappay' && provider !== 'enkap' && provider !== 'stripe' && phoneNumber.replace(/\D/g, '').length < 9)}
+                disabled={!provider || (provider === 'nkappay' && !nkapCountry) || (provider !== 'nkappay' && provider !== 'enkap' && provider !== 'stripe' && phoneNumber.replace(/\D/g, '').length < 9)}
                 className={clsx(
                   'w-full py-3.5 rounded-xl font-semibold transition-all flex items-center justify-center gap-2',
                   provider && (provider === 'nkappay' || provider === 'enkap' || provider === 'stripe' || phoneNumber.replace(/\D/g, '').length >= 9)

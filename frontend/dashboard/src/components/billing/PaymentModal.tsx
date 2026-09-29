@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import { X, Smartphone, CreditCard, Loader2, CheckCircle, XCircle, AlertCircle, ArrowLeft } from 'lucide-react';
 import { api } from '@/lib/api';
+import { useAuth } from '@/providers/AuthProvider';
 import clsx from 'clsx';
 
 interface Plan {
@@ -54,6 +55,27 @@ export function PaymentModal({
   const [ptn, setPtn] = useState<string | null>(null);
   const [paymentUrl, setPaymentUrl] = useState<string | null>(null);
   const pollingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Nkap Pay settles in the customer's own currency and never converts, so the
+  // country has to be known before the payment is created. Preselected from
+  // the profile when it says, otherwise the customer picks.
+  const { user: authUser } = useAuth();
+  const [nkapCountries, setNkapCountries] = useState<Array<{ code: string; name: string; currency: string; flag_emoji?: string; phone_prefix?: string }>>([]);
+  const [nkapCountry, setNkapCountry] = useState<string>('');
+
+  useEffect(() => {
+    if (!isOpen) return;
+    api.getNkapPayCountries().then((res) => {
+      const list = Array.isArray(res.data) ? res.data : [];
+      setNkapCountries(list);
+      const profile = (authUser as any) || {};
+      const fromProfile = String(profile.country || '').toUpperCase();
+      const digits = String(profile.phone || '').replace(/\D/g, '');
+      const fromPhone = list.find((c) => c.phone_prefix && digits.startsWith(c.phone_prefix))?.code;
+      const guess = list.some((c) => c.code === fromProfile) ? fromProfile : fromPhone || '';
+      setNkapCountry(guess);
+    }).catch(() => {});
+  }, [isOpen, authUser]);
 
   // Cleanup polling on unmount
   useEffect(() => {
@@ -389,6 +411,10 @@ export function PaymentModal({
       setError("Le paiement de facture via Nkap Pay n'est pas encore disponible. Utilisez un autre moyen ci-dessous.");
       return;
     }
+    if (!nkapCountry) {
+      setError('Choisissez le pays depuis lequel vous payez.');
+      return;
+    }
 
     setPaymentMethod('nkappay');
     setStatus('processing');
@@ -398,6 +424,7 @@ export function PaymentModal({
       const response = await api.subscribeViaNkapPay({
         planCode: plan.id.toUpperCase() as 'STANDARD' | 'PRO' | 'ENTERPRISE',
         billingPeriod,
+        country: nkapCountry,
         returnUrl: `${window.location.origin}/billing?payment=nkappay&plan=${plan.id}`,
       });
 
@@ -627,6 +654,28 @@ export function PaymentModal({
               </div>
 
               <div className="space-y-3">
+                {/* Country drives the settlement currency — Nkap Pay does not convert */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                    Pays de paiement
+                  </label>
+                  <select
+                    value={nkapCountry}
+                    onChange={(e) => { setNkapCountry(e.target.value); setError(null); }}
+                    className="w-full px-3 py-2.5 rounded-xl border-2 border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:border-emerald-500 focus:outline-none"
+                  >
+                    <option value="">— Choisir le pays —</option>
+                    {nkapCountries.map((c) => (
+                      <option key={c.code} value={c.code}>
+                        {c.flag_emoji ? `${c.flag_emoji} ` : ''}{c.name} ({c.currency})
+                      </option>
+                    ))}
+                  </select>
+                  {error && !paymentMethod && (
+                    <p className="mt-1 text-xs text-red-500">{error}</p>
+                  )}
+                </div>
+
                 {/* Nkap Pay — primary path: Mobile Money and cards on one hosted page */}
                 <button
                   onClick={handleNkapPayPayment}
@@ -645,7 +694,7 @@ export function PaymentModal({
                       </span>
                     </div>
                     <p className="text-sm text-gray-500 dark:text-gray-400">
-                      MTN, Orange, Wave, Visa, Mastercard — via Nkap Pay
+                      MTN, Orange, Wave, Airtel, M-Pesa… payé dans votre devise — via Nkap Pay
                     </p>
                   </div>
                   <div className="flex gap-1">

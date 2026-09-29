@@ -477,6 +477,10 @@ export default function DashboardPage() {
                       });
                       if (res.success && res.data?.paymentUrl) {
                         window.location.href = res.data.paymentUrl;
+                      } else if (/Pays de paiement requis|pas disponible pour le pays/i.test(res.error || '')) {
+                        // The profile does not say where they pay from: the billing
+                        // page asks for the country before opening Nkap Pay.
+                        window.location.href = '/billing?renew=1';
                       } else if (/Too Many Requests|Throttler/i.test(res.error || '')) {
                         alert('Trop de tentatives. Patientez une minute avant de réessayer.');
                       } else {

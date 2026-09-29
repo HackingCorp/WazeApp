@@ -55,6 +55,9 @@ export class CurrencyService implements OnModuleInit {
     MAD: 10, // Dirham Marocain
     TND: 3.1, // Dinar Tunisien
     EGP: 49, // Livre Égyptienne
+    CDF: 2850, // Franc Congolais (Nkap Pay RDC)
+    GNF: 8600, // Franc Guinéen (Nkap Pay Guinée)
+    UGX: 3700, // Shilling Ougandais (Nkap Pay Ouganda)
   };
 
   // Cache des plans depuis la base de données
@@ -329,7 +332,7 @@ export class CurrencyService implements OnModuleInit {
     const converted = amountUSD * rateWithMargin;
 
     // Pour les devises africaines (XAF, XOF, NGN), arrondir à l'entier
-    if (['XAF', 'XOF', 'NGN', 'KES', 'GHS', 'EGP'].includes(upperCurrency)) {
+    if (['XAF', 'XOF', 'NGN', 'KES', 'GHS', 'EGP', 'CDF', 'GNF', 'UGX'].includes(upperCurrency)) {
       return Math.ceil(converted / 100) * 100; // Arrondir au centième supérieur
     }
 

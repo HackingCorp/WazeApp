@@ -824,6 +824,30 @@ export class MobileMoneyController {
     return result;
   }
 
+  /**
+   * @CurrentUser() yields the JWT context ({ userId, email, user }), not the
+   * User row — reading `.id` on it silently gives "undefined", which then ends
+   * up inside the merchant reference the webhook parses back.
+   */
+  private paymentCustomer(ctx: any): {
+    id: string;
+    email?: string;
+    firstName?: string;
+    lastName?: string;
+    country?: string;
+    phone?: string;
+  } {
+    const row = ctx?.user || {};
+    return {
+      id: ctx?.userId || row.id,
+      email: ctx?.email || row.email,
+      firstName: row.firstName,
+      lastName: row.lastName,
+      country: row.country,
+      phone: row.phone,
+    };
+  }
+
   @Post('nkappay/subscribe')
   @UseGuards(JwtAuthGuard)
   @Throttle({ default: { limit: 5, ttl: 60000 } })
@@ -837,7 +861,7 @@ export class MobileMoneyController {
     @CurrentUser() user: User,
   ): Promise<any> {
     const result = await this.nkapPayCheckout.createSubscriptionPayment(
-      user,
+      this.paymentCustomer(user),
       dto.planCode as PlanCode,
       (dto.billingPeriod || 'monthly') as BillingPeriod,
       {
@@ -873,7 +897,7 @@ export class MobileMoneyController {
     @Body() dto: NkapPayCreditsDto,
     @CurrentUser() user: User,
   ): Promise<any> {
-    const result = await this.nkapPayCheckout.createCreditsPayment(user, dto.creditAmount, {
+    const result = await this.nkapPayCheckout.createCreditsPayment(this.paymentCustomer(user), dto.creditAmount, {
       country: dto.country,
       operator: dto.operator,
       customerPhone: dto.customerPhone,

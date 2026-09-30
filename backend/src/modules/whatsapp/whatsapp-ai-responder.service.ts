@@ -747,23 +747,28 @@ export class WhatsAppAIResponderService {
         return;
       }
 
-      // Check if AI responses are enabled for this session
-      if (session.aiResponsesEnabled === false) {
-        this.logger.log(`🔇 AI responses disabled for session ${session.id} (${session.name}) - skipping`);
-        return;
+      // Disabling the AI stops the *replies*, not the memory: what the client
+      // wrote is still recorded, so the conversation exists for the operator,
+      // the cold/warm check stays truthful and the opt-in list keeps growing.
+      // Returning here used to drop every inbound message of a muted session.
+      const replyEnabled = session.aiResponsesEnabled !== false;
+      if (!replyEnabled) {
+        this.logger.log(`🔇 AI responses disabled for session ${session.id} (${session.name}) - recording only`);
       }
 
-      // Check message quota
-      try {
-        if (session.organizationId) {
-          await this.quotaEnforcementService.enforceWhatsAppMessageQuota(session.organizationId);
-        } else if (session.userId) {
-          await this.quotaEnforcementService.enforceUserWhatsAppMessageQuota(session.userId);
+      // Check message quota — it meters AI replies, so recording is exempt
+      if (replyEnabled) {
+        try {
+          if (session.organizationId) {
+            await this.quotaEnforcementService.enforceWhatsAppMessageQuota(session.organizationId);
+          } else if (session.userId) {
+            await this.quotaEnforcementService.enforceUserWhatsAppMessageQuota(session.userId);
+          }
+        } catch (quotaError) {
+          this.logger.warn(`Message quota exceeded: ${quotaError.message}`);
+          void this.notifyOwnerQuotaReached(session);
+          return;
         }
-      } catch (quotaError) {
-        this.logger.warn(`Message quota exceeded: ${quotaError.message}`);
-        void this.notifyOwnerQuotaReached(session);
-        return;
       }
 
       // Combine all messages into one context
@@ -884,9 +889,10 @@ export class WhatsAppAIResponderService {
         this.logger.error(`❌ Session ${session.id} (${session.name}) has NO linked agent!`);
         this.logger.error(`❌ AI responses disabled - please assign an agent to this session in the dashboard.`);
 
-        // Send a warning message to the user (only once per conversation)
+        // Send a warning message to the user (only once per conversation),
+        // never from a muted session — it must stay silent towards clients.
         const warningKey = `no-agent-warning:${session.id}:${fromNumber}`;
-        const alreadyWarned = await this.cacheManager.get(warningKey);
+        const alreadyWarned = replyEnabled ? await this.cacheManager.get(warningKey) : true;
 
         if (!alreadyWarned) {
           try {
@@ -979,7 +985,7 @@ export class WhatsAppAIResponderService {
       // Check for escalation keywords
       const escalationConfig = agent.escalationConfig || {};
       const escalationEnabled = escalationConfig.enabled !== false; // Default to true
-      if (escalationEnabled) {
+      if (escalationEnabled && replyEnabled) {
         const keywords = escalationConfig.keywords?.length
           ? escalationConfig.keywords
           : ['parler à un humain', 'agent humain', 'responsable', 'talk to human', 'real person', 'human agent', 'speak to someone'];
@@ -1035,6 +1041,11 @@ export class WhatsAppAIResponderService {
         if (msgContent.trim()) {
           await this.saveIncomingMessage(conversation, msgContent.trim(), msg.event.message, msg.mediaAnalysis);
         }
+      }
+
+      if (!replyEnabled) {
+        this.logger.log(`🔇 Recorded ${bufferedMessages.length} message(s) from ${fromNumber} on muted session ${session.name} - no AI reply`);
+        return;
       }
 
       // Generate single AI response for all messages

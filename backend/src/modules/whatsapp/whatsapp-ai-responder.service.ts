@@ -1410,8 +1410,10 @@ Always respond directly in the user's language without any formatting.`,
       isNewConversation = true;
       this.logger.log(`Created new conversation: ${conversation.id}`);
 
-      // Send welcome message if configured
-      if (agent.welcomeMessage && agent.welcomeMessage.trim()) {
+      // Send welcome message if configured — never from a muted session: the
+      // conversation is created there only to keep a record, and a greeting is
+      // exactly the automatic reply the operator switched off.
+      if (agent.welcomeMessage && agent.welcomeMessage.trim() && session.aiResponsesEnabled !== false) {
         try {
           this.logger.log(`Sending welcome message for new conversation`);
           await this.baileysService.sendMessage(session.id, {

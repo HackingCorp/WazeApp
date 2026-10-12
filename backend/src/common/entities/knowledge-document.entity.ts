@@ -144,4 +144,7 @@ export class KnowledgeDocument extends BaseEntity {
     cascade: true,
   })
   chunks: DocumentChunk[];
+
+  /** Filled by loadRelationCountAndMap on list queries; not a column. */
+  chunkCount?: number;
 }

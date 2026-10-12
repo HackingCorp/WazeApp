@@ -694,9 +694,12 @@ export class DocumentService {
       await this.chunkRepository.remove(chunks);
     }
 
-    document.status = DocumentStatus.UPLOADED;
-    document.processingError = null;
-    await this.documentRepository.save(document);
+    // update() rather than save(): the loaded entity still carries the chunks
+    // just removed, and a cascading save would quietly write them back.
+    await this.documentRepository.update(id, {
+      status: DocumentStatus.UPLOADED,
+      processingError: null,
+    });
 
     await this.processingQueue.add("process-document", {
       documentId: document.id,

@@ -68,7 +68,22 @@ export class DocumentProcessorService {
       const startTime = Date.now();
       let result: ProcessingResult;
 
-      switch (document.type) {
+      // Uploaded files live inside the container and do not survive a
+      // redeploy, while the extracted text is kept in the database. When the
+      // file is gone — or the document never had one (rich text) — chunk the
+      // stored content again rather than fail the whole document.
+      const fileMissing =
+        document.type !== DocumentType.URL &&
+        (!document.filePath || !(await this.fileExists(document.filePath)));
+      const canUseStoredContent =
+        typeof document.content === "string" && document.content.trim().length > 0;
+
+      if ((document.type === DocumentType.RICH_TEXT || fileMissing) && canUseStoredContent) {
+        this.logger.log(
+          `Processing document ${documentId} from stored content (${document.type === DocumentType.RICH_TEXT ? "rich text" : "file missing on disk"})`,
+        );
+        result = this.processStoredContent(document, knowledgeBase);
+      } else switch (document.type) {
         case DocumentType.PDF:
           result = await this.processPDF(document, knowledgeBase);
           break;
@@ -199,6 +214,36 @@ export class DocumentProcessorService {
       content: result.value,
       metadata,
       chunks,
+    };
+  }
+
+  private async fileExists(filePath: string): Promise<boolean> {
+    try {
+      await fs.access(filePath);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /** Re-chunk the text already extracted for this document. */
+  private processStoredContent(
+    document: KnowledgeDocument,
+    knowledgeBase?: KnowledgeBase,
+  ): ProcessingResult {
+    const content = document.content;
+    const chunkingSettings = knowledgeBase?.settings?.chunking || {
+      strategy: "recursive",
+      chunkSize: 1000,
+      overlap: 100,
+    };
+    return {
+      content,
+      metadata: {
+        confidence: document.metadata?.confidence ?? 1.0,
+        source: "stored-content",
+      },
+      chunks: this.chunkText(content, chunkingSettings),
     };
   }
 

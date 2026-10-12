@@ -538,6 +538,9 @@ export class DocumentService {
 
     const total = await queryBuilder.getCount();
     const data = await queryBuilder
+      // The dashboard shows a chunk count per document; loading the chunks
+      // themselves would drag the full text of every document into the list.
+      .loadRelationCountAndMap("doc.chunkCount", "doc.chunks")
       .skip((query.page - 1) * query.limit)
       .take(query.limit)
       .getMany();

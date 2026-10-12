@@ -119,6 +119,8 @@ export class DocumentProcessorService {
       document.characterCount = result.content.length;
       document.fileSize = Buffer.byteLength(result.content, 'utf8'); // Update fileSize based on content
       document.status = DocumentStatus.PROCESSED;
+      // A successful run supersedes whatever the previous attempt recorded.
+      document.processingError = null;
       document.contentHash = this.generateContentHash(result.content);
       document.metadata = {
         ...document.metadata,

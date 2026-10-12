@@ -32,6 +32,7 @@ const UploadDocumentsModal = dynamic(() => import('@/components/knowledge-base/U
 import { RichTextEditorModal } from '@/components/knowledge-base/RichTextEditorModal';
 import UrlScrapingModal from '@/components/knowledge-base/UrlScrapingModal';
 import { api } from '@/lib/api';
+import toast from 'react-hot-toast';
 
 interface KnowledgeDocument {
   id: string;
@@ -39,7 +40,7 @@ interface KnowledgeDocument {
   filename: string;
   contentType: string;
   size: number;
-  status: 'pending' | 'processing' | 'processed' | 'error';
+  status: 'pending' | 'uploaded' | 'processing' | 'processed' | 'failed' | 'error' | 'archived';
   charactersCount: number;
   chunksCount: number;
   createdAt: Date;
@@ -224,9 +225,18 @@ export default function KnowledgeBaseDocumentsPage() {
     }
   };
 
+  const [reprocessingIds, setReprocessingIds] = useState<Set<string>>(new Set());
+
   const handleReprocess = async (docId: string) => {
+    if (reprocessingIds.has(docId)) return;
+    setReprocessingIds((prev) => new Set(prev).add(docId));
     try {
-      await api.reprocessDocument(docId);
+      const res = await api.reprocessDocument(docId);
+      if (!res.success) {
+        toast.error(res.error || 'Impossible de relancer le traitement');
+        return;
+      }
+      toast.success('Traitement relancé — le document repasse en file');
       // Refresh documents list
       const docsResponse = await api.get(`/documents?knowledgeBaseId=${id}`);
       if (docsResponse.success && docsResponse.data?.data) {
@@ -246,9 +256,12 @@ export default function KnowledgeBaseDocumentsPage() {
         setDocuments(formattedDocs);
       }
     } catch (error) {
+      toast.error('Impossible de relancer le traitement');
       if (process.env.NODE_ENV === 'development') {
         console.error('Error reprocessing document:', error);
       }
+    } finally {
+      setReprocessingIds((prev) => { const next = new Set(prev); next.delete(docId); return next; });
     }
   };
 
@@ -609,13 +622,14 @@ export default function KnowledgeBaseDocumentsPage() {
                               <Download className="w-4 h-4" />
                             </button>
                             
-                            {(document.status === 'error' || document.status === 'processed') && (
+                            {(document.status === 'error' || document.status === 'failed' || document.status === 'processed') && (
                               <button
                                 onClick={() => handleReprocess(document.id)}
-                                className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-lg"
+                                disabled={reprocessingIds.has(document.id)}
+                                className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-lg disabled:opacity-50"
                                 title="Retraiter"
                               >
-                                <RefreshCw className="w-4 h-4" />
+                                <RefreshCw className={`w-4 h-4 ${reprocessingIds.has(document.id) ? 'animate-spin' : ''}`} />
                               </button>
                             )}
                             

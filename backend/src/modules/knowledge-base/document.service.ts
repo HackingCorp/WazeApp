@@ -665,6 +665,62 @@ export class DocumentService {
     }
   }
 
+  /**
+   * Run a document through the pipeline again: drop what the previous run
+   * produced (chunks and their vectors), put the document back to UPLOADED
+   * and queue the same job the upload uses. URL documents are fetched afresh
+   * by the processor, so this is also how a changed web page gets picked up.
+   */
+  async reprocess(
+    organizationId: string | null,
+    userId: string,
+    id: string,
+  ): Promise<KnowledgeDocument> {
+    const document = await this.findOne(organizationId, id);
+
+    if (document.status === DocumentStatus.PROCESSING) {
+      throw new BadRequestException("Ce document est deja en cours de traitement");
+    }
+
+    const chunks = await this.chunkRepository.find({ where: { documentId: id } });
+    if (chunks.length > 0 && organizationId) {
+      try {
+        await this.vectorSearchService.deleteChunkVectors(chunks.map((c) => c.id), organizationId);
+      } catch (error) {
+        console.warn(`Could not delete chunk vectors before reprocess: ${error.message}`);
+      }
+    }
+    if (chunks.length > 0) {
+      await this.chunkRepository.remove(chunks);
+    }
+
+    document.status = DocumentStatus.UPLOADED;
+    document.processingError = null;
+    await this.documentRepository.save(document);
+
+    await this.processingQueue.add("process-document", {
+      documentId: document.id,
+      organizationId,
+      userId,
+    });
+
+    await this.auditService.log({
+      organizationId,
+      userId,
+      action: AuditAction.UPDATE,
+      resourceType: "document",
+      resourceId: id,
+      description: `Reprocessing document: ${document.filename}`,
+      metadata: { filename: document.filename, removedChunks: chunks.length },
+    });
+
+    if (document.knowledgeBaseId) {
+      await this.invalidateKBCache(document.knowledgeBaseId);
+    }
+
+    return document;
+  }
+
   async search(
     organizationId: string | null,
     searchDto: DocumentSearchDto,

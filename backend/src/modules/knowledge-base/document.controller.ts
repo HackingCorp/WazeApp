@@ -330,12 +330,9 @@ export class DocumentController {
     @CurrentUser() user: User,
     @Param("id", ParseUUIDPipe) id: string,
   ) {
-    // @CurrentUser() carries the JWT context ({ userId, organizationId, user }),
-    // so read the ids from there first and fall back to the entity fields.
-    const ctx: any = user;
     const document = await this.documentService.reprocess(
-      ctx.organizationId || ctx.user?.currentOrganizationId || ctx.currentOrganizationId || null,
-      ctx.userId || ctx.id,
+      user.currentOrganizationId || null,
+      user.id,
       id,
     );
     return { message: "Document reprocessing started", document };

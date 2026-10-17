@@ -326,6 +326,18 @@ export default function ApiDocumentationPage() {
                   <td className="py-3 px-4">Gérer les webhooks</td>
                 </tr>
                 <tr>
+                  <td className="py-3 px-4"><code className="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">templates:write</code></td>
+                  <td className="py-3 px-4">Créer et modifier les templates</td>
+                </tr>
+                <tr>
+                  <td className="py-3 px-4"><code className="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">broadcast:read</code></td>
+                  <td className="py-3 px-4">Lecture de toutes les données de diffusion</td>
+                </tr>
+                <tr>
+                  <td className="py-3 px-4"><code className="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">broadcast:write</code></td>
+                  <td className="py-3 px-4">Écriture de toutes les données de diffusion</td>
+                </tr>
+                <tr>
                   <td className="py-3 px-4"><code className="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">channels:publish</code></td>
                   <td className="py-3 px-4">Chaînes, statuts et publications programmées</td>
                 </tr>

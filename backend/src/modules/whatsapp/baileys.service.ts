@@ -1106,6 +1106,18 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
         }
       });
 
+      // Calls, presence and labels feed the automation layer (call rejection,
+      // last-seen tracking, label names). They are only relayed here.
+      sock.ev.on("call", (calls: any[]) => {
+        this.eventEmitter.emit("whatsapp.call", { sessionId, calls });
+      });
+      sock.ev.on("presence.update", (update: any) => {
+        this.eventEmitter.emit("whatsapp.presence.update", { sessionId, ...update });
+      });
+      sock.ev.on("labels.edit", (label: any) => {
+        this.eventEmitter.emit("whatsapp.labels.edit", { sessionId, label });
+      });
+
       // Handle historical data sync - This is the key event for proper history sync
       sock.ev.on("messaging-history.set", (data) => {
         this.logger.log(
@@ -1186,7 +1198,30 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
           }
         });
 
-        messages.forEach((message: any) => {
+        // Protocol messages carry a deletion or an edit of an earlier message,
+        // not content of their own. Relay them and stop: feeding them to the
+        // responder would log an empty "incoming message".
+        const remaining = messages.filter((message: any) => {
+          const proto = message.message?.protocolMessage;
+          if (!proto) return true;
+          const chat = message.key?.remoteJid;
+          const byMe = !!message.key?.fromMe;
+          if (proto.type === 0 && proto.key?.id) {
+            this.logger.log(`🗑️ Message ${proto.key.id} deleted ${byMe ? "by us" : "by contact"} in ${chat}`);
+            this.eventEmitter.emit("whatsapp.message.revoked", { sessionId, chat, messageId: proto.key.id, byMe });
+            return false;
+          }
+          if (proto.type === 14 && proto.key?.id) {
+            const edited = proto.editedMessage || {};
+            const text = edited.conversation || edited.extendedTextMessage?.text || edited.imageMessage?.caption || edited.videoMessage?.caption || "";
+            this.logger.log(`✏️ Message ${proto.key.id} edited ${byMe ? "by us" : "by contact"} in ${chat}`);
+            this.eventEmitter.emit("whatsapp.message.edited", { sessionId, chat, messageId: proto.key.id, text, byMe });
+            return false;
+          }
+          return !byMe; // other protocol messages (history sync, app state) are noise
+        });
+
+        remaining.forEach((message: any) => {
           if (message.key.fromMe && message.message) {
             this.eventEmitter.emit("whatsapp.message.fromMe", {
               sessionId,
@@ -1248,6 +1283,13 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
             this.logger.log(
               `📬 Delivery update [${sessionId}] msg=${update?.key?.id} to=${update?.key?.remoteJid} → ${label}`,
             );
+          }
+          if (update?.update?.pollUpdates?.length) {
+            this.eventEmitter.emit("whatsapp.poll.update", {
+              sessionId,
+              messageId: update.key?.id,
+              pollUpdates: update.update.pollUpdates,
+            });
           }
           this.eventEmitter.emit("whatsapp.message.update", {
             sessionId,

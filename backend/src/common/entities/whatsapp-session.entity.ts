@@ -8,6 +8,39 @@ import { KnowledgeBase } from "./knowledge-base.entity";
 import { AiAgent } from "./ai-agent.entity";
 import { WhatsAppSessionStatus } from "../enums";
 
+/**
+ * Everything the session does on its own besides answering with the AI.
+ * Stored as JSON so a new switch never needs a migration.
+ */
+export interface WhatsAppAutomationSettings {
+  /** Send read receipts (blue ticks) for the messages we process. */
+  autoRead?: boolean;
+  /** Decline incoming voice/video calls automatically. */
+  rejectCalls?: boolean;
+  /** Text sent once a day to a caller after a rejected call. Empty = nothing. */
+  rejectCallsMessage?: string;
+  /** Answer with a voice note (TTS) instead of text. */
+  voiceReplies?: {
+    enabled: boolean;
+    /** OpenAI voice name, e.g. "alloy", "nova", "onyx". */
+    voice?: string;
+    /** Only reply by voice when the client sent a voice note. */
+    onlyWhenClientUsesVoice?: boolean;
+  };
+  /** Keep the last known presence of contacts we talk to (online / last seen). */
+  presenceTracking?: boolean;
+  /** React with this emoji to every inbound message (acknowledgement). Empty = off. */
+  acknowledgeReaction?: string;
+  /** Label id to apply when a conversation is created. */
+  labelOnNewConversation?: string;
+  /** Label ids per order status, applied by the orders module when it exists. */
+  labelsByOrderStatus?: Record<string, string>;
+  /** Default disappearing-message timer (seconds) for new chats; 0 = off. */
+  disappearingSeconds?: number;
+  /** Block a contact after this many messages flagged abusive. 0 = never. */
+  autoBlockAfterAbuse?: number;
+}
+
 @Entity("whatsapp_sessions")
 @Index("IDX_WHATSAPP_ORG", ["organizationId"])
 @Index("IDX_WHATSAPP_USER", ["userId"])
@@ -83,6 +116,10 @@ export class WhatsAppSession extends BaseEntity {
   @ApiProperty({ description: "Session metadata" })
   @Column({ type: "jsonb", default: {} })
   metadata: Record<string, any>;
+
+  @ApiProperty({ description: "Automation switches for this session" })
+  @Column({ type: "jsonb", default: {} })
+  automation: WhatsAppAutomationSettings;
 
   // Relationships
   @ApiProperty({ description: "User who owns the session" })

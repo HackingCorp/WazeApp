@@ -21,6 +21,7 @@ import { BroadcastProcessor } from './broadcast.processor';
 import { BroadcastDeliveryService } from './broadcast-delivery.service';
 import { BroadcastController } from './broadcast.controller';
 import { ExternalApiController } from './external-api.controller';
+import { ExternalActionsController } from './external-actions.controller';
 import { WhatsAppModule } from '../whatsapp/whatsapp.module';
 import { SubscriptionModule } from '../subscriptions/subscription.module';
 
@@ -51,7 +52,7 @@ import { SubscriptionModule } from '../subscriptions/subscription.module';
     WhatsAppModule,
     SubscriptionModule,
   ],
-  controllers: [BroadcastController, ExternalApiController],
+  controllers: [BroadcastController, ExternalApiController, ExternalActionsController],
   providers: [
     ContactService,
     TemplateService,

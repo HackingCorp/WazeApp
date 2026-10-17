@@ -56,3 +56,6 @@ export { Appointment } from "./appointment.entity";
 export { Lead } from "./lead.entity";
 export { BusinessHours } from "./business-hours.entity";
 export { DayOff } from "./day-off.entity";
+export { WhatsAppScheduledPost } from "./whatsapp-scheduled-post.entity";
+export { WhatsAppPoll } from "./whatsapp-poll.entity";
+export { WhatsAppLabel } from "./whatsapp-label.entity";

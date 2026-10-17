@@ -22,6 +22,11 @@ import { PendingMessageQueueService } from "./pending-message-queue.service";
 import { PendingMessageProcessor } from "./pending-message.processor";
 import { MessageDeliveryService } from "./message-delivery.service";
 import { OutboundGuardService } from "./outbound-guard.service";
+import { WhatsAppActionsController } from "./whatsapp-actions.controller";
+import { WhatsAppActionsService } from "./whatsapp-actions.service";
+import { TextToSpeechService } from "./text-to-speech.service";
+import { ScheduledPostService, ScheduledPostProcessor } from "./scheduled-post.service";
+
 import { EmailModule } from "../email/email.module";
 import {
   WhatsAppSession,
@@ -37,6 +42,10 @@ import {
   KnowledgeBase,
   KnowledgeDocument,
   DocumentChunk,
+  WhatsAppScheduledPost,
+  WhatsAppPoll,
+  WhatsAppLabel,
+  BroadcastContact,
 } from "@/common/entities";
 import { AuditService } from "../audit/audit.service";
 import { SubscriptionModule } from "../subscriptions/subscription.module";
@@ -63,6 +72,10 @@ import { ToolCallingModule } from "../tool-calling/tool-calling.module";
       KnowledgeBase,
       KnowledgeDocument,
       DocumentChunk,
+      WhatsAppScheduledPost,
+      WhatsAppPoll,
+      WhatsAppLabel,
+      BroadcastContact,
     ]),
     ConfigModule,
     JwtModule.registerAsync({
@@ -80,6 +93,9 @@ import { ToolCallingModule } from "../tool-calling/tool-calling.module";
     ToolCallingModule,
     EmailModule,
     BullModule.registerQueue({
+      name: "whatsapp-publish",
+    }),
+    BullModule.registerQueue({
       name: "message-catchup",
       defaultJobOptions: {
         removeOnComplete: 200,
@@ -94,7 +110,7 @@ import { ToolCallingModule } from "../tool-calling/tool-calling.module";
       },
     }),
   ],
-  controllers: [WhatsAppController],
+  controllers: [WhatsAppController, WhatsAppActionsController],
   providers: [
     WhatsAppService,
     BaileysService,
@@ -115,8 +131,14 @@ import { ToolCallingModule } from "../tool-calling/tool-calling.module";
     PendingMessageProcessor,
     MessageDeliveryService,
     OutboundGuardService,
+    TextToSpeechService,
+    WhatsAppActionsService,
+    ScheduledPostService,
+    ScheduledPostProcessor,
   ],
   exports: [
+    WhatsAppActionsService,
+    ScheduledPostService,
     WhatsAppService,
     BaileysService,
     SimpleConversationService,

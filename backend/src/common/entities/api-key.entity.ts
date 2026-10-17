@@ -22,6 +22,10 @@ export enum ApiKeyPermission {
   CAMPAIGNS_WRITE = 'campaigns:write',
   SEND_MESSAGE = 'send:message',
   WEBHOOKS_MANAGE = 'webhooks:manage',
+  // WhatsApp automation (actions beyond plain messages)
+  CHANNELS_PUBLISH = 'channels:publish',
+  GROUPS_MANAGE = 'groups:manage',
+  AUTOMATION_MANAGE = 'automation:manage',
   // Merchant API permissions
   PRODUCTS_READ = 'products:read',
   ORDERS_READ = 'orders:read',

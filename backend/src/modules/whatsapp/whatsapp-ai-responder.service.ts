@@ -35,6 +35,7 @@ import {
 } from "@/common/enums";
 import { LLMRouterService } from "../llm-providers/llm-router.service";
 import { BaileysService } from "./baileys.service";
+import { WhatsAppActionsService } from "./whatsapp-actions.service";
 import { WebSearchService } from "./web-search.service";
 import { MediaAnalysisService } from "./media-analysis.service";
 import { QuotaEnforcementService } from "../subscriptions/quota-enforcement.service";
@@ -63,6 +64,8 @@ interface BufferedMessage {
 @Injectable()
 export class WhatsAppAIResponderService {
   private readonly logger = new Logger(WhatsAppAIResponderService.name);
+  /** Whether the last inbound batch from a chat contained a voice note. */
+  private readonly lastInboundWasVoice = new Map<string, boolean>();
   private readonly processingMessages = new Set<string>();
   private static readonly MAX_PROCESSING_SET_SIZE = 5000;
 
@@ -289,6 +292,7 @@ export class WhatsAppAIResponderService {
     private cacheManager: Cache,
     private llmRouterService: LLMRouterService,
     private baileysService: BaileysService,
+    private readonly actionsService: WhatsAppActionsService,
     private webSearchService: WebSearchService,
     private mediaAnalysisService: MediaAnalysisService,
     private configService: ConfigService,
@@ -727,6 +731,10 @@ export class WhatsAppAIResponderService {
       : event.message.key?.remoteJid;
 
     this.logger.log(`🔄 Processing batch of ${bufferedMessages.length} messages from ${fromNumber}`);
+    this.lastInboundWasVoice.set(
+      `${event.sessionId}:${fromNumber}`,
+      bufferedMessages.some((m) => m?.mediaAnalysis?.type === "audio" || !!m?.event?.message?.message?.audioMessage),
+    );
 
     try {
       // Get session details
@@ -1043,6 +1051,10 @@ export class WhatsAppAIResponderService {
         }
       }
 
+      // Per-session automations that apply to every inbound message, muted or
+      // not: read receipts and an acknowledgement reaction.
+      await this.applyInboundAutomation(session, fromNumber, bufferedMessages);
+
       if (!replyEnabled) {
         this.logger.log(`🔇 Recorded ${bufferedMessages.length} message(s) from ${fromNumber} on muted session ${session.name} - no AI reply`);
         return;
@@ -1090,6 +1102,51 @@ export class WhatsAppAIResponderService {
    * cette audience) + un email. Dédupliqué par mois pour ne jamais spammer.
    * Fire-and-forget : ne bloque et ne casse jamais le flux de traitement.
    */
+  /**
+   * Read receipts and acknowledgement reaction, as configured on the session.
+   * Failures are logged and swallowed: these are courtesies, not the reply.
+   */
+  private async applyInboundAutomation(session: WhatsAppSession, fromNumber: string, buffered: any[]): Promise<void> {
+    const automation = session.automation || {};
+    if (!automation.autoRead && !automation.acknowledgeReaction) return;
+    const keys = buffered.map((m) => m?.event?.message?.key).filter((k) => k?.id);
+    if (!keys.length) return;
+    try {
+      const sock = this.baileysService.getSessionSocket(session.id);
+      if (!sock) return;
+      if (automation.autoRead) {
+        await sock.readMessages(keys);
+      }
+      if (automation.acknowledgeReaction) {
+        const last = keys[keys.length - 1];
+        await sock.sendMessage(last.remoteJid, { react: { text: automation.acknowledgeReaction, key: last } });
+      }
+    } catch (error) {
+      this.logger.debug?.(`inbound automation skipped for ${fromNumber}: ${error.message}`);
+    }
+  }
+
+  /**
+   * Deliver the AI reply as text, or as a voice note when the session asks
+   * for it. A failed synthesis never costs the client an answer: it falls
+   * back to text.
+   */
+  private async sendReply(session: WhatsAppSession, to: string, text: string): Promise<{ messageId: string; status: string }> {
+    const voice = session.automation?.voiceReplies;
+    const wantsVoice =
+      voice?.enabled &&
+      (!voice.onlyWhenClientUsesVoice || this.lastInboundWasVoice.get(`${session.id}:${to}`) === true);
+    if (wantsVoice) {
+      try {
+        const result = await this.actionsService.sendVoice(session.id, { chat: to, text, voice: voice.voice });
+        return { messageId: result.messageId, status: "sent" };
+      } catch (error) {
+        this.logger.warn(`Voice reply failed for ${to}, falling back to text: ${error.message}`);
+      }
+    }
+    return this.baileysService.sendMessage(session.id, { to, message: text, type: "text" });
+  }
+
   private async notifyOwnerQuotaReached(session: {
     id: string;
     phoneNumber?: string | null;
@@ -2619,11 +2676,7 @@ RÈGLES IMAGES:
         // Convert markdown to WhatsApp format (use clean text without image tags)
         const whatsappMessage = this.convertToWhatsAppFormat(sanitizedText);
 
-        const sendResult = await this.baileysService.sendMessage(session.id, {
-          to: fromNumber,
-          message: whatsappMessage,
-          type: "text",
-        });
+        const sendResult = await this.sendReply(session, fromNumber, whatsappMessage);
 
         // Keep the WhatsApp id on the row so delivery receipts (✓✓, read, or
         // an undelivered error) can be applied to it later.

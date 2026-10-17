@@ -20,6 +20,11 @@ Chaque clé API est liée à une seule session WhatsApp : le sessionId n'a pas b
 ## Endpoints principaux
 
 ### GET /health
+Vérifie que l'API répond.
+
+### GET /sessions
+Session WhatsApp liée à la clé (nom, numéro, statut de connexion).
+
 Vérifie l'état de l'API.
 
 ### POST /send  (permission: send:message)
@@ -96,6 +101,9 @@ degraded=true => la session est connectée mais ne livre plus: suspendez les env
 ## Webhooks
 - GET /webhooks — lister les webhooks configurés
 Événements: message.sent, message.delivered, message.read, message.failed.
+
+## File d'attente
+- GET /queue/stats — messages en attente / en cours / envoyés / échoués pour la session (permission: send:message)
 
 ## Limites
 Respectez un délai minimum de 3 secondes entre les messages. Limite par destinataire: 100 messages/heure.
@@ -316,6 +324,18 @@ export default function ApiDocumentationPage() {
                 <tr>
                   <td className="py-3 px-4"><code className="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">webhooks:manage</code></td>
                   <td className="py-3 px-4">Gérer les webhooks</td>
+                </tr>
+                <tr>
+                  <td className="py-3 px-4"><code className="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">channels:publish</code></td>
+                  <td className="py-3 px-4">Chaînes, statuts et publications programmées</td>
+                </tr>
+                <tr>
+                  <td className="py-3 px-4"><code className="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">groups:manage</code></td>
+                  <td className="py-3 px-4">Créer et gérer les groupes</td>
+                </tr>
+                <tr>
+                  <td className="py-3 px-4"><code className="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">automation:manage</code></td>
+                  <td className="py-3 px-4">Réglages d'automatisation, profil, étiquettes, blocage, actions sur les discussions</td>
                 </tr>
               </tbody>
             </table>
@@ -733,6 +753,13 @@ export default function ApiDocumentationPage() {
             </h3>
             <p className="text-gray-600 dark:text-gray-300 mb-1">Lister les webhooks configurés.</p>
             <p className="text-sm text-amber-600 dark:text-amber-400 mb-3">Permission requise: <code>webhooks:manage</code></p>
+          </div>
+
+          {/* Queue stats */}
+          <div className="border-t border-gray-200 dark:border-gray-700 pt-6 mt-6">
+            <h3 className="font-semibold text-gray-900 dark:text-white mb-1"><span className="text-blue-600">GET</span> /queue/stats</h3>
+            <p className="text-gray-600 dark:text-gray-300 mb-1">État de la file d&apos;envoi de la session liée à la clé : messages en attente, en cours, envoyés, échoués. Utile pour vérifier qu&apos;un envoi différé (session en reconnexion) a bien été rattrapé.</p>
+            <p className="text-sm text-amber-600 dark:text-amber-400 mb-3">Permission requise: <code>send:message</code></p>
           </div>
         </section>
 

@@ -343,6 +343,7 @@ export default function ConversationsPage() {
             id: conv.id,
             name: displayName,
             phone: displayPhone,
+            rawPhone: conv.phoneNumber || '',
             avatar: avatar, // Profile picture URL
             cleanedPhone: cleanedPhone, // Used for deduplication
             lastMessage: cleanText(conv.lastMessage || ''),
@@ -571,6 +572,78 @@ export default function ConversationsPage() {
     };
   }, [socket, subscribe, selectedContactId]);
 
+  // ---- WhatsApp actions on a message or on the whole chat (automation API) ----
+  const actionBase = selectedSessionId ? `/whatsapp/sessions/${selectedSessionId}` : '';
+
+  const handleMessageAction = useCallback(async (action: 'react' | 'delete' | 'forward' | 'edit', message: any, payload?: any) => {
+    const contact = contacts.find((c) => c.id === selectedContactId) as any;
+    if (!actionBase || !contact?.rawPhone || !message?.externalMessageId) {
+      toast.error('Action indisponible pour ce message');
+      return;
+    }
+    const ref = { chat: contact.rawPhone, messageId: message.externalMessageId, fromMe: message.sender !== 'client' };
+    try {
+      if (action === 'react') {
+        const r = await api.post(`${actionBase}/messages/react`, { ...ref, emoji: payload?.emoji || '' });
+        if (!r.success) throw new Error(r.error);
+        toast.success(`Réaction ${payload?.emoji || 'retirée'}`);
+      } else if (action === 'delete') {
+        if (!window.confirm('Supprimer ce message pour tout le monde ?')) return;
+        const r = await api.post(`${actionBase}/messages/delete`, ref);
+        if (!r.success) throw new Error(r.error);
+        setMessages((prev) => prev.map((m: any) => (m.id === message.id ? { ...m, metadata: { ...(m.metadata || {}), deleted: true } } : m)));
+        toast.success('Message supprimé');
+      } else if (action === 'forward') {
+        const to = window.prompt('Transférer à (numéros séparés par des virgules) :');
+        if (!to) return;
+        const r = await api.post(`${actionBase}/messages/forward`, { ...ref, to: to.split(',').map((x) => x.trim()).filter(Boolean) });
+        if (!r.success) throw new Error(r.error);
+        toast.success('Message transféré');
+      } else if (action === 'edit') {
+        const text = window.prompt('Nouveau texte :', message.content || '');
+        if (!text || text === message.content) return;
+        const r = await api.post(`${actionBase}/messages/edit`, { ...ref, text });
+        if (!r.success) throw new Error(r.error);
+        setMessages((prev) => prev.map((m: any) => (m.id === message.id ? { ...m, content: text, metadata: { ...(m.metadata || {}), edited: true } } : m)));
+        toast.success('Message modifié');
+      }
+    } catch (e: any) {
+      toast.error(e?.message || 'Échec de l\'action');
+    }
+  }, [actionBase, contacts, selectedContactId]);
+
+  const handleChatAction = useCallback(async (action: 'archive' | 'pin' | 'unread' | 'mute' | 'block' | 'label' | 'read', contact: any) => {
+    if (!actionBase || !contact?.rawPhone) {
+      toast.error('Action indisponible pour cette conversation');
+      return;
+    }
+    const chat = contact.rawPhone;
+    try {
+      let r: any;
+      if (action === 'read') r = await api.post(`${actionBase}/messages/read`, { chat });
+      else if (action === 'unread') r = await api.post(`${actionBase}/chats/unread`, { chat, value: true });
+      else if (action === 'pin') r = await api.post(`${actionBase}/chats/pin`, { chat, value: true });
+      else if (action === 'archive') r = await api.post(`${actionBase}/chats/archive`, { chat, value: true });
+      else if (action === 'mute') r = await api.post(`${actionBase}/chats/mute`, { chat, hours: 8 });
+      else if (action === 'block') {
+        if (!window.confirm(`Bloquer ${contact.name} sur WhatsApp ?`)) return;
+        r = await api.post(`${actionBase}/contacts/block`, { contact: chat, block: true });
+      } else if (action === 'label') {
+        const labelsRes = await api.get(`${actionBase}/labels`);
+        const labels: Array<{ labelId: string; name: string }> = (labelsRes.data?.data ?? labelsRes.data) || [];
+        if (!labels.length) { toast.error('Aucune étiquette WhatsApp Business sur cette session'); return; }
+        const choice = window.prompt(`Étiquette à appliquer :\n${labels.map((l, i) => `${i + 1}. ${l.name}`).join('\n')}\n\nNuméro :`);
+        const idx = Number(choice) - 1;
+        if (!labels[idx]) return;
+        r = await api.post(`${actionBase}/chats/labels`, { chat, labelId: labels[idx].labelId });
+      }
+      if (r && !r.success) throw new Error(r.error);
+      toast.success('Fait');
+    } catch (e: any) {
+      toast.error(e?.message || 'Échec de l\'action');
+    }
+  }, [actionBase]);
+
   const handleSendMessage = useCallback(async (content: string, type: 'text' | 'image' | 'audio' | 'file' | 'video') => {
     if (!selectedContactId) {
       return;
@@ -792,6 +865,8 @@ export default function ConversationsPage() {
           onTakeover={handleTakeover}
           onRelease={handleRelease}
           onOperatorReply={handleOperatorReply}
+          onMessageAction={handleMessageAction}
+          onChatAction={handleChatAction}
           isLoading={isLoading}
           t={t}
         />

@@ -15,17 +15,27 @@ interface Message {
   mediaUrl?: string;
   mediaType?: string;
   mediaCaption?: string;
+  /** WhatsApp message id, needed for reactions, edits, deletions and forwards. */
+  externalMessageId?: string;
   metadata?: {
     fileName?: string;
     fileSize?: number;
     duration?: number;
+    deleted?: boolean;
+    deletedBy?: string;
+    edited?: boolean;
   };
 }
+
+export type MessageAction = 'react' | 'delete' | 'forward' | 'edit';
+export type ChatAction = 'archive' | 'pin' | 'unread' | 'mute' | 'block' | 'label' | 'read';
 
 interface Contact {
   id: string;
   name: string;
   phone: string;
+  /** Phone or LID as stored, for actions on the chat (not the display value). */
+  rawPhone?: string;
   avatar?: string;
   lastMessage?: string;
   lastMessageTime?: Date;
@@ -48,6 +58,10 @@ interface ConversationInterfaceProps {
   onTakeover?: (contactId: string) => void;
   onRelease?: (contactId: string) => void;
   onOperatorReply?: (contactId: string, message: string) => void;
+  /** Actions on one message (react, delete, forward, edit); undefined hides the toolbar. */
+  onMessageAction?: (action: MessageAction, message: Message, payload?: any) => void;
+  /** Actions on the whole chat (archive, pin, unread, mute, block, label, read). */
+  onChatAction?: (action: ChatAction, contact: Contact) => void;
   isOperatorMode?: boolean;
   isLoading?: boolean;
   t?: (key: string) => string;
@@ -65,6 +79,7 @@ interface MessageBubbleProps {
   isLast: boolean;
   formatMessageTime: (timestamp: Date) => string;
   t: (key: string) => string;
+  onAction?: (action: MessageAction, message: Message, payload?: any) => void;
 }
 
 interface ContactItemProps {
@@ -95,7 +110,7 @@ const MessageStatus = React.memo(({ status }: MessageStatusProps) => {
 
 MessageStatus.displayName = 'MessageStatus';
 
-const MessageBubble = React.memo(({ message, isFirst, isLast, formatMessageTime, t }: MessageBubbleProps) => {
+const MessageBubble = React.memo(({ message, isFirst, isLast, formatMessageTime, t, onAction }: MessageBubbleProps) => {
   const [imageError, setImageError] = useState(false);
   const isUser = message.sender === 'user';
   const isAgent = message.sender === 'agent';
@@ -249,14 +264,31 @@ const MessageBubble = React.memo(({ message, isFirst, isLast, formatMessageTime,
     }
   };
 
+  const canAct = !!onAction && !!message.externalMessageId && !isSystem;
+  const quickReactions = ['👍', '❤️', '🙏', '✅', '😂'];
+
   return (
     <div className={clsx(
-      'flex mb-1',
+      'flex mb-1 group',
       isOutgoing ? 'justify-end' : 'justify-start',
       isLast && 'mb-3'
     )}>
+      {canAct && (
+        <div className={clsx(
+          'self-center hidden group-hover:flex items-center gap-0.5 px-1 py-0.5 rounded-full bg-white dark:bg-[#202c33] shadow text-[13px] mx-1',
+          isOutgoing ? 'order-first' : 'order-last'
+        )}>
+          {quickReactions.map((e) => (
+            <button key={e} type="button" title={`Réagir ${e}`} className="px-1 hover:scale-125 transition-transform" onClick={() => onAction!('react', message, { emoji: e })}>{e}</button>
+          ))}
+          <button type="button" title="Transférer" className="px-1 text-[#54656f] dark:text-[#aebac1] hover:text-[#00a884]" onClick={() => onAction!('forward', message)}>↪</button>
+          {isOutgoing && <button type="button" title="Modifier" className="px-1 text-[#54656f] dark:text-[#aebac1] hover:text-[#00a884]" onClick={() => onAction!('edit', message)}>✎</button>}
+          {isOutgoing && <button type="button" title="Supprimer pour tout le monde" className="px-1 text-[#54656f] dark:text-[#aebac1] hover:text-red-500" onClick={() => onAction!('delete', message)}>🗑</button>}
+        </div>
+      )}
       <div className={clsx(
         'relative max-w-[75%] lg:max-w-[65%] px-2 py-1.5 shadow-sm text-[14.2px]',
+        message.metadata?.deleted && 'opacity-60 italic',
         isOutgoing && !isOperator && 'bg-[#d9fdd3] dark:bg-[#005c4b] text-[#111b21] dark:text-[#e9edef]',
         isOperator && 'bg-[#d1e7ff] dark:bg-[#1a3a5c] text-[#111b21] dark:text-[#e9edef]',
         isIncoming && 'bg-white dark:bg-[#202c33] text-[#111b21] dark:text-[#e9edef]',
@@ -285,12 +317,15 @@ const MessageBubble = React.memo(({ message, isFirst, isLast, formatMessageTime,
           </div>
         )}
 
-        {renderMessageContent()}
+        {message.metadata?.deleted
+          ? <p className="text-[13px]">🚫 Message supprimé{message.metadata?.deletedBy === 'contact' ? ' par le contact' : ''}</p>
+          : renderMessageContent()}
 
         <div className={clsx(
           'flex items-center justify-end gap-1 mt-0.5 text-[11px]',
           isOutgoing ? 'text-[#667781] dark:text-[#8696a0]' : 'text-[#667781] dark:text-[#8696a0]'
         )}>
+          {message.metadata?.edited && <span className="opacity-70">modifié ·</span>}
           <span>{formatMessageTime(message.timestamp)}</span>
           {isOutgoing && <MessageStatus status={message.status} />}
           {message.status === 'failed' && (
@@ -434,6 +469,8 @@ export function ConversationInterface({
   onSendMessage,
   onSelectContact,
   onArchiveContact,
+  onMessageAction,
+  onChatAction,
   onTakeover,
   onRelease,
   onOperatorReply,
@@ -447,6 +484,7 @@ export function ConversationInterface({
   const [isRecording, setIsRecording] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showSidebar, setShowSidebar] = useState(true);
+  const [showChatMenu, setShowChatMenu] = useState(false);
   const [loadError, setLoadError] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -738,12 +776,37 @@ export function ConversationInterface({
                       <Archive className="w-5 h-5 text-[#54656f] dark:text-[#aebac1]" />
                     </button>
                   )}
-                  <button
-                    className="p-2.5 hover:bg-[#e9edef] dark:hover:bg-[#374248] rounded-full transition-colors"
-                    aria-label="More options"
-                  >
-                    <MoreVertical className="w-5 h-5 text-[#54656f] dark:text-[#aebac1]" />
-                  </button>
+                  <div className="relative">
+                    <button
+                      className="p-2.5 hover:bg-[#e9edef] dark:hover:bg-[#374248] rounded-full transition-colors"
+                      aria-label="More options"
+                      onClick={() => setShowChatMenu((v) => !v)}
+                    >
+                      <MoreVertical className="w-5 h-5 text-[#54656f] dark:text-[#aebac1]" />
+                    </button>
+                    {showChatMenu && onChatAction && (
+                      <div className="absolute right-0 mt-1 w-56 rounded-lg bg-white dark:bg-[#233138] shadow-lg border border-gray-100 dark:border-gray-700 z-20 py-1 text-sm">
+                        {([
+                          ['read', 'Marquer comme lu (✓✓)'],
+                          ['unread', 'Marquer non lu'],
+                          ['pin', 'Épingler'],
+                          ['archive', 'Archiver sur WhatsApp'],
+                          ['mute', 'Mettre en sourdine 8 h'],
+                          ['label', 'Ajouter une étiquette'],
+                          ['block', 'Bloquer ce contact'],
+                        ] as Array<[ChatAction, string]>).map(([action, label]) => (
+                          <button
+                            key={action}
+                            type="button"
+                            className={clsx('w-full text-left px-4 py-2 hover:bg-[#f0f2f5] dark:hover:bg-[#374248]', action === 'block' ? 'text-red-600' : 'text-[#111b21] dark:text-[#e9edef]')}
+                            onClick={() => { setShowChatMenu(false); onChatAction(action, selectedContact); }}
+                          >
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -854,6 +917,7 @@ export function ConversationInterface({
                             isLast={isLast}
                             formatMessageTime={formatMessageTime}
                             t={t}
+                            onAction={onMessageAction}
                           />
                         );
                       })}

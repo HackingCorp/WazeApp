@@ -46,6 +46,7 @@ export interface MessageData {
   mediaUrl?: string;
   mediaType?: string;
   mediaCaption?: string;
+  externalMessageId?: string;
   metadata?: {
     whatsappMessageId?: string;
     fromWhatsApp?: boolean;
@@ -1173,6 +1174,13 @@ export class SimpleConversationService implements OnModuleDestroy {
           mediaUrl: effectiveMediaUrl,
           mediaType: effectiveMediaType,
           mediaCaption: msg.mediaCaption,
+          // The WhatsApp id is what message actions (react, edit, delete,
+          // forward) address; deleted/edited flags come from protocol events.
+          externalMessageId: msg.externalMessageId || undefined,
+          metadata: {
+            ...(meta?.deleted ? { deleted: true, deletedBy: meta.deletedBy } : {}),
+            ...(meta?.edited ? { edited: true } : {}),
+          },
         };
       });
 

@@ -100,6 +100,49 @@ degraded=true => la session est connectée mais ne livre plus: suspendez les env
 ## Limites
 Respectez un délai minimum de 3 secondes entre les messages. Limite par destinataire: 100 messages/heure.
 
+## Automatisations WhatsApp
+Toutes ces routes utilisent la clé API (en-tête x-api-key) et agissent sur la session liée à la clé.
+Permissions : send:message (actions sur les messages), channels:publish (chaînes, statuts, programmations),
+groups:manage (groupes), automation:manage (réglages, profil, étiquettes, blocage, conversations).
+
+### Messages
+- POST /external/messages/poll { chat, question, options[], selectableCount? } → sondage ; GET /external/polls, GET /external/polls/:id (votes)
+- POST /external/messages/location { chat, latitude, longitude, name?, address? }
+- POST /external/messages/contacts { chat, contacts: [{ fullName, phone, organization? }] }
+- POST /external/messages/voice { chat, text | audioUrl, voice? } → note vocale (synthèse vocale)
+- POST /external/messages/react { chat, messageId, emoji } (emoji vide = retirer)
+- POST /external/messages/edit { chat, messageId, text } (nos messages, < 15 min)
+- POST /external/messages/delete { chat, messageId } (pour tout le monde)
+- POST /external/messages/forward { chat, messageId, to[] }
+- POST /external/messages/read { chat, messageIds? } → accusés de lecture
+- POST /external/chats/disappearing { chat, seconds: 0 | 86400 | 604800 | 7776000 }
+
+### Conversations
+- POST /external/chats/archive | pin | unread { chat, value? } ; POST /external/chats/mute { chat, hours? }
+- GET /external/labels ; POST /external/labels { name, color? } ; POST / DELETE /external/chats/labels { chat, labelId }
+- POST /external/contacts/block { contact, block? } ; GET /external/contacts/blocklist
+
+### Profil et présence
+- GET / PUT /external/profile { name?, about?, pictureUrl?, removePicture? }
+- GET /external/presence?contact=… (nécessite presenceTracking dans les réglages)
+
+### Groupes
+- GET /external/groups ; POST /external/groups { subject, participants[], description? } ; POST /external/groups/join { invite }
+- GET / PUT /external/groups/:id { subject?, description?, pictureUrl?, announcementOnly?, locked?, joinApproval?, disappearingSeconds? }
+- POST /external/groups/:id/participants { participants[], action: add|remove|promote|demote }
+- GET /external/groups/:id/invite?revoke=true ; GET / POST /external/groups/:id/requests { participants[], action: approve|reject }
+- POST /external/groups/:id/messages { text?, media? } ; DELETE /external/groups/:id (quitter)
+
+### Chaînes et statuts
+- POST /external/channels { name, description? } ; GET / PUT /external/channels/:id ; POST /external/channels/:id/publish { text?, media? } ; GET /external/channels/:id/messages
+- POST /external/status { text?, media?, backgroundColor?, font?, audience: { type: optin|contacts|jids, jids?, tags? } }
+- GET / POST /external/scheduled-posts { kind: channel|status|group|chat, target?, audience?, text?, media?, scheduledAt, cron? } ; DELETE /external/scheduled-posts/:id
+
+### Réglages d'automatisation
+- GET / PUT /external/automation { autoRead?, rejectCalls?, rejectCallsMessage?, voiceReplies?: { enabled, voice?, onlyWhenClientUsesVoice? }, presenceTracking?, acknowledgeReaction?, labelOnNewConversation?, disappearingSeconds? }
+
+Format media : { url, type: image|video|document|audio, caption?, fileName? }. Un chat se désigne par numéro (237…), LID (lid_…), id de groupe (…@g.us) ou JID complet.
+
 ## Bonnes pratiques
 La règle qui compte avant toutes les autres: écrire à des personnes qui ne vous ont jamais écrit est la
 première cause de restriction puis de bannissement d'un numéro WhatsApp. Le déclencheur est le VOLUME:
@@ -949,6 +992,71 @@ export default function ApiDocumentationPage() {
               </tbody>
             </table>
           </div>
+        </section>
+
+        {/* Automations */}
+        <section className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">Automatisations WhatsApp</h2>
+          <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">
+            Toutes ces routes utilisent l&apos;en-tête <code className="text-xs bg-gray-100 dark:bg-gray-700 px-1 rounded">x-api-key</code> et agissent sur la session liée à la clé.
+            Un chat se désigne par numéro (<code className="text-xs">237…</code>), LID (<code className="text-xs">lid_…</code>), id de groupe (<code className="text-xs">…@g.us</code>) ou JID complet.
+            Format média : <code className="text-xs">{'{ url, type: image|video|document|audio, caption?, fileName? }'}</code>.
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+            {[
+              { title: 'Messages', perm: 'send:message', items: [
+                'POST /external/messages/poll { chat, question, options[], selectableCount? } — GET /external/polls/:id pour les votes',
+                'POST /external/messages/location { chat, latitude, longitude, name?, address? }',
+                'POST /external/messages/contacts { chat, contacts: [{ fullName, phone, organization? }] }',
+                'POST /external/messages/voice { chat, text | audioUrl, voice? } — note vocale (TTS)',
+                'POST /external/messages/react { chat, messageId, emoji } — emoji vide pour retirer',
+                'POST /external/messages/edit { chat, messageId, text } — nos messages, moins de 15 min',
+                'POST /external/messages/delete { chat, messageId } — pour tout le monde',
+                'POST /external/messages/forward { chat, messageId, to[] }',
+                'POST /external/messages/read { chat, messageIds? } — accusés de lecture',
+                'POST /external/chats/disappearing { chat, seconds }',
+              ] },
+              { title: 'Conversations', perm: 'automation:manage', items: [
+                'POST /external/chats/archive | pin | unread { chat, value? }',
+                'POST /external/chats/mute { chat, hours? }',
+                'GET /external/labels — POST /external/labels { name, color? }',
+                'POST / DELETE /external/chats/labels { chat, labelId }',
+                'POST /external/contacts/block { contact, block? } — GET /external/contacts/blocklist',
+                'GET / PUT /external/profile { name?, about?, pictureUrl?, removePicture? }',
+                'GET /external/presence?contact=… (avec presenceTracking)',
+                'GET / PUT /external/automation — réglages : autoRead, rejectCalls(+Message), voiceReplies, presenceTracking, acknowledgeReaction, labelOnNewConversation, disappearingSeconds',
+              ] },
+              { title: 'Groupes', perm: 'groups:manage', items: [
+                'GET /external/groups — POST /external/groups { subject, participants[], description? }',
+                'POST /external/groups/join { invite } — DELETE /external/groups/:id (quitter)',
+                'PUT /external/groups/:id { subject?, description?, pictureUrl?, announcementOnly?, locked?, joinApproval?, disappearingSeconds? }',
+                'POST /external/groups/:id/participants { participants[], action: add|remove|promote|demote }',
+                'GET /external/groups/:id/invite?revoke=true',
+                'GET / POST /external/groups/:id/requests { participants[], action: approve|reject }',
+                'POST /external/groups/:id/messages { text?, media? }',
+              ] },
+              { title: 'Chaînes, statuts, programmation', perm: 'channels:publish', items: [
+                'POST /external/channels { name, description? } — GET / PUT /external/channels/:id',
+                'POST /external/channels/:id/publish { text?, media? } — GET /external/channels/:id/messages',
+                'POST /external/status { text?, media?, backgroundColor?, font?, audience: { type: optin|contacts|jids, jids?, tags? } }',
+                'POST /external/scheduled-posts { kind: channel|status|group|chat, target?, audience?, text?, media?, scheduledAt, cron? }',
+                'GET /external/scheduled-posts — DELETE /external/scheduled-posts/:id',
+              ] },
+            ].map((block) => (
+              <div key={block.title} className="rounded-lg border border-gray-100 dark:border-gray-700 p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="font-semibold text-gray-900 dark:text-white">{block.title}</h3>
+                  <code className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300">{block.perm}</code>
+                </div>
+                <ul className="space-y-1.5">
+                  {block.items.map((it) => <li key={it} className="font-mono text-[12px] text-gray-700 dark:text-gray-300 break-words">{it}</li>)}
+                </ul>
+              </div>
+            ))}
+          </div>
+          <p className="mt-4 text-xs text-gray-500 dark:text-gray-400">
+            Les statuts sont chiffrés par destinataire (comptez quelques secondes par centaine de contacts) et ne sont vus que par les personnes qui ont enregistré votre numéro. Les chaînes n&apos;ont pas cette limite.
+          </p>
         </section>
 
         {/* Best Practices */}

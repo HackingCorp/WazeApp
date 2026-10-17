@@ -62,6 +62,9 @@ const PERMISSIONS = [
   { value: 'webhooks:manage', label: 'Manage Webhooks', description: 'Configure webhooks' },
   { value: 'broadcast:read', label: 'Broadcast Read', description: 'Read all broadcast data' },
   { value: 'broadcast:write', label: 'Broadcast Write', description: 'Write all broadcast data' },
+  { value: 'channels:publish', label: 'Channels & Statuses', description: 'Publish on channels, post statuses, schedule posts' },
+  { value: 'groups:manage', label: 'Groups', description: 'Create and manage WhatsApp groups' },
+  { value: 'automation:manage', label: 'Automation', description: 'Settings, profile, labels, blocking, chat actions' },
 ];
 
 export default function ApiKeysPage() {

@@ -87,6 +87,11 @@ export function Sidebar({ collapsed, onToggleCollapse }: SidebarProps) {
       permission: null,
     },
     {
+      name: t('sidebar.automation'),
+      href: '/dashboard/whatsapp/automation',
+      icon: Zap,
+    },
+    {
       name: t('sidebar.products'),
       href: '/products',
       icon: ShoppingCart,

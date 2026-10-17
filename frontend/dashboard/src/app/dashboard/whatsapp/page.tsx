@@ -1430,6 +1430,13 @@ export default function WhatsAppPage() {
                 >
                   <Settings className="w-4 h-4" />
                 </button>
+                <a
+                  href={`/dashboard/whatsapp/automation?session=${session.id}`}
+                  className="bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 py-2 px-4 rounded-lg hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-colors text-sm font-medium"
+                  title="Automatisations : chaînes, statuts, groupes, sondages"
+                >
+                  <Zap className="w-4 h-4" />
+                </a>
               </div>
             </motion.div>
           ))}

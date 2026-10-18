@@ -16,7 +16,8 @@ import {
   CreditCard,
   Zap,
   Image,
-  Headphones,
+  Headphones,,
+  Calendar, ClipboardList, Database, Facebook, Key, Radio, ShoppingCart, Smartphone, Target,
 } from 'lucide-react';
 import { useI18n } from '@/providers/I18nProvider';
 import { useAuth } from '@/providers/AuthProvider';
@@ -33,72 +34,91 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
   const { t } = useI18n();
   const { user, hasPermission } = useAuth();
 
+  // Same entries as the desktop sidebar: the two lists had drifted apart and
+  // the mobile one pointed at pages that no longer exist.
   const navigation = [
     {
-      name: t('dashboard.title'),
+      name: t('sidebar.dashboard'),
       href: '/dashboard',
       icon: LayoutDashboard,
       permission: null,
     },
     {
-      name: t('conversations.title'),
+      name: t('sidebar.whatsapp'),
+      href: '/dashboard/whatsapp',
+      icon: Smartphone,
+      permission: null,
+    },
+    {
+      name: t('sidebar.facebook'),
+      href: '/dashboard/facebook',
+      icon: Facebook,
+      permission: null,
+    },
+    {
+      name: t('sidebar.conversations'),
       href: '/conversations',
       icon: MessageSquare,
-      permission: 'conversations.view',
-      badge: '12',
+      permission: null,
     },
     {
-      name: t('agents.title'),
+      name: t('sidebar.agents'),
       href: '/agents',
       icon: Bot,
-      permission: 'agents.view',
+      permission: null,
     },
     {
-      name: 'Knowledge Base',
-      href: '/knowledge',
-      icon: BookOpen,
-      permission: 'knowledge.view',
+      name: t('sidebar.knowledgeBase'),
+      href: '/knowledge-base',
+      icon: Database,
+      permission: null,
     },
     {
-      name: 'Media Library',
-      href: '/media',
-      icon: Image,
-      permission: 'media.view',
+      name: t('sidebar.broadcast'),
+      href: '/broadcast',
+      icon: Radio,
+      permission: null,
     },
     {
-      name: t('dashboard.analytics'),
-      href: '/analytics',
-      icon: BarChart3,
-      permission: 'analytics.view',
-    },
-    {
-      name: 'Automation',
-      href: '/automation',
+      name: t('sidebar.automation'),
+      href: '/dashboard/whatsapp/automation',
       icon: Zap,
-      permission: 'automation.view',
+      permission: null,
     },
     {
-      name: 'Team',
-      href: '/team',
-      icon: Users,
-      permission: 'users.manage',
+      name: t('sidebar.products'),
+      href: '/products',
+      icon: ShoppingCart,
+      permission: null,
     },
     {
-      name: 'Billing',
+      name: t('sidebar.orders'),
+      href: '/orders',
+      icon: ClipboardList,
+      permission: null,
+    },
+    {
+      name: t('sidebar.leads'),
+      href: '/leads',
+      icon: Target,
+      permission: null,
+    },
+    {
+      name: t('sidebar.appointments'),
+      href: '/appointments',
+      icon: Calendar,
+      permission: null,
+    },
+    {
+      name: t('sidebar.api'),
+      href: '/api-keys',
+      icon: Key,
+      permission: null,
+    },
+    {
+      name: t('sidebar.billing'),
       href: '/billing',
       icon: CreditCard,
-      permission: null,
-    },
-    {
-      name: 'Support',
-      href: '/support',
-      icon: Headphones,
-      permission: null,
-    },
-    {
-      name: t('settings.title'),
-      href: '/settings',
-      icon: Settings,
       permission: null,
     },
   ];

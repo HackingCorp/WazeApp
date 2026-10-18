@@ -6,7 +6,6 @@ import {
   Param,
   Query,
   Headers,
-  Ip,
   HttpStatus,
   HttpException,
   UseGuards,
@@ -29,6 +28,7 @@ import { Repository } from 'typeorm';
 import * as crypto from 'crypto';
 import Redis from 'ioredis';
 import { Public } from '../../common/decorators/public.decorator';
+import { ClientIp } from '../../common/decorators/client-ip.decorator';
 import { ApiKeyService } from './api-key.service';
 import { ContactService } from './contact.service';
 import { TemplateService } from './template.service';
@@ -226,7 +226,7 @@ export class ExternalApiController {
   @ApiHeader({ name: 'X-API-Key', required: true })
   async getSessions(
     @Headers('x-api-key') apiKey: string,
-    @Ip() clientIp: string,
+    @ClientIp() clientIp: string,
   ) {
     const { sessionId } = await this.apiKeyService.validateApiKey(
       apiKey,
@@ -270,7 +270,7 @@ export class ExternalApiController {
   @ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'Insufficient permissions' })
   async sendMessage(
     @Headers('x-api-key') apiKey: string,
-    @Ip() clientIp: string,
+    @ClientIp() clientIp: string,
     @Body() dto: ExternalSendMessageDto,
   ) {
     // Validate API key
@@ -433,7 +433,7 @@ export class ExternalApiController {
   @ApiResponse({ status: HttpStatus.ACCEPTED, description: 'Message queued for delivery when session reconnects' })
   async sendImmediate(
     @Headers('x-api-key') apiKey: string,
-    @Ip() clientIp: string,
+    @ClientIp() clientIp: string,
     @Body()
     dto: {
       sessionId?: string; // Optional - uses API key's session if not provided
@@ -658,7 +658,7 @@ export class ExternalApiController {
   @ApiHeader({ name: 'X-API-Key', required: true })
   async getQueueStats(
     @Headers('x-api-key') apiKey: string,
-    @Ip() clientIp: string,
+    @ClientIp() clientIp: string,
   ) {
     const { sessionId } = await this.apiKeyService.validateApiKey(
       apiKey,
@@ -689,7 +689,7 @@ export class ExternalApiController {
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Invalid API key' })
   async validateNumbers(
     @Headers('x-api-key') apiKey: string,
-    @Ip() clientIp: string,
+    @ClientIp() clientIp: string,
     @Body() dto: { sessionId?: string; phoneNumbers: string[] },
   ) {
     const { organizationId, sessionId: apiKeySessionId, keyHash, rateLimitPerMinute, rateLimitPerDay } = await this.apiKeyService.validateApiKey(
@@ -745,7 +745,7 @@ export class ExternalApiController {
   @ApiQuery({ name: 'limit', required: false })
   async getContacts(
     @Headers('x-api-key') apiKey: string,
-    @Ip() clientIp: string,
+    @ClientIp() clientIp: string,
     @Query() filter: ContactFilterDto,
   ) {
     const { organizationId, keyHash, rateLimitPerMinute, rateLimitPerDay } = await this.apiKeyService.validateApiKey(
@@ -764,7 +764,7 @@ export class ExternalApiController {
   @ApiHeader({ name: 'X-API-Key', required: true })
   async createContact(
     @Headers('x-api-key') apiKey: string,
-    @Ip() clientIp: string,
+    @ClientIp() clientIp: string,
     @Body() dto: { phoneNumber: string; name: string; email?: string; company?: string; tags?: string[] },
   ) {
     const { organizationId, keyHash, rateLimitPerMinute, rateLimitPerDay } = await this.apiKeyService.validateApiKey(
@@ -787,7 +787,7 @@ export class ExternalApiController {
   @ApiHeader({ name: 'X-API-Key', required: true })
   async getTemplates(
     @Headers('x-api-key') apiKey: string,
-    @Ip() clientIp: string,
+    @ClientIp() clientIp: string,
   ) {
     const { organizationId, keyHash, rateLimitPerMinute, rateLimitPerDay } = await this.apiKeyService.validateApiKey(
       apiKey,
@@ -805,7 +805,7 @@ export class ExternalApiController {
   @ApiHeader({ name: 'X-API-Key', required: true })
   async getTemplate(
     @Headers('x-api-key') apiKey: string,
-    @Ip() clientIp: string,
+    @ClientIp() clientIp: string,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     const { organizationId, keyHash, rateLimitPerMinute, rateLimitPerDay } = await this.apiKeyService.validateApiKey(
@@ -828,7 +828,7 @@ export class ExternalApiController {
   @ApiHeader({ name: 'X-API-Key', required: true })
   async getCampaigns(
     @Headers('x-api-key') apiKey: string,
-    @Ip() clientIp: string,
+    @ClientIp() clientIp: string,
   ) {
     const { organizationId, keyHash, rateLimitPerMinute, rateLimitPerDay } = await this.apiKeyService.validateApiKey(
       apiKey,
@@ -846,7 +846,7 @@ export class ExternalApiController {
   @ApiHeader({ name: 'X-API-Key', required: true })
   async getCampaign(
     @Headers('x-api-key') apiKey: string,
-    @Ip() clientIp: string,
+    @ClientIp() clientIp: string,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     const { organizationId, keyHash, rateLimitPerMinute, rateLimitPerDay } = await this.apiKeyService.validateApiKey(
@@ -865,7 +865,7 @@ export class ExternalApiController {
   @ApiHeader({ name: 'X-API-Key', required: true })
   async getCampaignStats(
     @Headers('x-api-key') apiKey: string,
-    @Ip() clientIp: string,
+    @ClientIp() clientIp: string,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     const { organizationId, keyHash, rateLimitPerMinute, rateLimitPerDay } = await this.apiKeyService.validateApiKey(
@@ -884,7 +884,7 @@ export class ExternalApiController {
   @ApiHeader({ name: 'X-API-Key', required: true })
   async createCampaign(
     @Headers('x-api-key') apiKey: string,
-    @Ip() clientIp: string,
+    @ClientIp() clientIp: string,
     @Body() dto: CreateCampaignDto & { startImmediately?: boolean },
   ) {
     const { organizationId, keyId, keyName, keyHash, rateLimitPerMinute, rateLimitPerDay } = await this.apiKeyService.validateApiKey(
@@ -912,7 +912,7 @@ export class ExternalApiController {
   @ApiHeader({ name: 'X-API-Key', required: true })
   async startCampaign(
     @Headers('x-api-key') apiKey: string,
-    @Ip() clientIp: string,
+    @ClientIp() clientIp: string,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     const { organizationId, keyHash, rateLimitPerMinute, rateLimitPerDay } = await this.apiKeyService.validateApiKey(
@@ -931,7 +931,7 @@ export class ExternalApiController {
   @ApiHeader({ name: 'X-API-Key', required: true })
   async pauseCampaign(
     @Headers('x-api-key') apiKey: string,
-    @Ip() clientIp: string,
+    @ClientIp() clientIp: string,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     const { organizationId, keyHash, rateLimitPerMinute, rateLimitPerDay } = await this.apiKeyService.validateApiKey(
@@ -950,7 +950,7 @@ export class ExternalApiController {
   @ApiHeader({ name: 'X-API-Key', required: true })
   async cancelCampaign(
     @Headers('x-api-key') apiKey: string,
-    @Ip() clientIp: string,
+    @ClientIp() clientIp: string,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     const { organizationId, keyHash, rateLimitPerMinute, rateLimitPerDay } = await this.apiKeyService.validateApiKey(
@@ -973,7 +973,7 @@ export class ExternalApiController {
   @ApiHeader({ name: 'X-API-Key', required: true })
   async getWebhooks(
     @Headers('x-api-key') apiKey: string,
-    @Ip() clientIp: string,
+    @ClientIp() clientIp: string,
   ) {
     const { organizationId, keyHash, rateLimitPerMinute, rateLimitPerDay } = await this.apiKeyService.validateApiKey(
       apiKey,
@@ -1001,7 +1001,7 @@ export class ExternalApiController {
   async getContactStatus(
     @Query('phone') phone: string,
     @Headers('x-api-key') apiKey: string,
-    @Ip() clientIp: string,
+    @ClientIp() clientIp: string,
   ) {
     const { sessionId } = await this.apiKeyService.validateApiKey(apiKey, undefined, clientIp);
     if (!sessionId) {
@@ -1031,7 +1031,7 @@ export class ExternalApiController {
   async getContactStatuses(
     @Body() body: { phones?: string[] },
     @Headers('x-api-key') apiKey: string,
-    @Ip() clientIp: string,
+    @ClientIp() clientIp: string,
   ) {
     const { sessionId } = await this.apiKeyService.validateApiKey(apiKey, undefined, clientIp);
     if (!sessionId) {
@@ -1072,7 +1072,7 @@ export class ExternalApiController {
   async getMessageStatus(
     @Param('messageId') messageId: string,
     @Headers('x-api-key') apiKey: string,
-    @Ip() clientIp: string,
+    @ClientIp() clientIp: string,
   ) {
     const { sessionId } = await this.apiKeyService.validateApiKey(
       apiKey,
@@ -1103,7 +1103,7 @@ export class ExternalApiController {
   @ApiResponse({ status: 200, description: 'Delivery health retrieved' })
   async getDeliveryHealth(
     @Headers('x-api-key') apiKey: string,
-    @Ip() clientIp: string,
+    @ClientIp() clientIp: string,
   ) {
     const { sessionId } = await this.apiKeyService.validateApiKey(
       apiKey,
@@ -1123,7 +1123,7 @@ export class ExternalApiController {
   @ApiHeader({ name: 'X-API-Key', required: true })
   async healthCheck(
     @Headers('x-api-key') apiKey: string,
-    @Ip() clientIp: string,
+    @ClientIp() clientIp: string,
   ) {
     const { organizationId, sessionId, permissions } =
       await this.apiKeyService.validateApiKey(apiKey, undefined, clientIp);

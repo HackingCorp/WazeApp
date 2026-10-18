@@ -827,23 +827,14 @@ export class WhatsAppActionsService {
 
   async createChannel(sessionId: string, input: { name: string; description?: string }) {
     const sock = this.sock(sessionId);
-    try {
-      const meta = await sock.newsletterCreate(input.name, input.description);
-      if (meta?.id) return this.summarizeChannel(meta);
-    } catch (error) {
-      // Baileys crashes on a null payload (WhatsApp answered "no" without an
-      // error object); a Boom carries WhatsApp's own message. Both fall through
-      // to the raw attempt below, which also logs what the server really said.
-      this.logger.warn(`newsletterCreate failed on ${sessionId}: ${error.message}`);
-    }
     return this.createChannelRaw(sock, sessionId, input);
   }
 
   /**
-   * Same mutation as Baileys, sent by hand with the fuller input WhatsApp Web
-   * uses (picture + reaction settings), and the raw answer written to the log.
-   * When WhatsApp still returns nothing, the account cannot create channels
-   * from a linked device and the caller is told so plainly.
+   * The creation mutation sent by hand. Baileys' newsletterCreate() only sends
+   * name + description and WhatsApp answers that with a null payload (which
+   * Baileys then crashes on); the fuller input WhatsApp Web uses — picture and
+   * reaction settings — is accepted. Verified on 2026-10-18.
    */
   private async createChannelRaw(sock: any, sessionId: string, input: { name: string; description?: string }) {
     const baileys: any = await import("@whiskeysockets/baileys");
@@ -868,7 +859,7 @@ export class WhatsAppActionsService {
     } catch (error) {
       raw = { transportError: error.message };
     }
-    this.logger.warn(`📣 Channel creation raw answer on ${sessionId}: ${JSON.stringify(raw).slice(0, 1500)}`);
+    this.logger.log(`📣 Channel creation answer on ${sessionId}: ${JSON.stringify(raw).slice(0, 600)}`);
 
     const created = raw?.data?.xwa2_newsletter_create;
     if (created?.id) {

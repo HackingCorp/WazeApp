@@ -827,8 +827,59 @@ export class WhatsAppActionsService {
 
   async createChannel(sessionId: string, input: { name: string; description?: string }) {
     const sock = this.sock(sessionId);
-    const meta = await sock.newsletterCreate(input.name, input.description);
-    return this.summarizeChannel(meta);
+    try {
+      const meta = await sock.newsletterCreate(input.name, input.description);
+      if (meta?.id) return this.summarizeChannel(meta);
+    } catch (error) {
+      // Baileys crashes on a null payload (WhatsApp answered "no" without an
+      // error object); a Boom carries WhatsApp's own message. Both fall through
+      // to the raw attempt below, which also logs what the server really said.
+      this.logger.warn(`newsletterCreate failed on ${sessionId}: ${error.message}`);
+    }
+    return this.createChannelRaw(sock, sessionId, input);
+  }
+
+  /**
+   * Same mutation as Baileys, sent by hand with the fuller input WhatsApp Web
+   * uses (picture + reaction settings), and the raw answer written to the log.
+   * When WhatsApp still returns nothing, the account cannot create channels
+   * from a linked device and the caller is told so plainly.
+   */
+  private async createChannelRaw(sock: any, sessionId: string, input: { name: string; description?: string }) {
+    const baileys: any = await import("@whiskeysockets/baileys");
+    const queryId = baileys.QueryIds?.CREATE || "8823471724422422";
+    const variables = {
+      input: {
+        name: input.name,
+        description: input.description ?? null,
+        picture: null,
+        settings: { reaction_codes: { value: "ALL" } },
+      },
+    };
+    let raw: any = null;
+    try {
+      const node = await sock.query({
+        tag: "iq",
+        attrs: { id: sock.generateMessageTag?.() || `${Date.now()}`, type: "get", to: "@s.whatsapp.net", xmlns: "w:mex" },
+        content: [{ tag: "query", attrs: { query_id: queryId }, content: Buffer.from(JSON.stringify({ variables }), "utf-8") }],
+      });
+      const child = baileys.getBinaryNodeChild?.(node, "result");
+      raw = child?.content ? JSON.parse(child.content.toString()) : node;
+    } catch (error) {
+      raw = { transportError: error.message };
+    }
+    this.logger.warn(`📣 Channel creation raw answer on ${sessionId}: ${JSON.stringify(raw).slice(0, 1500)}`);
+
+    const created = raw?.data?.xwa2_newsletter_create;
+    if (created?.id) {
+      return this.summarizeChannel(created);
+    }
+    const serverMessage = raw?.errors?.map((e: any) => e.message).join(", ") || raw?.transportError || null;
+    throw new BadRequestException(
+      "WhatsApp n'a pas autorisé la création de chaîne depuis cet appareil lié" +
+        (serverMessage ? ` (${serverMessage})` : "") +
+        ". Créez la chaîne depuis l'application WhatsApp du téléphone (Actus → Chaînes → +), puis utilisez son lien d'invitation ou son identifiant : la publication, la mise à jour et le suivi fonctionnent normalement par l'API.",
+    );
   }
 
   async getChannel(sessionId: string, idOrInvite: string) {

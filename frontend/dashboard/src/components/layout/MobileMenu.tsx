@@ -16,7 +16,7 @@ import {
   CreditCard,
   Zap,
   Image,
-  Headphones,,
+  Headphones,
   Calendar, ClipboardList, Database, Facebook, Key, Radio, ShoppingCart, Smartphone, Target,
 } from 'lucide-react';
 import { useI18n } from '@/providers/I18nProvider';
@@ -36,7 +36,7 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
 
   // Same entries as the desktop sidebar: the two lists had drifted apart and
   // the mobile one pointed at pages that no longer exist.
-  const navigation = [
+  const navigation: Array<{ name: string; href: string; icon: React.ComponentType<any>; permission: string | null; badge?: string }> = [
     {
       name: t('sidebar.dashboard'),
       href: '/dashboard',
@@ -119,6 +119,12 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
       name: t('sidebar.billing'),
       href: '/billing',
       icon: CreditCard,
+      permission: null,
+    },
+    {
+      name: 'Support',
+      href: '/help',
+      icon: Headphones,
       permission: null,
     },
   ];

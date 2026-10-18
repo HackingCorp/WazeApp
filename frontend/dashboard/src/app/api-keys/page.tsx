@@ -409,7 +409,7 @@ export default function ApiKeysPage() {
                     <button
                       onClick={() => handleEditKey(key)}
                       className="ml-2 p-1 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors"
-                      title="Modifier la session"
+                      title="Modifier la clé : session, permissions, IP autorisées, limites"
                     >
                       <Edit3 className="w-4 h-4" />
                     </button>

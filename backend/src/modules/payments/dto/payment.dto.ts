@@ -283,6 +283,11 @@ export class NkapPaySubscriptionDto {
   @IsIn(['MOBILE_MONEY', 'BANK_CARD'])
   paymentMethod?: 'MOBILE_MONEY' | 'BANK_CARD';
 
+  @ApiPropertyOptional({ description: 'Code OTP exigé par certains opérateurs en Direct API (otp_required)' })
+  @IsOptional()
+  @IsString()
+  otpCode?: string;
+
   @ApiPropertyOptional({ description: 'URL de retour après paiement' })
   @IsOptional()
   @IsString()
@@ -315,6 +320,11 @@ export class NkapPayCreditsDto {
   @IsOptional()
   @IsIn(['MOBILE_MONEY', 'BANK_CARD'])
   paymentMethod?: 'MOBILE_MONEY' | 'BANK_CARD';
+
+  @ApiPropertyOptional({ description: 'Code OTP exigé par certains opérateurs en Direct API (otp_required)' })
+  @IsOptional()
+  @IsString()
+  otpCode?: string;
 
   @ApiPropertyOptional({ description: 'URL de retour après paiement' })
   @IsOptional()

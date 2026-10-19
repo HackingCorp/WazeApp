@@ -475,8 +475,8 @@ export default function DashboardPage() {
                         billingPeriod: 'monthly',
                         returnUrl: `${window.location.origin}/billing?payment=nkappay&plan=${planCode.toLowerCase()}`,
                       });
-                      if (res.success && res.data?.paymentUrl) {
-                        window.location.href = res.data.paymentUrl;
+                      if (res.success && (res.data?.paymentUrl || res.data?.redirectUrl)) {
+                        window.location.href = (res.data.paymentUrl || res.data.redirectUrl) as string;
                       } else if (/Pays de paiement requis|pas disponible pour le pays/i.test(res.error || '')) {
                         // The profile does not say where they pay from: the billing
                         // page asks for the country before opening Nkap Pay.

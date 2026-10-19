@@ -437,16 +437,17 @@ export function PaymentModal({
       const data = response.data;
       if (data.reference) setTransactionRef(data.reference);
 
-      if (!data.paymentUrl) {
+      const target = data.paymentUrl || data.redirectUrl;
+      if (!target) {
         setStatus('failed');
         setError('URL de paiement non disponible');
         return;
       }
 
-      // Nkap Pay hosts the page itself, or hands off to Stripe Checkout.
-      const ALLOWED_PAYMENT_HOSTS = ['pay.ltcgroup.site', 'checkout.stripe.com'];
+      // Nkap Pay hosts the page itself, or hands off to a provider page (E-nkap, Wave) or Stripe.
+      const ALLOWED_PAYMENT_HOSTS = ['pay.ltcgroup.site', 'ltcgroup.site', 'checkout.stripe.com', 'enkap.cm', 'wave.com'];
       try {
-        const paymentHost = new URL(data.paymentUrl).hostname;
+        const paymentHost = new URL(target).hostname;
         if (!ALLOWED_PAYMENT_HOSTS.some(h => paymentHost === h || paymentHost.endsWith('.' + h))) {
           throw new Error('Unexpected payment redirect');
         }
@@ -456,10 +457,10 @@ export function PaymentModal({
         return;
       }
 
-      setPaymentUrl(data.paymentUrl);
+      setPaymentUrl(target);
       setStatus('redirecting');
       setTimeout(() => {
-        window.location.href = data.paymentUrl as string;
+        window.location.href = target as string;
       }, 1500);
     } catch (err) {
       if (process.env.NODE_ENV === 'development') {

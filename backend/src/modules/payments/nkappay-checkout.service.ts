@@ -19,16 +19,16 @@ export type BillingPeriod = 'monthly' | 'annually';
  * fallback for when the live list cannot be fetched; the live list wins.
  */
 const FALLBACK_COUNTRY_CURRENCY: Record<string, string> = {
-  CM: 'XAF', CG: 'XAF', GA: 'XAF',
-  BJ: 'XOF', CI: 'XOF', ML: 'XOF', NE: 'XOF', TG: 'XOF',
-  CD: 'CDF', GN: 'GNF', UG: 'UGX',
+  CM: 'XAF', CG: 'XAF', GA: 'XAF', TD: 'XAF',
+  BJ: 'XOF', BF: 'XOF', CI: 'XOF', ML: 'XOF', NE: 'XOF', SN: 'XOF', TG: 'XOF',
+  CD: 'CDF', GN: 'GNF', UG: 'UGX', GH: 'GHS', KE: 'KES', NG: 'NGN', RW: 'RWF', TZ: 'TZS',
 };
 
 /** International dialling prefix → country, for profiles that only carry a phone. */
 const PHONE_PREFIX_COUNTRY: Record<string, string> = {
-  '237': 'CM', '242': 'CG', '241': 'GA',
-  '229': 'BJ', '225': 'CI', '223': 'ML', '227': 'NE', '228': 'TG',
-  '243': 'CD', '224': 'GN', '256': 'UG',
+  '237': 'CM', '242': 'CG', '241': 'GA', '235': 'TD',
+  '229': 'BJ', '226': 'BF', '225': 'CI', '223': 'ML', '227': 'NE', '221': 'SN', '228': 'TG',
+  '243': 'CD', '224': 'GN', '256': 'UG', '233': 'GH', '254': 'KE', '234': 'NG', '250': 'RW', '255': 'TZ',
 };
 
 const COUNTRIES_CACHE_MS = 10 * 60 * 1000;
@@ -48,6 +48,7 @@ export interface NkapPayCheckoutOptions {
   operator?: string;
   customerPhone?: string;
   paymentMethod?: NkapPayMethod;
+  otpCode?: string;
   returnUrl?: string;
 }
 
@@ -133,6 +134,34 @@ export class NkapPayCheckoutService {
     const live = await this.countries();
     if (live.size) return live.has(country);
     return country in FALLBACK_COUNTRY_CURRENCY;
+  }
+
+  /**
+   * Some countries (Chad today) only take Mobile Money on the provider's own
+   * hosted page: the payment must then be opened as BANK_CARD with the
+   * country alone — no operator, no phone — or the API refuses it.
+   */
+  async hostedPaymentPage(country: string): Promise<boolean> {
+    const live = (await this.countries()).get(country);
+    return !!live?.hosted_payment_page;
+  }
+
+  /**
+   * How to open the payment given the country's rules and what the caller
+   * passed. Hosted-page countries override everything.
+   */
+  private async channelFor(country: string, options: NkapPayCheckoutOptions) {
+    if (await this.hostedPaymentPage(country)) {
+      return { paymentMethod: 'BANK_CARD' as NkapPayMethod, operator: undefined, customerPhone: undefined, otpCode: undefined };
+    }
+    return { paymentMethod: options.paymentMethod, operator: options.operator, customerPhone: options.customerPhone, otpCode: options.otpCode };
+  }
+
+  /** Shown under the real total on the checkout when we had to convert from USD. */
+  private displayFor(currency: string, usd: number) {
+    const upper = currency.toUpperCase();
+    if (upper === 'XAF' || upper === 'XOF') return {};
+    return { displayAmount: Math.round(usd * 100) / 100, displayCurrency: 'USD' };
   }
 
   /** The currency Nkap Pay settles in for a country. */
@@ -292,6 +321,9 @@ export class NkapPayCheckoutService {
     const organizationId = await this.resolveOrganizationId(customer.id);
     const { country, currency } = await this.settleCountry(options.country, customer);
     const amount = await this.priceForPlan(planCode, billingPeriod, currency);
+    const channel = await this.channelFor(country, options);
+    const plan = await this.planRepository.findOne({ where: { code: planCode.toLowerCase() } });
+    const usd = billingPeriod === 'annually' ? plan?.priceAnnualUSD : plan?.priceMonthlyUSD;
 
     const label = billingPeriod === 'annually' ? 'annuel' : 'mensuel';
     const result = await this.nkapPayService.createPayment({
@@ -300,10 +332,9 @@ export class NkapPayCheckoutService {
       country,
       merchantReference: this.planReference(customer.id, planCode, organizationId),
       description: `WazeApp ${planCode} - abonnement ${label}`,
-      paymentMethod: options.paymentMethod,
-      operator: options.operator,
-      customerPhone: options.customerPhone,
-      customerInfo: this.customerInfo(customer, options.customerPhone),
+      ...channel,
+      ...(usd ? this.displayFor(currency, usd) : {}),
+      customerInfo: this.customerInfo(customer, channel.customerPhone),
       returnUrl: options.returnUrl,
       metadata: {
         userId: customer.id,
@@ -341,6 +372,7 @@ export class NkapPayCheckoutService {
     const organizationId = await this.resolveOrganizationId(customer.id);
     const { country, currency } = await this.settleCountry(options.country, customer);
     const amount = await this.priceForCredits(creditAmount, currency);
+    const channel = await this.channelFor(country, options);
 
     const result = await this.nkapPayService.createPayment({
       amount,
@@ -348,10 +380,9 @@ export class NkapPayCheckoutService {
       country,
       merchantReference: `WAZEAPP-${customer.id}-CREDITS-${organizationId}-${creditAmount}-${Date.now()}`,
       description: `WazeApp - ${creditAmount.toLocaleString('fr-FR')} messages`,
-      paymentMethod: options.paymentMethod,
-      operator: options.operator,
-      customerPhone: options.customerPhone,
-      customerInfo: this.customerInfo(customer, options.customerPhone),
+      ...channel,
+      ...this.displayFor(currency, creditAmount * MESSAGE_CREDIT_CONFIG.pricePerMessageUSD),
+      customerInfo: this.customerInfo(customer, channel.customerPhone),
       returnUrl: options.returnUrl,
       metadata: {
         userId: customer.id,

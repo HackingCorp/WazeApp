@@ -41,6 +41,8 @@ export interface NkapPayCreateRequest {
   operator?: string;
   customerPhone?: string;
   customerInfo?: NkapPayCustomerInfo;
+  /** One-time code some operators require before debiting (otp_required in /payments/countries). */
+  otpCode?: string;
   callbackUrl?: string;
   returnUrl?: string;
   metadata?: Record<string, any>;
@@ -63,6 +65,8 @@ export interface NkapPayCreateResponse {
   country?: string;
   /** Where to send the customer. Unused in DIRECT_API. */
   paymentUrl?: string;
+  /** DIRECT_API only: provider page the customer must open (Wave, E-nkap…); nothing reaches the handset then. */
+  redirectUrl?: string | null;
   stripeClientSecret?: string | null;
   createdAt?: string;
   error?: string;
@@ -208,6 +212,7 @@ export class NkapPayService {
       ...(request.operator ? { operator: request.operator.toUpperCase() } : {}),
       ...(request.customerPhone ? { customer_phone: request.customerPhone } : {}),
       ...(request.customerInfo ? { customer_info: request.customerInfo } : {}),
+      ...(request.otpCode ? { otp_code: request.otpCode } : {}),
       callback_url: request.callbackUrl || this.callbackUrl,
       return_url: request.returnUrl || this.returnUrl,
       ...(request.metadata ? { metadata: request.metadata } : {}),
@@ -240,6 +245,7 @@ export class NkapPayService {
         paymentMode: data.payment_mode,
         country: data.country,
         paymentUrl: data.payment_url,
+        redirectUrl: data.redirect_url ?? null,
         stripeClientSecret: data.stripe_client_secret ?? null,
         createdAt: data.created_at,
       };

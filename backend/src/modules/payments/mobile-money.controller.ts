@@ -903,6 +903,7 @@ export class MobileMoneyController {
         operator: dto.operator,
         customerPhone: dto.customerPhone,
         paymentMethod: dto.paymentMethod,
+        otpCode: dto.otpCode,
         returnUrl: dto.returnUrl,
       },
     );
@@ -936,6 +937,7 @@ export class MobileMoneyController {
       operator: dto.operator,
       customerPhone: dto.customerPhone,
       paymentMethod: dto.paymentMethod,
+      otpCode: dto.otpCode,
       returnUrl: dto.returnUrl,
     });
 

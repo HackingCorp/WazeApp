@@ -58,6 +58,8 @@ export class CurrencyService implements OnModuleInit {
     CDF: 2850, // Franc Congolais (Nkap Pay RDC)
     GNF: 8600, // Franc Guinéen (Nkap Pay Guinée)
     UGX: 3700, // Shilling Ougandais (Nkap Pay Ouganda)
+    RWF: 1450, // Franc Rwandais (Nkap Pay Rwanda)
+    TZS: 2650, // Shilling Tanzanien (Nkap Pay Tanzanie)
   };
 
   // Cache des plans depuis la base de données
@@ -332,7 +334,7 @@ export class CurrencyService implements OnModuleInit {
     const converted = amountUSD * rateWithMargin;
 
     // Pour les devises africaines (XAF, XOF, NGN), arrondir à l'entier
-    if (['XAF', 'XOF', 'NGN', 'KES', 'GHS', 'EGP', 'CDF', 'GNF', 'UGX'].includes(upperCurrency)) {
+    if (['XAF', 'XOF', 'NGN', 'KES', 'GHS', 'EGP', 'CDF', 'GNF', 'UGX', 'RWF', 'TZS'].includes(upperCurrency)) {
       return Math.ceil(converted / 100) * 100; // Arrondir au centième supérieur
     }
 

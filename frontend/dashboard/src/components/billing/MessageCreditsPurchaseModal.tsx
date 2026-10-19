@@ -220,15 +220,16 @@ export function MessageCreditsPurchaseModal({
         }
 
         const data = response.data;
-        if (!data.paymentUrl) {
+        const target = data.paymentUrl || data.redirectUrl;
+        if (!target) {
           setStatus('failed');
           setError('URL de paiement non disponible');
           return;
         }
 
-        const ALLOWED_PAYMENT_HOSTS = ['pay.ltcgroup.site', 'checkout.stripe.com'];
+        const ALLOWED_PAYMENT_HOSTS = ['pay.ltcgroup.site', 'ltcgroup.site', 'checkout.stripe.com', 'enkap.cm', 'wave.com'];
         try {
-          const paymentHost = new URL(data.paymentUrl).hostname;
+          const paymentHost = new URL(target).hostname;
           if (!ALLOWED_PAYMENT_HOSTS.some(h => paymentHost === h || paymentHost.endsWith('.' + h))) {
             throw new Error('Unexpected payment redirect');
           }
@@ -238,7 +239,7 @@ export function MessageCreditsPurchaseModal({
           return;
         }
 
-        window.location.href = data.paymentUrl;
+        window.location.href = target;
         return;
       }
 

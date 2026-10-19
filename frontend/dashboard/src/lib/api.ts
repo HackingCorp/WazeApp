@@ -33,6 +33,8 @@ export interface NkapPayPaymentResult {
   /** REDIRECT or STRIPE → paymentUrl to open; DIRECT_API → the customer approves on the handset. */
   paymentMode?: 'SDK' | 'DIRECT_API' | 'STRIPE' | 'REDIRECT';
   paymentUrl?: string;
+  /** DIRECT_API: provider page to open when nothing reaches the handset. */
+  redirectUrl?: string | null;
   planCode?: string;
   billingPeriod?: string;
   creditAmount?: number;

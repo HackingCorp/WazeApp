@@ -319,6 +319,13 @@ export class WhatsAppActionsController {
 
   // ---- channels -------------------------------------------------------------
 
+  @Get("channels")
+  @ApiOperation({ summary: "Channels known to this session (created, published on, looked up, or seen in chats)" })
+  async channels(@CurrentUser() user: any, @Param("id") id: string) {
+    await this.own(user, id);
+    return this.actions.listChannels(id);
+  }
+
   @Post("channels")
   async createChannel(@CurrentUser() user: any, @Param("id") id: string, @Body() dto: CreateChannelDto) {
     await this.own(user, id);

@@ -386,6 +386,14 @@ export class ExternalActionsController {
 
   // ---- channels -------------------------------------------------------------
 
+  @Get('channels')
+  @ApiOperation({ summary: 'Channels known to the session: created, published on, looked up, or seen in its chats' })
+  async channels(@Headers('x-api-key') apiKey: string, @ClientIp() ip: string) {
+    const { session } = await this.auth(apiKey, ip, ApiKeyPermission.CHANNELS_PUBLISH);
+    this.requireConnected(session.id);
+    return this.actions.listChannels(session.id);
+  }
+
   @Post('channels')
   async createChannel(@Headers('x-api-key') apiKey: string, @ClientIp() ip: string, @Body() dto: CreateChannelDto) {
     const { session } = await this.auth(apiKey, ip, ApiKeyPermission.CHANNELS_PUBLISH);

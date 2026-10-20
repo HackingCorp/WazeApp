@@ -825,6 +825,61 @@ export class WhatsAppActionsService {
     };
   }
 
+  /** Channels this session is known to own, follow or have published on. */
+  private channelsKey(sessionId: string) {
+    return `wa:channels:${sessionId}`;
+  }
+
+  async rememberChannels(sessionId: string, jids: string[]): Promise<void> {
+    const clean = (jids || []).map((j) => String(j || "").trim()).filter((j) => j.endsWith("@newsletter"));
+    if (!clean.length) return;
+    try {
+      await this.redis.sadd(this.channelsKey(sessionId), ...clean);
+    } catch (error) {
+      this.logger.debug?.(`channel registry write failed: ${error.message}`);
+    }
+  }
+
+  async forgetChannel(sessionId: string, jid: string): Promise<void> {
+    try {
+      await this.redis.srem(this.channelsKey(sessionId), jid);
+    } catch {}
+  }
+
+  /**
+   * WhatsApp has no "list my channels" query, so the list is what the session
+   * has touched: channels it created or published on, looked up, or that
+   * showed up in its chat sync. Metadata is refreshed live, a few at a time.
+   */
+  async listChannels(sessionId: string) {
+    const sock = this.sock(sessionId);
+    let jids: string[] = [];
+    try {
+      jids = await this.redis.smembers(this.channelsKey(sessionId));
+    } catch {}
+    jids = jids.filter((j) => j.endsWith("@newsletter")).slice(0, 50);
+    const out: any[] = [];
+    for (let i = 0; i < jids.length; i += 3) {
+      const wave = jids.slice(i, i + 3);
+      const results = await Promise.all(
+        wave.map(async (jid) => {
+          try {
+            return this.summarizeChannel(await sock.newsletterMetadata("jid", jid));
+          } catch (error) {
+            return { id: jid, error: error.message || "metadata unavailable" };
+          }
+        }),
+      );
+      out.push(...results);
+    }
+    return out;
+  }
+
+  @OnEvent("whatsapp.channels.seen")
+  async handleChannelsSeen(payload: { sessionId: string; jids: string[] }) {
+    await this.rememberChannels(payload.sessionId, payload.jids || []);
+  }
+
   async createChannel(sessionId: string, input: { name: string; description?: string }) {
     const sock = this.sock(sessionId);
     return this.createChannelRaw(sock, sessionId, input);
@@ -863,6 +918,7 @@ export class WhatsAppActionsService {
 
     const created = raw?.data?.xwa2_newsletter_create;
     if (created?.id) {
+      await this.rememberChannels(sessionId, [created.id]);
       return this.summarizeChannel(created);
     }
     const serverMessage = raw?.errors?.map((e: any) => e.message).join(", ") || raw?.transportError || null;
@@ -878,8 +934,17 @@ export class WhatsAppActionsService {
     const raw = String(idOrInvite || "").trim();
     const isInvite = /whatsapp\.com\/channel\//i.test(raw) || !/^\d+(@newsletter)?$/.test(raw);
     const key = isInvite ? raw.replace(/^https?:\/\/(www\.)?whatsapp\.com\/channel\//i, "") : this.channelJid(raw);
-    const meta = await sock.newsletterMetadata(isInvite ? "invite" : "jid", key);
-    return this.summarizeChannel(meta);
+    let meta: any;
+    try {
+      meta = await sock.newsletterMetadata(isInvite ? "invite" : "jid", key);
+    } catch (error) {
+      // WhatsApp answers "Bad Request" for an id it does not know; that is the
+      // caller's input, not a server fault.
+      throw new BadRequestException(`Chaîne introuvable ou identifiant invalide : ${raw} (${error.message})`);
+    }
+    const summary = this.summarizeChannel(meta);
+    if (summary.id) await this.rememberChannels(sessionId, [summary.id]);
+    return summary;
   }
 
   async updateChannel(sessionId: string, channelId: string, input: { name?: string; description?: string; pictureUrl?: string; removePicture?: boolean }) {
@@ -897,6 +962,7 @@ export class WhatsAppActionsService {
     const sock = this.sock(sessionId);
     const jid = this.channelJid(channelId);
     const sent = await sock.sendMessage(jid, await this.buildContent(content));
+    await this.rememberChannels(sessionId, [jid]);
     this.logger.log(`📣 Published to channel ${jid} on session ${sessionId}`);
     return { messageId: sent?.key?.id, serverId: sent?.newsletterServerId ?? sent?.key?.server_id ?? null, channel: jid };
   }
@@ -920,7 +986,9 @@ export class WhatsAppActionsService {
 
   async deleteChannel(sessionId: string, channelId: string) {
     const sock = this.sock(sessionId);
-    await sock.newsletterDelete(this.channelJid(channelId));
+    const jid = this.channelJid(channelId);
+    await sock.newsletterDelete(jid);
+    await this.forgetChannel(sessionId, jid);
     return { ok: true };
   }
 

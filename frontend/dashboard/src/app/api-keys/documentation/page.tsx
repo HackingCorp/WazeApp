@@ -142,7 +142,8 @@ groups:manage (groupes), automation:manage (réglages, profil, étiquettes, bloc
 - POST /external/groups/:id/messages { text?, media? } ; DELETE /external/groups/:id (quitter)
 
 ### Chaînes et statuts
-- POST /external/channels { name, description? } ; GET / PUT /external/channels/:id ; POST /external/channels/:id/publish { text?, media? } ; GET /external/channels/:id/messages
+- GET /external/channels — chaînes connues de la session (créées, publiées, consultées ou vues dans ses discussions)
+- POST /external/channels { name, description? } ; GET / PUT /external/channels/:id (JID ou lien d'invitation) ; POST /external/channels/:id/publish { text?, media? } ; GET /external/channels/:id/messages
 - POST /external/status { text?, media?, backgroundColor?, font?, audience: { type: optin|contacts|jids, jids?, tags? } }
 - GET / POST /external/scheduled-posts { kind: channel|status|group|chat, target?, audience?, text?, media?, scheduledAt, cron? } ; DELETE /external/scheduled-posts/:id
 
@@ -1075,7 +1076,8 @@ export default function ApiDocumentationPage() {
                 'POST /external/groups/:id/messages { text?, media? }',
               ] },
               { title: 'Chaînes, statuts, programmation', perm: 'channels:publish', items: [
-                'POST /external/channels { name, description? } — GET / PUT /external/channels/:id',
+                'GET /external/channels — chaînes connues de la session (créées, publiées, consultées, vues dans ses discussions)',
+                'POST /external/channels { name, description? } — GET / PUT /external/channels/:id (JID ou lien d\'invitation)',
                 'POST /external/channels/:id/publish { text?, media? } — GET /external/channels/:id/messages',
                 'POST /external/status { text?, media?, backgroundColor?, font?, audience: { type: optin|contacts|jids, jids?, tags? } }',
                 'POST /external/scheduled-posts { kind: channel|status|group|chat, target?, audience?, text?, media?, scheduledAt, cron? }',

@@ -2371,6 +2371,15 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
         `Processing ${chats.length} chats for session ${sessionId}`,
       );
 
+      // Channels the phone follows or owns show up here as @newsletter chats;
+      // that is the only way WhatsApp ever lists them to us.
+      const channelJids = (chats || [])
+        .map((c: any) => String(c?.id || ""))
+        .filter((id: string) => id.endsWith("@newsletter"));
+      if (channelJids.length) {
+        this.eventEmitter.emit("whatsapp.channels.seen", { sessionId, jids: channelJids });
+      }
+
       // Process each chat and sync its messages
       for (const chat of chats) {
         try {

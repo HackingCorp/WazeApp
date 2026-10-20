@@ -297,6 +297,12 @@ function ChannelsTab({ base }: { base: string }) {
   const [history, setHistory] = useState<any[]>([]);
   const [newName, setNewName] = useState('');
   const [newDesc, setNewDesc] = useState('');
+  const [known, setKnown] = useState<any[]>([]);
+
+  const loadKnown = useCallback(() => {
+    api.get(`${base}/channels`).then((r) => setKnown(unwrap<any[]>(r) || [])).catch(() => {});
+  }, [base]);
+  useEffect(() => { loadKnown(); }, [loadKnown]);
 
   const load = useCallback(async () => {
     if (!channelId) return;
@@ -318,7 +324,7 @@ function ChannelsTab({ base }: { base: string }) {
     setBusy(true);
     const res = await api.post(`${base}/channels`, { name: newName.trim(), description: newDesc.trim() || undefined });
     setBusy(false);
-    if (res.success) { const c = unwrap<any>(res); toast.success('Chaîne créée'); setChannel(c); setChannelId(c.id); setNewName(''); setNewDesc(''); }
+    if (res.success) { const c = unwrap<any>(res); toast.success('Chaîne créée'); setChannel(c); setChannelId(c.id); setNewName(''); setNewDesc(''); loadKnown(); }
     else toast.error(res.error || 'Échec de création');
   };
 
@@ -346,6 +352,21 @@ function ChannelsTab({ base }: { base: string }) {
             </div>
           )}
         </div>
+        {known.length > 0 && (
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-5 shadow-sm space-y-2">
+            <div className="flex items-center justify-between"><h3 className="font-semibold text-gray-900 dark:text-white">Chaînes connues</h3><button className={btnGhost} onClick={loadKnown}><RefreshCw className="w-4 h-4" /></button></div>
+            <ul className="divide-y divide-gray-100 dark:divide-gray-700 text-sm">
+              {known.map((c: any) => (
+                <li key={c.id}>
+                  <button className={clsx('w-full text-left py-2', channel?.id === c.id ? 'text-emerald-600' : 'text-gray-700 dark:text-gray-300')} onClick={() => { setChannelId(c.id); setChannel(c.error ? null : c); }}>
+                    {c.name || c.id.split('@')[0]} {c.subscribers !== undefined && !c.error && <span className="text-xs text-gray-400">· {c.subscribers} abonné(s) · {c.role || ''}</span>}
+                    {c.error && <span className="text-xs text-red-500"> · indisponible</span>}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
         <div className="bg-white dark:bg-gray-800 rounded-xl p-5 shadow-sm space-y-3">
           <h3 className="font-semibold text-gray-900 dark:text-white">Créer une chaîne</h3>
           <input className={inputCls} placeholder="Nom" value={newName} onChange={(e) => setNewName(e.target.value)} />

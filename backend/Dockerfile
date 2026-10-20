@@ -6,6 +6,8 @@ WORKDIR /app
 
 # Copy only package files for better caching
 COPY package*.json ./
+# Patches applied by npm postinstall (Baileys channel media fix)
+COPY patches/ ./patches/
 
 # Install ALL dependencies
 RUN npm ci --legacy-peer-deps
@@ -46,6 +48,7 @@ WORKDIR /app
 
 # Copy package files
 COPY package*.json ./
+COPY patches/ ./patches/
 
 # Copy node_modules and prune dev dependencies (faster than fresh npm ci)
 COPY --from=deps /app/node_modules ./node_modules

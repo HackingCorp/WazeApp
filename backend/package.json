@@ -30,7 +30,8 @@
     "ollama:install:light": "ollama pull llava:7b",
     "ollama:list": "ollama list",
     "ollama:serve": "ollama serve",
-    "vision:test": "curl http://localhost:3100/api/v1/whatsapp/vision/status"
+    "vision:test": "curl http://localhost:3100/api/v1/whatsapp/vision/status",
+    "postinstall": "node patches/baileys-newsletter-media.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.58.0",

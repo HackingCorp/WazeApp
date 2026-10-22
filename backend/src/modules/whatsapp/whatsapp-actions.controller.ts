@@ -11,6 +11,8 @@ import {
   ChatActionDto,
   ChatLabelDto,
   ChatToggleDto,
+  ChannelAdminDto,
+  ChannelAdminInviteDto,
   CreateChannelDto,
   CreateGroupDto,
   CreateLabelDto,
@@ -367,6 +369,30 @@ export class WhatsAppActionsController {
   async deleteChannel(@CurrentUser() user: any, @Param("id") id: string, @Param("channelId") channelId: string) {
     await this.own(user, id);
     return this.actions.deleteChannel(id, channelId);
+  }
+
+  @Get("channels/:channelId/admins")
+  async channelAdmins(@CurrentUser() user: any, @Param("id") id: string, @Param("channelId") channelId: string) {
+    await this.own(user, id);
+    return this.actions.channelAdmins(id, channelId);
+  }
+
+  @Post("channels/:channelId/admins/invite")
+  async inviteChannelAdmin(@CurrentUser() user: any, @Param("id") id: string, @Param("channelId") channelId: string, @Body() dto: ChannelAdminInviteDto) {
+    await this.own(user, id);
+    return this.actions.inviteChannelAdmin(id, channelId, dto);
+  }
+
+  @Post("channels/:channelId/admins/demote")
+  async demoteChannelAdmin(@CurrentUser() user: any, @Param("id") id: string, @Param("channelId") channelId: string, @Body() dto: ChannelAdminDto) {
+    await this.own(user, id);
+    return this.actions.demoteChannelAdmin(id, channelId, dto.phone);
+  }
+
+  @Post("channels/:channelId/owner")
+  async transferChannelOwner(@CurrentUser() user: any, @Param("id") id: string, @Param("channelId") channelId: string, @Body() dto: ChannelAdminDto) {
+    await this.own(user, id);
+    return this.actions.transferChannelOwnership(id, channelId, dto.phone);
   }
 
   // ---- statuses -------------------------------------------------------------

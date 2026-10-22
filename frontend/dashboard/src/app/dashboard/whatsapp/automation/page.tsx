@@ -352,6 +352,7 @@ function ChannelsTab({ base }: { base: string }) {
             </div>
           )}
         </div>
+        {channel?.id && <ChannelAdminsPanel base={base} channel={channel} />}
         {known.length > 0 && (
           <div className="bg-white dark:bg-gray-800 rounded-xl p-5 shadow-sm space-y-2">
             <div className="flex items-center justify-between"><h3 className="font-semibold text-gray-900 dark:text-white">Chaînes connues</h3><button className={btnGhost} onClick={loadKnown}><RefreshCw className="w-4 h-4" /></button></div>
@@ -398,6 +399,58 @@ function ChannelsTab({ base }: { base: string }) {
             </ul>
           )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+function ChannelAdminsPanel({ base, channel }: { base: string; channel: any }) {
+  const [info, setInfo] = useState<any>(null);
+  const [phone, setPhone] = useState('');
+  const [message, setMessage] = useState('');
+  const [busy, setBusy] = useState(false);
+  const url = `${base}/channels/${encodeURIComponent(channel.id)}`;
+
+  const refresh = useCallback(() => {
+    api.get(`${url}/admins`).then((r) => setInfo(r.success ? unwrap(r) : null)).catch(() => setInfo(null));
+  }, [url]);
+  useEffect(() => { refresh(); }, [refresh]);
+
+  const run = async (path: string, body: any, okMsg: string) => {
+    if (!phone.trim()) return toast.error('Indiquez un numéro WhatsApp');
+    setBusy(true);
+    const res = await api.post(`${url}/${path}`, body);
+    setBusy(false);
+    if (res.success) { toast.success(okMsg); setPhone(''); setMessage(''); refresh(); } else toast.error(res.error || 'Refusé par WhatsApp');
+  };
+
+  const canManage = info?.canManage !== false;
+  return (
+    <div className="bg-white dark:bg-gray-800 rounded-xl p-5 shadow-sm space-y-3">
+      <div className="flex items-center justify-between">
+        <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2"><Shield className="w-4 h-4" /> Administrateurs</h3>
+        <button className={btnGhost} onClick={refresh}><RefreshCw className="w-4 h-4" /></button>
+      </div>
+      <p className="text-sm text-gray-500">
+        {info?.adminCount != null ? `${info.adminCount} / ${info.maxAdmins} administrateur(s)` : 'Nombre indisponible'} · votre rôle : {info?.role || channel.role || '?'}
+      </p>
+      {!canManage && <p className="text-xs text-amber-600">Seul le propriétaire de la chaîne peut inviter ou rétrograder des administrateurs.</p>}
+      <Field label="Numéro WhatsApp" hint="Format international, ex. 237690000000. La personne reçoit une invitation à accepter sur son téléphone (valable 7 jours).">
+        <input className={inputCls} value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="2376…" disabled={!canManage} />
+      </Field>
+      <Field label="Message d'accompagnement (optionnel)">
+        <input className={inputCls} value={message} onChange={(e) => setMessage(e.target.value)} disabled={!canManage} />
+      </Field>
+      <div className="flex flex-wrap gap-2">
+        <button className={btnPrimary} disabled={busy || !canManage} onClick={() => run('admins/invite', { phone: phone.trim(), message: message.trim() || undefined }, 'Invitation envoyée, en attente d\'acceptation')}>
+          {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />} Inviter comme admin
+        </button>
+        <button className={btnGhost} disabled={busy || !canManage} onClick={() => run('admins/demote', { phone: phone.trim() }, 'Administrateur rétrogradé')}>
+          <XCircle className="w-4 h-4" /> Rétrograder
+        </button>
+        <button className={clsx(btnGhost, 'text-red-600')} disabled={busy || !canManage} onClick={() => { if (window.confirm(`Transférer la propriété de la chaîne à ${phone.trim()} ? Vous resterez administrateur mais ne pourrez plus la supprimer ni gérer ses admins.`)) run('owner', { phone: phone.trim() }, 'Propriété transférée'); }}>
+          <Users className="w-4 h-4" /> Transférer la propriété
+        </button>
       </div>
     </div>
   );

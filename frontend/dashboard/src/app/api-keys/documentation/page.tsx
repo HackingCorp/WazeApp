@@ -144,6 +144,11 @@ groups:manage (groupes), automation:manage (réglages, profil, étiquettes, bloc
 ### Chaînes et statuts
 - GET /external/channels — chaînes connues de la session (créées, publiées, consultées ou vues dans ses discussions)
 - POST /external/channels { name, description? } ; GET / PUT /external/channels/:id (JID ou lien d'invitation) ; POST /external/channels/:id/publish { text?, media? } ; GET /external/channels/:id/messages
+- POST /external/channels/:id/follow { follow?: true|false } ; DELETE /external/channels/:id (supprimer une chaîne dont la session est propriétaire)
+- GET /external/channels/:id/admins — nombre d'admins (max 16), rôle de la session (OWNER|ADMIN|SUBSCRIBER), canManage
+- POST /external/channels/:id/admins/invite { phone, message? } — envoie une invitation d'administration au numéro ; la personne accepte sur son téléphone sous 7 jours (réponse { pending: true, expiresAt }). Réservé au propriétaire.
+- POST /external/channels/:id/admins/demote { phone } — retire les droits d'admin. Réservé au propriétaire.
+- POST /external/channels/:id/owner { phone } — transfère la propriété à un admin existant. Réservé au propriétaire ; irréversible depuis cette session.
 - POST /external/status { text?, media?, backgroundColor?, font?, audience: { type: optin|contacts|jids, jids?, tags? } }
 - GET / POST /external/scheduled-posts { kind: channel|status|group|chat, target?, audience?, text?, media?, scheduledAt, cron? } ; DELETE /external/scheduled-posts/:id
 
@@ -1079,6 +1084,10 @@ export default function ApiDocumentationPage() {
                 'GET /external/channels — chaînes connues de la session (créées, publiées, consultées, vues dans ses discussions)',
                 'POST /external/channels { name, description? } — GET / PUT /external/channels/:id (JID ou lien d\'invitation)',
                 'POST /external/channels/:id/publish { text?, media? } — GET /external/channels/:id/messages',
+                'POST /external/channels/:id/follow { follow? } — DELETE /external/channels/:id',
+                'GET /external/channels/:id/admins — nombre d\'admins (max 16), rôle de la session, canManage',
+                'POST /external/channels/:id/admins/invite { phone, message? } — invitation acceptée par la personne sur son téléphone (7 jours) ; propriétaire uniquement',
+                'POST /external/channels/:id/admins/demote { phone } — POST /external/channels/:id/owner { phone } (transfert de propriété, propriétaire uniquement)',
                 'POST /external/status { text?, media?, backgroundColor?, font?, audience: { type: optin|contacts|jids, jids?, tags? } }',
                 'POST /external/scheduled-posts { kind: channel|status|group|chat, target?, audience?, text?, media?, scheduledAt, cron? }',
                 'GET /external/scheduled-posts — DELETE /external/scheduled-posts/:id',

@@ -445,6 +445,28 @@ export class UpdateChannelDto {
   removePicture?: boolean;
 }
 
+export class ChannelAdminInviteDto {
+  @ApiProperty({ description: "WhatsApp number of the person to invite (E.164, digits only accepted)" })
+  @IsString()
+  @MinLength(5)
+  @MaxLength(64)
+  phone: string;
+
+  @ApiPropertyOptional({ description: "Text shown with the invitation card (default: French invitation)" })
+  @IsOptional()
+  @IsString()
+  @MaxLength(1024)
+  message?: string;
+}
+
+export class ChannelAdminDto {
+  @ApiProperty({ description: "WhatsApp number of the administrator" })
+  @IsString()
+  @MinLength(5)
+  @MaxLength(64)
+  phone: string;
+}
+
 export class PublishContentDto {
   @ApiPropertyOptional({ description: "Text (or caption when media is given)" })
   @IsOptional()

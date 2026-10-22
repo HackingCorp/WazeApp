@@ -28,6 +28,8 @@ import {
   BlockDto,
   ChatLabelDto,
   ChatToggleDto,
+  ChannelAdminDto,
+  ChannelAdminInviteDto,
   CreateChannelDto,
   CreateGroupDto,
   CreateLabelDto,
@@ -428,6 +430,54 @@ export class ExternalActionsController {
     const { session } = await this.auth(apiKey, ip, ApiKeyPermission.CHANNELS_PUBLISH);
     this.requireConnected(session.id);
     return this.actions.channelMessages(session.id, channelId, Number(count) || 20);
+  }
+
+  @Post('channels/:channelId/follow')
+  @ApiOperation({ summary: 'Follow (or unfollow with { follow: false }) a channel' })
+  async followChannel(@Headers('x-api-key') apiKey: string, @ClientIp() ip: string, @Param('channelId') channelId: string, @Body() body: { follow?: boolean }) {
+    const { session } = await this.auth(apiKey, ip, ApiKeyPermission.CHANNELS_PUBLISH);
+    this.requireConnected(session.id);
+    return this.actions.followChannel(session.id, channelId, body?.follow !== false);
+  }
+
+  @Delete('channels/:channelId')
+  @ApiOperation({ summary: 'Delete a channel owned by the session' })
+  async deleteChannel(@Headers('x-api-key') apiKey: string, @ClientIp() ip: string, @Param('channelId') channelId: string) {
+    const { session } = await this.auth(apiKey, ip, ApiKeyPermission.CHANNELS_PUBLISH);
+    this.requireConnected(session.id);
+    return this.actions.deleteChannel(session.id, channelId);
+  }
+
+  @Get('channels/:channelId/admins')
+  @ApiOperation({ summary: 'Admin count and the session role on a channel' })
+  async channelAdmins(@Headers('x-api-key') apiKey: string, @ClientIp() ip: string, @Param('channelId') channelId: string) {
+    const { session } = await this.auth(apiKey, ip, ApiKeyPermission.CHANNELS_PUBLISH);
+    this.requireConnected(session.id);
+    return this.actions.channelAdmins(session.id, channelId);
+  }
+
+  @Post('channels/:channelId/admins/invite')
+  @ApiOperation({ summary: 'Invite a WhatsApp number to administer the channel (they accept on their phone)' })
+  async inviteChannelAdmin(@Headers('x-api-key') apiKey: string, @ClientIp() ip: string, @Param('channelId') channelId: string, @Body() dto: ChannelAdminInviteDto) {
+    const { session } = await this.auth(apiKey, ip, ApiKeyPermission.CHANNELS_PUBLISH);
+    this.requireConnected(session.id);
+    return this.actions.inviteChannelAdmin(session.id, channelId, dto);
+  }
+
+  @Post('channels/:channelId/admins/demote')
+  @ApiOperation({ summary: 'Remove admin rights from a number' })
+  async demoteChannelAdmin(@Headers('x-api-key') apiKey: string, @ClientIp() ip: string, @Param('channelId') channelId: string, @Body() dto: ChannelAdminDto) {
+    const { session } = await this.auth(apiKey, ip, ApiKeyPermission.CHANNELS_PUBLISH);
+    this.requireConnected(session.id);
+    return this.actions.demoteChannelAdmin(session.id, channelId, dto.phone);
+  }
+
+  @Post('channels/:channelId/owner')
+  @ApiOperation({ summary: 'Transfer channel ownership to an existing admin' })
+  async transferChannelOwner(@Headers('x-api-key') apiKey: string, @ClientIp() ip: string, @Param('channelId') channelId: string, @Body() dto: ChannelAdminDto) {
+    const { session } = await this.auth(apiKey, ip, ApiKeyPermission.CHANNELS_PUBLISH);
+    this.requireConnected(session.id);
+    return this.actions.transferChannelOwnership(session.id, channelId, dto.phone);
   }
 
   // ---- statuses -------------------------------------------------------------

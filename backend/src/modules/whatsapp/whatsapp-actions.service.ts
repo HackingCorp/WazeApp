@@ -18,6 +18,9 @@ import { MessageRole } from "../../common/enums";
 import { BaileysService } from "./baileys.service";
 import { TextToSpeechService } from "./text-to-speech.service";
 
+const CHANNEL_MAX_ADMINS = 16;
+const CHANNEL_ADMIN_INVITE_TTL_SECONDS = 7 * 24 * 3600;
+
 // ---------------------------------------------------------------------------
 // Public shapes
 // ---------------------------------------------------------------------------
@@ -990,6 +993,101 @@ export class WhatsAppActionsService {
     await sock.newsletterDelete(jid);
     await this.forgetChannel(sessionId, jid);
     return { ok: true };
+  }
+
+  // ---- channel administrators -------------------------------------------------
+
+  /** Admin count and our own role (WhatsApp exposes no per-admin listing). */
+  async channelAdmins(sessionId: string, channelId: string) {
+    const sock = this.sock(sessionId);
+    const jid = this.channelJid(channelId);
+    const meta = await sock.newsletterMetadata("jid", jid).catch((e: any) => {
+      throw new BadRequestException(`Chaîne introuvable : ${e.message}`);
+    });
+    const summary = this.summarizeChannel(meta);
+    const adminCount = await sock.newsletterAdminCount(jid).catch(() => null);
+    return {
+      channel: jid,
+      name: summary.name,
+      role: summary.role,
+      adminCount: typeof adminCount === "number" ? adminCount : null,
+      maxAdmins: CHANNEL_MAX_ADMINS,
+      canManage: summary.role === "OWNER",
+    };
+  }
+
+  private channelUserJid(target: string): string {
+    const jid = this.toJid(target);
+    if (!jid.endsWith("@s.whatsapp.net") && !jid.endsWith("@lid")) {
+      throw new BadRequestException(`Un administrateur de chaîne doit être un numéro WhatsApp : ${target}`);
+    }
+    return jid;
+  }
+
+  private async requireChannelOwner(sock: any, jid: string) {
+    const meta = await sock.newsletterMetadata("jid", jid).catch((e: any) => {
+      throw new BadRequestException(`Chaîne introuvable : ${e.message}`);
+    });
+    const summary = this.summarizeChannel(meta);
+    if (summary.role && summary.role !== "OWNER") {
+      throw new BadRequestException(`Seul le propriétaire de la chaîne peut gérer ses administrateurs (rôle actuel : ${summary.role})`);
+    }
+    return summary;
+  }
+
+  /**
+   * WhatsApp has no "promote" for channels: the owner sends an admin
+   * invitation (a private message card) and the invitee accepts it on their
+   * phone within 7 days. Nothing changes on the channel until they accept.
+   */
+  async inviteChannelAdmin(sessionId: string, channelId: string, input: { phone: string; message?: string }) {
+    const sock = this.sock(sessionId);
+    const jid = this.channelJid(channelId);
+    const summary = await this.requireChannelOwner(sock, jid);
+    const invitee = this.channelUserJid(input.phone);
+    const expiresAt = Math.floor(Date.now() / 1000) + CHANNEL_ADMIN_INVITE_TTL_SECONDS;
+    const name = summary.name || jid.split("@")[0];
+    const caption = (input.message || "").trim() || `Vous êtes invité(e) à devenir administrateur de la chaîne « ${name} ».`;
+    const baileys: any = await import("@whiskeysockets/baileys");
+    const messageId: string = baileys.generateMessageIDV2(sock.user?.id);
+    await sock.relayMessage(
+      invitee,
+      {
+        newsletterAdminInviteMessage: {
+          newsletterJid: jid,
+          newsletterName: name,
+          caption,
+          inviteExpiration: expiresAt,
+        },
+      },
+      { messageId },
+    );
+    this.logger.log(`👑 Channel admin invitation for ${jid} sent to ${invitee} on session ${sessionId}`);
+    return { ok: true, channel: jid, invitee, messageId, expiresAt: new Date(expiresAt * 1000).toISOString(), pending: true };
+  }
+
+  async demoteChannelAdmin(sessionId: string, channelId: string, phone: string) {
+    const sock = this.sock(sessionId);
+    const jid = this.channelJid(channelId);
+    await this.requireChannelOwner(sock, jid);
+    const user = this.channelUserJid(phone);
+    await sock.newsletterDemote(jid, user).catch((e: any) => {
+      throw new BadRequestException(`Rétrogradation refusée par WhatsApp : ${e.message}`);
+    });
+    return { ok: true, channel: jid, user, demoted: true };
+  }
+
+  /** Hands the channel over; the current owner stays admin, WhatsApp side. */
+  async transferChannelOwnership(sessionId: string, channelId: string, phone: string) {
+    const sock = this.sock(sessionId);
+    const jid = this.channelJid(channelId);
+    await this.requireChannelOwner(sock, jid);
+    const user = this.channelUserJid(phone);
+    await sock.newsletterChangeOwner(jid, user).catch((e: any) => {
+      throw new BadRequestException(`Transfert refusé par WhatsApp (le nouveau propriétaire doit déjà être administrateur) : ${e.message}`);
+    });
+    this.logger.warn(`👑 Channel ${jid} ownership transferred to ${user} on session ${sessionId}`);
+    return { ok: true, channel: jid, newOwner: user };
   }
 
   // ---------------------------------------------------------------------------

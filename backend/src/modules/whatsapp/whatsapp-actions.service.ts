@@ -61,7 +61,16 @@ export interface PresenceInfo {
 }
 
 /** Statuses are encrypted per viewer; one send per batch keeps it bounded. */
-const STATUS_BATCH = 300;
+/**
+ * Viewers per status post. WhatsApp resolves each one through USync before
+ * encrypting, so an oversized list slows the post down and risks a rejection.
+ * One status is always ONE post — never split into several, which WhatsApp
+ * would count as several distinct statuses on the contact's story.
+ */
+const STATUS_MAX_VIEWERS = 1000;
+
+/** How long to wait for WhatsApp's verdict before reporting a status as posted. */
+const STATUS_VERDICT_TIMEOUT_MS = 12000;
 const PRESENCE_TTL_SECONDS = 7 * 24 * 3600;
 const CALL_NOTICE_TTL_SECONDS = 24 * 3600;
 
@@ -1119,25 +1128,82 @@ export class WhatsAppActionsService {
     return [...new Set(rows.map((c) => this.toJid(c.phoneNumber)))];
   }
 
+  /**
+   * Wait for WhatsApp's asynchronous verdict on a status.
+   *
+   * sendMessage only tells us the stanza left the socket. A status that the
+   * server refuses comes back as an ERROR receipt seconds later, so reporting
+   * success on the send alone made every rejected status look published.
+   */
+  private async awaitStatusRejection(messageId: string): Promise<boolean> {
+    if (!messageId) return false;
+
+    return new Promise<boolean>((resolve) => {
+      const timer = setTimeout(() => {
+        this.eventEmitter.off("whatsapp.delivery.failed", onFailed);
+        resolve(false);
+      }, STATUS_VERDICT_TIMEOUT_MS);
+
+      const onFailed = (payload: { messageId?: string }) => {
+        if (payload?.messageId !== messageId) return;
+        clearTimeout(timer);
+        this.eventEmitter.off("whatsapp.delivery.failed", onFailed);
+        resolve(true);
+      };
+
+      this.eventEmitter.on("whatsapp.delivery.failed", onFailed);
+    });
+  }
+
   async publishStatus(sessionId: string, organizationId: string | null, content: PublishContent, audience: StatusAudience) {
     const sock = this.sock(sessionId);
-    const jids = await this.resolveStatusAudience(sessionId, organizationId, audience);
-    if (!jids.length) throw new BadRequestException("Audience vide : personne ne verrait ce statut");
+    const resolved = await this.resolveStatusAudience(sessionId, organizationId, audience);
+
+    // Status viewers are resolved through USync, which keys on phone numbers.
+    // A LID-only contact cannot be resolved there and makes the whole post
+    // fail, so those are dropped rather than allowed to sink the status.
+    const phoneJids = resolved.filter((j) => j.endsWith("@s.whatsapp.net"));
+    const unresolvable = resolved.length - phoneJids.length;
+
+    if (!phoneJids.length) {
+      throw new BadRequestException(
+        resolved.length
+          ? `Audience inexploitable : aucun des ${resolved.length} contacts n'a de numéro connu (identités LID uniquement). Un statut ne peut cibler que des numéros.`
+          : "Audience vide : personne ne verrait ce statut",
+      );
+    }
+
+    const viewers = phoneJids.slice(0, STATUS_MAX_VIEWERS);
+    const overflow = phoneJids.length - viewers.length;
 
     const base = await this.buildContent(content);
     if (base.text && content.backgroundColor) base.backgroundColor = content.backgroundColor;
     if (base.text && content.font !== undefined) base.font = content.font;
 
-    const batches: string[][] = [];
-    for (let i = 0; i < jids.length; i += STATUS_BATCH) batches.push(jids.slice(i, i + STATUS_BATCH));
+    const sent = await sock.sendMessage("status@broadcast", base, { statusJidList: viewers });
+    const messageId = sent?.key?.id;
 
-    const posted: string[] = [];
-    for (const batch of batches) {
-      const sent = await sock.sendMessage("status@broadcast", base, { statusJidList: batch });
-      posted.push(sent?.key?.id);
-      if (batches.length > 1) await new Promise((r) => setTimeout(r, 1500));
+    const rejected = await this.awaitStatusRejection(messageId);
+    if (rejected) {
+      this.logger.warn(
+        `📵 Status rejected by WhatsApp on ${sessionId} (msg=${messageId}, ${viewers.length} viewer(s))`,
+      );
+      throw new BadRequestException(
+        "WhatsApp a refusé ce statut. Il n'a été publié pour personne — vérifiez que la session n'est pas restreinte, puis réessayez.",
+      );
     }
-    this.logger.log(`📸 Status published on ${sessionId} to ${jids.length} viewer(s) in ${batches.length} batch(es)`);
-    return { messageIds: posted, viewers: jids.length, batches: batches.length };
+
+    this.logger.log(
+      `📸 Status published on ${sessionId} to ${viewers.length} viewer(s)` +
+        (unresolvable ? `, ${unresolvable} contact(s) sans numéro ignoré(s)` : "") +
+        (overflow ? `, ${overflow} au-delà de la limite de ${STATUS_MAX_VIEWERS}` : ""),
+    );
+
+    return {
+      messageIds: [messageId],
+      viewers: viewers.length,
+      skippedWithoutNumber: unresolvable,
+      skippedOverLimit: overflow,
+    };
   }
 }

@@ -913,6 +913,11 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
               try {
                 this.logger.log(`🔄 Attempting reconnection ${retryCount + 1}/${this.MAX_RECONNECT_RETRIES} for session ${sessionId}`);
 
+                // Keep this session marked as "reconnecting" for the whole
+                // attempt: connectSession() below opens a socket that may close
+                // immediately, and that close must not spawn a rival chain.
+                this.reconnectionAttempts.set(sessionId, { count: retryCount, timer: null });
+
                 // Try to reconnect using existing auth state
                 const result = await this.connectSession(sessionId, false);
 
@@ -963,6 +968,21 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
               }
             };
 
+            // Only ever run ONE reconnection chain per session.
+            //
+            // Each retry opens a new socket, whose own close event lands back
+            // here. Without this guard every failure started a fresh chain at
+            // attempt 0 while the previous ones kept running: the chains
+            // multiplied, the attempt counter never progressed past 1, and the
+            // backoff never took effect — a reconnection storm that hammered
+            // WhatsApp several times per second.
+            if (this.reconnectionAttempts.has(sessionId)) {
+              this.logger.debug(
+                `⏳ Reconnection already in progress for session ${sessionId} — not starting another`,
+              );
+              return;
+            }
+
             // Start reconnection with initial delay based on error type
             const initialDelay = Math.max(errorClassification.retryDelay, 3000);
             this.logger.log(`⏱️ Starting reconnection for session ${sessionId} in ${Math.round(initialDelay / 1000)}s`);
@@ -979,6 +999,11 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
           // Update connection state to connected
           this.connectionStates.set(sessionId, 'connected');
           this.connectedAtBySession.set(sessionId, Date.now());
+
+          // The session is up — clear any reconnection chain, including one
+          // left behind when the link was restored by another path. A stale
+          // entry would otherwise block every future auto-reconnect.
+          this.cancelReconnection(sessionId);
 
           // Persist the session's own phone number (shown in the dashboard);
           // sock.user.id is like "2376xxxxxxx:12@s.whatsapp.net"

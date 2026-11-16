@@ -48,6 +48,10 @@ export class EmailService {
         socketTimeout: 10000,
       });
 
+      // Surface a bad sender at boot rather than on the first silent bounce:
+      // getFromAddress() logs an error when SMTP_FROM is not an address.
+      this.logger.log(`📧 Sender configured as: ${this.buildFrom()}`);
+
       // Verify connection asynchronously without blocking startup
       this.transporter.verify()
         .then(() => {
@@ -63,12 +67,43 @@ export class EmailService {
     }
   }
 
+  /** Fallback used whenever the configured sender is unusable. */
+  private static readonly DEFAULT_FROM_ADDRESS = 'no-reply@wazeapp.ai';
+
   private getFromAddress(): string {
-    return this.configService.get<string>('SMTP_FROM', 'noreply@wazeapp.ai');
+    const configured = (this.configService.get<string>('SMTP_FROM') || '').trim();
+
+    // SMTP_FROM must be an address, not a display name. Misconfigured once as
+    // "WazeApp", it produced the header `"WazeApp" <WazeApp>`, which nodemailer
+    // could not emit — so every message left without a From header and Gmail
+    // bounced them all with "'From' header is missing" (RFC 5322). Guard it
+    // here rather than let a config typo silently kill every email.
+    if (!configured.includes('@')) {
+      if (configured) {
+        this.logger.error(
+          `SMTP_FROM is not an email address ("${configured}") — falling back to ` +
+            `${EmailService.DEFAULT_FROM_ADDRESS}. Set it to a real address.`,
+        );
+      }
+      return EmailService.DEFAULT_FROM_ADDRESS;
+    }
+
+    return configured;
+  }
+
+  /**
+   * The From header, always valid. Every send goes through here so a single
+   * bad value can never strip the header from the message again.
+   */
+  private buildFrom(): string {
+    const address = this.getFromAddress();
+    const name = this.getFromName().replace(/"/g, "'").trim();
+    return name ? `"${name}" <${address}>` : address;
   }
 
   private getFromName(): string {
-    return this.configService.get<string>('SMTP_FROM_NAME', 'WazeApp');
+    const name = (this.configService.get<string>('SMTP_FROM_NAME') || '').trim();
+    return name || 'WazeApp';
   }
 
   private getAppUrl(): string {
@@ -94,7 +129,7 @@ export class EmailService {
 
     try {
       await this.transporter.sendMail({
-        from: `"${this.getFromName()}" <${this.getFromAddress()}>`,
+        from: this.buildFrom(),
         to: email,
         subject: 'Vérifiez votre adresse email - WazeApp',
         html,
@@ -118,7 +153,7 @@ export class EmailService {
 
     try {
       await this.transporter.sendMail({
-        from: `"${this.getFromName()}" <${this.getFromAddress()}>`,
+        from: this.buildFrom(),
         to: email,
         subject: 'Réinitialisation de votre mot de passe - WazeApp',
         html,
@@ -146,7 +181,7 @@ export class EmailService {
 
     try {
       await this.transporter.sendMail({
-        from: `"${this.getFromName()}" <${this.getFromAddress()}>`,
+        from: this.buildFrom(),
         to: email,
         subject: `Invitation à rejoindre ${organizationName} sur WazeApp`,
         html,
@@ -189,7 +224,7 @@ export class EmailService {
 
     try {
       await this.transporter.sendMail({
-        from: `"${this.getFromName()}" <${this.getFromAddress()}>`,
+        from: this.buildFrom(),
         to: email,
         subject,
         html,
@@ -212,7 +247,7 @@ export class EmailService {
 
     try {
       await this.transporter.sendMail({
-        from: `"${this.getFromName()}" <${this.getFromAddress()}>`,
+        from: this.buildFrom(),
         to: email,
         subject: 'Bienvenue sur WazeApp! 🎉',
         html,
@@ -276,7 +311,7 @@ ${this.buttonHtml(button, dashboardUrl)}
 
     try {
       await this.transporter.sendMail({
-        from: `"${this.getFromName()}" <${this.getFromAddress()}>`,
+        from: this.buildFrom(),
         to: email,
         subject: title,
         html,
@@ -315,7 +350,7 @@ ${this.buttonHtml(button, dashboardUrl)}
 
     try {
       await this.transporter.sendMail({
-        from: `"${this.getFromName()}" <${this.getFromAddress()}>`,
+        from: this.buildFrom(),
         to: email,
         subject: `✅ Confirmation de paiement - ${paymentDetails.amount.toLocaleString()} ${paymentDetails.currency}`,
         html,
@@ -361,7 +396,7 @@ ${this.buttonHtml(button, dashboardUrl)}
 
     try {
       await this.transporter.sendMail({
-        from: `"${this.getFromName()}" <${this.getFromAddress()}>`,
+        from: this.buildFrom(),
         to: email,
         subject,
         html,
@@ -402,7 +437,7 @@ ${this.buttonHtml(button, dashboardUrl)}
 
     try {
       await this.transporter.sendMail({
-        from: `"${this.getFromName()}" <${this.getFromAddress()}>`,
+        from: this.buildFrom(),
         to: email,
         subject: `📄 Facture de renouvellement - ${invoiceDetails.invoiceNumber}`,
         html,
@@ -441,7 +476,7 @@ ${this.buttonHtml(button, dashboardUrl)}
 
     try {
       await this.transporter.sendMail({
-        from: `"${this.getFromName()}" <${this.getFromAddress()}>`,
+        from: this.buildFrom(),
         to: email,
         subject: `🚀 Abonnement mis à niveau vers ${upgradeDetails.newPlan}!`,
         html,
@@ -484,7 +519,7 @@ ${this.buttonHtml(button, dashboardUrl)}
 
     try {
       await this.transporter.sendMail({
-        from: `"${this.getFromName()}" <${this.getFromAddress()}>`,
+        from: this.buildFrom(),
         to: email,
         subject: `Essai gratuit active - Plan ${details.planName} (${details.trialDays} jours)`,
         html,
@@ -531,7 +566,7 @@ ${this.buttonHtml(button, dashboardUrl)}
 
     try {
       await this.transporter.sendMail({
-        from: `"${this.getFromName()}" <${this.getFromAddress()}>`,
+        from: this.buildFrom(),
         to: email,
         subject: details.daysRemaining === 0
           ? `Votre essai gratuit expire aujourd'hui !`
@@ -567,7 +602,7 @@ ${this.buttonHtml(button, dashboardUrl)}
 
     try {
       await this.transporter.sendMail({
-        from: `"${this.getFromName()}" <${this.getFromAddress()}>`,
+        from: this.buildFrom(),
         to: email,
         subject: `Essai gratuit expire - Plan ${details.planName}`,
         html,
@@ -606,7 +641,7 @@ ${this.buttonHtml(button, dashboardUrl)}
 
     try {
       await this.transporter.sendMail({
-        from: `"${this.getFromName()}" <${this.getFromAddress()}>`,
+        from: this.buildFrom(),
         to: email,
         subject: `Paiement en retard - Abonnement ${details.planName}`,
         html,
@@ -643,7 +678,7 @@ ${this.buttonHtml(button, dashboardUrl)}
 
     try {
       await this.transporter.sendMail({
-        from: `"${this.getFromName()}" <${this.getFromAddress()}>`,
+        from: this.buildFrom(),
         to: email,
         subject: `Votre abonnement ${details.planName} arrive a echeance ${when}`,
         html,
@@ -678,7 +713,7 @@ ${this.buttonHtml(button, dashboardUrl)}
 
     try {
       await this.transporter.sendMail({
-        from: `"${this.getFromName()}" <${this.getFromAddress()}>`,
+        from: this.buildFrom(),
         to: email,
         subject: `Abonnement retrograde - Plan ${details.previousPlan} vers Gratuit`,
         html,
@@ -717,7 +752,7 @@ ${this.buttonHtml(button, dashboardUrl)}
 
     try {
       await this.transporter.sendMail({
-        from: `"${this.getFromName()}" <${this.getFromAddress()}>`,
+        from: this.buildFrom(),
         to: email,
         subject: `🔴 Session WhatsApp déconnectée - ${details.sessionName}`,
         html,
@@ -758,7 +793,7 @@ ${this.buttonHtml(button, dashboardUrl)}
 
     try {
       await this.transporter.sendMail({
-        from: `"${this.getFromName()}" <${this.getFromAddress()}>`,
+        from: this.buildFrom(),
         to: email,
         subject: `🟢 Session WhatsApp reconnectée - ${details.sessionName}`,
         html,
@@ -798,7 +833,7 @@ ${this.buttonHtml(button, dashboardUrl)}
 
     try {
       await this.transporter.sendMail({
-        from: `"${this.getFromName()}" <${this.getFromAddress()}>`,
+        from: this.buildFrom(),
         to: email,
         subject: `🚨 Escalade conversation - Agent ${details.agentName}`,
         html,
@@ -1609,7 +1644,7 @@ ${this.buttonHtml(t(lang, 'onboarding_never_logged_in_button'), dashboardUrl)}
 
     try {
       await this.transporter.sendMail({
-        from: `"${this.getFromName()}" <${this.getFromAddress()}>`,
+        from: this.buildFrom(),
         to: email,
         subject: t(lang, 'onboarding_never_logged_in_subject'),
         html,
@@ -1658,7 +1693,7 @@ ${this.buttonHtml(t(lang, 'onboarding_no_agent_button'), agentsUrl)}
 
     try {
       await this.transporter.sendMail({
-        from: `"${this.getFromName()}" <${this.getFromAddress()}>`,
+        from: this.buildFrom(),
         to: email,
         subject: t(lang, 'onboarding_no_agent_subject'),
         html,
@@ -1706,7 +1741,7 @@ ${this.buttonHtml(t(lang, 'onboarding_no_session_button'), whatsappUrl)}
 
     try {
       await this.transporter.sendMail({
-        from: `"${this.getFromName()}" <${this.getFromAddress()}>`,
+        from: this.buildFrom(),
         to: email,
         subject: t(lang, 'onboarding_no_session_subject'),
         html,
@@ -1754,7 +1789,7 @@ ${this.buttonHtml(t(lang, 'onboarding_no_messages_button'), conversationsUrl)}
 
     try {
       await this.transporter.sendMail({
-        from: `"${this.getFromName()}" <${this.getFromAddress()}>`,
+        from: this.buildFrom(),
         to: email,
         subject: t(lang, 'onboarding_no_messages_subject'),
         html,
@@ -1803,7 +1838,7 @@ ${this.buttonHtml(t(lang, 'onboarding_no_kb_button'), knowledgeBaseUrl)}
 
     try {
       await this.transporter.sendMail({
-        from: `"${this.getFromName()}" <${this.getFromAddress()}>`,
+        from: this.buildFrom(),
         to: email,
         subject: t(lang, 'onboarding_no_kb_subject'),
         html,
@@ -1856,7 +1891,7 @@ ${this.buttonHtml(t(lang, 'reengagement_7days_button'), conversationsUrl)}
 
     try {
       await this.transporter.sendMail({
-        from: `"${this.getFromName()}" <${this.getFromAddress()}>`,
+        from: this.buildFrom(),
         to: email,
         subject: t(lang, 'reengagement_7days_subject'),
         html,
@@ -1904,7 +1939,7 @@ ${this.buttonHtml(t(lang, 'reengagement_30days_button'), dashboardUrl)}
 
     try {
       await this.transporter.sendMail({
-        from: `"${this.getFromName()}" <${this.getFromAddress()}>`,
+        from: this.buildFrom(),
         to: email,
         subject: t(lang, 'reengagement_30days_subject'),
         html,
@@ -1958,7 +1993,7 @@ ${this.buttonHtml(t(lang, 'reengagement_session_disconnected_button'), whatsappU
 
     try {
       await this.transporter.sendMail({
-        from: `"${this.getFromName()}" <${this.getFromAddress()}>`,
+        from: this.buildFrom(),
         to: email,
         subject: t(lang, 'reengagement_session_disconnected_subject', { days: daysSinceDisconnect.toString() }),
         html,
@@ -2016,7 +2051,7 @@ ${this.buttonHtml(t(lang, 'trial_midpoint_active_button'), billingUrl)}
 
     try {
       await this.transporter.sendMail({
-        from: `"${this.getFromName()}" <${this.getFromAddress()}>`,
+        from: this.buildFrom(),
         to: email,
         subject: t(lang, 'trial_midpoint_active_subject', { messagesHandled: stats.messagesHandled.toString() }),
         html,
@@ -2069,7 +2104,7 @@ ${this.buttonHtml(t(lang, 'trial_midpoint_inactive_button'), dashboardUrl)}
 
     try {
       await this.transporter.sendMail({
-        from: `"${this.getFromName()}" <${this.getFromAddress()}>`,
+        from: this.buildFrom(),
         to: email,
         subject: t(lang, 'trial_midpoint_inactive_subject', { daysRemaining: daysRemaining.toString() }),
         html,
@@ -2124,7 +2159,7 @@ ${this.buttonHtml(t(lang, 'first_message_button'), conversationsUrl, '#22c55e')}
 
     try {
       await this.transporter.sendMail({
-        from: `"${this.getFromName()}" <${this.getFromAddress()}>`,
+        from: this.buildFrom(),
         to: email,
         subject: t(lang, 'first_message_subject'),
         html,
@@ -2177,7 +2212,7 @@ ${this.buttonHtml(t(lang, 'milestone_button'), analyticsUrl, '#22c55e')}
 
     try {
       await this.transporter.sendMail({
-        from: `"${this.getFromName()}" <${this.getFromAddress()}>`,
+        from: this.buildFrom(),
         to: email,
         subject: t(lang, 'milestone_subject', { messageCount: messageCount.toString() }),
         html,
@@ -2226,7 +2261,7 @@ ${this.buttonHtml(t(lang, 'paid_no_whatsapp_button'), whatsappUrl, '#f59e0b')}
 
     try {
       await this.transporter.sendMail({
-        from: `"${this.getFromName()}" <${this.getFromAddress()}>`,
+        from: this.buildFrom(),
         to: email,
         subject: t(lang, 'paid_no_whatsapp_subject', { planName }),
         html,
@@ -2276,7 +2311,7 @@ ${this.buttonHtml(t(lang, 'paid_no_agent_button'), agentsUrl)}
 
     try {
       await this.transporter.sendMail({
-        from: `"${this.getFromName()}" <${this.getFromAddress()}>`,
+        from: this.buildFrom(),
         to: email,
         subject: t(lang, 'paid_no_agent_subject'),
         html,
@@ -2341,7 +2376,7 @@ ${this.buttonHtml(t(lang, 'welcome_after_payment_button'), dashboardUrl, '#22c55
 
     try {
       await this.transporter.sendMail({
-        from: `"${this.getFromName()}" <${this.getFromAddress()}>`,
+        from: this.buildFrom(),
         to: email,
         subject: t(lang, 'welcome_after_payment_subject', { planName }),
         html,
@@ -2394,7 +2429,7 @@ ${t(lang, 'cancellation_retention_support')}
 
     try {
       await this.transporter.sendMail({
-        from: `"${this.getFromName()}" <${this.getFromAddress()}>`,
+        from: this.buildFrom(),
         to: email,
         subject: t(lang, 'cancellation_retention_subject'),
         html,
@@ -2499,7 +2534,7 @@ ${t(lang, 'cancellation_retention_support')}
 
     try {
       await this.transporter.sendMail({
-        from: `"${this.getFromName()}" <${this.getFromAddress()}>`,
+        from: this.buildFrom(),
         to: email,
         subject: `📊 ${data.total} nouveau(x) lead(s) — ${data.agentName}`,
         html,

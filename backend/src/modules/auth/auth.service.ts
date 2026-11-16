@@ -1,5 +1,6 @@
 import {
   Injectable,
+  Logger,
   ConflictException,
   UnauthorizedException,
   BadRequestException,
@@ -43,6 +44,7 @@ interface TempAuthCode {
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
   private tempAuthCodes = new Map<string, TempAuthCode>();
 
   constructor(
@@ -64,10 +66,22 @@ export class AuthService {
     private stripeService: StripeService,
   ) {}
 
+  /**
+   * Email addresses are case-insensitive in practice, but PostgreSQL compares
+   * them byte for byte: a user stored as "Jean@x.com" is invisible to a lookup
+   * for "jean@x.com", which silently locks them out of login AND of password
+   * reset. Every read and write of an email goes through here.
+   */
+  private static normaliseEmail(email: string): string {
+    return (email || "").trim().toLowerCase();
+  }
+
   async register(dto: RegisterDto): Promise<AuthResponseDto> {
+    const email = AuthService.normaliseEmail(dto.email);
+
     // Check if user already exists
     const existingUser = await this.userRepository.findOne({
-      where: { email: dto.email },
+      where: { email },
     });
 
     if (existingUser) {
@@ -79,7 +93,7 @@ export class AuthService {
 
     // Create user with onboarding step 1 (start of guided onboarding)
     const user = this.userRepository.create({
-      email: dto.email,
+      email,
       password: dto.password,
       firstName: dto.firstName,
       lastName: dto.lastName,
@@ -247,7 +261,7 @@ export class AuthService {
 
   async validateUser(email: string, password: string): Promise<User | null> {
     const user = await this.userRepository.findOne({
-      where: { email },
+      where: { email: AuthService.normaliseEmail(email) },
     });
 
     if (user && (await user.validatePassword(password))) {
@@ -308,12 +322,20 @@ export class AuthService {
   }
 
   async forgotPassword(dto: ForgotPasswordDto): Promise<void> {
+    const email = AuthService.normaliseEmail(dto.email);
+
     const user = await this.userRepository.findOne({
-      where: { email: dto.email },
+      where: { email },
     });
 
     if (!user) {
-      // Don't reveal if user exists
+      // The response stays identical so the endpoint never reveals whether an
+      // account exists — but the attempt is recorded here. Without this line a
+      // reset that never arrives looks exactly like a mail delivery failure,
+      // and nothing on the server says otherwise.
+      this.logger.warn(
+        `⚠️ Password reset requested for unknown email: ${email} — no account, no mail sent`,
+      );
       return;
     }
 
@@ -412,7 +434,7 @@ export class AuthService {
 
   async resendVerification(email: string): Promise<void> {
     const user = await this.userRepository.findOne({
-      where: { email },
+      where: { email: AuthService.normaliseEmail(email) },
     });
 
     if (!user) {
@@ -520,13 +542,13 @@ export class AuthService {
     provider: "google" | "microsoft" | "facebook",
   ): Promise<AuthResponseDto> {
     let user = await this.userRepository.findOne({
-      where: { email: profile.email },
+      where: { email: AuthService.normaliseEmail(profile.email) },
     });
 
     if (!user) {
       // Create new user from OAuth profile
       user = this.userRepository.create({
-        email: profile.email,
+        email: AuthService.normaliseEmail(profile.email),
         firstName: profile.firstName,
         lastName: profile.lastName,
         avatar: profile.avatar,

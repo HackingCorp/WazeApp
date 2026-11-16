@@ -107,7 +107,9 @@ export class UsersService {
 
   async findByEmail(email: string): Promise<User | null> {
     return this.userRepository.findOne({
-      where: { email },
+      // Emails are stored lower-cased (see AuthService.normaliseEmail):
+      // compare on the same footing or the lookup silently misses.
+      where: { email: (email || "").trim().toLowerCase() },
     });
   }
 

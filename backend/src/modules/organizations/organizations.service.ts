@@ -268,7 +268,9 @@ export class OrganizationsService {
 
     // Check if user already exists
     let user = await this.userRepository.findOne({
-      where: { email: inviteDto.email },
+      // Same normalisation as registration, otherwise an invite to
+      // "Jean@x.com" creates a second account alongside "jean@x.com".
+      where: { email: (inviteDto.email || "").trim().toLowerCase() },
     });
 
     // Check if already a member

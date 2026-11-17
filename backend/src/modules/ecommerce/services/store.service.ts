@@ -98,6 +98,22 @@ export class StoreService {
     return randomBytes(32).toString("hex");
   }
 
+  /**
+   * Hostname of a store URL, used as the default store name.
+   *
+   * `new URL()` throws on anything it cannot parse, and that threw a 500 on
+   * the connect form. The DTO now normalises the URL, so this is the second
+   * line of defence: a name is never worth failing a creation over.
+   */
+  private static hostnameOf(url: string): string {
+    try {
+      return new URL(url).hostname;
+    } catch {
+      const bare = (url || "").trim().replace(/^[a-z]+:\/\//i, "").split("/")[0];
+      return bare || "Boutique";
+    }
+  }
+
   async findAll(organizationId: string | null): Promise<EcommerceStore[]> {
     const where: any = {};
     if (organizationId) {
@@ -205,7 +221,7 @@ export class StoreService {
     dto: ConnectWooCommerceDto,
   ): Promise<EcommerceStore> {
     const store = this.storeRepository.create({
-      name: dto.name || new URL(dto.storeUrl).hostname,
+      name: dto.name || StoreService.hostnameOf(dto.storeUrl),
       platform: EcommercePlatform.WOOCOMMERCE,
       status: StoreConnectionStatus.CONNECTED,
       storeUrl: dto.storeUrl,
@@ -246,7 +262,7 @@ export class StoreService {
     name?: string,
   ): Promise<EcommerceStore> {
     const store = this.storeRepository.create({
-      name: name || new URL(storeUrl).hostname,
+      name: name || StoreService.hostnameOf(storeUrl),
       platform: EcommercePlatform.EMARKET,
       status: StoreConnectionStatus.CONNECTED,
       storeUrl,

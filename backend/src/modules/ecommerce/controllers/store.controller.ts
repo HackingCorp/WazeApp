@@ -195,11 +195,17 @@ export class StoreController {
     const organizationId = (user as any).organizationId || user.id;
     await this.quotaEnforcementService.enforceFeatureAccess(organizationId, 'ecommerce');
 
-    // Test connection first (skip if it fails, still save the store)
+    // The store is saved even when the probe fails — a transient outage
+    // should not cost the merchant the whole setup — but the outcome is
+    // reported back so the dashboard can say what the API answered instead
+    // of claiming a clean connection.
+    const connection: { ok: boolean; message?: string } = { ok: true };
     try {
       await this.eMarketService.testConnection(dto.storeUrl, dto.apiKey);
     } catch (error) {
-      this.logger.warn(`E-Market connection test failed: ${error.message}`);
+      connection.ok = false;
+      connection.message = error?.message || "Connexion impossible";
+      this.logger.warn(`E-Market connection test failed: ${connection.message}`);
     }
 
     const store = await this.storeService.createEMarketStore(
@@ -213,7 +219,7 @@ export class StoreController {
     // Trigger initial sync
     await this.syncService.triggerFullSync(store.id);
 
-    return { data: store };
+    return { data: store, connection };
   }
 
   @Post(":id/sync")

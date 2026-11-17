@@ -99,7 +99,18 @@ export default function ImportProductsPage() {
         apiKey: eMarketApiKey.trim(),
       });
       if (response.success) {
-        toast.success(t('products.storeConnected'));
+        // The store is saved even when the API refused the probe. Say so,
+        // with what the API answered, instead of announcing a connection
+        // that does not work.
+        const connection = (response.data as any)?.connection;
+        if (connection && connection.ok === false) {
+          toast(connection.message || 'Boutique enregistree, mais l\'API ne repond pas.', {
+            icon: '\u26A0\uFE0F',
+            duration: 8000,
+          });
+        } else {
+          toast.success(t('products.storeConnected'));
+        }
         router.push('/products/stores');
       } else {
         toast.error(response.error || 'Failed to connect E-Market store');

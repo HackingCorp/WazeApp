@@ -87,12 +87,29 @@ export class EMarketService {
         });
         clearTimeout(timeout);
 
-        if ((response.status >= 500 || response.status === 404 || response.status === 401) && attempt < retries) {
+        // Only transient failures deserve a retry. 401 means the credentials
+        // are refused and 404 that the URL is wrong — retrying those five
+        // times just delays the real answer and ends up reported as
+        // "cannot reach API", which sent us hunting for an outage while the
+        // service was answering perfectly.
+        const isTransient = response.status >= 500 || response.status === 408 || response.status === 429;
+
+        if (isTransient && attempt < retries) {
           this.logger.warn(
             `E-Market API returned ${response.status} for ${url}, retrying (${attempt}/${retries})...`,
           );
           await new Promise((r) => setTimeout(r, 3000 * attempt));
           continue;
+        }
+
+        if (response.status === 401 || response.status === 403) {
+          this.logger.error(
+            `E-Market API refused the credentials (${response.status}) for ${url} — check the store's API key.`,
+          );
+        } else if (response.status === 404) {
+          this.logger.error(
+            `E-Market API returned 404 for ${url} — check the store URL.`,
+          );
         }
 
         return response;
@@ -125,7 +142,15 @@ export class EMarketService {
         headers,
       );
       if (!probe.ok) {
-        throw new Error(`E-Market API probe failed: ${probe.status}`);
+        // The API answered — say what it answered rather than implying it was
+        // unreachable.
+        const reason =
+          probe.status === 401 || probe.status === 403
+            ? "credentials refused"
+            : probe.status === 404
+              ? "endpoint not found (check the store URL)"
+              : `HTTP ${probe.status}`;
+        throw new Error(`E-Market API rejected the request: ${reason}`);
       }
       const probeData: EMarketResponse = await probe.json();
       totalPages = probeData.pagination.total_pages;

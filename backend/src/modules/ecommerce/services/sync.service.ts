@@ -56,23 +56,39 @@ export class SyncService {
     };
   }
 
+  /** Back-off before retrying a store whose last sync errored. */
+  private static readonly ERROR_RETRY_INTERVAL_MS = 6 * 60 * 60 * 1000; // 6 h
+
   @Cron(CronExpression.EVERY_30_MINUTES)
   async reconciliationSync() {
+    // A store that errors is left in ERROR, and this job used to look only at
+    // CONNECTED stores — so a transient upstream outage parked it forever. One
+    // 502 on 2026-03-09 froze a 36-product catalogue for eight months. Errored
+    // stores are retried too, just less often.
     const stores = await this.storeRepository.find({
-      where: { status: StoreConnectionStatus.CONNECTED },
+      where: [
+        { status: StoreConnectionStatus.CONNECTED },
+        { status: StoreConnectionStatus.ERROR },
+      ],
     });
 
     for (const store of stores) {
-      if (store.syncConfig?.autoSync) {
-        const lastSync = store.syncConfig?.lastSyncAt
-          ? new Date(store.syncConfig.lastSyncAt)
-          : null;
-        const interval = (store.syncConfig?.syncIntervalMinutes || 30) * 60 * 1000;
+      if (!store.syncConfig?.autoSync) continue;
 
-        if (!lastSync || Date.now() - lastSync.getTime() > interval) {
-          this.logger.log(`Auto-sync triggered for store ${store.id} (${store.name})`);
-          await this.triggerIncrementalSync(store.id);
-        }
+      const lastSync = store.syncConfig?.lastSyncAt
+        ? new Date(store.syncConfig.lastSyncAt)
+        : null;
+      const isErrored = store.status === StoreConnectionStatus.ERROR;
+      const interval = isErrored
+        ? SyncService.ERROR_RETRY_INTERVAL_MS
+        : (store.syncConfig?.syncIntervalMinutes || 30) * 60 * 1000;
+
+      if (!lastSync || Date.now() - lastSync.getTime() > interval) {
+        this.logger.log(
+          `Auto-sync triggered for store ${store.id} (${store.name})` +
+            (isErrored ? " — retrying after a previous error" : ""),
+        );
+        await this.triggerIncrementalSync(store.id);
       }
     }
   }

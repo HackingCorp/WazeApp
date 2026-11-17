@@ -22,7 +22,7 @@ export class InternalProductHandler implements ToolHandler {
     return [
       {
         name: 'search_products',
-        description: 'Search the product catalog by keyword or category. Returns a list of matching products with names, prices, and availability.',
+        description: 'Search the product catalog by keyword or category. Returns matching products with names, prices, availability and image URLs (imageUrl = main picture, images = all of them).',
         parameters: {
           type: 'object',
           properties: {
@@ -74,20 +74,33 @@ export class InternalProductHandler implements ToolHandler {
         args.limit || 10,
       );
 
-      const simplified = products.map(p => ({
-        id: p.id,
-        name: p.name,
-        description: p.shortDescription || p.description?.substring(0, 200),
-        price: p.price,
-        currency: p.currency || 'XAF',
-        inStock: p.stockQuantity === null || p.stockQuantity > 0,
-        variants: p.variants?.map(v => ({
-          id: v.id,
-          name: v.name,
-          price: v.price,
-          inStock: v.stockQuantity === null || v.stockQuantity > 0,
-        })),
-      }));
+      const simplified = products.map(p => {
+        // The search query already joins images; dropping them here made the
+        // assistant answer "I have no picture" for products that do have one.
+        // Primary image first, falling back to the first available.
+        const images = (p.images || [])
+          .slice()
+          .sort((a, b) => Number(b.isPrimary) - Number(a.isPrimary) || a.sortOrder - b.sortOrder)
+          .map(i => i.url)
+          .filter(Boolean);
+
+        return {
+          id: p.id,
+          name: p.name,
+          description: p.shortDescription || p.description?.substring(0, 200),
+          price: p.price,
+          currency: p.currency || 'XAF',
+          inStock: p.stockQuantity === null || p.stockQuantity > 0,
+          imageUrl: images[0] || null,
+          images,
+          variants: p.variants?.map(v => ({
+            id: v.id,
+            name: v.name,
+            price: v.price,
+            inStock: v.stockQuantity === null || v.stockQuantity > 0,
+          })),
+        };
+      });
 
       return { success: true, data: { products: simplified, total: simplified.length } };
     } catch (error) {

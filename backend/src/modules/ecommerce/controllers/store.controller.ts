@@ -23,6 +23,7 @@ import { JwtAuthGuard } from "@/common/guards/jwt-auth.guard";
 import { CurrentUser } from "@/common/decorators/current-user.decorator";
 import { Public } from "@/common/decorators/public.decorator";
 import { User } from "@/common/entities";
+import { StoreConnectionStatus } from "@/common/enums";
 import { StoreService } from "../services/store.service";
 import { ShopifyService } from "../services/shopify.service";
 import { WooCommerceService } from "../services/woocommerce.service";
@@ -214,10 +215,16 @@ export class StoreController {
       dto.storeUrl,
       dto.apiKey,
       dto.name,
+      connection.ok
+        ? StoreConnectionStatus.CONNECTED
+        : StoreConnectionStatus.PENDING,
     );
 
-    // Trigger initial sync
-    await this.syncService.triggerFullSync(store.id);
+    // Syncing a store whose probe just failed only buries the real reason
+    // under three Bull retries. The merchant fixes the URL or the key first.
+    if (connection.ok) {
+      await this.syncService.triggerFullSync(store.id);
+    }
 
     return { data: store, connection };
   }

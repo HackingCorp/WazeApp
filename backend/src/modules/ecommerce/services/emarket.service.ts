@@ -64,27 +64,66 @@ export class EMarketService {
 
   constructor(private readonly configService: ConfigService) {}
 
+  /** Shown whenever the configured URL turns out not to be the API. */
+  private static readonly URL_HINT =
+    "Indiquez l'URL de base de l'API E-Market, par exemple https://api.maboutique.com/api/v1/external — pas l'adresse d'une page du site.";
+
+  /**
+   * A 200 is not proof of a connection.
+   *
+   * The test used to accept any successful response, so the URL of an admin
+   * page passed: the site answered 200 with HTML, the store was saved as
+   * "connected", and the sync then died on `Unexpected token '<'`. Redirects
+   * are no longer followed either, since they are what turned a wrong path
+   * into an HTML page. The body must parse as JSON and carry a `data` array,
+   * which is what the sync reads.
+   */
   async testConnection(storeUrl: string, apiKey: string): Promise<boolean> {
-    const baseUrl = storeUrl.replace(/\/$/, "");
+    const baseUrl = storeUrl.replace(/\/+$/, "");
 
+    let response: Response;
     try {
-      const response = await fetch(`${baseUrl}/products?limit=1`, {
-        headers: { "X-API-Key": apiKey },
+      response = await fetch(`${baseUrl}/products?limit=1`, {
+        headers: { "X-API-Key": apiKey, Accept: "application/json" },
+        redirect: "manual",
       });
-
-      if (!response.ok) {
-        const errorBody = await response.text().catch(() => "");
-        throw new BadRequestException(
-          `E-Market connection failed (${response.status}): ${errorBody || response.statusText}`,
-        );
-      }
-      return true;
     } catch (error) {
-      if (error instanceof BadRequestException) throw error;
       throw new BadRequestException(
-        `Cannot connect to E-Market store: ${error instanceof Error ? error.message : String(error)}`,
+        `Impossible de joindre l'API E-Market : ${error instanceof Error ? error.message : String(error)}`,
       );
     }
+
+    if (response.status >= 300 && response.status < 400) {
+      throw new BadRequestException(
+        `Cette adresse redirige (HTTP ${response.status}) au lieu de répondre. ${EMarketService.URL_HINT}`,
+      );
+    }
+
+    if (!response.ok) {
+      const errorBody = await response.text().catch(() => "");
+      const detail = errorBody.trim().slice(0, 200) || response.statusText;
+      throw new BadRequestException(
+        `L'API E-Market a refusé la requête (HTTP ${response.status}) : ${detail}`,
+      );
+    }
+
+    const body = await response.text().catch(() => "");
+    let payload: any;
+    try {
+      payload = JSON.parse(body);
+    } catch {
+      throw new BadRequestException(
+        `Cette adresse renvoie une page web, pas du JSON. ${EMarketService.URL_HINT}`,
+      );
+    }
+
+    if (!Array.isArray(payload?.data)) {
+      throw new BadRequestException(
+        `Réponse inattendue de l'API E-Market : le champ "data" est absent. ${EMarketService.URL_HINT}`,
+      );
+    }
+
+    return true;
   }
 
   private async fetchWithRetry(
@@ -167,15 +206,30 @@ export class EMarketService {
               : `HTTP ${probe.status}`;
         throw new Error(`E-Market API rejected the request: ${reason}`);
       }
-      const probeData: EMarketResponse = await probe.json();
-      totalPages = probeData.pagination.total_pages;
+      const raw = await probe.text();
+      let probeData: EMarketResponse;
+      try {
+        probeData = JSON.parse(raw);
+      } catch {
+        // An HTML page answers 200 just as happily as the API does.
+        throw new Error(
+          `the URL does not point to the E-Market API (HTML received instead of JSON). ${EMarketService.URL_HINT}`,
+        );
+      }
+      if (!Array.isArray(probeData?.data)) {
+        throw new Error(
+          `unexpected response from the E-Market API ("data" is missing). ${EMarketService.URL_HINT}`,
+        );
+      }
+      totalPages = probeData.pagination?.total_pages || 1;
       products.push(...probeData.data);
       this.logger.log(
-        `E-Market sync: probe OK — ${probeData.pagination.total} products across ${totalPages} pages`,
+        `E-Market sync: probe OK — ${probeData.pagination?.total ?? probeData.data.length} products across ${totalPages} pages`,
       );
     } catch (error) {
+      // "cannot reach" was wrong whenever the API had in fact answered.
       throw new Error(
-        `E-Market sync: cannot reach API — ${error instanceof Error ? error.message : error}`,
+        `E-Market sync failed — ${error instanceof Error ? error.message : error}`,
       );
     }
 
@@ -198,6 +252,13 @@ export class EMarketService {
         }
 
         const data: EMarketResponse = await response.json();
+        if (!Array.isArray(data?.data)) {
+          this.logger.warn(
+            `E-Market sync: page ${page}/${totalPages} returned an unexpected body, skipping`,
+          );
+          failedPages++;
+          continue;
+        }
         products.push(...data.data);
 
         this.logger.log(

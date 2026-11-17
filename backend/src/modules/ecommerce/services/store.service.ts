@@ -260,11 +260,14 @@ export class StoreService {
     storeUrl: string,
     apiKey: string,
     name?: string,
+    // A store whose probe failed must not be shown as connected: that is
+    // what made a wrong URL look like a working integration.
+    status: StoreConnectionStatus = StoreConnectionStatus.CONNECTED,
   ): Promise<EcommerceStore> {
     const store = this.storeRepository.create({
       name: name || StoreService.hostnameOf(storeUrl),
       platform: EcommercePlatform.EMARKET,
-      status: StoreConnectionStatus.CONNECTED,
+      status,
       storeUrl,
       credentials: this.encryptCredentials({ apiKey }),
       syncConfig: {

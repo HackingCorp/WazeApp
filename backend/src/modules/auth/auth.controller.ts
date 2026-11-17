@@ -82,8 +82,13 @@ export class AuthController {
   @Post("logout")
   @ApiOperation({ summary: "Logout user and invalidate refresh token" })
   @ApiResponse({ status: 200, description: "Logout successful" })
-  async logout(@CurrentUser() user: any): Promise<{ message: string }> {
-    await this.authService.logout(user.userId);
+  async logout(
+    @CurrentUser() user: any,
+    // Optional: identifies the session to close. Without it every session of
+    // the account is closed, which is what used to happen on every logout.
+    @Body() body?: { refreshToken?: string },
+  ): Promise<{ message: string }> {
+    await this.authService.logout(user.userId, body?.refreshToken);
     return { message: "Logout successful" };
   }
 

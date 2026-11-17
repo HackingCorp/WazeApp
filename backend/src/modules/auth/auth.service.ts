@@ -47,6 +47,43 @@ export class AuthService {
   private readonly logger = new Logger(AuthService.name);
   private tempAuthCodes = new Map<string, TempAuthCode>();
 
+  /**
+   * How many devices may stay signed in at once. Beyond this the oldest
+   * session is dropped.
+   */
+  private static readonly MAX_ACTIVE_REFRESH_TOKENS = 10;
+
+  /** "15m", "7d", "3600" → milliseconds. */
+  private static durationToMs(value: string | undefined, fallbackMs: number): number {
+    const raw = (value || "").trim();
+    const match = /^(\d+)\s*(ms|s|m|h|d)?$/i.exec(raw);
+    if (!match) return fallbackMs;
+    const amount = Number(match[1]);
+    if (!Number.isFinite(amount) || amount <= 0) return fallbackMs;
+    switch ((match[2] || "s").toLowerCase()) {
+      case "ms": return amount;
+      case "s": return amount * 1000;
+      case "m": return amount * 60 * 1000;
+      case "h": return amount * 60 * 60 * 1000;
+      case "d": return amount * 24 * 60 * 60 * 1000;
+      default: return fallbackMs;
+    }
+  }
+
+  private accessTokenTtlMs(): number {
+    return AuthService.durationToMs(
+      this.configService.get<string>("JWT_ACCESS_EXPIRATION_TIME"),
+      15 * 60 * 1000,
+    );
+  }
+
+  private refreshTokenTtlMs(): number {
+    return AuthService.durationToMs(
+      this.configService.get<string>("JWT_REFRESH_EXPIRATION_TIME"),
+      7 * 24 * 60 * 60 * 1000,
+    );
+  }
+
   constructor(
     @InjectRepository(User)
     private userRepository: Repository<User>,
@@ -292,17 +329,29 @@ export class AuthService {
         throw new UnauthorizedException("User not found or inactive");
       }
 
-      // Verify refresh token hash
+      // The token must be one of this user's active sessions. It used to be
+      // compared against a single hash, so any other session invalidated
+      // this one.
       const tokenHash = this.hashRefreshToken(dto.refreshToken);
-      if (!user.refreshTokenHash || user.refreshTokenHash !== tokenHash) {
+      const isActive = (user.refreshTokens || []).some(
+        (entry) => entry?.hash === tokenHash,
+      );
+      // Sessions issued before the per-device list existed.
+      const isLegacy =
+        !!user.refreshTokenHash && user.refreshTokenHash === tokenHash;
+      if (!isActive && !isLegacy) {
+        this.logger.warn(
+          `Refresh refused for user ${user.id}: token not among ${(user.refreshTokens || []).length} active session(s)`,
+        );
         throw new UnauthorizedException("Invalid refresh token");
       }
 
-      // Generate new tokens (this will rotate the refresh token hash)
+      // Rotate only this device's entry, leaving the other sessions alone.
       const tokens = await this.generateTokens(
         user,
         payload.organizationId,
         payload.role as UserRole,
+        tokenHash,
       );
 
       return {
@@ -387,6 +436,7 @@ export class AuthService {
       passwordResetToken: null,
       passwordResetExpires: null,
       refreshTokenHash: null,
+      refreshTokens: [],
     });
 
     // PostHog: track password reset completed
@@ -462,6 +512,8 @@ export class AuthService {
     user: User,
     organizationId?: string,
     role?: UserRole,
+    /** Hash being rotated: that entry is replaced instead of appended. */
+    replacesHash?: string,
   ): Promise<
     Pick<AuthResponseDto, "accessToken" | "refreshToken" | "expiresIn">
   > {
@@ -491,16 +543,34 @@ export class AuthService {
       expiresIn: this.configService.get("JWT_REFRESH_EXPIRATION_TIME"),
     });
 
-    // Hash and save the refresh token
+    // Record this session: drop the rotated entry and anything past its
+    // lifetime, keep the rest, cap the list.
     const refreshTokenHash = this.hashRefreshToken(refreshToken);
+    const now = Date.now();
+    const ttl = this.refreshTokenTtlMs();
+    const kept = (user.refreshTokens || [])
+      .filter((entry) => entry && typeof entry.hash === "string")
+      .filter((entry) => entry.hash !== replacesHash)
+      .filter((entry) => {
+        const issued = new Date(entry.createdAt || 0).getTime();
+        return Number.isFinite(issued) && now - issued < ttl;
+      })
+      .slice(-(AuthService.MAX_ACTIVE_REFRESH_TOKENS - 1));
+
     await this.userRepository.update(user.id, {
+      // Kept in step with the newest session so older builds keep working.
       refreshTokenHash,
+      refreshTokens: [
+        ...kept,
+        { hash: refreshTokenHash, createdAt: new Date(now).toISOString() },
+      ],
     });
 
     return {
       accessToken,
       refreshToken,
-      expiresIn: 15 * 60, // 15 minutes in seconds
+      // Was hardcoded to 15 minutes and lied as soon as the env changed.
+      expiresIn: Math.floor(this.accessTokenTtlMs() / 1000),
     };
   }
 
@@ -517,11 +587,32 @@ export class AuthService {
     return createHash("sha256").update(token).digest("hex");
   }
 
-  async logout(userId: string): Promise<void> {
-    // Invalidate the refresh token by clearing the hash
-    await this.userRepository.update(userId, {
-      refreshTokenHash: null,
-    });
+  /**
+   * Signing out one device no longer signs out the others: without a token
+   * to identify the session, every session is closed, as before.
+   */
+  async logout(userId: string, refreshToken?: string): Promise<void> {
+    if (refreshToken) {
+      const tokenHash = this.hashRefreshToken(refreshToken);
+      const user = await this.userRepository.findOne({ where: { id: userId } });
+      const remaining = (user?.refreshTokens || []).filter(
+        (entry) => entry?.hash !== tokenHash,
+      );
+      await this.userRepository.update(userId, {
+        refreshTokens: remaining,
+        refreshTokenHash:
+          user?.refreshTokenHash === tokenHash
+            ? remaining.length
+              ? remaining[remaining.length - 1].hash
+              : null
+            : user?.refreshTokenHash ?? null,
+      });
+    } else {
+      await this.userRepository.update(userId, {
+        refreshTokenHash: null,
+        refreshTokens: [],
+      });
+    }
 
     // PostHog: track logout
     this.posthogService.capture(userId, 'user_logged_out');

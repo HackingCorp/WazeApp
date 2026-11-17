@@ -113,6 +113,22 @@ export class User extends BaseEntity {
   @Column({ nullable: true, default: null })
   refreshTokenHash?: string;
 
+  /**
+   * One entry per signed-in device.
+   *
+   * A single hash meant every new login or token rotation silently killed
+   * every other session: two browser tabs took turns logging each other out
+   * every 15 minutes. Each device now keeps its own entry and rotates only
+   * that one.
+   */
+  @ApiProperty({
+    description: "Active refresh token hashes, one per device",
+    required: false,
+  })
+  @Exclude({ toPlainOnly: true })
+  @Column({ type: "jsonb", default: () => "'[]'::jsonb" })
+  refreshTokens: Array<{ hash: string; createdAt: string }>;
+
   @ApiProperty({ description: "Onboarding step (1-5, null = completed)", required: false })
   @Column({ type: 'smallint', nullable: true, default: null })
   onboardingStep?: number | null;

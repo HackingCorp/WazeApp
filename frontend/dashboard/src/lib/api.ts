@@ -216,8 +216,13 @@ class ApiClient {
   }
 
   async logout() {
+    // Send the refresh token so the backend closes this session only, and
+    // leaves the account's other devices signed in.
+    const refreshToken =
+      typeof window !== 'undefined' ? localStorage.getItem('refresh-token') : null;
     return this.request('/auth/logout', {
       method: 'POST',
+      body: JSON.stringify(refreshToken ? { refreshToken } : {}),
     });
   }
 

@@ -6,6 +6,7 @@ import {
   Headers,
   HttpCode,
   Logger,
+  UnauthorizedException,
 } from "@nestjs/common";
 import { ApiTags, ApiOperation } from "@nestjs/swagger";
 import { Request } from "express";
@@ -28,6 +29,42 @@ export class WebhookController {
     private readonly wooCommerceService: WooCommerceService,
     private readonly eMarketService: EMarketService,
   ) {}
+
+
+  /**
+   * Reject any webhook we cannot authenticate.
+   *
+   * Verification used to run only `if (store.syncConfig?.webhookSecret && sig)`,
+   * so a store without a secret — which was every store — accepted unsigned
+   * payloads from anyone who knew its id. Absence of a secret now closes the
+   * endpoint instead of opening it.
+   */
+  private assertSignedWebhook(
+    store: { id?: string; syncConfig?: { webhookSecret?: string } },
+    signature: string | undefined,
+    rawBody: string,
+    verify: (body: string, signature: string, secret: string) => boolean,
+    label: string,
+  ): void {
+    const secret = store?.syncConfig?.webhookSecret;
+
+    if (!secret) {
+      this.logger.error(
+        `${label} webhook refused: store ${store?.id} has no webhookSecret configured.`,
+      );
+      throw new UnauthorizedException("Webhook not configured for this store");
+    }
+
+    if (!signature) {
+      this.logger.warn(`${label} webhook refused: missing signature header.`);
+      throw new UnauthorizedException("Missing webhook signature");
+    }
+
+    if (!verify(rawBody, signature, secret)) {
+      this.logger.warn(`${label} webhook refused: invalid signature.`);
+      throw new UnauthorizedException("Invalid webhook signature");
+    }
+  }
 
   @Post("shopify")
   @Public()
@@ -52,20 +89,13 @@ export class WebhookController {
       return { received: true };
     }
 
-    // Verify signature if webhook secret is set
-    if (store.syncConfig?.webhookSecret && hmac) {
-      const rawBody =
-        typeof req.body === "string" ? req.body : JSON.stringify(req.body);
-      const valid = this.shopifyService.verifyWebhookSignature(
-        rawBody,
-        hmac,
-        store.syncConfig.webhookSecret,
-      );
-      if (!valid) {
-        this.logger.warn(`Invalid Shopify webhook signature from ${shopDomain}`);
-        return { received: true };
-      }
-    }
+    this.assertSignedWebhook(
+      store,
+      hmac,
+      typeof req.body === "string" ? req.body : JSON.stringify(req.body),
+      (b, sig, secret) => this.shopifyService.verifyWebhookSignature(b, sig, secret),
+      "Shopify",
+    );
 
     const body = req.body;
 
@@ -112,20 +142,13 @@ export class WebhookController {
 
     const store = await this.storeService.findById(storeId);
 
-    // Verify signature if webhook secret is set
-    if (store.syncConfig?.webhookSecret && signature) {
-      const rawBody =
-        typeof req.body === "string" ? req.body : JSON.stringify(req.body);
-      const valid = this.wooCommerceService.verifyWebhookSignature(
-        rawBody,
-        signature,
-        store.syncConfig.webhookSecret,
-      );
-      if (!valid) {
-        this.logger.warn(`Invalid WooCommerce webhook signature for store ${storeId}`);
-        return { received: true };
-      }
-    }
+    this.assertSignedWebhook(
+      store,
+      signature,
+      typeof req.body === "string" ? req.body : JSON.stringify(req.body),
+      (b, sig, secret) => this.wooCommerceService.verifyWebhookSignature(b, sig, secret),
+      "WooCommerce",
+    );
 
     const body = req.body;
 
@@ -170,20 +193,13 @@ export class WebhookController {
 
     const store = await this.storeService.findById(storeId);
 
-    // Verify signature if webhook secret is set
-    if (store.syncConfig?.webhookSecret && signature) {
-      const rawBody =
-        typeof req.body === "string" ? req.body : JSON.stringify(req.body);
-      const valid = this.eMarketService.verifyWebhookSignature(
-        rawBody,
-        signature,
-        store.syncConfig.webhookSecret,
-      );
-      if (!valid) {
-        this.logger.warn(`Invalid E-Market webhook signature for store ${storeId}`);
-        return { received: true };
-      }
-    }
+    this.assertSignedWebhook(
+      store,
+      signature,
+      typeof req.body === "string" ? req.body : JSON.stringify(req.body),
+      (b, sig, secret) => this.eMarketService.verifyWebhookSignature(b, sig, secret),
+      "E-Market",
+    );
 
     const body = req.body;
 

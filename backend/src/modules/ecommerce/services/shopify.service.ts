@@ -3,6 +3,7 @@ import { ConfigService } from "@nestjs/config";
 import { EcommerceStore } from "@/common/entities";
 import { EcommercePlatform, ProductStatus } from "@/common/enums";
 import * as crypto from "crypto";
+import { decrypt } from "@/common/utils/crypto.util";
 
 interface ShopifyProduct {
   id: string;
@@ -39,6 +40,17 @@ interface ShopifyImage {
 
 @Injectable()
 export class ShopifyService {
+  /**
+   * Read one credential, decrypting it when needed. Values written before
+   * credentials were encrypted at rest pass through unchanged.
+   */
+  private credential(store: { credentials?: Record<string, any> }, field: string): string {
+    const raw = store?.credentials?.[field];
+    if (typeof raw !== "string" || !raw) return raw as any;
+    const key = this.configService.get<string>("TOOL_ENCRYPTION_KEY") || "";
+    return key ? decrypt(raw, key) : raw;
+  }
+
   private readonly logger = new Logger(ShopifyService.name);
 
   constructor(private readonly configService: ConfigService) {}
@@ -94,7 +106,7 @@ export class ShopifyService {
     while (nextPageUrl) {
       const response = await fetch(nextPageUrl, {
         headers: {
-          "X-Shopify-Access-Token": store.credentials.accessToken,
+          "X-Shopify-Access-Token": this.credential(store, "accessToken"),
           "Content-Type": "application/json",
         },
       });

@@ -2,6 +2,8 @@ import { Injectable, Logger, BadRequestException } from "@nestjs/common";
 import { EcommerceStore } from "@/common/entities";
 import { EcommercePlatform, ProductStatus } from "@/common/enums";
 import * as crypto from "crypto";
+import { decrypt } from "@/common/utils/crypto.util";
+import { ConfigService } from "@nestjs/config";
 
 interface WooProduct {
   id: number;
@@ -39,10 +41,24 @@ interface WooVariation {
 
 @Injectable()
 export class WooCommerceService {
+  /**
+   * Read one credential, decrypting it when needed. Values written before
+   * credentials were encrypted at rest pass through unchanged.
+   */
+  private credential(store: { credentials?: Record<string, any> }, field: string): string {
+    const raw = store?.credentials?.[field];
+    if (typeof raw !== "string" || !raw) return raw as any;
+    const key = this.configService.get<string>("TOOL_ENCRYPTION_KEY") || "";
+    return key ? decrypt(raw, key) : raw;
+  }
+
   private readonly logger = new Logger(WooCommerceService.name);
 
+  constructor(private readonly configService: ConfigService) {}
+
   private getAuthHeaders(store: EcommerceStore): string {
-    const { consumerKey, consumerSecret } = store.credentials;
+    const consumerKey = this.credential(store, "consumerKey");
+    const consumerSecret = this.credential(store, "consumerSecret");
     return Buffer.from(`${consumerKey}:${consumerSecret}`).toString("base64");
   }
 

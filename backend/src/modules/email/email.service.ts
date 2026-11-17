@@ -846,6 +846,106 @@ ${this.buttonHtml(button, dashboardUrl)}
     }
   }
 
+  /**
+   * Send new order alert email to the merchant (organization owners/admins)
+   */
+  async sendNewOrderAlert(
+    email: string,
+    firstName: string,
+    details: {
+      orderNumber: string;
+      clientName?: string;
+      clientPhoneNumber: string;
+      totalAmount: number;
+      currency: string;
+      itemsSummary: string;
+      itemCount: number;
+      createdAt: Date;
+      sourceLabel: string;
+    },
+  ): Promise<void> {
+    this.logger.log(`📧 Attempting to send new order alert to ${email} for order ${details.orderNumber}`);
+
+    if (!this.transporter) {
+      this.logger.error(`❌ Cannot send new order alert: SMTP transporter not configured.`);
+      return;
+    }
+
+    const dashboardUrl = this.getDashboardUrl();
+    const ordersUrl = `${dashboardUrl}/dashboard/orders`;
+    const amount = this.formatOrderAmount(details.totalAmount, details.currency);
+
+    const html = this.getNewOrderAlertEmailTemplate(firstName, details, ordersUrl, amount);
+
+    try {
+      await this.transporter.sendMail({
+        from: this.buildFrom(),
+        to: email,
+        subject: `🛒 Nouvelle commande ${details.orderNumber} — ${amount}`,
+        html,
+        text: `Bonjour ${firstName},\n\nUne nouvelle commande vient d'être enregistrée.\n\nCommande: ${details.orderNumber}\nClient: ${details.clientName || 'Non renseigné'} (${details.clientPhoneNumber})\nMontant: ${amount}\nArticles: ${details.itemsSummary}\nOrigine: ${details.sourceLabel}\nDate: ${details.createdAt.toLocaleDateString('fr-FR')} à ${details.createdAt.toLocaleTimeString('fr-FR')}\n\nTraiter la commande: ${ordersUrl}\n\nL'équipe WazeApp`,
+      });
+
+      this.logger.log(`✅ New order alert sent to ${email} for order ${details.orderNumber}`);
+    } catch (error) {
+      this.logger.error(`❌ Failed to send new order alert to ${email}:`, error);
+    }
+  }
+
+  /**
+   * Send a reminder for an order left pending for too long
+   */
+  async sendPendingOrderReminder(
+    email: string,
+    firstName: string,
+    details: {
+      orderNumber: string;
+      clientName?: string;
+      clientPhoneNumber: string;
+      totalAmount: number;
+      currency: string;
+      itemsSummary: string;
+      createdAt: Date;
+      pendingHours: number;
+    },
+  ): Promise<void> {
+    this.logger.log(`📧 Attempting to send pending order reminder to ${email} for order ${details.orderNumber}`);
+
+    if (!this.transporter) {
+      this.logger.error(`❌ Cannot send pending order reminder: SMTP transporter not configured.`);
+      return;
+    }
+
+    const dashboardUrl = this.getDashboardUrl();
+    const ordersUrl = `${dashboardUrl}/dashboard/orders`;
+    const amount = this.formatOrderAmount(details.totalAmount, details.currency);
+
+    const html = this.getPendingOrderReminderEmailTemplate(firstName, details, ordersUrl, amount);
+
+    try {
+      await this.transporter.sendMail({
+        from: this.buildFrom(),
+        to: email,
+        subject: `⏰ Commande ${details.orderNumber} en attente depuis ${details.pendingHours}h`,
+        html,
+        text: `Bonjour ${firstName},\n\nLa commande ${details.orderNumber} attend toujours d'être confirmée depuis ${details.pendingHours} heures.\n\nClient: ${details.clientName || 'Non renseigné'} (${details.clientPhoneNumber})\nMontant: ${amount}\nArticles: ${details.itemsSummary}\nPassée le: ${details.createdAt.toLocaleDateString('fr-FR')} à ${details.createdAt.toLocaleTimeString('fr-FR')}\n\nTraiter la commande: ${ordersUrl}\n\nL'équipe WazeApp`,
+      });
+
+      this.logger.log(`✅ Pending order reminder sent to ${email} for order ${details.orderNumber}`);
+    } catch (error) {
+      this.logger.error(`❌ Failed to send pending order reminder to ${email}:`, error);
+    }
+  }
+
+  private formatOrderAmount(amount: number, currency: string): string {
+    const value = Number(amount) || 0;
+    const formatted = value.toLocaleString('fr-FR', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2,
+    });
+    return `${formatted} ${currency || 'XAF'}`;
+  }
+
   // ============= EMAIL TEMPLATE HELPERS =============
 
   private baseTemplate(options: {
@@ -1385,6 +1485,103 @@ ${this.infoBoxHtml([
   { label: 'Date', value: `${formattedDate} à ${formattedTime}`, valueColor: '#f59e0b' },
 ])}
 ${this.buttonHtml('Voir la conversation', conversationsUrl)}
+      `,
+    });
+  }
+
+  private getNewOrderAlertEmailTemplate(
+    firstName: string,
+    details: {
+      orderNumber: string;
+      clientName?: string;
+      clientPhoneNumber: string;
+      itemsSummary: string;
+      itemCount: number;
+      createdAt: Date;
+      sourceLabel: string;
+    },
+    ordersUrl: string,
+    amount: string,
+  ): string {
+    const formattedDate = details.createdAt.toLocaleDateString('fr-FR', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    });
+    const formattedTime = details.createdAt.toLocaleTimeString('fr-FR', {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+
+    return this.baseTemplate({
+      title: 'Nouvelle commande',
+      preheader: `Commande ${details.orderNumber} — ${amount}`,
+      content: `
+<h1 style="margin:0 0 16px 0;font-size:22px;font-weight:700;color:#111827;">Nouvelle commande</h1>
+<p style="margin:0 0 16px 0;font-size:15px;color:#6b7280;line-height:1.6;">
+Bonjour <strong style="color:#111827;">${firstName}</strong>,
+</p>
+<p style="margin:0 0 16px 0;font-size:15px;color:#6b7280;line-height:1.6;">
+Une nouvelle commande vient d'être enregistrée et attend votre confirmation.
+</p>
+${this.alertBoxHtml(`Commande <strong>${details.orderNumber}</strong> d'un montant de <strong>${amount}</strong>.`, 'success')}
+${this.infoBoxHtml([
+  { label: 'Numéro de commande', value: details.orderNumber },
+  { label: 'Client', value: details.clientName || 'Non renseigné' },
+  { label: 'Téléphone', value: details.clientPhoneNumber },
+  { label: 'Articles', value: `${details.itemCount}` },
+  { label: 'Détail', value: details.itemsSummary },
+  { label: 'Origine', value: details.sourceLabel },
+  { label: 'Montant total', value: amount, valueColor: '#059669' },
+  { label: 'Date', value: `${formattedDate} à ${formattedTime}` },
+])}
+${this.buttonHtml('Traiter la commande', ordersUrl)}
+      `,
+    });
+  }
+
+  private getPendingOrderReminderEmailTemplate(
+    firstName: string,
+    details: {
+      orderNumber: string;
+      clientName?: string;
+      clientPhoneNumber: string;
+      itemsSummary: string;
+      createdAt: Date;
+      pendingHours: number;
+    },
+    ordersUrl: string,
+    amount: string,
+  ): string {
+    const formattedDate = details.createdAt.toLocaleDateString('fr-FR', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    });
+    const formattedTime = details.createdAt.toLocaleTimeString('fr-FR', {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+
+    return this.baseTemplate({
+      title: 'Commande en attente',
+      preheader: `La commande ${details.orderNumber} attend depuis ${details.pendingHours}h`,
+      accentColor: '#f59e0b',
+      content: `
+<h1 style="margin:0 0 16px 0;font-size:22px;font-weight:700;color:#111827;">Commande en attente</h1>
+<p style="margin:0 0 16px 0;font-size:15px;color:#6b7280;line-height:1.6;">
+Bonjour <strong style="color:#111827;">${firstName}</strong>,
+</p>
+${this.alertBoxHtml(`La commande <strong>${details.orderNumber}</strong> n'est toujours pas confirmée après <strong>${details.pendingHours} heures</strong>. Votre client attend.`, 'warning')}
+${this.infoBoxHtml([
+  { label: 'Numéro de commande', value: details.orderNumber },
+  { label: 'Client', value: details.clientName || 'Non renseigné' },
+  { label: 'Téléphone', value: details.clientPhoneNumber },
+  { label: 'Détail', value: details.itemsSummary },
+  { label: 'Montant total', value: amount, valueColor: '#f59e0b' },
+  { label: 'Passée le', value: `${formattedDate} à ${formattedTime}` },
+])}
+${this.buttonHtml('Traiter la commande', ordersUrl, '#f59e0b')}
       `,
     });
   }

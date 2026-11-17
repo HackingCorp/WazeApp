@@ -6,6 +6,9 @@ import {
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
+import { randomBytes } from "crypto";
+import { ConfigService } from "@nestjs/config";
+import { encrypt, decrypt, isEncrypted } from "@/common/utils/crypto.util";
 import { EcommerceStore } from "@/common/entities";
 import {
   EcommercePlatform,
@@ -23,7 +26,77 @@ export class StoreService {
     @InjectRepository(EcommerceStore)
     private readonly storeRepository: Repository<EcommerceStore>,
     private readonly auditService: AuditService,
+    private readonly configService: ConfigService,
   ) {}
+
+  /**
+   * Secret used to sign inbound webhooks for a store.
+   *
+   * Webhooks are now refused when a store has none, so every store must get
+   * one at creation — otherwise its integration silently stops receiving
+   * updates.
+   */
+  private encryptionKey(): string {
+    return this.configService.get<string>("TOOL_ENCRYPTION_KEY") || "";
+  }
+
+  /**
+   * Store credentials live in a jsonb column and were kept in clear text, so
+   * any dump or read access to the database exposed every tenant's API key.
+   * Secrets are encrypted at rest from here on; decrypt() passes through any
+   * value that is not encrypted, so keys written before this change keep
+   * working and get encrypted on their next save.
+   */
+  private static readonly SECRET_FIELDS = [
+    "apiKey",
+    "accessToken",
+    "consumerKey",
+    "consumerSecret",
+    "password",
+  ];
+
+  private encryptCredentials(
+    credentials: Record<string, any> | null | undefined,
+  ): Record<string, any> {
+    const key = this.encryptionKey();
+    if (!credentials) return {};
+    if (!key) {
+      this.logger.warn(
+        "TOOL_ENCRYPTION_KEY is not set — store credentials are saved in clear text.",
+      );
+      return credentials;
+    }
+
+    const out = { ...credentials };
+    for (const field of StoreService.SECRET_FIELDS) {
+      const value = out[field];
+      if (typeof value === "string" && value && !isEncrypted(value)) {
+        out[field] = encrypt(value, key);
+      }
+    }
+    return out;
+  }
+
+  /** Credentials ready to use against the provider's API. */
+  decryptCredentials(
+    credentials: Record<string, any> | null | undefined,
+  ): Record<string, any> {
+    const key = this.encryptionKey();
+    if (!credentials || !key) return credentials || {};
+
+    const out = { ...credentials };
+    for (const field of StoreService.SECRET_FIELDS) {
+      const value = out[field];
+      if (typeof value === "string" && value) {
+        out[field] = decrypt(value, key);
+      }
+    }
+    return out;
+  }
+
+  private static newWebhookSecret(): string {
+    return randomBytes(32).toString("hex");
+  }
 
   async findAll(organizationId: string | null): Promise<EcommerceStore[]> {
     const where: any = {};
@@ -100,11 +173,12 @@ export class StoreService {
       platform: EcommercePlatform.SHOPIFY,
       status: StoreConnectionStatus.CONNECTED,
       storeUrl: `https://${shopDomain}`,
-      credentials: { accessToken },
+      credentials: this.encryptCredentials({ accessToken }),
       syncConfig: {
         autoSync: true,
         syncIntervalMinutes: 30,
         totalProductsSynced: 0,
+        webhookSecret: StoreService.newWebhookSecret(),
       },
       organizationId,
       createdBy: userId,
@@ -135,14 +209,15 @@ export class StoreService {
       platform: EcommercePlatform.WOOCOMMERCE,
       status: StoreConnectionStatus.CONNECTED,
       storeUrl: dto.storeUrl,
-      credentials: {
+      credentials: this.encryptCredentials({
         consumerKey: dto.consumerKey,
         consumerSecret: dto.consumerSecret,
-      },
+      }),
       syncConfig: {
         autoSync: true,
         syncIntervalMinutes: 30,
         totalProductsSynced: 0,
+        webhookSecret: StoreService.newWebhookSecret(),
       },
       organizationId,
       createdBy: userId,
@@ -175,11 +250,12 @@ export class StoreService {
       platform: EcommercePlatform.EMARKET,
       status: StoreConnectionStatus.CONNECTED,
       storeUrl,
-      credentials: { apiKey },
+      credentials: this.encryptCredentials({ apiKey }),
       syncConfig: {
         autoSync: true,
         syncIntervalMinutes: 30,
         totalProductsSynced: 0,
+        webhookSecret: StoreService.newWebhookSecret(),
       },
       organizationId,
       createdBy: userId,

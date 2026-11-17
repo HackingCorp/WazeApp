@@ -2,6 +2,8 @@ import { Injectable, Logger, BadRequestException } from "@nestjs/common";
 import { EcommerceStore } from "@/common/entities";
 import { EcommercePlatform, ProductStatus } from "@/common/enums";
 import * as crypto from "crypto";
+import { decrypt } from "@/common/utils/crypto.util";
+import { ConfigService } from "@nestjs/config";
 
 interface EMarketProduct {
   id: number;
@@ -47,7 +49,20 @@ interface EMarketResponse {
 
 @Injectable()
 export class EMarketService {
+  /**
+   * Read one credential, decrypting it when needed. Values written before
+   * credentials were encrypted at rest pass through unchanged.
+   */
+  private credential(store: { credentials?: Record<string, any> }, field: string): string {
+    const raw = store?.credentials?.[field];
+    if (typeof raw !== "string" || !raw) return raw as any;
+    const key = this.configService.get<string>("TOOL_ENCRYPTION_KEY") || "";
+    return key ? decrypt(raw, key) : raw;
+  }
+
   private readonly logger = new Logger(EMarketService.name);
+
+  constructor(private readonly configService: ConfigService) {}
 
   async testConnection(storeUrl: string, apiKey: string): Promise<boolean> {
     const baseUrl = storeUrl.replace(/\/$/, "");
@@ -132,7 +147,7 @@ export class EMarketService {
     const limit = 5;
     let failedPages = 0;
     const baseUrl = store.storeUrl.replace(/\/$/, "");
-    const headers = { "X-API-Key": store.credentials.apiKey };
+    const headers = { "X-API-Key": this.credential(store, "apiKey") };
 
     // First: probe to get total pages count
     let totalPages: number;

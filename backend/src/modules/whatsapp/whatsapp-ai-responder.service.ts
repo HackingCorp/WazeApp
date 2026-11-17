@@ -3602,12 +3602,17 @@ RÈGLES:
       const escalationMessage = agent.escalationConfig?.escalationMessage
         || "Your conversation has been transferred to a human agent. Someone will assist you shortly. Thank you for your patience.";
 
-      // Send escalation message to client via WhatsApp
-      await this.baileysService.sendMessage(session.id, {
-        to: fromNumber,
-        message: escalationMessage,
-        type: "text",
-      });
+      // Send escalation message to client via WhatsApp. Interactive: wait for
+      // the warm-up pacing slot rather than lose the acknowledgement.
+      await this.baileysService.sendMessage(
+        session.id,
+        {
+          to: fromNumber,
+          message: escalationMessage,
+          type: "text",
+        },
+        { awaitPacing: true },
+      );
 
       // Save system message in conversation
       const lastMessage = await this.messageRepository.findOne({
@@ -3687,11 +3692,19 @@ RÈGLES:
             `Date: ${new Date().toLocaleString('fr-FR')}\n\n` +
             `💬 Répondez directement à ce message pour envoyer votre réponse au client.`;
 
-          const notifResult = await this.baileysService.sendMessage(session.id, {
-            to: operatorPhone,
-            message: notificationMsg,
-            type: 'text',
-          });
+          // This send follows the client acknowledgement by milliseconds, so
+          // during the post-reconnection warm-up it always hit the 8 s
+          // minimum gap and was dropped — the operator got the email but no
+          // WhatsApp message. It now waits for its slot.
+          const notifResult = await this.baileysService.sendMessage(
+            session.id,
+            {
+              to: operatorPhone,
+              message: notificationMsg,
+              type: 'text',
+            },
+            { awaitPacing: true },
+          );
           this.logger.log(`✅ WhatsApp escalation notification sent to operator ${operatorPhone}`);
 
           // Store Redis keys for matching operator WhatsApp replies

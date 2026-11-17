@@ -40,6 +40,15 @@ interface SendMessageOptions {
   skipGuard?: boolean;
   /** Skip the post-reconnection settling window (internal retries only). */
   skipSettlingGuard?: boolean;
+  /**
+   * Wait for the warm-up pacing slot instead of failing.
+   *
+   * For a message nobody will retry — an escalation notification to the
+   * operator, sent right after the client's acknowledgement — being refused
+   * means being lost. Waiting a few seconds respects the pace without
+   * dropping the message.
+   */
+  awaitPacing?: boolean;
 }
 
 // Baileys v7 requires dynamic imports (ESM)
@@ -1857,6 +1866,36 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
     }
   }
 
+  /**
+   * Take the warm-up pacing slot, optionally waiting for it.
+   *
+   * The slot is an atomic Redis key with a TTL of one gap, so concurrent
+   * senders cannot both pass. With maxWaitMs = 0 the behaviour is the
+   * original one: take it or fail.
+   */
+  private async acquireWarmupSlot(
+    sessionId: string,
+    minGapMs: number,
+    maxWaitMs: number,
+  ): Promise<boolean> {
+    const deadline = Date.now() + Math.max(0, maxWaitMs);
+    for (;;) {
+      const gate = await this.redis.set(
+        `warmup:lastsend:${sessionId}`,
+        "1",
+        "PX",
+        minGapMs,
+        "NX",
+      );
+      if (gate === "OK") return true;
+      const remaining = deadline - Date.now();
+      if (remaining <= 0) return false;
+      await new Promise((resolve) =>
+        setTimeout(resolve, Math.min(500, remaining)),
+      );
+    }
+  }
+
   async sendMessage(
     sessionId: string,
     messageDto: SendMessageDto,
@@ -1903,8 +1942,11 @@ export class BaileysService implements OnModuleDestroy, OnModuleInit {
       const warmupMs = Number(this.configService.get("PENDING_RECONNECT_WARMUP_MS", 600000));
       const minGapMs = Number(this.configService.get("PENDING_RECONNECT_MIN_GAP_MS", 8000));
       if (connectedForMs !== null && connectedForMs < warmupMs) {
-        const gate = await this.redis.set(`warmup:lastsend:${sessionId}`, "1", "PX", minGapMs, "NX");
-        if (gate !== "OK") {
+        // An interactive send waits for its slot; a queued one is refused and
+        // retried later by whoever queued it.
+        const maxWaitMs = options.awaitPacing ? minGapMs * 2 : 0;
+        const gate = await this.acquireWarmupSlot(sessionId, minGapMs, maxWaitMs);
+        if (!gate) {
           const pacingError: WhatsAppError = new Error(
             `Session is not connected long enough for this send rate (warm-up: ` +
             `min ${Math.round(minGapMs / 1000)}s between messages during ${Math.round(warmupMs / 60000)}min after reconnect)`,
